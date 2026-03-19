@@ -1,0 +1,29 @@
+# ═══════════════════════════════════════════════════════════
+# LedgerFlow .gitignore
+# CRITICAL: These files must NEVER go to GitHub
+# ═══════════════════════════════════════════════════════════
+
+# Secrets
+.env
+credentials.json
+*.pem
+*.key
+
+# WhatsApp session (contains auth tokens — treat like a password)
+auth_info_baileys/
+
+# Node
+node_modules/
+npm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Build
+dist/
+build/

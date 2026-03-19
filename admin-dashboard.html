@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta property="og:title" content="LedgerFlow Admin">
+    <meta property="og:description" content="Secure Business Automation Engine">
+    <meta property="og:image" content="https://vibranthopecarefoundation.com.ng/logo.png">
+    
+    <title>ADE-LedgerFlow™ Admin Dashboard</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        :root {
+            --bg: #0a0e1a; --card: #111827; --card2: #1a2235;
+            --accent: #00d4ff; --green: #00e676; --red: #ff4444;
+            --yellow: #ffcc00; --purple: #a855f7; --orange: #ff6b35;
+            --text: #e2e8f0; --muted: #64748b; --border: #1e293b;
+        }
+        body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', sans-serif; min-height: 100vh; }
+
+        /* ── HEADER ── */
+        .header { background: linear-gradient(135deg, #0a0e1a 0%, #111827 100%);
+            border-bottom: 1px solid var(--border); padding: 16px 24px;
+            display: flex; align-items: center; justify-content: space-between; }
+        .logo { display: flex; align-items: center; gap: 12px; }
+        .logo-icon { width: 40px; height: 40px; background: linear-gradient(135deg, var(--accent), var(--purple));
+            border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 20px; }
+        .logo-text h1 { font-size: 18px; font-weight: 700; color: var(--text); }
+        .logo-text p { font-size: 11px; color: var(--muted); }
+        .header-right { display: flex; align-items: center; gap: 16px; }
+        .wa-status { display: flex; align-items: center; gap: 6px; font-size: 12px; }
+        .dot { width: 8px; height: 8px; border-radius: 50%; }
+        .dot.green { background: var(--green); box-shadow: 0 0 8px var(--green); }
+        .dot.red { background: var(--red); }
+
+        /* ── LAYOUT ── */
+        .layout { display: flex; min-height: calc(100vh - 65px); }
+        .sidebar { width: 220px; background: var(--card); border-right: 1px solid var(--border);
+            padding: 20px 0; flex-shrink: 0; }
+        .nav-item { display: flex; align-items: center; gap: 10px; padding: 10px 20px;
+            cursor: pointer; font-size: 14px; color: var(--muted); transition: all 0.2s;
+            border-left: 3px solid transparent; }
+        .nav-item:hover, .nav-item.active { color: var(--text); background: var(--card2);
+            border-left-color: var(--accent); }
+        .nav-item .icon { font-size: 16px; width: 20px; text-align: center; }
+        .main { flex: 1; padding: 24px; overflow-y: auto; }
+
+        /* ── CARDS & TABLES ── */
+        .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 20px; margin-bottom: 20px; }
+        .stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px,1fr)); gap: 16px; margin-bottom: 24px; }
+        .stat-card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 20px; position: relative; }
+        .stat-value { font-size: 28px; font-weight: 700; margin: 8px 0 4px; }
+        .stat-label { font-size: 12px; color: var(--muted); text-transform: uppercase; }
+
+        /* ── FORMS ── */
+        .form-group { margin-bottom: 16px; }
+        .form-group label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 6px; }
+        .form-group input { width: 100%; background: var(--card2); border: 1px solid var(--border); border-radius: 8px; color: var(--text); padding: 10px 12px; }
+        .btn { padding: 10px 20px; border-radius: 8px; border: none; cursor: pointer; font-weight: 600; }
+        .btn-primary { background: var(--accent); color: #000; }
+        
+        /* ── WHATSAPP LINKING BOX ── */
+        #pairCodeDisplay { margin-top: 20px; padding: 15px; border-radius: 10px; background: #075E54; display: none; }
+
+        .hidden { display: none !important; }
+    </style>
+</head>
+<body>
+
+<div id="login-screen">
+    <div style="max-width: 400px; margin: 100px auto; background: var(--card); padding: 40px; border-radius: 20px; text-align: center;">
+        <h2>ADE-LedgerFlow™</h2>
+        <p style="color: var(--muted); margin-bottom: 20px;">Admin Access</p>
+        <div class="form-group">
+            <input type="password" id="admin-pass" placeholder="Enter Admin Password">
+        </div>
+        <button class="btn btn-primary" onclick="doLogin()">Sign In</button>
+    </div>
+</div>
+
+<div id="app" class="hidden">
+    <div class="header">
+        <div class="logo">
+            <div class="logo-icon">📊</div>
+            <div class="logo-text">
+                <h1>ADE-LedgerFlow™</h1>
+                <p>Alpha-Aliph Automated Digital Enterprise</p>
+            </div>
+        </div>
+        <div class="header-right">
+            <div class="wa-status">
+                <div class="dot" id="wa-dot"></div>
+                <span id="wa-label">Checking Bot Status...</span>
+            </div>
+            <button class="btn btn-primary" style="padding: 5px 10px; font-size: 12px;" onclick="doLogout()">Logout</button>
+        </div>
+    </div>
+
+    <div class="layout">
+        <div class="sidebar">
+            <div class="nav-item active" onclick="showSection('dash')">🏠 Dashboard</div>
+            <div class="nav-item" onclick="showSection('whatsapp')">🔗 WhatsApp Link</div>
+        </div>
+
+        <div class="main">
+            <div id="sec-dash">
+                <h2 style="margin-bottom: 20px;">Live Stats</h2>
+                <div class="stat-grid">
+                    <div class="stat-card" style="border-top: 3px solid var(--accent);">
+                        <div class="stat-label">Active Users</div>
+                        <div class="stat-value">40</div>
+                    </div>
+                    <div class="stat-card" style="border-top: 3px solid var(--green);">
+                        <div class="stat-label">Monthly Revenue</div>
+                        <div class="stat-value">₦450,000</div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="sec-whatsapp" class="hidden">
+                <div class="card">
+                    <h3>Link WhatsApp Number</h3>
+                    <p style="color: var(--muted); margin-bottom: 20px;">Use this to connect your Admin number (2349075197772)</p>
+                    <div class="form-group">
+                        <label>Phone Number (with country code)</label>
+                        <input type="text" id="adminPhone" value="2349075197772">
+                    </div>
+                    <button class="btn btn-primary" onclick="linkWhatsApp()">Get Pairing Code</button>
+                    
+                    <div id="pairCodeDisplay">
+                        </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // AUTO-CONFIG: Set this to your Render URL later
+    const API_BASE = window.location.origin;
+
+    async function checkWAStatus() {
+        try {
+            const res = await fetch(`${API_BASE}/api/whatsapp/status`);
+            const data = await res.json();
+            const dot = document.getElementById('wa-dot');
+            const lbl = document.getElementById('wa-label');
+            
+            if (data.connected) {
+                dot.className = 'dot green';
+                lbl.textContent = "Bot Online: +" + data.bot_number;
+            } else {
+                dot.className = 'dot red';
+                lbl.textContent = "Bot Offline - Link Required";
+            }
+        } catch (e) { console.log("Status Check Failed"); }
+    }
+
+    async function linkWhatsApp() {
+        const phone = document.getElementById('adminPhone').value;
+        const display = document.getElementById('pairCodeDisplay');
+        
+        display.style.display = "block";
+        display.innerHTML = "⏳ Generating code... please wait.";
+
+        try {
+            const res = await fetch(`${API_BASE}/api/whatsapp/pair`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ phone })
+            });
+            const data = await res.json();
+
+            if (data.success && data.code) {
+                display.innerHTML = `
+                    <p style="font-size: 12px; margin-bottom: 10px;">ENTER THIS CODE ON YOUR WHATSAPP:</p>
+                    <h1 style="font-size: 3rem; letter-spacing: 8px; color: #fff;">${data.code}</h1>
+                `;
+            } else {
+                display.innerHTML = "❌ Error: " + (data.error || "Could not generate code");
+            }
+        } catch (e) {
+            display.innerHTML = "❌ Connection Failed. Is the server running?";
+        }
+    }
+
+    function showSection(name) {
+        document.getElementById('sec-dash').classList.add('hidden');
+        document.getElementById('sec-whatsapp').classList.add('hidden');
+        document.getElementById('sec-' + name).classList.remove('hidden');
+    }
+
+    function doLogin() {
+        // Simple UI login for now
+        document.getElementById('login-screen').classList.add('hidden');
+        document.getElementById('app').classList.remove('hidden');
+        setInterval(checkWAStatus, 10000); // Check status every 10s
+        checkWAStatus();
+    }
+
+    function doLogout() {
+        location.reload();
+    }
+</script>
+</body>
+</html>
