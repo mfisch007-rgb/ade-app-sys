@@ -1,6 +1,7 @@
 {
   "name": "ade-app-sys",
   "version": "1.0.0",
+  "type": "module",
   "description": "LedgerFlow AaaS — WhatsApp bookkeeping for Nigerian small businesses",
   "main": "src/server.js",
   "scripts": {
@@ -26,14 +27,6 @@
   "devDependencies": {
     "nodemon": "^3.1.0"
   },
-  "keywords": [
-    "whatsapp",
-    "bookkeeping",
-    "nigeria",
-    "sme",
-    "fintech",
-    "ledgerflow"
-  ],
   "author": "LedgerFlow AaaS",
   "license": "UNLICENSED",
   "private": true
