@@ -12,14 +12,19 @@
     "node": ">=20.0.0"
   },
   "dependencies": {
+    "@bull-board/api": "^6.20.6",
+    "@bull-board/express": "^6.20.6",
     "@hapi/boom": "^9.1.4",
-    "@supabase/supabase-js": "^2.99.3",
+    "@supabase/supabase-js": "^2.100.1",
     "@whiskeysockets/baileys": "^7.0.0-rc.9",
     "bcrypt": "^6.0.0",
+    "bull": "^4.16.5",
     "cors": "^2.8.6",
     "dotenv": "^17.3.1",
     "express": "^5.2.1",
+    "express-rate-limit": "^8.3.1",
     "googleapis": "^140.0.0",
+    "ioredis": "^5.10.1",
     "node-cron": "^4.2.1",
     "pg": "^8.20.0",
     "qrcode-terminal": "^0.12.0"

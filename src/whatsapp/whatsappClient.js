@@ -1,113 +1,113 @@
-import 'dotenv/config';
-import pkg from '@whiskeysockets/baileys';
-const { 
-    default: makeWASocket, 
-    DisconnectReason, 
-    useMultiFileAuthState, 
-    fetchLatestBaileysVersion, 
-    BufferJSON 
-} = pkg;
-
-import { Boom } from '@hapi/boom';
+import makeWASocket, {
+  useMultiFileAuthState,
+  DisconnectReason,
+  fetchLatestBaileysVersion
+} from "@whiskeysockets/baileys";
+import { Boom } from "@hapi/boom";
+import pino from "pino";
 import qrcode from 'qrcode-terminal';
-import path from 'path';
-import fs from 'fs';
-import { fileURLToPath } from 'url';
-import { supabase } from '../config/supabaseClient.js'; 
+import { messageQueue } from "../queue/messageQueue.js";
 
-// Fix for __dirname in ES Modules
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+const AUTH_FOLDER = "./auth";
+const PHONE_NUMBER = (process.env.PAIRING_PHONE || "").replace(/\D/g, "");
 
-const AUTH_DIR = path.join(__dirname, '../../auth_info');
-const QR_LIFETIME = 300_000; 
-const RECONNECT_MS = 5_000;
-
-let sock = null;
-
+// This 'export' is exactly what start-dev.js was crying about missing.
 export async function startWhatsApp() {
-    if (!fs.existsSync(AUTH_DIR)) fs.mkdirSync(AUTH_DIR, { recursive: true });
+  const { state, saveCreds } = await useMultiFileAuthState(AUTH_FOLDER);
+  const { version } = await fetchLatestBaileysVersion();
 
-    try {
-        const { data: session } = await supabase
-            .from('whatsapp_sessions')
-            .select('data')
-            .eq('id', 'ledgerflow_main')
-            .single();
+  const sock = makeWASocket({
+    version,
+    auth: state,
+    logger: pino({ level: "silent" }),
+    // This is the "Ubuntu" trick. It's just a setting, not an operating system change.
+    browser: ["Ubuntu", "Chrome", "20.0.04"], 
+    syncFullHistory: false,
+    connectTimeoutMs: 120_000,
+    keepAliveIntervalMs: 25_000,
+  });
 
-        if (session && (!fs.existsSync(path.join(AUTH_DIR, 'creds.json')))) {
-            fs.writeFileSync(path.join(AUTH_DIR, 'creds.json'), JSON.stringify(session.data, BufferJSON.replacer));
-            console.log('✅ Session Restored from Supabase.');
+  sock.ev.on("creds.update", saveCreds);
+
+  sock.ev.on("connection.update", async (update) => {
+    const { connection, lastDisconnect, qr } = update;
+
+    if (qr && !sock.authState.creds.registered) {
+      console.log("\n📌 PAIRING STATUS: WAITING FOR LINK...");
+      qrcode.generate(qr, { small: true });
+    }
+
+    if (connection === "open") {
+      console.log("╔══════════════════════════════════════════════╗");
+      console.log("║  ✅ WHATSAPP CONNECTED & READY FOR QUEUE     ║");
+      console.log("╚══════════════════════════════════════════════╝");
+    }
+
+    if (connection === "close") {
+      const statusCode = lastDisconnect?.error instanceof Boom 
+        ? lastDisconnect.error.output?.statusCode 
+        : null;
+      if (statusCode !== DisconnectReason.loggedOut) {
+        setTimeout(startWhatsApp, 5000);
+      }
+    }
+  });
+
+  // ── AGGRESSIVE DEBUG MESSAGE LISTENER ──────────────────────
+  sock.ev.on("messages.upsert", async ({ messages, type }) => {
+    if (type !== "notify") return;
+
+    for (const msg of messages) {
+      // NOTE: I removed the "if(msg.key.fromMe) continue;" line.
+      // Now you CAN test the bot by messaging your own number!
+
+      if (!msg.message) continue;
+
+      // Extract text no matter how WhatsApp wraps it
+      const text = (
+        msg.message?.conversation || 
+        msg.message?.extendedTextMessage?.text || 
+        msg.message?.imageMessage?.caption || 
+        ""
+      ).trim();
+
+      const phoneJid = msg.key.remoteJid;
+      const phoneOnly = phoneJid.replace("@s.whatsapp.net", "").replace(/\D/g, "");
+      
+      if (!text) continue;
+
+      console.log(`\n📨 [Incoming] ← ${phoneOnly}: "${text}"`);
+
+      try {
+        console.log("⏳ [DEBUG] Sending to Redis Worker...");
+        const job = await messageQueue.add({
+          sender: phoneOnly,
+          text: text,
+          msg: msg 
+        });
+
+        console.log("⏳ [DEBUG] Waiting for Worker to cook the reply...");
+        const result = await job.finished();
+        console.log("✅ [DEBUG] Worker finished! Result:", result);
+
+        if (result && result.reply) {
+          const brandedReply = `*ADE-Automated Business LedgerFlow*\n\n${result.reply}`;
+          
+          // Send the reply back to the chat it came from
+          await sock.sendMessage(phoneJid, { text: brandedReply });
+          console.log(`📤 [Replied] → ${phoneOnly}`);
+        } else {
+          console.log("❌ [DEBUG] Worker returned empty reply data.");
         }
-    } catch (err) { console.log('💡 Fresh session required.'); }
 
-    const { state, saveCreds } = await useMultiFileAuthState(AUTH_DIR);
-    const { version } = await fetchLatestBaileysVersion();
-
-    sock = makeWASocket({
-        version,
-        auth: state,
-        printQRInTerminal: false,
-        browser: ['LedgerFlow', 'Chrome', '120.0.0'],
-        syncFullHistory: false,
-        connectTimeoutMs: QR_LIFETIME,
-    });
-
-    sock.ev.on('creds.update', async () => {
-        await saveCreds();
-        try {
-            const creds = JSON.parse(fs.readFileSync(path.join(AUTH_DIR, 'creds.json'), 'utf-8'));
-            await supabase.from('whatsapp_sessions').upsert({
-                id: 'ledgerflow_main',
-                data: creds,
-                updated_at: new Date()
-            });
-        } catch (e) { console.error("Cloud Sync Error:", e.message); }
-    });
-
-    sock.ev.on('connection.update', async (update) => {
-        const { connection, lastDisconnect, qr } = update;
-        if (qr) qrcode.generate(qr, { small: true });
+        // Send read receipt
+        await sock.readMessages([msg.key]);
         
-        if (connection === 'open') {
-            console.log('🚀 LEDGERFLOW ONLINE');
-            await sock.sendMessage('2349075197772@s.whatsapp.net', { text: "🛡️ LedgerFlow System Alert: Your engine is now LIVE." });
-        }
+      } catch (e) {
+        console.error("❌ Processing Error:", e.message);
+      }
+    }
+  });
 
-        if (connection === 'close') {
-            const statusCode = (lastDisconnect?.error instanceof Boom) ? lastDisconnect.error.output?.statusCode : null;
-            if (statusCode !== DisconnectReason.loggedOut) setTimeout(startWhatsApp, RECONNECT_MS);
-        }
-    });
-
-    sock.ev.on('messages.upsert', async ({ messages, type }) => {
-        if (type !== 'notify') return;
-        const msg = messages[0];
-        if (!msg.message || msg.key.fromMe) return;
-
-        const sender = msg.key.remoteJid.replace('@s.whatsapp.net', '').replace(/\D/g, '');
-        const text = (msg.message?.conversation || msg.message?.extendedTextMessage?.text || "").trim();
-
-        const isAdmin = sender === '2349075197772';
-        if (text.toLowerCase() === '!status' && isAdmin) {
-            return await sock.sendMessage(msg.key.remoteJid, { text: "🛡️ LedgerFlow: ACTIVE\nDatabase: Cloud Synced" });
-        }
-
-        try {
-            // Use dynamic import for the parser in ESM
-            const { parseMessage } = await import('../parsers/messageParser.js');
-            const result = await parseMessage(sender, text, msg);
-            if (result?.reply) await sock.sendMessage(msg.key.remoteJid, { text: result.reply });
-        } catch (err) { console.error('Parser Error:', err.message); }
-    });
-
-    return sock;
+  return sock;
 }
-
-export async function requestPairingCode(phoneNumber) {
-    if (!sock) await startWhatsApp();
-    return await sock.requestPairingCode(phoneNumber.replace(/\D/g, ''));
-}
-
-export const isConnected = () => !!sock?.user;
-export const getSocket = () => sock;

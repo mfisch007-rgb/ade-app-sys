@@ -1,296 +1,319 @@
-// ═══════════════════════════════════════════════════════════
-// Alpha-Aliph ADE-LedgerFlow™ — Subscription Plans
-// File: src/config/plans.js
+// src/config/plans.js
+// ADE-LedgerFlow™ — Subscription Plan Definitions
 //
-// KEY ARCHITECTURE DECISION:
-// Subscriptions are tied to CLIENT ID (UUID), NOT phone number.
-// The bot phone number is ONLY a communication channel.
-// You can change the bot number any time — zero client impact.
-// You can change A CLIENT's number — their subscription, history,
-// streak, milestones all stay perfectly intact.
-// ═══════════════════════════════════════════════════════════
+// Plan names corrected to match owner's specification:
+// trial → MICROLEGER → BASIC → STANDARD → PRO → BUSINESS ELITE → ENTERPRISE CLOUD
+//
+// AUTO-UPGRADE LOGIC (as specified):
+// - Trial: warn twice on heavy usage, then port to next paid plan
+// - Any plan: warn twice if usage limit hit, then port UP (never down)
+// - Downgrade only on explicit client request — never automatic
 
-const PLANS = {
+export const PLAN_RANK = {
+  trial:            0,
+  MICROLEGER:       1,
+  BASIC:            2,
+  STANDARD:         3,
+  PRO:              4,
+  "BUSINESS ELITE": 5,
+  "ENTERPRISE CLOUD": 6,
+}
 
-  // ── TIER 1: ADE-MicroLedger ─────────────────────────────
-  // Designed for: market traders, roadside vendors, daily petty cash
+export const PLANS = {
+
+  trial: {
+    code:         "trial",
+    name:         "Free Trial",
+    rank:         0,
+    price_ngn:    0,
+    price_usd:    0,
+    trial_days_min: 1,
+    trial_days_max: 15,
+    commands: [
+      "SALE","EXPENSE","BAL","HELP","START","SUBSTATUS","CONTACT"
+    ],
+    limits: {
+      transactions_daily: 10,
+      // When either limit is hit → warn client twice → auto-upgrade to MICROLEGER
+      warn_at_percent: 80,   // warn when 80% of limit used
+    },
+    auto_upgrade_to: "MICROLEGER",
+    features: [
+      "✅ Sales & expense recording",
+      "✅ Daily balance check",
+      "✅ Up to 15 days free",
+      "⚠️ Heavy usage = auto-upgrade to paid plan",
+    ],
+  },
+
   MICROLEGER: {
-    code:          'MICROLEGER',
-    name:          'ADE-MicroLedger',
-    tagline:       'For everyday personal & micro-business tracking',
-    price_ngn:     2500,
-    price_usd:     2,
-    trial_days:    7,
+    code:      "MICROLEGER",
+    name:      "ADE-MicroLedger",
+    rank:      1,
+    price_ngn: 2500,
+    price_usd: 2,
+    tagline:   "For market traders & daily cash tracking",
     commands: [
-      'SALE','EXPENSE','BAL','BALANCE','HELP','START','SUBSTATUS','CONTACT'
+      "SALE","EXPENSE","BAL","BALANCE","HELP","START","SUBSTATUS","CONTACT"
     ],
+    limits: {
+      transactions_daily: 20,
+      warn_at_percent:    80,
+    },
+    auto_upgrade_to: "BASIC",
     features: [
-      '✅ Sales & expense recording',
-      '✅ Daily balance check',
-      '✅ 7-day free trial',
-      '✅ WhatsApp support',
-      '❌ Reports (upgrade to Basic)',
-      '❌ Credit ledger',
-      '❌ Stock tracking',
+      "✅ Sales & expense recording",
+      "✅ Daily balance check",
+      "✅ WhatsApp support",
     ],
-    max_transactions_daily: 20,
-    max_staff:              0,
-    has_dashboard:          false,
-    has_sheets:             false,
   },
 
-  // ── TIER 2: ADE-Basic ───────────────────────────────────
-  // Designed for: small shops, mini supermarkets, kiosks
   BASIC: {
-    code:          'BASIC',
-    name:          'ADE-Basic',
-    tagline:       'For small shops and everyday businesses',
-    price_ngn:     5000,
-    price_usd:     4,
-    trial_days:    14,
+    code:      "BASIC",
+    name:      "ADE-Basic",
+    rank:      2,
+    price_ngn: 5000,
+    price_usd: 4,
+    tagline:   "For small shops and daily businesses",
     commands: [
-      'SALE','EXPENSE','CAPITAL','BAL','BALANCE',
-      'REPORT','WEEK','HELP','HISTORY','TOP',
-      'START','SUBSTATUS','CONTACT'
+      "SALE","EXPENSE","CAPITAL","BAL","BALANCE",
+      "REPORT","WEEK","HELP","HISTORY","TOP",
+      "START","SUBSTATUS","CONTACT"
     ],
+    limits: {
+      transactions_daily: 100,
+      warn_at_percent:    80,
+    },
+    auto_upgrade_to: "STANDARD",
     features: [
-      '✅ All MicroLedger features',
-      '✅ Weekly reports',
-      '✅ Top sellers',
-      '✅ Transaction history',
-      '✅ 14-day free trial',
-      '✅ 8PM daily auto-report',
-      '❌ Credit ledger (upgrade to Standard)',
-      '❌ Stock management',
+      "✅ All MicroLedger features",
+      "✅ Weekly reports",
+      "✅ Top sellers",
+      "✅ Transaction history",
+      "✅ 8PM daily auto-report",
     ],
-    max_transactions_daily: 100,
-    max_staff:              0,
-    has_dashboard:          false,
-    has_sheets:             true,
   },
 
-  // ── TIER 3: ADE-Standard ────────────────────────────────
-  // Designed for: regular businesses, supermarkets, phone shops
   STANDARD: {
-    code:          'STANDARD',
-    name:          'ADE-Standard',
-    tagline:       'For established businesses with credit customers',
-    price_ngn:     10000,
-    price_usd:     8,
-    trial_days:    14,
+    code:      "STANDARD",
+    name:      "ADE-Standard",
+    rank:      3,
+    price_ngn: 10000,
+    price_usd: 8,
+    tagline:   "For established businesses with credit customers",
     commands: [
-      'SALE','EXPENSE','CAPITAL','BAL','BALANCE',
-      'REPORT','WEEK','MONTH','CREDIT','PAYMENT',
-      'CREDIT_LIST','STOCK','STOCK_BALANCE',
-      'HELP','HISTORY','TOP','START','SUBSTATUS','CONTACT'
+      "SALE","EXPENSE","CAPITAL","BAL","BALANCE",
+      "REPORT","WEEK","MONTH","CREDIT","PAYMENT",
+      "CREDIT_LIST","STOCK","STOCK_BALANCE",
+      "HELP","HISTORY","TOP","START","SUBSTATUS","CONTACT"
     ],
+    limits: {
+      transactions_daily: 500,
+      warn_at_percent:    80,
+    },
+    auto_upgrade_to: "PRO",
     features: [
-      '✅ All Basic features',
-      '✅ Credit ledger & debt tracking',
-      '✅ Monthly reports',
-      '✅ Stock management',
-      '✅ Automated credit reminders',
-      '✅ Google Sheets integration',
-      '❌ Multi-staff (upgrade to Pro)',
-      '❌ Business dashboard',
+      "✅ All Basic features",
+      "✅ Credit ledger & debt tracking",
+      "✅ Monthly reports",
+      "✅ Stock management",
+      "✅ Google Sheets integration",
     ],
-    max_transactions_daily: 500,
-    max_staff:              0,
-    has_dashboard:          false,
-    has_sheets:             true,
   },
 
-  // ── TIER 4: ADE-Pro Merchant ────────────────────────────
-  // Designed for: serious merchants, multi-staff businesses
   PRO: {
-    code:          'PRO',
-    name:          'ADE-Pro Merchant',
-    tagline:       'For serious businesses with staff',
-    price_ngn:     25000,
-    price_usd:     20,
-    trial_days:    14,
+    code:      "PRO",
+    name:      "ADE-Pro Merchant",
+    rank:      4,
+    price_ngn: 25000,
+    price_usd: 20,
+    tagline:   "For serious businesses with staff",
     commands: [
-      'SALE','EXPENSE','CAPITAL','BAL','BALANCE',
-      'REPORT','WEEK','MONTH','CREDIT','PAYMENT',
-      'CREDIT_LIST','STOCK','STOCK_BALANCE','TOP',
-      'HISTORY','WITHDRAW','TRANSFER','CONTRIB',
-      'ADD_STAFF','REMOVE_STAFF','STAFF_LIST',
-      'HELP','START','SUBSTATUS','CONTACT'
+      "SALE","EXPENSE","CAPITAL","BAL","BALANCE",
+      "REPORT","WEEK","MONTH","CREDIT","PAYMENT",
+      "CREDIT_LIST","STOCK","STOCK_BALANCE","TOP",
+      "HISTORY","WITHDRAW","TRANSFER","CONTRIB",
+      "ADD_STAFF","REMOVE_STAFF","STAFF_LIST",
+      "HELP","START","SUBSTATUS","CONTACT"
     ],
+    limits: {
+      transactions_daily: 2000,
+      max_staff:          5,
+      warn_at_percent:    85,
+    },
+    auto_upgrade_to: "BUSINESS ELITE",
     features: [
-      '✅ All Standard features',
-      '✅ Add up to 5 staff members',
-      '✅ WhatsApp-based business dashboard',
-      '✅ Staff activity tracking',
-      '✅ Fraud detection & alerts',
-      '✅ Withdrawal & transfer tracking',
-      '✅ Savings contributions',
-      '❌ Drug/pharmacy module (upgrade to Business)',
+      "✅ All Standard features",
+      "✅ Up to 5 staff members",
+      "✅ WhatsApp business dashboard",
+      "✅ Staff activity tracking",
+      "✅ Fraud detection alerts",
     ],
-    max_transactions_daily: 2000,
-    max_staff:              5,
-    has_dashboard:          true,     // WhatsApp dashboard
-    has_web_dashboard:      false,
-    has_sheets:             true,
   },
 
-  // ── TIER 5: ADE-Business ───────────────────────────────
-  // Designed for: pharmacies, distributors, multi-branch
-  BUSINESS: {
-    code:          'BUSINESS',
-    name:          'ADE-Business',
-    tagline:       'For multi-branch operations and pharmacies',
-    price_ngn:     50000,
-    price_usd:     40,
-    trial_days:    14,
-    commands:      ['ALL'],   // all commands unlocked
+  "BUSINESS ELITE": {
+    code:      "BUSINESS ELITE",
+    name:      "ADE-Business Elite",
+    rank:      5,
+    price_ngn: 50000,
+    price_usd: 40,
+    tagline:   "For multi-branch operations and pharmacies",
+    commands:  ["ALL"],
+    limits: {
+      transactions_daily: -1,   // unlimited
+      max_staff:          15,
+      warn_at_percent:    90,
+    },
+    auto_upgrade_to: "ENTERPRISE CLOUD",
     features: [
-      '✅ All Pro Merchant features',
-      '✅ Up to 15 staff members',
-      '✅ Full web dashboard',
-      '✅ Drug/pharmacy inventory module',
-      '✅ Multi-branch support',
-      '✅ Advanced analytics',
-      '✅ PDF report exports',
-      '✅ Accountant access link',
-      '✅ Priority WhatsApp support',
+      "✅ All Pro Merchant features",
+      "✅ Up to 15 staff members",
+      "✅ Full web dashboard",
+      "✅ Drug/pharmacy module",
+      "✅ Multi-branch support",
+      "✅ PDF report exports",
+      "✅ Priority support",
     ],
-    max_transactions_daily: -1,      // unlimited
-    max_staff:              15,
-    has_dashboard:          true,
-    has_web_dashboard:      true,
-    has_sheets:             true,
-    has_pdf:                true,
   },
 
-  // ── TIER 6: ADE-Enterprise ─────────────────────────────
-  // Designed for: large companies, industries, NGOs
-  ENTERPRISE: {
-    code:          'ENTERPRISE',
-    name:          'ADE-Enterprise',
-    tagline:       'For large-scale operations — fully customizable',
-    price_ngn:     0,         // custom pricing — contact ADE
-    price_usd:     0,
-    trial_days:    30,        // 30-day trial for enterprise
-    commands:      ['ALL'],
+  "ENTERPRISE CLOUD": {
+    code:         "ENTERPRISE CLOUD",
+    name:         "ADE-Enterprise Cloud",
+    rank:         6,
+    price_ngn:    0,   // custom pricing — contact ADE directly
+    price_usd:    0,
+    tagline:      "For large-scale operations — fully customizable",
+    commands:     ["ALL"],
+    limits: {
+      transactions_daily: -1,   // unlimited
+      max_staff:          -1,   // unlimited
+      warn_at_percent:    95,
+    },
+    auto_upgrade_to: null,      // top tier — no higher plan
     features: [
-      '✅ Everything in Business',
-      '✅ Unlimited staff members',
-      '✅ Dedicated account manager',
-      '✅ Custom features on request',
-      '✅ API access for integrations',
-      '✅ White-label option',
-      '✅ SLA guarantee',
-      '✅ On-site training (Lagos — other cities by arrangement)',
-      '✅ Custom reports and exports',
-      '✅ AI-powered insights and forecasting',
-      '✅ Direct WhatsApp line to ADE engineering team',
+      "✅ Everything in Business Elite",
+      "✅ Unlimited staff",
+      "✅ Dedicated account manager",
+      "✅ Custom features on request",
+      "✅ API access",
+      "✅ White-label option",
+      "✅ SLA guarantee",
+      "✅ AI-powered insights",
+      "✅ Direct ADE engineering line",
     ],
-    max_transactions_daily: -1,
-    max_staff:              -1,
-    has_dashboard:          true,
-    has_web_dashboard:      true,
-    has_sheets:             true,
-    has_pdf:                true,
-    custom_pricing:         true,
   },
-};
-
-// ─────────────────────────────────────────────────────────────
-// PLAN HIERARCHY (lower number = lower tier)
-// ─────────────────────────────────────────────────────────────
-const PLAN_RANK = {
-  trial:       0,
-  MICROLEGER:  1,
-  BASIC:       2,
-  STANDARD:    3,
-  PRO:         4,
-  BUSINESS:    5,
-  ENTERPRISE:  6,
-};
-
-// ─────────────────────────────────────────────────────────────
-// CHECK if a client can use a command
-// ─────────────────────────────────────────────────────────────
-function canUseCommand(planCode, command) {
-  const plan = PLANS[planCode];
-  if (!plan) return false;
-
-  // Enterprise and Business get everything
-  if (plan.commands.includes('ALL')) return true;
-
-  // System commands everyone can use
-  const universal = ['HELP','START','SUBSTATUS','CONTACT'];
-  if (universal.includes(command.toUpperCase())) return true;
-
-  return plan.commands.includes(command.toUpperCase());
 }
 
 // ─────────────────────────────────────────────────────────────
-// UPGRADE MESSAGE when client tries a higher-tier command
+// AUTO-UPGRADE ENGINE
+// Called when a client hits their usage limit
+// Warns twice before porting up — never ports down automatically
 // ─────────────────────────────────────────────────────────────
-function getUpgradeMessage(currentPlan, command, currency = '₦') {
-  const current  = PLANS[currentPlan];
-  const sym      = currency;
 
-  // Find which plan first unlocks this command
-  const upgradeTo = Object.values(PLANS).find(p =>
-    p.commands.includes('ALL') || p.commands.includes(command.toUpperCase())
-  );
+/**
+ * Check if a client's usage triggers a warning or upgrade
+ * @param {string} planCode - current plan code
+ * @param {number} dailyTransactions - transactions today
+ * @returns {{ action: 'warn'|'upgrade'|'none', upgradeTo: string|null }}
+ */
+export function checkUsageThreshold(planCode, dailyTransactions) {
+  const plan = PLANS[planCode]
+  if (!plan) return { action: "none", upgradeTo: null }
 
-  if (!upgradeTo) return `❌ Feature not available. Contact ADE support.`;
+  const limit = plan.limits.transactions_daily
+  if (limit === -1) return { action: "none", upgradeTo: null }   // unlimited
 
-  const price = currency === '$' ? upgradeTo.price_usd : upgradeTo.price_ngn;
-  const priceStr = price === 0 ? 'Contact ADE for pricing' : `${sym}${price.toLocaleString()}/month`;
+  const pct = (dailyTransactions / limit) * 100
+
+  if (pct >= 100) {
+    return {
+      action:    "upgrade",
+      upgradeTo: plan.auto_upgrade_to,
+      message:   `You have reached your daily limit on the *${plan.name}* plan.\n` +
+                 `Your account is being upgraded to *${PLANS[plan.auto_upgrade_to]?.name || plan.auto_upgrade_to}*.\n` +
+                 `Contact admin for billing details: ${process.env.ADMIN_PHONE}`,
+    }
+  }
+
+  if (pct >= plan.limits.warn_at_percent) {
+    return {
+      action:    "warn",
+      upgradeTo: plan.auto_upgrade_to,
+      message:   `⚠️ *Usage Alert*\n\n` +
+                 `You have used ${Math.round(pct)}% of your daily limit on *${plan.name}*.\n` +
+                 `Consider upgrading to *${PLANS[plan.auto_upgrade_to]?.name || plan.auto_upgrade_to}* for more capacity.\n` +
+                 `Contact: ${process.env.ADMIN_PHONE}`,
+    }
+  }
+
+  return { action: "none", upgradeTo: null }
+}
+
+/**
+ * Check if a client can use a specific command on their plan
+ */
+export function canUseCommand(planCode, command) {
+  const plan = PLANS[planCode]
+  if (!plan) return false
+
+  if (plan.commands.includes("ALL")) return true
+
+  const universal = ["HELP", "START", "SUBSTATUS", "CONTACT"]
+  if (universal.includes(command.toUpperCase())) return true
+
+  return plan.commands.includes(command.toUpperCase())
+}
+
+/**
+ * Upgrade message when client tries a locked command
+ */
+export function getUpgradePrompt(currentPlanCode, command) {
+  const current = PLANS[currentPlanCode]
+  const sym = "₦"
+
+  // Find lowest plan that has this command
+  const needed = Object.values(PLANS).find(p =>
+    p.commands.includes("ALL") || p.commands.includes(command.toUpperCase())
+  )
+
+  if (!needed) return `❌ Feature not available. Contact admin.`
+
+  const price = needed.price_ngn === 0
+    ? "Contact ADE for pricing"
+    : `${sym}${needed.price_ngn.toLocaleString()}/month`
 
   return `⚠️ *Feature Locked*\n\n` +
     `Command: *${command}*\n` +
-    `Your Plan: *${current?.name || currentPlan}*\n\n` +
-    `Unlock with: *${upgradeTo.name}*\n` +
-    `Price: *${priceStr}*\n\n` +
+    `Your Plan: *${current?.name || currentPlanCode}*\n\n` +
+    `Unlock with: *${needed.name}*\n` +
+    `Price: *${price}*\n\n` +
     `📞 Upgrade: ${process.env.ADMIN_PHONE}\n` +
-    `_Type SUBSTATUS to see your current plan_`;
+    `_Type SUBSTATUS to see your current plan_`
 }
 
-// ─────────────────────────────────────────────────────────────
-// PRICING CARD (for WhatsApp broadcast / status)
-// ─────────────────────────────────────────────────────────────
-function getPricingMessage(currency = '₦') {
-  const sym  = currency;
-  const isNG = sym === '₦';
-
+/**
+ * Pricing broadcast message
+ */
+export function getPricingMessage() {
   return `💼 *ADE-LedgerFlow™ Plans*\n` +
     `━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
     `_Alpha-Aliph Automated Digital Enterprise_\n\n` +
-
-    `🔵 *MicroLedger* — ${isNG ? '₦2,500' : '$2'}/month\n` +
-    `   Market traders, daily petty cash\n\n` +
-
-    `🟢 *Basic* — ${isNG ? '₦5,000' : '$4'}/month\n` +
-    `   Small shops, kiosks, reports\n\n` +
-
-    `🟡 *Standard* — ${isNG ? '₦10,000' : '$8'}/month\n` +
+    `🆓 *Free Trial* — Up to 15 days\n` +
+    `   Basic tracking to test the system\n\n` +
+    `🔵 *MicroLedger* — ₦2,500/month\n` +
+    `   Market traders, petty cash\n\n` +
+    `🟢 *Basic* — ₦5,000/month\n` +
+    `   Small shops, daily reports\n\n` +
+    `🟡 *Standard* — ₦10,000/month\n` +
     `   Credit ledger, stock tracking\n\n` +
-
-    `🟠 *Pro Merchant* — ${isNG ? '₦25,000' : '$20'}/month\n` +
+    `🟠 *Pro Merchant* — ₦25,000/month\n` +
     `   Multi-staff, full dashboard\n\n` +
-
-    `🔴 *Business* — ${isNG ? '₦50,000' : '$40'}/month\n` +
+    `🔴 *Business Elite* — ₦50,000/month\n` +
     `   Multi-branch, pharmacy module\n\n` +
-
-    `⭐ *Enterprise* — Custom pricing\n` +
+    `⭐ *Enterprise Cloud* — Custom pricing\n` +
     `   Large companies, full customization\n\n` +
-
     `━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
     `🎁 All plans include FREE trial!\n` +
     `📞 Subscribe: ${process.env.ADMIN_PHONE}\n\n` +
-    `_ADE-LedgerFlow™ © Alpha-Aliph Digital Enterprise_`;
+    `_ADE-LedgerFlow™ © Alpha-Aliph Digital Enterprise_`
 }
-
-module.exports = {
-  PLANS,
-  PLAN_RANK,
-  canUseCommand,
-  getUpgradeMessage,
-  getPricingMessage,
-};
