@@ -1,9 +1,12 @@
-const express = require('express');
-const router = express.Router();
+import express from 'express';
 
-const db = require('../config/database');
-const { activateSubscription } = require('../engines/subscriptionEngine');
-const { generateApiKey } = require('../engines/securityEngine');
+import db from '../config/database.js';
+
+import { activateSubscription } from '../engines/subscriptionEngine.js';
+
+import { generateApiKey } from '../engines/securityEngine.js';
+
+const router = express.Router();
 
 /* ─────────────────────────────
    Admin Authentication
@@ -14,12 +17,15 @@ function requireAdmin(req, res, next) {
   const key = req.headers['x-admin-key'];
 
   if (!key || key !== process.env.JWT_SECRET) {
+
     return res.status(401).json({
       error: 'Unauthorized — provide x-admin-key header'
     });
+
   }
 
   next();
+
 }
 
 router.use(requireAdmin);
@@ -48,7 +54,9 @@ router.get('/stats', async (req, res) => {
 
   } catch (err) {
 
-    res.status(500).json({ error: err.message });
+    res.status(500).json({
+      error: err.message
+    });
 
   }
 
@@ -84,7 +92,9 @@ router.get('/clients', async (req, res) => {
 
   } catch (err) {
 
-    res.status(500).json({ error: err.message });
+    res.status(500).json({
+      error: err.message
+    });
 
   }
 
@@ -118,7 +128,9 @@ router.get('/fraud-alerts', async (req, res) => {
 
   } catch (err) {
 
-    res.status(500).json({ error: err.message });
+    res.status(500).json({
+      error: err.message
+    });
 
   }
 
@@ -140,7 +152,11 @@ router.post('/clients', async (req, res) => {
     } = req.body;
 
     if (!phone) {
-      return res.status(400).json({ error: 'phone required' });
+
+      return res.status(400).json({
+        error: 'phone required'
+      });
+
     }
 
     const clean = phone.replace(/\D/g,'');
@@ -164,7 +180,9 @@ router.post('/clients', async (req, res) => {
 
   } catch (err) {
 
-    res.status(500).json({ error: err.message });
+    res.status(500).json({
+      error: err.message
+    });
 
   }
 
@@ -191,7 +209,9 @@ router.post('/clients/:phone/activate', async (req, res) => {
 
   } catch (err) {
 
-    res.status(500).json({ error: err.message });
+    res.status(500).json({
+      error: err.message
+    });
 
   }
 
@@ -211,7 +231,11 @@ router.post('/clients/:phone/apikey', async (req, res) => {
     );
 
     if (!client) {
-      return res.status(404).json({ error:'Client not found' });
+
+      return res.status(404).json({
+        error:'Client not found'
+      });
+
     }
 
     const key = await generateApiKey(client.id);
@@ -223,10 +247,12 @@ router.post('/clients/:phone/apikey', async (req, res) => {
 
   } catch (err) {
 
-    res.status(500).json({ error: err.message });
+    res.status(500).json({
+      error: err.message
+    });
 
   }
 
 });
 
-module.exports = router;
+export default router;
