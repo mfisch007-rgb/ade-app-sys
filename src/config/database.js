@@ -1,88 +1,74 @@
-// ═══════════════════════════════════════════════════════
-// LedgerFlow Database Module (ESM Version)
-// File: src/config/database.js
-// Compatible with Node 20 + "type": "module"
-// ═══════════════════════════════════════════════════════
+import pg from 'pg';
+import dotenv from 'dotenv';
 
-import "dotenv/config"
-import pkg from "pg"
+dotenv.config();
 
-const { Pool } = pkg
+const { Pool } = pg;
+
+/* ─────────────────────────────────────────────
+   DATABASE POOL
+───────────────────────────────────────────── */
 
 const pool = new Pool({
+
   connectionString: process.env.DATABASE_URL,
-  ssl: process.env.DB_SSL === "true"
-    ? { rejectUnauthorized: false }
-    : false
-})
 
-pool.on("connect", () => {
-  console.log("🗄️ Database connected")
-})
+  ssl:
+    process.env.NODE_ENV === 'production'
+      ? { rejectUnauthorized: false }
+      : false
+});
 
-pool.on("error", (err) => {
-  console.error("❌ Database error:", err.message)
-})
+/* ─────────────────────────────────────────────
+   QUERY HELPERS
+───────────────────────────────────────────── */
 
+async function query(text, params = []) {
 
+  const result = await pool.query(text, params);
 
-// ─────────────────────────────────────────
-// QUERY
-// ─────────────────────────────────────────
-export async function query(sql, params = []) {
-  const res = await pool.query(sql, params)
-  return res
+  return result;
 }
 
+async function getOne(text, params = []) {
 
+  const result = await pool.query(text, params);
 
-// ─────────────────────────────────────────
-// GET ONE
-// ─────────────────────────────────────────
-export async function getOne(sql, params = []) {
-  const res = await pool.query(sql, params)
-  return res.rows[0] || null
+  return result.rows[0] || null;
 }
 
+async function getMany(text, params = []) {
 
+  const result = await pool.query(text, params);
 
-// ─────────────────────────────────────────
-// GET MANY
-// ─────────────────────────────────────────
-export async function getMany(sql, params = []) {
-  const res = await pool.query(sql, params)
-  return res.rows
+  return result.rows;
 }
 
+async function insert(text, params = []) {
 
+  const result = await pool.query(text, params);
 
-// ─────────────────────────────────────────
-// TRANSACTION
-// ─────────────────────────────────────────
-export async function transaction(callback) {
-
-  const client = await pool.connect()
-
-  try {
-
-    await client.query("BEGIN")
-
-    const result = await callback(client)
-
-    await client.query("COMMIT")
-
-    return result
-
-  } catch (err) {
-
-    await client.query("ROLLBACK")
-
-    throw err
-
-  } finally {
-
-    client.release()
-
-  }
-
+  return result.rows[0];
 }
+
+/* ─────────────────────────────────────────────
+   EXPORTS
+───────────────────────────────────────────── */
+
+const db = {
+  query,
+  getOne,
+  getMany,
+  insert,
+  pool
+};
+
+export {
+  query,
+  getOne,
+  getMany,
+  insert,
+  pool
+};
+
+export default db;
