@@ -1,0 +1,196 @@
+Folder PATH listing
+Volume serial number is 00000070 82C1:7B92
+C:\USERS\USER\DESKTOP\ADE-APP-SYS\DOCS
++---architecture
+|   |   EVENT_ARCHITECTURE.md
+|   |   PRODUCT_ARCHITECTURE.md
+|   |   SYSTEM_ARCHITECTURE.md
+|   |   
+|   +---identity
+|   |       IDENTITY.md
+|   |       
+|   +---kernel
+|   |   |   KERNEL.md
+|   |   |   KERNEL_BIBLE.md
+|   |   |   
+|   |   +---contracts
+|   |   +---events
+|   |   +---interfaces
+|   |   +---modules
+|   |   \---schemas
+|   +---platform
+|   |       PLATFORM.md
+|   |       PLATFORM_BIBLE.md
+|   |       
+|   +---products
+|   |       PRODUCTS.md
+|   |       
+|   +---sdk
+|   |       SDK_ARCHITECTURE.md
+|   |       
+|   +---services
+|   |       SERVICES.md
+|   |       
+|   \---verticals
+|           VERTICALS.md
+|           
++---contracts
+|       EVENT_CONTRACT.md
+|       MODULE_CONTRACT.md
+|       SYSTEM_CONTRACT.md
+|       
++---engineering
+|   |   CODING_STANDARDS.md
+|   |   NAMING_CONVENTIONS.md
+|   |   REPOSITORY_STRUCTURE.md
+|   |   VERSIONING_POLICY.md
+|   |   
+|   +---automation
+|   +---contracts
+|   +---laws
+|   |       ENGINEERING_LAWS.md
+|   |       
+|   +---packs
+|   |       ENGINEERING_PACK_001.md
+|   |       ENGINEERING_PACK_002.md
+|   |       ENGINEERING_PACK_003.md
+|   |       ENGINEERING_PACK_004.md
+|   |       PACK-001-Repository-Governance.md
+|   |       PACK-002-Platform-Bible.md
+|   |       PACK-003-Architecture.md
+|   |       PACK-004-AI-Workforce.md
+|   |       PACK-005-SDK.md
+|   |       PACK-006-EventOps.md
+|   |       PACK-007-KnowOps.md
+|   |       PACK-008-GrowthEngine.md
+|   |       
+|   +---quality
+|   +---standards
+|   +---templates
+|   \---workflows
++---governance
+|   |   ADE_CONSTITUTION.md
+|   |   ENGINEERING_LAWS.md
+|   |   FOUNDER_PRINCIPLES.md
+|   |   PROJECT_CHARTER.md
+|   |   VISION_AND_MISSION.md
+|   |   
+|   +---constitution
+|   |       ADE-CONSTITUTION.md
+|   |       ADE_CONSTITUTION.md
+|   |       
+|   +---decisions
+|   |       ARCHITECTURE_DECISIONS.md
+|   |       
+|   +---policies
+|   |       GLOBAL_POLICIES.md
+|   |       
+|   +---principles
+|   |       FOUNDER_PRINCIPLES.md
+|   |       
+|   \---standards
+|           DOCUMENT_STANDARDS.md
+|           
++---media
+|   +---animation
+|   |       MOTION_SYSTEM.md
+|   |       
+|   +---brand-bible
+|   |       BRAND_BIBLE.md
+|   |       
+|   +---character-bible
+|   |       CHARACTER_BIBLE.md
+|   |       
+|   +---fonts
+|   |       TYPOGRAPHY_SYSTEM.md
+|   |       
+|   +---logos
+|   |       LOGO_SYSTEM.md
+|   |       
+|   +---product-bible
+|   |       PRODUCT_BIBLE.md
+|   |       
+|   +---prompts
+|   |       MEDIA_PROMPTS.md
+|   |       
+|   +---ui
+|   |       UI_SYSTEM.md
+|   |       
+|   +---video-bible
+|   |       VIDEO_BIBLE.md
+|   |       
+|   \---videos
+|           VIDEO_SYSTEM.md
+|           
++---platform
+|   |   AI_WORKFORCE.md
+|   |   EVENTOPS.md
+|   |   KNOWOPS.md
+|   |   ORACLE.md
+|   |   PLATFORM_OVERVIEW.md
+|   |   
+|   +---ai-workforce
+|   |       AI_WORKFORCE.md
+|   |       
+|   +---dashboard
+|   |       COMMAND_CENTER.md
+|   |       
+|   +---engines
+|   |       ENGINE_REGISTRY.md
+|   |       
+|   +---eventops
+|   |       EVENTOPS.md
+|   |       
+|   +---growth-engine
+|   |       GROWTH_ENGINE.md
+|   |       
+|   +---kernel
+|   |       KERNEL_PLATFORM.md
+|   |       
+|   +---knowledge
+|   |       KNOWLEDGE_ENGINE.md
+|   |       
+|   +---knowops
+|   |       KNOWOPS.md
+|   |       
+|   +---oracle
+|   |       ORACLE_PLATFORM.md
+|   |       
+|   +---shared-services
+|   |       SHARED_SERVICES.md
+|   |       
+|   \---workforce
+|           AI_WORKFORCE.md
+|           
++---roadmap
+|   +---history
+|   |       CHANGELOG.md
+|   |       
+|   +---master
+|   |       MASTER_DELIVERABLES.md
+|   |       MASTER_EXECUTION_ROADMAP.md
+|   |       MASTER_PHASE_INDEX.md
+|   |       MASTER_ROADMAP.md
+|   |       
+|   \---phases
+|           PHASE_INDEX.md
+|           
+\---sdk
+    |   API_GUIDE.md
+    |   PLUGIN_SDK.md
+    |   SDK_OVERVIEW.md
+    |   
+    +---adapters
+    |       ADAPTERS.md
+    |       ADAPTER_SDK.md
+    |       
+    +---api
+    |       API_REFERENCE.md
+    |       API_SPEC.md
+    |       
+    +---compatibility
+    |       COMPATIBILITY.md
+    |       
+    \---plugins
+            PLUGIN_SDK.md
+            

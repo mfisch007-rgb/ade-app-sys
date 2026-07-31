@@ -3,8 +3,8 @@
 // File: src/engines/reportEngine.js
 // Generates and sends daily/weekly WhatsApp reports at 8PM
 // ═══════════════════════════════════════════════════════════
-require('dotenv').config();
-const db = require('../config/database');
+import "dotenv/config";
+import db from "../config/database.js";
 
 const MOTIVATIONAL_QUOTES = [
   '"Every naira you track is a naira you control." — LedgerFlow',
@@ -199,4 +199,4 @@ async function runAutomatedDailyReports() {
   console.log(`✅ Daily reports: ${sent} queued, ${failed} failed`);
 }
 
-module.exports = { runAutomatedDailyReports, generateDailyReportText };
+export {  runAutomatedDailyReports, generateDailyReportText  };

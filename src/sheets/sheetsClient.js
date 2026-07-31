@@ -3,9 +3,9 @@
 // File: src/sheets/sheetsClient.js
 // Writes every transaction to the client's Google Sheet
 // ═══════════════════════════════════════════════════════════
-require('dotenv').config();
-const path = require('path');
-const fs   = require('fs');
+import "dotenv/config";
+import path from "path";
+import fs from "fs";
 
 let googleAuth = null;
 let sheetsApi  = null;
@@ -19,7 +19,7 @@ async function init() {
   if (initialized) return sheetsApi !== null;
 
   try {
-    const { google } = require('googleapis');
+    import { google  } from "googleapis";
     const credsPath  = path.join(__dirname, '../../credentials.json');
 
     if (!fs.existsSync(credsPath)) {
@@ -98,7 +98,7 @@ async function createClientSheet(businessName) {
   if (!sheetsApi)    return null;
 
   try {
-    const { google } = require('googleapis');
+    import { google  } from "googleapis";
     const authClient = await googleAuth.getClient();
     const driveApi   = google.drive({ version: 'v3', auth: authClient });
 
@@ -178,9 +178,9 @@ async function getTodayFromSheet(sheetId) {
   }
 }
 
-module.exports = {
+export { 
   init,
   appendTransaction,
   createClientSheet,
   getTodayFromSheet,
-};
+ };

@@ -1,7 +1,7 @@
 // ADE — Business Logic Engine
 // File: src/engines/businessEngine.js
 
-const db = require('../config/database');
+import db from "../config/database.js";
 
 async function processSale(user_id, cmd) {
   const item   = cmd.target;
@@ -261,10 +261,10 @@ const commandMap = {
   DRUGSALE:  processDrugSale,
 };
 
-module.exports = {
+export { 
   commandMap,
   processSale, processExpense, processDebt,
   processPayment, processStock, processWithdraw,
   processTransfer, processContribution,
   processDrugStock, processDrugSale
-};
+ };

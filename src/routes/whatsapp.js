@@ -1,11 +1,11 @@
 // ═══════════════════════════════════════════════════════════
 // LedgerFlow — WhatsApp & Payment Routes
 // ═══════════════════════════════════════════════════════════
-const express = require('express');
+import express from "express";
 const router = express.Router();
-const { requestPairingCode, isConnected, getSocket } = require('../whatsapp/whatsappClient');
-const { verifyGatewayWebhook } = require('../engines/securityEngine');
-const { activateSubscription } = require('../engines/subscriptionEngine');
+import { requestPairingCode, isConnected, getSocket  } from "../whatsapp/whatsappClient.js";
+import { verifyGatewayWebhook  } from "../engines/securityEngine.js";
+import { activateSubscription  } from "../engines/subscriptionEngine.js";
 
 // PAIRING ROUTE
 router.post('/pair', async (req, res) => {
@@ -49,4 +49,4 @@ router.post('/paystack', async (req, res) => {
     } catch (err) { res.status(200).json({ received: true }); }
 });
 
-module.exports = router;
+export default router;

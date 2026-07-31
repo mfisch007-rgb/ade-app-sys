@@ -1,0 +1,82 @@
+Folder PATH listing
+Volume serial number is 000000DB 82C1:7B92
+C:\USERS\USER\DESKTOP\ADE-APP-SYS\SRC
+|   scheduler.js
+|   server.js
+|   testQueue.js
+|   testRedis.js
+|   
++---commands
+|       help.js
+|       ledger.js
+|       ping.js
+|       
++---config
+|       adminRoles.js
+|       database.js
+|       plans.js
+|       supabaseClient.js
+|       
++---core
+|       eventBus.js
+|       logger.js
+|       runtimeState.js
+|       
++---engines
+|       analyticsEngine.js
+|       branchRelay.js
+|       businessEngine.js
+|       commandParser.js
+|       fraudEngine.js
+|       insightEngine.js
+|       onboardingEngine.js
+|       reportEngine.js
+|       securityEngine.js
+|       subscriptionAutomation.js
+|       subscriptionEngine.js
+|       usageBillingEngine.js
+|       usageUpgradeEngine.js
+|       
++---eventBus
+|       eventBus.js
+|       
++---events
+|       eventTypes.js
+|       
++---modules
++---parsers
+|       commandAliases.js
+|       languageDetector.js
+|       messageParser.js
+|       
++---processors
++---queues
+|       messageQueue.js
+|       redisQueue.js
+|       taskQueue.js
+|       
++---routes
+|       admin.js
+|       whatsapp.js
+|       
++---runtime
+|       boot.js
+|       
++---services
++---sheets
+|       sheetsClient.js
+|       
++---system
+|       botGuardian.js
+|       healthMonitor.js
+|       
++---utils
+|       logger.js
+|       
++---whatsapp
+|       whatsappClient.js
+|       
+\---workers
+        eventWorker.js
+        messageWorker.js
+        

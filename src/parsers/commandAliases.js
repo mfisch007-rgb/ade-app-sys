@@ -110,4 +110,4 @@ function parseAmount(str) {
 // work directly in SQL without JSON.parse() in JS.
 // ─────────────────────────────────────────────────────────────
 
-module.exports = { ALIASES, resolveAlias, parseAmount };
+export {  ALIASES, resolveAlias, parseAmount  };

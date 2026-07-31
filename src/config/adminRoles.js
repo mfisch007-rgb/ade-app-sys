@@ -106,4 +106,4 @@ function canPerform(adminRole, action) {
   return role[action] === true;
 }
 
-module.exports = { ADMIN_ROLES, hasPermission, canPerform };
+export {  ADMIN_ROLES, hasPermission, canPerform  };

@@ -6,7 +6,7 @@ import makeWASocket, {
 import { Boom } from "@hapi/boom";
 import pino from "pino";
 import qrcode from 'qrcode-terminal';
-import { messageQueue } from "../queue/messageQueue.js";
+import { messageQueue } from '../queues/messageQueue.js';
 
 const AUTH_FOLDER = "./auth";
 const PHONE_NUMBER = (process.env.PAIRING_PHONE || "").replace(/\D/g, "");

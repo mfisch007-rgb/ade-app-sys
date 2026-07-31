@@ -116,9 +116,9 @@ function validateCommand(cmd) {
   return true;
 }
 
-module.exports = {
+export { 
   parseCommand,
   intelligentParse,
   validateCommand,
   convertAmount
-};
+ };

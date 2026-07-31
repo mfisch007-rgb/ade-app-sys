@@ -330,10 +330,10 @@ async function getCurrencyFromIP(ip) {
   }
 }
 
-module.exports = {
+export { 
   detectLanguage,
   translate,
   formatAmount,
   getCurrencyFromIP,
   TRANSLATIONS,
-};
+ };
