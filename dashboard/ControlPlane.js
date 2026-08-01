@@ -1,0 +1,1 @@
+class ControlPlane { constructor(kernel) { this.kernel = kernel; } getSystemOverview() { return { status: "HEALTHY", uptime: process.uptime(), memory: process.memoryUsage(), timestamp: Date.now() }; } } module.exports = ControlPlane;
