@@ -1,1 +1,1 @@
-{"id":"procarta-suite","name":"Procarta Lead Suite","version":"1.0.0","type":"EXTERNAL_ADAPTER"}
+{"id":"procarta","name":"Procarta Engine","version":"1.0.0","type":"PLUGGABLE_ADAPTER","entry":"./adapter.js"}

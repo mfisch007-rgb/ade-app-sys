@@ -1,1 +1,1 @@
-const BaseConnector = require("../../kernel/connectors/BaseConnector"); class ProcartaAdapter extends BaseConnector { constructor() { super("Procarta"); } async connect() { console.log("[PROCARTA ADAPTER] Pluggable connection active."); } } module.exports = ProcartaAdapter;
+class ProcartaAdapter { constructor() { this.id = "procarta"; } async connect() { console.log("[PROCARTA ADAPTER] Connected to external Procarta repository."); } } module.exports = ProcartaAdapter;
