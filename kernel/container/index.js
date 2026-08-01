@@ -1,0 +1,1 @@
+class Container { constructor() { this.services = new Map(); } register(name, instance) { this.services.set(name, instance); } resolve(name) { const service = this.services.get(name); if (!service) throw new Error("[ADE CONTAINER] Service not registered: " + name); return service; } } module.exports = Container;

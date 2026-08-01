@@ -1,0 +1,1 @@
+class ConfigEngine { constructor(env = process.env) { this.config = { env: env.NODE_ENV || "development", port: env.PORT || 3000 }; } get(key) { return this.config[key]; } } module.exports = ConfigEngine;

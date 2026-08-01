@@ -1,0 +1,1 @@
+const BaseConnector = require("../../kernel/connectors/BaseConnector"); class ProcartaAdapter extends BaseConnector { constructor() { super("Procarta"); } async connect() { console.log("[PROCARTA ADAPTER] Pluggable connection active."); } } module.exports = ProcartaAdapter;
