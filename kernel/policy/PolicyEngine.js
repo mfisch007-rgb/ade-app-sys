@@ -1,0 +1,1 @@
+class PolicyEngine { constructor() { this.policies = new Map(); } registerPolicy(id, ruleFn) { this.policies.set(id, ruleFn); } evaluate(id, context) { const rule = this.policies.get(id); if (!rule) return { allowed: true, reason: "NO_POLICY_DEFINED" }; return rule(context); } } module.exports = PolicyEngine;
