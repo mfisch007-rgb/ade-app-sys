@@ -1,0 +1,1 @@
+{"postgres":{"host":"localhost","port":5432,"database":"ade_production","user":"ade_admin","password":"ade_secure_pass_2026"},"redis":{"host":"127.0.0.1","port":6379}}
