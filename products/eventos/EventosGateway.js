@@ -1,0 +1,1 @@
+class EventosGateway { constructor(engine) { this.engine = engine; } handleEventRegistration(user, eventId) { return { status: "REGISTERED", user, eventId, passCode: "EVT_" + Math.random().toString(36).substring(2, 8).toUpperCase() }; } } module.exports = EventosGateway;

@@ -1,0 +1,1 @@
+class NexusGateway { constructor(ledger) { this.ledger = ledger; } handleTransfer(from, to, amount) { return this.ledger.recordEntry(from, to, amount, "NEXUS_UI_TRANSFER"); } } module.exports = NexusGateway;
