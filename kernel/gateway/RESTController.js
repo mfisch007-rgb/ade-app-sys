@@ -1,0 +1,1 @@
+class RESTController { constructor(gatewayRouter) { this.router = gatewayRouter; } handleRequest(method, path, body, headers = {}) { const routeKey = method.toUpperCase() + " " + path; return this.router.handle(routeKey, body, headers["x-client-id"] || "anonymous"); } } module.exports = RESTController;
