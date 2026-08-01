@@ -1,0 +1,1 @@
+{"id":"google-workspace","name":"Google Workspace Connector","version":"1.0.0","type":"CONNECTOR_SDK","entry":"./adapter.js","capabilities":["gmail","drive","sheets"]}

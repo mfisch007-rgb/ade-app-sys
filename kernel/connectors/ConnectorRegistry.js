@@ -1,0 +1,1 @@
+class ConnectorRegistry { constructor() { this.connectors = new Map(); } register(id, connector) { this.connectors.set(id, connector); } get(id) { return this.connectors.get(id); } } module.exports = ConnectorRegistry;

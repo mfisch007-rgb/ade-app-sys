@@ -1,0 +1,1 @@
+class ManifestValidator { validate(manifest) { const required = ["id", "name", "version", "type", "entry"]; for (const field of required) { if (!manifest[field]) throw new Error("[MANIFEST VALIDATOR] Missing required field: " + field); } return true; } } module.exports = ManifestValidator;

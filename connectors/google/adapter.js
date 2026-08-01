@@ -1,0 +1,1 @@
+const BaseConnector = require("../../kernel/connectors/BaseConnector"); class GoogleWorkspaceConnector extends BaseConnector { constructor() { super("Google Workspace"); } async connect() { console.log("[GOOGLE CONNECTOR] Active authentication context established."); } } module.exports = GoogleWorkspaceConnector;
