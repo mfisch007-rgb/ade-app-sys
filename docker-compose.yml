@@ -1,15 +1,1 @@
-version: "3"
-
-services:
-
-app:
-build: .
-ports:
-- "3000:3000"
-depends_on:
-- redis
-
-redis:
-image: redis
-ports:
-- "6379:6379"
+version: "3.8"`nservices:`n  ade-kernel:`n    build: .`n    ports:`n      - "3000:3000"`n    environment:`n      - NODE_ENV=production`n    depends_on:`n      - postgres`n      - redis`n  postgres:`n    image: postgres:16-alpine`n    environment:`n      POSTGRES_DB: ade_production`n      POSTGRES_PASSWORD: ade_secure_pass_2026`n    ports:`n      - "5432:5432"`n  redis:`n    image: redis:7-alpine`n    ports:`n      - "6379:6379"
