@@ -1,0 +1,1 @@
+class MarketplaceStore { constructor() { this.catalog = new Map(); } publishListing(id, category, manifest) { this.catalog.set(id, { id, category, manifest, verified: true, publishedAt: Date.now() }); } getByCategory(category) { return Array.from(this.catalog.values()).filter(item => item.category === category); } } module.exports = MarketplaceStore;
