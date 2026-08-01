@@ -7,3 +7,4 @@
 `n- apex/knowledge/ | Status: ACTIVE | Purpose: APEX Event-Sourced Knowledge Engine and Experience Store
 `n- oracle/guardian/ | Status: ACTIVE | Purpose: Oracle Guardian Supervisory Service and Confidence Engine
 `n- apex/workforce/ | Status: ACTIVE | Purpose: Autonomous AI Workforce Engine (Planner, Decision, Execution Engines)
+`n- products/procarta/ | Status: ACTIVE | Purpose: Procarta Product Suite (Lead Intake, Pipeline, Document Engine)
