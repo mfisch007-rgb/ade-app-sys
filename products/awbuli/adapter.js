@@ -1,0 +1,1 @@
+const BaseConnector = require("../../kernel/connectors/BaseConnector"); class AwbuliAdapter extends BaseConnector { constructor() { super("AWBULI"); } async connect() { console.log("[AWBULI ADAPTER] Pluggable connection active."); } } module.exports = AwbuliAdapter;

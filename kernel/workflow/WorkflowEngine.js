@@ -1,0 +1,1 @@
+class WorkflowEngine { constructor(eventBus) { this.workflows = new Map(); this.eventBus = eventBus; } register(definition) { this.workflows.set(definition.id, definition); } execute(id, payload) { const wf = this.workflows.get(id); if (wf) console.log("[WORKFLOW ENGINE] Executing workflow: " + id); } } module.exports = WorkflowEngine;
