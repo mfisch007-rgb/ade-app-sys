@@ -1,0 +1,1 @@
+class CertificationValidator { certify(manifest) { const passesSecurity = Array.isArray(manifest.permissions); return { certified: passesSecurity, status: passesSecurity ? "APPROVED" : "REJECTED" }; } } module.exports = CertificationValidator;

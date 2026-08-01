@@ -1,0 +1,1 @@
+class SchemaRegistry { constructor() { this.schemas = new Map(); } registerSchema(topic, version, schema) { this.schemas.set(topic + ":" + version, schema); } validate(topic, version, payload) { return this.schemas.has(topic + ":" + version); } } module.exports = SchemaRegistry;

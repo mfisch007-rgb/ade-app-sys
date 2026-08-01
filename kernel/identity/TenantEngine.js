@@ -1,0 +1,1 @@
+class TenantEngine { constructor() { this.tenants = new Map(); } registerTenant(id, keys) { this.tenants.set(id, { id, keys, permissions: ["event.publish", "knowledge.read"] }); } validateApiKey(tenantId, key) { const t = this.tenants.get(tenantId); return t ? t.keys.includes(key) : false; } } module.exports = TenantEngine;
