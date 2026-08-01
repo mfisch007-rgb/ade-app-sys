@@ -1,0 +1,1 @@
+class SecretsEngine { constructor() { this.secrets = new Map(); } setSecret(key, val) { this.secrets.set(key, val); } getSecret(key) { return this.secrets.get(key) || process.env[key]; } } module.exports = SecretsEngine;

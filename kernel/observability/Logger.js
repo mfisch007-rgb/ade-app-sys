@@ -1,0 +1,1 @@
+class Logger { log(level, msg, ctx = {}) { console.log(JSON.stringify({ timestamp: new Date().toISOString(), level, message: msg, ...ctx })); } info(msg, ctx) { this.log("INFO", msg, ctx); } error(msg, ctx) { this.log("ERROR", msg, ctx); } } module.exports = Logger;

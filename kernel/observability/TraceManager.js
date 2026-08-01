@@ -1,0 +1,1 @@
+class TraceManager { constructor() { this.traces = new Map(); } startTrace(id) { this.traces.set(id, { start: Date.now() }); } endTrace(id) { const t = this.traces.get(id); if (t) t.duration = Date.now() - t.start; return t; } } module.exports = TraceManager;
