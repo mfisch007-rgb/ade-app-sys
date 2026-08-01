@@ -1,0 +1,1 @@
+class TenantContext { constructor() { this.activeContexts = new Map(); } setContext(sessionId, tenantData) { this.activeContexts.set(sessionId, { ...tenantData, activeAt: Date.now() }); } getContext(sessionId) { return this.activeContexts.get(sessionId) || null; } } module.exports = TenantContext;
