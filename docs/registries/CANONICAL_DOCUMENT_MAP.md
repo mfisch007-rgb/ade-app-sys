@@ -12,7 +12,7 @@ Version: 1.0.0
 Status: ACTIVE
 Owner: ADE Architecture & Governance
 Repository: ADE-APP-SYS
-Branch: main
+Branch: enterprise-modernization-v1
 Engineering Pack: Repository Governance
 Parent Document: INDEX.md
 Related Documents:
@@ -320,3 +320,4 @@ complete.
 -------------------------------------------------------------------------------
 END OF DOCUMENT
 -------------------------------------------------------------------------------
+- SERVICES.md (ID: ADE-ARCH-SERVICES-001) | Owner: ADE Platform Architecture
