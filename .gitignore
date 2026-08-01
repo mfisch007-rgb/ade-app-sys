@@ -92,4 +92,4 @@ coverage/
 # =========================================================
 *.backup
 *.bak
-*.old
+*.old.git_corrupt_backup/ 
