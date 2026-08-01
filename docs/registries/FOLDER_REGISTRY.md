@@ -6,3 +6,4 @@
 `n- services/ | Status: ACTIVE | Purpose: Core Platform Infrastructure Services (Event Bus, Identity, Storage)
 `n- apex/knowledge/ | Status: ACTIVE | Purpose: APEX Event-Sourced Knowledge Engine and Experience Store
 `n- oracle/guardian/ | Status: ACTIVE | Purpose: Oracle Guardian Supervisory Service and Confidence Engine
+`n- apex/workforce/ | Status: ACTIVE | Purpose: Autonomous AI Workforce Engine (Planner, Decision, Execution Engines)
