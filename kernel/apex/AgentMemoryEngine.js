@@ -1,0 +1,1 @@
+class AgentMemoryEngine { constructor() { this.memories = new Map(); } storeMemory(agentId, key, value) { const mem = this.memories.get(agentId) || {}; mem[key] = { value, timestamp: Date.now() }; this.memories.set(agentId, mem); } retrieveMemory(agentId, key) { const mem = this.memories.get(agentId); return mem ? mem[key] || null : null; } } module.exports = AgentMemoryEngine;

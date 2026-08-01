@@ -1,0 +1,1 @@
+class EventosEngine { constructor() { this.profiles = new Map(); } registerProfile(id, profileData) { this.profiles.set(id, { ...profileData, score: Math.floor(Math.random() * 40) + 60 }); } matchInvestors(startupId) { return Array.from(this.profiles.values()).filter(p => p.type === "INVESTOR"); } } module.exports = EventosEngine;

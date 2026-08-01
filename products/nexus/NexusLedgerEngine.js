@@ -1,0 +1,1 @@
+class NexusLedgerEngine { constructor() { this.ledger = []; } recordEntry(fromAccount, toAccount, amount, reference) { const entry = { id: "tx_" + Date.now(), fromAccount, toAccount, amount, reference, timestamp: Date.now() }; this.ledger.push(entry); return entry; } getLedgerHistory() { return this.ledger; } } module.exports = NexusLedgerEngine;
