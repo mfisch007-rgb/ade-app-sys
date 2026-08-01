@@ -1,0 +1,1 @@
+class MarketplaceEngine { constructor() { this.listings = new Map(); } listPlugin(id, metadata) { this.listings.set(id, metadata); } search(query) { return Array.from(this.listings.values()).filter(p => p.name.toLowerCase().includes(query.toLowerCase())); } } module.exports = MarketplaceEngine;

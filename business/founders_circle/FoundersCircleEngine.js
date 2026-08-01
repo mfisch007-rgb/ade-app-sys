@@ -1,0 +1,1 @@
+class FoundersCircleEngine { constructor() { this.members = new Map(); } evaluateFCS(memberId, metrics) { const fcs = (metrics.revenue || 0) * 0.5 + (metrics.growth || 0) * 0.5; this.members.set(memberId, { fcs, tier: fcs > 75 ? "TIER_1" : "TIER_2" }); return this.members.get(memberId); } } module.exports = FoundersCircleEngine;
