@@ -1,0 +1,1 @@
+class HealthScanner { evaluateStartup(kpis = {}) { const score = (kpis.revenue || 0) * 0.4 + (kpis.retention || 0) * 0.6; return { score, status: score > 50 ? "HEALTHY" : "NEEDS_ATTENTION", timestamp: Date.now() }; } } module.exports = HealthScanner;
