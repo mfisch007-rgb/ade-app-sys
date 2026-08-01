@@ -1,0 +1,1 @@
+class ErrorBoundary { handle(error, context = "GLOBAL") { console.error("[ERROR BOUNDARY] Caught Exception in " + context + ":", error.message || error); return { recovered: true, timestamp: Date.now() }; } } module.exports = ErrorBoundary;

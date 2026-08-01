@@ -1,0 +1,1 @@
+class ManifestRegistry { constructor() { this.manifests = new Map(); } register(id, manifest) { this.manifests.set(id, manifest); } get(id) { return this.manifests.get(id); } } module.exports = ManifestRegistry;
