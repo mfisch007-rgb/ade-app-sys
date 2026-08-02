@@ -2,6 +2,7 @@ import { runKernelSuite } from './bus.test.js';
 import { runEnginesSuite } from './engines.test.js';
 import { runEcosystemSuite } from './ecosystem.test.js';
 import { runE2ESuite } from './e2e.test.js';
+import { runOrchestratorSuite } from './orchestrator.test.js';
 
 async function runAllTests() {
   console.log('==================================================');
@@ -13,7 +14,8 @@ async function runAllTests() {
     { name: 'Enterprise Event Bus Isolation', runner: runKernelSuite },
     { name: 'Core Intelligence & Security Engines', runner: runEnginesSuite },
     { name: 'Ecosystem & Platform Modules', runner: runEcosystemSuite },
-    { name: 'End-to-End Pipeline & Stress Hardening', runner: runE2ESuite }
+    { name: 'End-to-End Pipeline & Stress Hardening', runner: runE2ESuite },
+    { name: 'Cross-Module Orchestration & DLQ Resilience', runner: runOrchestratorSuite }
   ];
 
   for (const suite of suites) {

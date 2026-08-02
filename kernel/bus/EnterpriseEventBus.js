@@ -1,34 +1,45 @@
-import { EventEmitter } from "events";
+import EventEmitter from "node:events";
 
-export class EnterpriseEventBus extends EventEmitter {
+export default class EnterpriseEventBus extends EventEmitter {
     constructor() {
         super();
-        this.routes = new Map();
+        this.modules = new Map();
+        this.dlq = [];
+        this.metrics = { published: 0, failed: 0, retried: 0 };
     }
-    registerModule(name, instance) {
-        this.routes.set(name, instance);
-        console.log("[KERNEL BUS] Registered module:", name);
+
+    registerModule(name, meta = {}) {
+        this.modules.set(name, { status: "ACTIVE", meta, registeredAt: Date.now() });
+        return true;
     }
+
     isRegistered(name) {
-        return this.routes.has(name);
+        return this.modules.has(name);
     }
-    async publish(event, data) {
-        console.log("[EVENT BUS] Broadcasting:", event);
+
+    publish(event, payload, retries = 1) {
+        this.metrics.published++;
         const listeners = this.listeners(event);
+        if (listeners.length === 0) return true;
+
+        let hasError = false;
         for (const listener of listeners) {
             try {
-                await listener(data);
+                listener(payload);
             } catch (err) {
-                console.error(`[KERNEL BUS WARN] Listener isolated fault on event "${event}":`, err.message);
+                hasError = true;
+                if (retries > 0) {
+                    this.metrics.retried++;
+                } else {
+                    this.metrics.failed++;
+                }
+                this.dlq.push({ event, payload, error: err.message, failedAt: Date.now() });
             }
         }
+        return !hasError;
     }
-    subscribe(event, handler) {
-        this.on(event, handler);
-    }
-    emitEvent(event, data) {
-        this.publish(event, data);
+
+    subscribe(event, listener) {
+        this.on(event, listener);
     }
 }
-
-export default EnterpriseEventBus;
