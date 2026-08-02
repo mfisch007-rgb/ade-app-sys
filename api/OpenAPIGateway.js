@@ -1,0 +1,1 @@
+class OpenAPIGateway { getSpec() { return { openapi: "3.0.0", info: { title: "ADE Enterprise OS API", version: "1.0.0" }, paths: { "/api/v1/health": { get: { responses: { 200: { description: "System Healthy" } } } } } }; } } module.exports = OpenAPIGateway;
