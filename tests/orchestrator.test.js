@@ -25,14 +25,14 @@ export async function runOrchestratorSuite() {
             completed = true;
         });
 
-        bus.publish("customer.registered", { tenantId: "tenant-999", email: "user@enterprise.com" });
+        await bus.publish("customer.registered", { tenantId: "tenant-999", email: "user@enterprise.com" });
         assert.strictEqual(completed, true);
     });
 
     await test("EventBus routes unhandled subscriber failures to DLQ", async () => {
         const bus = new EnterpriseEventBus();
         bus.subscribe("fault.event", () => { throw new Error("Subscriber crashed"); });
-        bus.publish("fault.event", { data: "test" });
+        await bus.publish("fault.event", { data: "test" });
         assert.strictEqual(bus.dlq.length, 1);
     });
 

@@ -1,23 +1,17 @@
 export default class GodModeEngine {
-    constructor(eventBus) {
-        this.bus = eventBus;
-        this.features = {
-            AI_ORCHESTRATION: true,
-            AUTONOMOUS_REMEDIATION: true,
-            MULTI_TENANT_ISOLATION: true,
-            DATA_PIPELINE_ROUTING: true
-        };
+    constructor(bus = null) {
+        this.bus = bus;
+        this.overrideActive = false;
     }
 
-    toggleFeature(featureKey, state) {
-        this.features[featureKey] = state;
-        console.log(`[GOD-MODE] Feature ${featureKey} set to: ${state}`);
-        this.bus.publish("GODMODE_EVENT", {
-            action: "FEATURE_TOGGLED",
-            feature: featureKey,
-            state: state,
-            timestamp: new Date().toISOString()
-        });
-        return true;
+    async enableOverride(reason = "SYSTEM_ADMIN_OVERRIDE") {
+        this.overrideActive = true;
+        const payload = { active: true, reason, timestamp: Date.now() };
+
+        if (this.bus) {
+            await this.bus.publish("GODMODE_EVENT", payload);
+        }
+
+        return payload;
     }
 }

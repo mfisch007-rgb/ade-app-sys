@@ -1,43 +1,37 @@
 export default class AutonomousExecutionEngine {
-    constructor(bus = null, licensingEngine = null, config = {}) {
+    constructor(bus = null) {
         this.bus = bus;
-        this.licensingEngine = licensingEngine;
-        this.config = config;
-        this.status = "STOPPED";
-        this.executionLog = [];
+        this.executions = [];
     }
 
-    register() { return true; }
-    initialize() { this.status = "INITIALIZED"; return true; }
-    start() { this.status = "RUNNING"; return true; }
-    pause() { this.status = "PAUSED"; return true; }
-    resume() { this.status = "RUNNING"; return true; }
-    shutdown() { this.status = "STOPPED"; return true; }
+    async executeTask(taskId, actionFn) {
+        const executionId = `exec_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
+        const startTime = Date.now();
+        
+        let result = null;
+        let status = "SUCCESS";
 
-    health() { return { status: this.status, totalExecuted: this.executionLog.length }; }
-    metrics() { return { totalExecuted: this.executionLog.length }; }
-    events() { return ["execution.started", "execution.completed", "execution.failed"]; }
-    config(newConfig = {}) { this.config = { ...this.config, ...newConfig }; }
-
-    executeTask(taskPayload, tenantContext = {}) {
-        if (this.status !== "RUNNING") return { executed: false, reason: "ENGINE_NOT_RUNNING" };
-
-        if (this.licensingEngine && tenantContext.licenseKey) {
-            const licCheck = this.licensingEngine.verifyLicenseKey(tenantContext.licenseKey, tenantContext);
-            if (!licCheck.valid) return { executed: false, reason: `LICENSE_REJECTED: ${licCheck.reason}` };
+        try {
+            result = await actionFn();
+        } catch (error) {
+            status = "FAILED";
+            result = { error: error.message };
         }
 
-        const record = {
-            executionId: "EXEC-" + Date.now() + "-" + Math.floor(Math.random() * 1000),
-            taskType: taskPayload.taskType || "GENERIC_WORKFLOW",
-            payload: taskPayload,
-            tenantId: tenantContext.tenantId || "system",
-            status: "SUCCESS",
-            timestamp: Date.now()
+        const payload = {
+            executionId,
+            taskId,
+            status,
+            result,
+            durationMs: Date.now() - startTime
         };
 
-        this.executionLog.push(record);
-        if (this.bus) this.bus.publish("execution.completed", record);
-        return { executed: true, record };
+        this.executions.push(payload);
+
+        if (this.bus) {
+            await this.bus.publish("execution.completed", payload);
+        }
+
+        return payload;
     }
 }

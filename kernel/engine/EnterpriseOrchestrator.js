@@ -17,7 +17,7 @@ export default class EnterpriseOrchestrator extends EventEmitter {
             const workspace = this.procarta ? this.procarta.createWorkspace(payload.tenantId) : { status: "created" };
             const wallet = this.nexus ? this.nexus.initializeWallet(payload.tenantId) : { status: "active" };
             
-            this.bus.publish("orchestration.completed", {
+            await this.bus.publish("orchestration.completed", {
                 tenantId: payload.tenantId,
                 riskScore: risk.score,
                 workspaceId: workspace.status,

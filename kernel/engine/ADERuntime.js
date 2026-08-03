@@ -15,22 +15,26 @@ export default class ADERuntime {
         this.plugins.set(plugin.name, plugin);
     }
 
-    boot() {
+    async boot() {
         for (const [key, engine] of Object.entries(this.engines)) {
-            if (engine.initialize) engine.initialize();
-            if (engine.start) engine.start();
+            if (engine.initialize) await engine.initialize();
+            if (engine.start) await engine.start();
         }
         this.status = "RUNNING";
-        if (this.bus) this.bus.publish("system.runtime.booted", { status: this.status });
+        if (this.bus) {
+            await this.bus.publish("system.runtime.booted", { status: this.status });
+        }
         return true;
     }
 
-    shutdown() {
+    async shutdown() {
         for (const [key, engine] of Object.entries(this.engines)) {
-            if (engine.shutdown) engine.shutdown();
+            if (engine.shutdown) await engine.shutdown();
         }
         this.status = "STOPPED";
-        if (this.bus) this.bus.publish("system.runtime.shutdown", { status: this.status });
+        if (this.bus) {
+            await this.bus.publish("system.runtime.shutdown", { status: this.status });
+        }
         return true;
     }
 }

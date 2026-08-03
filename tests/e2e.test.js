@@ -34,7 +34,7 @@ export async function runE2ESuite() {
         bus.subscribe("telemetry.tick", () => { count++; });
         const promises = [];
         for (let i = 0; i < 50; i++) {
-            promises.push(bus.publish("telemetry.tick", { seq: i }));
+            promises.push(await bus.publish("telemetry.tick", { seq: i }));
         }
         await Promise.all(promises);
         assert.strictEqual(count, 50);

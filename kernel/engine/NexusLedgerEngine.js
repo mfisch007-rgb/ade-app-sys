@@ -1,63 +1,25 @@
 export default class NexusLedgerEngine {
     constructor(bus = null) {
         this.bus = bus;
-        this.ledgers = new Map();
+        this.entries = [];
     }
 
-    initializeWallet(tenantId, initialBalance = 0) {
-        const account = {
-            tenantId,
-            balance: initialBalance,
-            transactions: [],
-            status: "ACTIVE",
-            createdAt: Date.now()
-        };
-        this.ledgers.set(tenantId, account);
-        return account;
-    }
-
-    recordTransaction(tenantId, type, amount, reference = "") {
-        const account = this.ledgers.get(tenantId) || this.initializeWallet(tenantId);
-        if (type === "CREDIT") {
-            account.balance += amount;
-        } else if (type === "DEBIT") {
-            if (account.balance < amount) {
-                throw new Error("INSUFFICIENT_FUNDS");
-            }
-            account.balance -= amount;
-        } else {
-            throw new Error("INVALID_TRANSACTION_TYPE");
-        }
-
-        const tx = {
-            txId: "TX-" + Date.now() + "-" + Math.floor(Math.random() * 1000),
+    async recordEntry(clientPhone, type, amount, metadata = {}) {
+        const entry = {
+            id: `entry_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
+            clientPhone,
             type,
             amount,
-            balanceAfter: account.balance,
-            reference,
+            metadata,
             timestamp: Date.now()
         };
-        account.transactions.push(tx);
+
+        this.entries.push(entry);
 
         if (this.bus) {
-            this.bus.publish("ledger.transaction.recorded", { tenantId, tx });
+            await this.bus.publish("ledger.transaction.recorded", entry);
         }
-        return tx;
-    }
 
-    getBalance(tenantId) {
-        const account = this.ledgers.get(tenantId);
-        return account ? account.balance : 0;
-    }
-
-    verifyInvariant(tenantId) {
-        const account = this.ledgers.get(tenantId);
-        if (!account) return true;
-        let computed = 0;
-        for (const tx of account.transactions) {
-            if (tx.type === "CREDIT") computed += tx.amount;
-            if (tx.type === "DEBIT") computed -= tx.amount;
-        }
-        return computed === account.balance;
+        return entry;
     }
 }

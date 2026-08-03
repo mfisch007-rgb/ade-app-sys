@@ -4,7 +4,7 @@ export default class MultiChannelAdapter {
         this.processedMessages = 0;
     }
 
-    normalizeIncomingMessage(channelType, rawPayload) {
+    async normalizeIncomingMessage(channelType, rawPayload) {
         let normalized = {
             channel: channelType,
             sender: null,
@@ -27,7 +27,9 @@ export default class MultiChannelAdapter {
         }
 
         this.processedMessages++;
-        if (this.bus) this.bus.publish("channel.message.received", normalized);
+        if (this.bus) {
+            await this.bus.publish("channel.message.received", normalized);
+        }
         return normalized;
     }
 }

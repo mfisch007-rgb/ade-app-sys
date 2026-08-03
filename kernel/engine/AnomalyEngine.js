@@ -18,7 +18,7 @@ export default class AnomalyEngine {
     events() { return ["anomaly.detected"]; }
     config(newConfig = {}) { this.config = { ...this.config, ...newConfig }; }
 
-    detectOutlier(metricName, currentValue, history = [], thresholdZ = 3.0) {
+    async detectOutlier(metricName, currentValue, history = [], thresholdZ = 3.0) {
         if (this.status !== "RUNNING") throw new Error("ANOMALY_ENGINE_NOT_RUNNING");
         if (!history || history.length < 3) return { isAnomaly: false, zScore: 0 };
         
@@ -31,7 +31,9 @@ export default class AnomalyEngine {
         if (isAnomaly) {
             const record = { metricName, currentValue, zScore, timestamp: Date.now() };
             this.anomalyLog.push(record);
-            if (this.bus) this.bus.publish("anomaly.detected", record);
+            if (this.bus) {
+                await this.bus.publish("anomaly.detected", record);
+            }
             return { isAnomaly: true, zScore, record };
         }
         return { isAnomaly: false, zScore };

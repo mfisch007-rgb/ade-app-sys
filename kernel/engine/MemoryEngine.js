@@ -1,51 +1,24 @@
 export default class MemoryEngine {
-    constructor(bus = null, storageEngine = null, config = {}) {
+    constructor(bus = null) {
         this.bus = bus;
-        this.storageEngine = storageEngine;
-        this.config = config;
-        this.store = new Map();
-        this.status = "STOPPED";
+        this.memoryStore = new Map();
     }
 
-    register() { return true; }
-    initialize() { this.status = "INITIALIZED"; return true; }
-    start() { this.status = "RUNNING"; return true; }
-    pause() { this.status = "PAUSED"; return true; }
-    resume() { this.status = "RUNNING"; return true; }
-    shutdown() { this.store.clear(); this.status = "STOPPED"; return true; }
-
-    health() { return { status: this.status, totalRecords: this.store.size }; }
-    metrics() { return { totalRecords: this.store.size }; }
-    events() { return ["memory.remembered", "memory.forgotten"]; }
-    config(newConfig = {}) { this.config = { ...this.config, ...newConfig }; }
-
-    async remember(key, value, ttlMs = null) {
-        const record = {
-            value,
-            expiresAt: ttlMs ? Date.now() + ttlMs : null,
-            createdAt: Date.now()
-        };
-        this.store.set(key, record);
-        if (this.storageEngine) {
-            await this.storageEngine.set(key, record);
+    async remember(key, value) {
+        this.memoryStore.set(key, value);
+        
+        if (this.bus) {
+            await this.bus.publish("memory.remembered", { key, timestamp: Date.now() });
         }
-        if (this.bus) this.bus.publish("memory.remembered", { key, record });
-        return true;
     }
 
-    recall(key) {
-        const record = this.store.get(key);
-        if (!record) return null;
-        if (record.expiresAt && record.expiresAt < Date.now()) {
-            this.store.delete(key);
-            return null;
+    async forget(key) {
+        const existed = this.memoryStore.delete(key);
+        
+        if (existed && this.bus) {
+            await this.bus.publish("memory.forgotten", { key, timestamp: Date.now() });
         }
-        return record.value;
-    }
-
-    forget(key) {
-        const deleted = this.store.delete(key);
-        if (deleted && this.bus) this.bus.publish("memory.forgotten", { key });
-        return deleted;
+        
+        return existed;
     }
 }

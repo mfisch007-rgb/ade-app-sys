@@ -1,4 +1,4 @@
-const fs = require('fs');
+import fs from 'fs';
 
 const htmlContent = `<!DOCTYPE html>
 <html lang="en">
@@ -47,11 +47,13 @@ const htmlContent = `<!DOCTYPE html>
                 source.onmessage = (event) => {
                     try {
                         const data = JSON.parse(event.data);
-                        if (data.topic === "GODMODE_EVENT" && data.payload.action === "FEATURE_TOGGLED") {
+                        if (data.topic === "GODMODE_EVENT" && data.payload?.action === "FEATURE_TOGGLED") {
                             setFeatures(prev => ({ ...prev, [data.payload.feature]: data.payload.state }));
                         }
                         setLogs(prev => [JSON.stringify(data), ...prev.slice(0, 49)]);
-                    } catch(e) {}
+                    } catch(e) {
+                        console.error('[GODMODE TELEMETRY ERROR]', e);
+                    }
                 };
                 source.onerror = () => setStatus("OFFLINE");
                 return () => source.close();
@@ -78,7 +80,7 @@ const htmlContent = `<!DOCTYPE html>
                         body: JSON.stringify({ action: "TOGGLE_FEATURE", feature: featureKey, state: !currentState })
                     });
                 } catch (err) {
-                    console.error("Command transmission failed:", err);
+                    console.error('[PATCH-INDEX] Logged graceful exception handling:', err.message);
                 }
             };
 
@@ -150,9 +152,9 @@ const htmlContent = `<!DOCTYPE html>
 </body>
 </html>`;
 
-fs.writeFileSync('index.html', htmlContent);
-console.log("Successfully generated index.html!");
-`;
-
-fs.writeFileSync('patch-index.js', patchScript);
-console.log('[READY] Run: node patch-index.js');
+try {
+    fs.writeFileSync('index.html', htmlContent);
+    console.log('[PATCH-INDEX] Successfully generated index.html!');
+} catch (err) {
+    console.error('[PATCH-INDEX CRITICAL] Error writing index.html:', err.message);
+}

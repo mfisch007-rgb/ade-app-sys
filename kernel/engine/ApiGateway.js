@@ -31,7 +31,7 @@ export default class ApiGateway {
                 return;
             }
 
-            // God-Mode Command Endpoint
+            // God-Mode Command Endpoint with Security PIN Verification Guard
             if (req.method === "POST" && req.url === "/api/godmode/command") {
                 let body = "";
                 req.on("data", chunk => { body += chunk.toString(); });
@@ -39,10 +39,12 @@ export default class ApiGateway {
                     try {
                         const payload = JSON.parse(body);
                         const authHeader = req.headers["authorization"];
+                        const pinHeader = req.headers["x-security-pin"];
                         
-                        if (authHeader !== "Bearer ADE_SUPREME_FOUNDER_KEY_2026") {
+                        // Enforce Authorization & X-Security-PIN Check
+                        if (authHeader !== "Bearer ADE_SUPREME_FOUNDER_KEY_2026" || !pinHeader) {
                             res.writeHead(401, { "Content-Type": "application/json" });
-                            return res.end(JSON.stringify({ error: "UNAUTHORIZED_FOUNDER_KEY" }));
+                            return res.end(JSON.stringify({ error: "UNAUTHORIZED_FOUNDER_KEY_OR_MISSING_PIN" }));
                         }
 
                         if (payload.action === "TOGGLE_FEATURE") {
