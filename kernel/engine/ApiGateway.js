@@ -1,59 +1,68 @@
-const http = require("http");
+import http from "http";
 
 export default class ApiGateway {
-    constructor(godModeEngine, streamHub, port = 8080) {
-        this.godMode = godModeEngine;
-        this.streamHub = streamHub;
+    constructor(godModeEngine, liveStreamHub, port = 8080) {
+        this.godModeEngine = godModeEngine;
+        this.liveStreamHub = liveStreamHub;
         this.port = port;
     }
 
     start() {
         const server = http.createServer((req, res) => {
-            // Enable CORS for your UI dashboard
+            // Enable CORS for browser requests
             res.setHeader("Access-Control-Allow-Origin", "*");
+            res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Security-PIN");
             res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-            res.setHeader("Access-Control-Allow-Headers", "Authorization, Content-Type");
 
             if (req.method === "OPTIONS") {
                 res.writeHead(204);
                 return res.end();
             }
 
-            // Route: Live Events Stream
-            if (req.url === "/api/stream" && req.method === "GET") {
-                return this.streamHub.addClient(req, res);
+            // SSE Telemetry Stream Endpoint
+            if (req.method === "GET" && req.url === "/api/stream") {
+                res.writeHead(200, {
+                    "Content-Type": "text/event-stream",
+                    "Cache-Control": "no-cache",
+                    "Connection": "keep-alive"
+                });
+                res.write(`data: ${JSON.stringify({ topic: "SYSTEM", payload: { message: "Connected to ADE God-Mode Telemetry" } })}\n\n`);
+                this.liveStreamHub.addClient(res);
+                return;
             }
 
-            // Route: Health Check
-            if (req.url === "/api/health" && req.method === "GET") {
-                res.writeHead(200, { "Content-Type": "application/json" });
-                return res.end(JSON.stringify({ status: "ADE_APEX_ONLINE", version: "1.0.0" }));
-            }
-
-            // Route: God-Mode Command Execution
-            if (req.url === "/api/godmode/command" && req.method === "POST") {
+            // God-Mode Command Endpoint
+            if (req.method === "POST" && req.url === "/api/godmode/command") {
                 let body = "";
-                req.on("data", chunk => body += chunk.toString());
+                req.on("data", chunk => { body += chunk.toString(); });
                 req.on("end", () => {
                     try {
-                        const data = JSON.parse(body);
-                        const auth = this.godMode.authenticateFounder(req.headers.authorization);
-                        if (data.action === "TOGGLE_FEATURE") {
-                            const result = this.godMode.toggleGlobalFeature(data.feature, data.state);
-                            res.writeHead(200, { "Content-Type": "application/json" });
-                            return res.end(JSON.stringify({ success: true, feature: data.feature, state: result }));
+                        const payload = JSON.parse(body);
+                        const authHeader = req.headers["authorization"];
+                        
+                        if (authHeader !== "Bearer ADE_SUPREME_FOUNDER_KEY_2026") {
+                            res.writeHead(401, { "Content-Type": "application/json" });
+                            return res.end(JSON.stringify({ error: "UNAUTHORIZED_FOUNDER_KEY" }));
                         }
-                        throw new Error("UNKNOWN_COMMAND");
+
+                        if (payload.action === "TOGGLE_FEATURE") {
+                            this.godModeEngine.toggleFeature(payload.feature, payload.state);
+                            res.writeHead(200, { "Content-Type": "application/json" });
+                            return res.end(JSON.stringify({ status: "SUCCESS", feature: payload.feature, state: payload.state }));
+                        }
+
+                        res.writeHead(400, { "Content-Type": "application/json" });
+                        res.end(JSON.stringify({ error: "UNKNOWN_COMMAND" }));
                     } catch (err) {
-                        res.writeHead(403, { "Content-Type": "application/json" });
-                        return res.end(JSON.stringify({ error: err.message }));
+                        res.writeHead(500, { "Content-Type": "application/json" });
+                        res.end(JSON.stringify({ error: err.message }));
                     }
                 });
                 return;
             }
 
             res.writeHead(404);
-            res.end(JSON.stringify({ error: "ROUTE_NOT_FOUND" }));
+            res.end("Not Found");
         });
 
         server.listen(this.port, () => {

@@ -1,0 +1,158 @@
+const fs = require('fs');
+
+const htmlContent = `<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ADE Omni Hub | Apex Operating System</title>
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <style>
+        body { margin: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #020b14; color: #ffffff; overflow: hidden; }
+        .glass-panel { background: rgba(10, 25, 47, 0.85); backdrop-filter: blur(12px); border: 1px solid rgba(0, 255, 255, 0.2); border-radius: 12px; padding: 25px; margin: 20px; height: 82vh; overflow-y: auto; box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37); }
+        .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(0, 255, 255, 0.2); padding-bottom: 12px; margin-bottom: 20px; }
+        .log-entry { font-family: monospace; padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.05); font-size: 13px; color: #a5b4fc; }
+        .text-neon { color: #00ffff; }
+        .text-success { color: #00ff88; }
+        .floating-logo { position: fixed; bottom: 30px; right: 30px; width: 75px; height: 75px; object-fit: contain; animation: float 4s ease-in-out infinite; filter: drop-shadow(0 0 12px rgba(0,255,255,0.6)); z-index: 9999; }
+        @keyframes float { 0% { transform: translateY(0px); } 50% { transform: translateY(-12px); } 100% { transform: translateY(0px); } }
+        .btn-action { background: #00ffff; color: #020b14; border: none; padding: 6px 16px; border-radius: 4px; font-weight: bold; cursor: pointer; transition: 0.2s; }
+        .btn-action:hover { background: #008080; color: #ffffff; }
+        .pin-modal { background: rgba(2, 11, 20, 0.95); position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; display: flex; justify-content: center; align-items: center; z-index: 10000; }
+        .pin-box { background: rgba(10, 25, 47, 0.95); border: 1px solid #00ffff; padding: 30px; border-radius: 12px; text-align: center; width: 320px; box-shadow: 0 0 25px rgba(0,255,255,0.2); }
+        .pin-input { background: rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.2); color: #fff; padding: 10px; font-size: 20px; text-align: center; letter-spacing: 6px; width: 80%; border-radius: 6px; margin: 15px 0; }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+    <img src="./ADE-LOGO.png" class="floating-logo" alt="ADE Logo" onerror="this.style.display='none';" />
+    <script type="text/babel">
+        function App() {
+            const [logs, setLogs] = React.useState([]);
+            const [status, setStatus] = React.useState("CONNECTING...");
+            const [features, setFeatures] = React.useState({
+                AI_ORCHESTRATION: true,
+                AUTONOMOUS_REMEDIATION: true,
+                MULTI_TENANT_ISOLATION: true,
+                DATA_PIPELINE_ROUTING: true
+            });
+            const [hasPin, setHasPin] = React.useState(false);
+            const [pinInput, setPinInput] = React.useState("");
+
+            React.useEffect(() => {
+                const source = new EventSource("http://localhost:8080/api/stream");
+                source.onopen = () => setStatus("ONLINE");
+                source.onmessage = (event) => {
+                    try {
+                        const data = JSON.parse(event.data);
+                        if (data.topic === "GODMODE_EVENT" && data.payload.action === "FEATURE_TOGGLED") {
+                            setFeatures(prev => ({ ...prev, [data.payload.feature]: data.payload.state }));
+                        }
+                        setLogs(prev => [JSON.stringify(data), ...prev.slice(0, 49)]);
+                    } catch(e) {}
+                };
+                source.onerror = () => setStatus("OFFLINE");
+                return () => source.close();
+            }, []);
+
+            const handlePinSubmit = (e) => {
+                e.preventDefault();
+                if (pinInput.length !== 6 || !/^\\d+$/.test(pinInput)) {
+                    alert("Security Protocol: PIN must be strictly 6 digits.");
+                    return;
+                }
+                setHasPin(true);
+            };
+
+            const toggleFeature = async (featureKey, currentState) => {
+                try {
+                    await fetch("http://localhost:8080/api/godmode/command", {
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "application/json",
+                            "Authorization": "Bearer ADE_SUPREME_FOUNDER_KEY_2026",
+                            "X-Security-PIN": pinInput
+                        },
+                        body: JSON.stringify({ action: "TOGGLE_FEATURE", feature: featureKey, state: !currentState })
+                    });
+                } catch (err) {
+                    console.error("Command transmission failed:", err);
+                }
+            };
+
+            return (
+                <div>
+                    {!hasPin && (
+                        <div className="pin-modal">
+                            <div className="pin-box">
+                                <h3 className="text-neon">ADE SECURITY GATEWAY</h3>
+                                <p style={{fontSize: '12px', color: '#94a3b8'}}>Enter your 6-digit authorization PIN for secure session initialization.</p>
+                                <form onSubmit={handlePinSubmit}>
+                                    <input
+                                        type="password"
+                                        maxLength="6"
+                                        value={pinInput}
+                                        onChange={(e) => setPinInput(e.target.value)} 
+                                        placeholder="••••••"
+                                        className="pin-input"
+                                        autoFocus
+                                    />
+                                    <br/>
+                                    <button type="submit" className="btn-action" style={{width: '90%'}}>AUTHENTICATE</button>
+                                </form>
+                            </div>
+                        </div>
+                    )}
+
+                    <div className="glass-panel">
+                        <div className="header">
+                            <h2>ADE <span className="text-neon">APEX OMNI HUB</span></h2>
+                            <div style={{ display: 'flex', gap: '20px', alignItems: 'center' }}>
+                                <span style={{fontSize: '13px', color: '#38bdf8'}}>ROLE: SUPREME FOUNDER</span>
+                                <div style={{ color: status === 'ONLINE' ? '#00ff88' : '#ff3366', fontWeight: 'bold' }}>SYS: {status}</div>
+                            </div>
+                        </div>
+
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+                            <div style={{ background: "rgba(0,0,0,0.3)", padding: "15px", borderRadius: "8px", border: "1px solid rgba(255,255,255,0.05)" }}>
+                                <h4 style={{marginTop: 0, color: '#00ffff'}}>Founder God-Mode Feature Matrix</h4>
+                                <div style={{ display: "grid", gap: "10px" }}>
+                                    {Object.entries(features).map(([key, val]) => (
+                                        <div key={key} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: "rgba(10,25,47,0.5)", padding: "10px", borderRadius: "6px" }}>
+                                            <span style={{fontSize: '13px'}}>{key}</span>
+                                            <button
+                                                onClick={() => toggleFeature(key, val)}
+                                                className="btn-action"
+                                                style={{ background: val ? "#00ff88" : "#ff3366", color: val ? "#020b14" : "#ffffff" }}
+                                            >
+                                                {val ? "ACTIVE" : "HALTED"}
+                                            </button>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+
+                            <div style={{ background: "rgba(0,0,0,0.3)", padding: "15px", borderRadius: "8px", border: "1px solid rgba(255,255,255,0.05)", maxHeight: '350px', overflowY: 'auto' }}>
+                                <h4 style={{marginTop: 0, color: '#00ffff'}}>Live Kernel Telemetry Bus</h4>
+                                {logs.length === 0 ? <div style={{opacity: 0.5, fontSize: '13px'}}>Awaiting kernel event broadcast...</div> : null}
+                                {logs.map((log, i) => <div key={i} className="log-entry">{log}</div>)}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>`;
+
+fs.writeFileSync('index.html', htmlContent);
+console.log("Successfully generated index.html!");
+`;
+
+fs.writeFileSync('patch-index.js', patchScript);
+console.log('[READY] Run: node patch-index.js');
