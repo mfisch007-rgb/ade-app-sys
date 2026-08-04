@@ -26,4 +26,22 @@ export default class EnterpriseOrchestrator extends EventEmitter {
             }).catch(err => console.error('[EventBus Async Error]', err));
         }).catch(err => console.error('[EventBus Async Error]', err));
     }
+
+  async boot() {
+    this.status = 'booting';
+    if (typeof this.init === 'function') await this.init();
+    this.status = 'booted';
+  }
+
+  async ready() {
+    this.status = 'ready';
+  }
+
+  async shutdown() {
+    this.status = 'shutting_down';
+  }
+
+  async dispose() {
+    this.status = 'disposed';
+  }
 }

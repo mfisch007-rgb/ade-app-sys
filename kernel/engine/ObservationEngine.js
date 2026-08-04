@@ -14,4 +14,22 @@ export default class ObservationEngine {
 
         return obs;
     }
+
+  async boot() {
+    this.status = 'booting';
+    if (typeof this.init === 'function') await this.init();
+    this.status = 'booted';
+  }
+
+  async ready() {
+    this.status = 'ready';
+  }
+
+  async shutdown() {
+    this.status = 'shutting_down';
+  }
+
+  async dispose() {
+    this.status = 'disposed';
+  }
 }
