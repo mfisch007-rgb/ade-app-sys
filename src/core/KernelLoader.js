@@ -1,5 +1,5 @@
-import fs from 'fs';
-import path from 'path';
+import fs from "fs";
+import path from "path";
 
 export class KernelLoader {
   constructor(container, logger = console) {
@@ -9,48 +9,69 @@ export class KernelLoader {
   }
 
   /**
-   * Recursively discovers and loads all subsystem modules into the DI container
+   * Standardized directory walk and module registration logic
    */
-  async walkAndRegister(baseDir = process.cwd()) {
-    const targetDirs = ['src/modules', 'kernel/engine', 'kernel/channel'];
-    
-    for (const dirRelative of targetDirs) {
-      const fullDirPath = path.join(baseDir, dirRelative);
-      if (!fs.existsSync(fullDirPath)) continue;
+  walkDir(dir, fileList = []) {
+    if (!fs.existsSync(dir)) return fileList;
+    const files = fs.readdirSync(dir);
+    for (const file of files) {
+      const fullPath = path.join(dir, file);
+      const stat = fs.statSync(fullPath);
+      if (stat.isDirectory()) {
+        this.walkDir(fullPath, fileList);
+      } else if (/\.(js|mjs)$/i.test(file)) {
+        fileList.push(fullPath);
+      }
+    }
+    return fileList;
+  }
 
-      const files = fs.readdirSync(fullDirPath);
-      for (const file of files) {
-        if (/\.(js|mjs)$/i.test(file)) {
-          const modPath = path.join(fullDirPath, file);
-          try {
-            const moduleExports = await import(`file://${modPath}`);
-            const ClassRef = moduleExports.default || Object.values(moduleExports)[0];
-            
-            if (typeof ClassRef === 'function') {
-              const instanceName = path.basename(file, path.extname(file));
+  /**
+   * Resolves and registers all subsystem modules dynamically into DI Container
+   */
+  async resolveAndRegisterAll(rootDir = process.cwd()) {
+    const searchDirs = [
+      path.join(rootDir, "src"),
+      path.join(rootDir, "kernel")
+    ];
+
+    for (const dir of searchDirs) {
+      const files = this.walkDir(dir);
+      for (const filePath of files) {
+        const relPath = path.relative(rootDir, filePath).replace(/\\/g, "/");
+        try {
+          const resolved = path.resolve(filePath);
+          const moduleExports = await import(`file://${resolved}`);
+          const ClassRef = moduleExports.default || Object.values(moduleExports)[0];
+          
+          if (typeof ClassRef === "function") {
+            const instanceName = path.basename(filePath, path.extname(filePath));
+            if (this.container && typeof this.container.register === "function") {
               this.container.register(instanceName, ClassRef);
-              this.registeredModules.set(instanceName, modPath);
             }
-          } catch (err) {
-            this.logger.warn(`[KernelLoader] Could not dynamically load module at ${file}: ${err.message}`);
+            this.registeredModules.set(relPath, ClassRef);
           }
+        } catch (err) {
+          this.logger.warn(`[KernelLoader] Unable to resolve module ${relPath}: ${err.message}`);
         }
       }
     }
     return this.registeredModules;
   }
 
-  async bootAll() {
-    for (const [name, instance] of this.container.instances) {
-      if (typeof instance.boot === 'function') await instance.boot();
-      if (typeof instance.ready === 'function') await instance.ready();
-    }
+  async boot() {
+    this.logger.log("[KernelLoader] Initializing system boot phase...");
   }
 
-  async shutdownAll() {
-    for (const [name, instance] of this.container.instances) {
-      if (typeof instance.shutdown === 'function') await instance.shutdown();
-      if (typeof instance.dispose === 'function') await instance.dispose();
-    }
+  async ready() {
+    this.logger.log("[KernelLoader] Kernel modules fully resolved and ready.");
+  }
+
+  async shutdown() {
+    this.logger.log("[KernelLoader] Shutting down kernel loader context...");
+  }
+
+  async dispose() {
+    this.registeredModules.clear();
   }
 }
