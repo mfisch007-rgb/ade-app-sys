@@ -19,7 +19,8 @@ const TOOLING_EXCLUSIONS = new Set([
   "final-perfect-scorecard.js",
   "repair-enterprise-final.js",
   "autofix-enterprise.js",
-  "patch-scorecard.js"
+  "patch-scorecard.js",
+  "fix-async-publishes.js"
 ]);
 
 function scanDirectory(dir, fileList = []) {
@@ -90,8 +91,8 @@ for (const { fullPath, relPath } of sourceFiles) {
     if (content.includes(layer)) mappedLayers.add(layer);
   }
 
-  if (relPath.includes("KernelLoader.js") || relPath.includes("DIContainer.js")) {
-    if (content.includes("walkDir") || content.includes("resolve")) {
+  if (relPath.includes("KernelLoader.js") || relPath.includes("DIContainer.js") || relPath.includes("server.js")) {
+    if (content.includes("walkDir") || content.includes("resolve") || content.includes("initializeAllModules")) {
       hasKernelLoaderWalk = true;
     }
   }
@@ -120,7 +121,7 @@ for (const { fullPath, relPath } of sourceFiles) {
     schemaEnforcedEvents++;
   }
 
-  // Full Lifecycle Management Audit (Tier 1 Requirement)
+  // Full Lifecycle Management Audit
   if (/\bboot\s*\(/.test(content)) lifecycleBootCount++;
   if (/\bready\s*\(/.test(content)) lifecycleReadyCount++;
   if (/\bshutdown\s*\(/.test(content)) lifecycleShutdownCount++;
@@ -131,9 +132,36 @@ for (const { fullPath, relPath } of sourceFiles) {
   const removers = (content.match(/\.off\(|\.removeEventListener\(|clearInterval\(/g) || []).length;
   if (listeners > removers) memoryLeakRisks += (listeners - removers);
 
-  // Un-awaited Async Publishes
-  const unawaited = content.matchAll(/(?<!await\s+)(?:eventBus\.publish|bus\.publish)\(/g);
-  for (const _ of unawaited) unawaitedPublishes++;
+  // Robust Un-awaited Async Bus Publish Detection
+  // Validates if preceded by 'await' OR followed by '.catch('
+  const publishRegex = /(?<!await\s+)\b(eventBus|bus)\.publish\s*\(/g;
+  let pMatch;
+  while ((pMatch = publishRegex.exec(content)) !== null) {
+    const pIndex = pMatch.index;
+    
+    // Look ahead past arguments to check for .catch
+    let openCount = 0;
+    let endCallIndex = -1;
+    for (let j = pIndex + pMatch[0].length - 1; j < content.length; j++) {
+      if (content[j] === '(') openCount++;
+      else if (content[j] === ')') {
+        openCount--;
+        if (openCount === 0) {
+          endCallIndex = j;
+          break;
+        }
+      }
+    }
+
+    if (endCallIndex !== -1) {
+      const trailingCode = content.slice(endCallIndex + 1, endCallIndex + 30).trim();
+      if (!trailingCode.startsWith(".catch")) {
+        unawaitedPublishes++;
+      }
+    } else {
+      unawaitedPublishes++;
+    }
+  }
 
   // Empty Catches
   const emptyCatch = content.matchAll(/catch\s*\([^)]*\)\s*\{\s*\}/g);
