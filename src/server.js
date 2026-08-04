@@ -1,40 +1,37 @@
-import http from 'http';
+// src/server.js
+import express from 'express';
+import BootDAGSequence from './core/BootDAGSequence.js';
+import DIContainer from './core/DIContainer.js';
+import EventSchemaRegistry from './core/EventSchemaRegistry.js';
+import StateMachineGuard from './core/StateMachineGuard.js';
 import KernelLoader from './core/KernelLoader.js';
 
-const PORT = process.env.PORT || 3000;
+const app = express();
+const container = new DIContainer();
+const bootDAG = new BootDAGSequence();
+const schemaRegistry = new EventSchemaRegistry();
+const stateGuard = new StateMachineGuard();
 
-async function bootstrapEcosystem() {
-  console.log('================================================================');
-  console.log('        ADE-APEX ENTERPRISE AIBOS KERNEL INITIALIZATION          ');
-  console.log('================================================================');
+async function startServer() {
+  stateGuard.transitionTo('BOOTING');
 
-  // 1. Mount Dynamic Reachability & Execution Tree
-  const registeredModules = await KernelLoader.loadAllSubsystems({ bootTime: Date.now() });
+  // Load and register all runtime modules into DI Container
+  const loader = new KernelLoader(container, schemaRegistry);
+  await loader.initializeAllModules();
 
-  // 2. Initialize Core HTTP Server & Health Interface
-  const server = http.createServer((req, res) => {
-    if (req.url === '/health' || req.url === '/status') {
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({
-        status: 'ONLINE',
-        system: 'ADE-APEX AIBOS',
-        subsystemsActive: registeredModules.size,
-        timestamp: new Date().toISOString()
-      }));
-      return;
-    }
+  // Execute deterministic DAG boot order
+  await bootDAG.executeBootSequence({ container, app });
 
-    res.writeHead(200, { 'Content-Type': 'text/plain' });
-    res.end('ADE-APEX AI Autonomous Operating System Kernel Live.\n');
-  });
+  stateGuard.transitionTo('READY');
 
-  server.listen(PORT, () => {
-    console.log(`[ADE-APEX Server] Listening on port ${PORT}`);
-    console.log(`[ADE-APEX Server] Health endpoint accessible at http://localhost:${PORT}/health`);
+  const PORT = process.env.PORT || 3000;
+  app.listen(PORT, () => {
+    stateGuard.transitionTo('RUNNING');
+    console.log(`[ADE-APEX] Server listening on port ${PORT}`);
   });
 }
 
-bootstrapEcosystem().catch((err) => {
-  console.error('[ADE-APEX Critical Boot Failure]', err);
+startServer().catch((err) => {
+  console.error('[ADE-APEX Boot Error]', err);
   process.exit(1);
 });
