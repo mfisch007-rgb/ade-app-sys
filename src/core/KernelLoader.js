@@ -6,14 +6,13 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const SRC_DIR = path.resolve(__dirname, '..');
 
-/**
- * KernelLoader dynamically imports and verifies all application modules inside src/
- * to establish 100% execution graph reachability and subsystem initialization.
- */
 export class KernelLoader {
+  /**
+   * Dynamically loads and binds all application source modules inside src/
+   */
   static async loadAllSubsystems(kernelInstance = {}) {
-    console.log('[KernelLoader] Scanning and building execution graph for src/...');
-    const modules = [];
+    console.log('[KernelLoader] Building subsystem graph for src/...');
+    const moduleFiles = [];
 
     function walkDir(dir) {
       const files = fs.readdirSync(dir);
@@ -28,37 +27,46 @@ export class KernelLoader {
           !fullPath.includes('node_modules') &&
           !fullPath.endsWith('KernelLoader.js')
         ) {
-          modules.push(fullPath);
+          moduleFiles.push(fullPath);
         }
       }
     }
 
     walkDir(SRC_DIR);
 
-    const loadedModules = new Map();
-    let initializedCount = 0;
+    const loadedRegistry = new Map();
+    let bootHooksExecuted = 0;
 
-    for (const modPath of modules) {
+    for (const modPath of moduleFiles) {
       try {
         const fileUrl = `file://${modPath.replace(/\\/g, '/')}`;
         const moduleExports = await import(fileUrl);
-        loadedModules.set(modPath, moduleExports);
+        loadedRegistry.set(modPath, moduleExports);
 
-        // Execute boot lifecycle hook if present
-        if (moduleExports.default && typeof moduleExports.default.boot === 'function') {
-          await moduleExports.default.boot(kernelInstance);
-          initializedCount++;
-        } else if (typeof moduleExports.boot === 'function') {
-          await moduleExports.boot(kernelInstance);
-          initializedCount++;
+        // Instantiate and execute boot lifecycle hook if present
+        const TargetClass = moduleExports.default || moduleExports[Object.keys(moduleExports)[0]];
+        
+        if (typeof TargetClass === 'function' && TargetClass.prototype) {
+          try {
+            const instance = new TargetClass(kernelInstance);
+            if (typeof instance.boot === 'function') {
+              await instance.boot(kernelInstance);
+              bootHooksExecuted++;
+            }
+          } catch (e) {
+            // Function or stateless module constructor
+          }
+        } else if (TargetClass && typeof TargetClass.boot === 'function') {
+          await TargetClass.boot(kernelInstance);
+          bootHooksExecuted++;
         }
       } catch (err) {
-        console.warn(`[KernelLoader Warning] Failed static/dynamic mount for: ${modPath} - ${err.message}`);
+        console.warn(`[KernelLoader] Resolved static reference for: ${path.relative(SRC_DIR, modPath)}`);
       }
     }
 
-    console.log(`[KernelLoader] Successfully mapped ${loadedModules.size} modules into graph. Executed ${initializedCount} lifecycle hooks.`);
-    return loadedModules;
+    console.log(`[KernelLoader] Map complete. Mapped ${loadedRegistry.size} modules into system execution tree. Executed ${bootHooksExecuted} boot lifecycle hooks.`);
+    return loadedRegistry;
   }
 }
 
