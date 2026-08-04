@@ -10,7 +10,7 @@ export default class OracleIntelligenceEngine {
         const payload = { riskScore, riskLevel, timestamp: Date.now() };
 
         if (this.bus) {
-            await this.bus.publish("oracle.risk.evaluated", payload);
+            await this.bus.publish("oracle.risk.evaluated", payload).catch(err => console.error('[EventBus Async Error]', err));
         }
 
         return payload;

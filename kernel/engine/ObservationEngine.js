@@ -9,7 +9,7 @@ export default class ObservationEngine {
         this.observations.push(obs);
 
         if (this.bus) {
-            await this.bus.publish("observation.recorded", obs);
+            await this.bus.publish("observation.recorded", obs).catch(err => console.error('[EventBus Async Error]', err));
         }
 
         return obs;

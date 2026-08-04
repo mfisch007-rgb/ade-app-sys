@@ -13,7 +13,7 @@ export default class KnowledgeEngine {
         this.graph.get(sourceId).push(link);
 
         if (this.bus) {
-            await this.bus.publish("knowledge.entity.linked", { entityId: sourceId, targetId, relationType });
+            await this.bus.publish("knowledge.entity.linked", { entityId: sourceId, targetId, relationType }).catch(err => console.error('[EventBus Async Error]', err));
         }
 
         return link;

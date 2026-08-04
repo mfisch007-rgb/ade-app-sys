@@ -165,7 +165,7 @@ export class MarketingAIStudio extends EventEmitter {
           reason: `Marketing Video Generation Failure (${provider}).catch(err => console.error('[EventBus Async Error]', err)).catch(err => console.error('[EventBus Async Error]', err))`,
           error: error.message,
           payload: formPayload
-        });
+        }).catch(err => console.error('[EventBus Async Error]', err));
       }
 
       return failurePayload;

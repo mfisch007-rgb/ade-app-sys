@@ -17,7 +17,7 @@ export default class DecisionEngine {
         this.decisionLog.push(payload);
 
         if (this.bus) {
-            await this.bus.publish("decision.evaluated", payload);
+            await this.bus.publish("decision.evaluated", payload).catch(err => console.error('[EventBus Async Error]', err));
         }
 
         return payload;

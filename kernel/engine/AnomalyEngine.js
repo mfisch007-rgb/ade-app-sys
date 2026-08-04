@@ -32,7 +32,7 @@ export default class AnomalyEngine {
             const record = { metricName, currentValue, zScore, timestamp: Date.now() };
             this.anomalyLog.push(record);
             if (this.bus) {
-                await this.bus.publish("anomaly.detected", record);
+                await this.bus.publish("anomaly.detected", record).catch(err => console.error('[EventBus Async Error]', err));
             }
             return { isAnomaly: true, zScore, record };
         }

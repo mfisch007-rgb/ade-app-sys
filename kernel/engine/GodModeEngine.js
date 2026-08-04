@@ -9,7 +9,7 @@ export default class GodModeEngine {
         const payload = { active: true, reason, timestamp: Date.now() };
 
         if (this.bus) {
-            await this.bus.publish("GODMODE_EVENT", payload);
+            await this.bus.publish("GODMODE_EVENT", payload).catch(err => console.error('[EventBus Async Error]', err));
         }
 
         return payload;

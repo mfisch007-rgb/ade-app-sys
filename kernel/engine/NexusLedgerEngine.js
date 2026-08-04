@@ -17,7 +17,7 @@ export default class NexusLedgerEngine {
         this.entries.push(entry);
 
         if (this.bus) {
-            await this.bus.publish("ledger.transaction.recorded", entry);
+            await this.bus.publish("ledger.transaction.recorded", entry).catch(err => console.error('[EventBus Async Error]', err));
         }
 
         return entry;

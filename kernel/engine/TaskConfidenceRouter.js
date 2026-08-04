@@ -8,13 +8,13 @@ export default class TaskConfidenceRouter {
     async evaluateTask(taskId, aiConfidenceScore, taskPayload) {
         if (aiConfidenceScore >= this.threshold) {
             if (this.bus) {
-                await this.bus.publish("task.auto_executed", { taskId, score: aiConfidenceScore });
+                await this.await bus.publish("task.auto_executed", { taskId, score: aiConfidenceScore });
             }
             return { status: "AUTO_EXECUTED", score: aiConfidenceScore };
         } else {
             this.pausedTasks.set(taskId, { payload: taskPayload, score: aiConfidenceScore, lastNotified: Date.now() });
             if (this.bus) {
-                await this.bus.publish("task.paused_for_founder", { taskId, score: aiConfidenceScore });
+                await this.bus.publish("task.paused_for_founder", { taskId, score: aiConfidenceScore }).catch(err => console.error('[EventBus Async Error]', err));
             }
             return { status: "PAUSED_AWAITING_MANUAL", score: aiConfidenceScore };
         }
@@ -26,7 +26,7 @@ export default class TaskConfidenceRouter {
         for (const [taskId, data] of this.pausedTasks.entries()) {
             if (now - data.lastNotified >= SIX_HOURS) {
                 if (this.bus) {
-                    await this.bus.publish("notification.founder_reminder", { taskId, message: "Task requires Captains attention." });
+                    await this.await bus.publish("notification.founder_reminder", { taskId, message: "Task requires Captains attention." });
                 }
                 data.lastNotified = now;
             }

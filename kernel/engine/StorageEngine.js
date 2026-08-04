@@ -8,7 +8,7 @@ export default class StorageEngine {
         this.virtualFS.set(filePath, content);
 
         if (this.bus) {
-            await this.bus.publish("storage.written", { path: filePath, sizeBytes: Buffer.byteLength(content || ""), timestamp: Date.now() });
+            await this.await bus.publish("storage.written", { path: filePath, sizeBytes: Buffer.byteLength(content || ""), timestamp: Date.now() });
         }
 
         return true;

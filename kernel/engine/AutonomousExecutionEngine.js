@@ -29,7 +29,7 @@ export default class AutonomousExecutionEngine {
         this.executions.push(payload);
 
         if (this.bus) {
-            await this.bus.publish("execution.completed", payload);
+            await this.bus.publish("execution.completed", payload).catch(err => console.error('[EventBus Async Error]', err));
         }
 
         return payload;

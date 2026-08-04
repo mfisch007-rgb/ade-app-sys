@@ -9,7 +9,7 @@ export default class OfflineQueueEngine {
         this.queue.push(item);
 
         if (this.bus) {
-            await this.bus.publish("queue.enqueued", item);
+            await this.bus.publish("queue.enqueued", item).catch(err => console.error('[EventBus Async Error]', err));
         }
 
         return item;
@@ -21,7 +21,7 @@ export default class OfflineQueueEngine {
         this.queue = [];
 
         if (this.bus) {
-            await this.bus.publish("queue.flushed", { count, timestamp: Date.now() });
+            await this.await bus.publish("queue.flushed", { count, timestamp: Date.now() });
         }
 
         return flushedItems;

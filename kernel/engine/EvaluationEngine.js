@@ -13,7 +13,7 @@ export default class EvaluationEngine {
         };
 
         if (this.bus) {
-            await this.bus.publish("evaluation.completed", payload);
+            await this.bus.publish("evaluation.completed", payload).catch(err => console.error('[EventBus Async Error]', err));
         }
 
         return payload;

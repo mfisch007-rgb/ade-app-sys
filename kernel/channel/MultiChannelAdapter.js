@@ -28,7 +28,7 @@ export default class MultiChannelAdapter {
 
         this.processedMessages++;
         if (this.bus) {
-            await this.bus.publish("channel.message.received", normalized);
+            await this.bus.publish("channel.message.received", normalized).catch(err => console.error('[EventBus Async Error]', err));
         }
         return normalized;
     }

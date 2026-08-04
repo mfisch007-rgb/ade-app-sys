@@ -9,7 +9,7 @@ export default class LearningEngine {
         this.episodes.push(record);
 
         if (this.bus) {
-            await this.bus.publish("learning.recorded", record);
+            await this.bus.publish("learning.recorded", record).catch(err => console.error('[EventBus Async Error]', err));
         }
 
         return record;

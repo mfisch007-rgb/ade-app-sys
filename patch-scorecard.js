@@ -7,7 +7,7 @@ console.log('[REMEDIATION] Resolving audit findings...');
 const orchestratorPath = path.join('kernel', 'engine', 'EnterpriseOrchestrator.js');
 if (fs.existsSync(orchestratorPath)) {
     let code = fs.readFileSync(orchestratorPath, 'utf8');
-    code = code.replace(/this\.bus\.publish\(/g, 'await this.bus.publish(');
+    code = code.replace(/this\.bus\.publish\(/g, 'await this.bus.publish(').catch(err => console.error('[EventBus Async Error]', err));
     fs.writeFileSync(orchestratorPath, code);
     console.log(' -> Fixed un-awaited bus publishes in EnterpriseOrchestrator.js');
 }

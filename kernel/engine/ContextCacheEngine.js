@@ -9,7 +9,7 @@ export default class ContextCacheEngine {
         this.cache.set(key, record);
         
         if (this.bus) {
-            await this.bus.publish("cache.created", { key, ttlMs, timestamp: Date.now() });
+            await this.bus.publish("cache.created", { key, ttlMs, timestamp: Date.now() }).catch(err => console.error('[EventBus Async Error]', err));
         }
     }
 
@@ -23,7 +23,7 @@ export default class ContextCacheEngine {
         }
 
         if (this.bus) {
-            await this.bus.publish("cache.hit", { key, timestamp: Date.now() });
+            await this.bus.publish("cache.hit", { key, timestamp: Date.now() }).catch(err => console.error('[EventBus Async Error]', err));
         }
 
         return record.value;

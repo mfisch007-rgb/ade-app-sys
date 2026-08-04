@@ -22,7 +22,7 @@ export default class ADERuntime {
         }
         this.status = "RUNNING";
         if (this.bus) {
-            await this.bus.publish("system.runtime.booted", { status: this.status });
+            await this.bus.publish("system.runtime.booted", { status: this.status }).catch(err => console.error('[EventBus Async Error]', err));
         }
         return true;
     }
@@ -33,7 +33,7 @@ export default class ADERuntime {
         }
         this.status = "STOPPED";
         if (this.bus) {
-            await this.bus.publish("system.runtime.shutdown", { status: this.status });
+            await this.bus.publish("system.runtime.shutdown", { status: this.status }).catch(err => console.error('[EventBus Async Error]', err));
         }
         return true;
     }

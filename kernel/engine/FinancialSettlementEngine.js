@@ -17,7 +17,7 @@ export default class FinancialSettlementEngine {
         this.ledger.push(payload);
 
         if (this.bus) {
-            await this.bus.publish("settlement.processed", payload);
+            await this.bus.publish("settlement.processed", payload).catch(err => console.error('[EventBus Async Error]', err));
         }
 
         return payload;
