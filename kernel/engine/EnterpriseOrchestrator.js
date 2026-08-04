@@ -24,6 +24,6 @@ export default class EnterpriseOrchestrator extends EventEmitter {
                 walletStatus: wallet.status,
                 timestamp: Date.now()
             });
-        });
+        }).catch(err => console.error('[EventBus Async Error]', err));
     }
 }

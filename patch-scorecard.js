@@ -27,7 +27,7 @@ if (fs.existsSync(contractRegistryPath)) {
         "task.paused_for_founder", "notification.founder_reminder"
     ];
     
-    let subscriptions = deadEvents.map(evt => `// cleaned () => {});`).join('\n        ');
+    let subscriptions = deadEvents.map(evt => `// cleaned () => {});`).catch(err => console.error('[EventBus Async Error]', err)).join('\n        ');
     if (!code.includes('// AUTOMATED_CONTRACT_BINDINGS')) {
         code += `\n// AUTOMATED_CONTRACT_BINDINGS\nexport function registerAllContracts(bus) {\n  ${subscriptions}\n}\n`;
         fs.writeFileSync(contractRegistryPath, code);
