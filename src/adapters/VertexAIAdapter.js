@@ -2,7 +2,6 @@ import { VertexAI } from '@google-cloud/vertexai';
 
 /**
  * Enterprise Vertex AI Adapter for ADE Kernel
- * Connects ADE EventBus/DecisionEngine directly to Google Cloud Vertex AI & Gemini models.
  */
 export class VertexAIAdapter {
   constructor(options = {}) {
@@ -18,9 +17,6 @@ export class VertexAIAdapter {
     }
   }
 
-  /**
-   * Binds adapter to ADE EventBus topic subscriptions
-   */
   bindEventBus(eventBus) {
     this.eventBus = eventBus;
     if (this.eventBus && typeof this.eventBus.on === 'function') {
@@ -30,9 +26,6 @@ export class VertexAIAdapter {
     }
   }
 
-  /**
-   * Executes inference via Vertex AI Gemini and emits standard ADE response event
-   */
   async handleInferenceRequest(payload = {}) {
     const { prompt, correlationId, systemInstruction } = payload;
     
@@ -43,10 +36,7 @@ export class VertexAIAdapter {
     }
 
     try {
-      const req = {
-        contents: [{ role: 'user', parts: [{ text: prompt }] }],
-      };
-
+      const req = { contents: [{ role: 'user', parts: [{ text: prompt }] }] };
       if (systemInstruction) {
         req.systemInstruction = { parts: [{ text: systemInstruction }] };
       }

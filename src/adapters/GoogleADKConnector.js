@@ -1,6 +1,5 @@
 /**
  * Enterprise Standing Adapter for Google Agent Development Kit (ADK)
- * Allows ADE Kernel and autonomous agents to manage or invoke external ADK agent runtimes.
  */
 export class GoogleADKConnector {
   constructor(options = {}) {
@@ -11,9 +10,6 @@ export class GoogleADKConnector {
     this.activeSessions = new Map();
   }
 
-  /**
-   * Binds ADK execution topics to ADE EventBus
-   */
   bindEventBus(eventBus) {
     this.eventBus = eventBus;
     if (this.eventBus && typeof this.eventBus.on === 'function') {
@@ -26,9 +22,6 @@ export class GoogleADKConnector {
     }
   }
 
-  /**
-   * Dispatches a goal/task to a target Google ADK Agent instance
-   */
   async dispatchToADKAgent(payload = {}) {
     const { agentId, task, sessionParameters, correlationId } = payload;
 
@@ -74,13 +67,9 @@ export class GoogleADKConnector {
     }
   }
 
-  /**
-   * Converts ADE Event payload into a structured ADK custom tool execution
-   */
   async executeADKTool(payload = {}) {
     const { toolName, parameters, correlationId } = payload;
     
-    // Executes ADK custom tool protocol payload
     const adkToolResponse = {
       toolName,
       executedBy: 'ADE-Kernel-ADK-Connector',

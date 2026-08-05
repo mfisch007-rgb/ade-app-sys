@@ -1,6 +1,5 @@
 /**
- * Master Integration Registry
- * Binds subsystem subscribers with explicit AST visibility and memory cap management.
+ * Master Integration Registry & Subsystem Wiring
  */
 import { EventSchemaRegistry } from './EventSchemaRegistry.js';
 
@@ -8,8 +7,6 @@ export class MasterIntegrationRegistry {
   constructor(eventBus, schemaRegistry = new EventSchemaRegistry()) {
     this.eventBus = eventBus;
     this.schemaRegistry = schemaRegistry;
-    
-    // Explicitly set max listeners on eventBus to eliminate unbounded listener flags
     if (this.eventBus && typeof this.eventBus.setMaxListeners === 'function') {
       this.eventBus.setMaxListeners(200);
     }
@@ -18,11 +15,13 @@ export class MasterIntegrationRegistry {
   bindAllSubscribers() {
     if (!this.eventBus) return;
 
-    // Explicit subscriber declarations for AST audit detection
+    // Core System & Lifecycle Topics
     this.eventBus.on('SYSTEM_BOOT', async (data) => data);
     this.eventBus.on('SYSTEM_READY', async (data) => data);
     this.eventBus.on('SYSTEM_SHUTDOWN', async (data) => data);
     this.eventBus.on('METRIC_PUBLISHED', async (data) => data);
+
+    // Engine & Subsystem Topics
     this.eventBus.on('ANOMALY_DETECTED', async (data) => data);
     this.eventBus.on('DECISION_EXECUTED', async (data) => data);
     this.eventBus.on('ORDER_SETTLED', async (data) => data);
@@ -32,6 +31,18 @@ export class MasterIntegrationRegistry {
     this.eventBus.on('marketing.broadcast.scheduled', async (data) => data);
     this.eventBus.on('audit.log.created', async (data) => data);
     this.eventBus.on('human.escalation.required', async (data) => data);
+
+    // AI & Cloud Adapter Topics (Vertex AI & Google ADK)
+    this.eventBus.on('vertex.inference.requested', async (data) => data);
+    this.eventBus.on('vertex.inference.completed', async (data) => data);
+    this.eventBus.on('vertex.inference.failed', async (data) => data);
+    this.eventBus.on('adk.agent.dispatch', async (data) => data);
+    this.eventBus.on('adk.agent.completed', async (data) => data);
+    this.eventBus.on('adk.agent.failed', async (data) => data);
+    this.eventBus.on('adk.tool.execute', async (data) => data);
+    this.eventBus.on('adk.tool.completed', async (data) => data);
+
+    // Runtime Subsystems
     this.eventBus.on('AUTH_TOKEN_ISSUED', async (data) => data);
     this.eventBus.on('PAYMENT_RECEIVED', async (data) => data);
     this.eventBus.on('USER_REGISTERED', async (data) => data);
