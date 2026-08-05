@@ -44,11 +44,9 @@ export class KernelLoader {
   walkDir(dir, fileList = []) {
     if (!fs.existsSync(dir)) return fileList;
     const files = fs.readdirSync(dir);
-
     for (const file of files) {
       const fullPath = path.join(dir, file);
       const stat = fs.statSync(fullPath);
-
       if (stat.isDirectory()) {
         if (file !== 'node_modules' && file !== '.git' && file !== 'dist' && file !== 'coverage') {
           this.walkDir(fullPath, fileList);
@@ -68,11 +66,9 @@ export class KernelLoader {
       path.resolve(rootDir, 'src'),
       path.resolve(rootDir, 'kernel')
     ];
-
     for (const dir of searchDirs) {
       if (!fs.existsSync(dir)) continue;
       const files = this.walkDir(dir);
-
       for (const filePath of files) {
         const relPath = path.relative(rootDir, filePath).replace(/\\/g, '/');
         try {

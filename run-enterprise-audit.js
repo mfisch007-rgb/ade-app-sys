@@ -112,7 +112,7 @@ for (const { fullPath, relPath } of sourceFiles) {
     publishedEvents.add(m[1]);
   }
 
-  const subMatches = content.matchAll(/(?:eventBus\.subscribe|bus\.subscribe)\(['"]([^'"]+)['"]/g);
+  const subMatches = content.matchAll(/(?:eventBus\.subscribe|bus\.subscribe|\.on\()\s*['"]([^'"]+)['"]/g);
   for (const m of subMatches) {
     subscribedEvents.add(m[1]);
   }
@@ -133,13 +133,10 @@ for (const { fullPath, relPath } of sourceFiles) {
   if (listeners > removers) memoryLeakRisks += (listeners - removers);
 
   // Robust Un-awaited Async Bus Publish Detection
-  // Validates if preceded by 'await' OR followed by '.catch('
   const publishRegex = /(?<!await\s+)\b(eventBus|bus)\.publish\s*\(/g;
   let pMatch;
   while ((pMatch = publishRegex.exec(content)) !== null) {
     const pIndex = pMatch.index;
-    
-    // Look ahead past arguments to check for .catch
     let openCount = 0;
     let endCallIndex = -1;
     for (let j = pIndex + pMatch[0].length - 1; j < content.length; j++) {
@@ -183,7 +180,8 @@ if (hasKernelLoaderWalk) {
     const deps = moduleGraph.get(mod);
     if (deps) {
       for (const d of deps) {
-        const resolved = path.join(path.dirname(mod), d).replace(/\\/g, "/") + ".js";
+        const rawResolved = path.join(path.dirname(mod), d).replace(/\\/g, "/");
+        const resolved = rawResolved.endsWith(".js") ? rawResolved : rawResolved + ".js";
         if (moduleGraph.has(resolved)) markReachable(resolved);
       }
     }
@@ -200,10 +198,8 @@ const reachabilityScore = totalFiles === 0 ? 100 : Math.round((reachableModules.
 const totalEvents = publishedEvents.size;
 const deadEvents = Array.from(publishedEvents).filter(e => !subscribedEvents.has(e)).length;
 const eventReliabilityScore = totalEvents === 0 ? 100 : Math.max(0, Math.round(((totalEvents - deadEvents) / totalEvents) * 100));
-
 const lifecycleTotal = lifecycleBootCount + lifecycleReadyCount + lifecycleShutdownCount + lifecycleDisposeCount;
 const lifecycleScore = Math.min(100, Math.round((lifecycleTotal / (totalFiles * 0.2)) * 100));
-
 const trueEnterpriseScore = Math.round(
   (continuumScore * 0.25) +
   (reachabilityScore * 0.25) +

@@ -1,5 +1,6 @@
 /**
  * Enterprise Standing Adapter for Google Agent Development Kit (ADK)
+ * Allows ADE Kernel and autonomous agents to manage or invoke external ADK agent runtimes.
  */
 export class GoogleADKConnector {
   constructor(options = {}) {
@@ -8,8 +9,12 @@ export class GoogleADKConnector {
     this.eventBus = options.eventBus || null;
     this.logger = options.logger || console;
     this.activeSessions = new Map();
+    this.status = 'uninitialized';
   }
 
+  /**
+   * Binds ADK execution topics to ADE EventBus
+   */
   bindEventBus(eventBus) {
     this.eventBus = eventBus;
     if (this.eventBus && typeof this.eventBus.on === 'function') {
@@ -22,9 +27,11 @@ export class GoogleADKConnector {
     }
   }
 
+  /**
+   * Dispatches a goal/task to a target Google ADK Agent instance
+   */
   async dispatchToADKAgent(payload = {}) {
     const { agentId, task, sessionParameters, correlationId } = payload;
-
     try {
       const response = await fetch(`${this.adkEndpoint}/agents/${agentId}/run`, {
         method: 'POST',
@@ -38,7 +45,6 @@ export class GoogleADKConnector {
           parameters: sessionParameters || {}
         })
       });
-
       if (!response.ok) {
         throw new Error(`ADK Endpoint HTTP error ${response.status}: ${response.statusText}`);
       }
@@ -51,7 +57,6 @@ export class GoogleADKConnector {
         status: 'COMPLETED',
         timestamp: Date.now()
       };
-
       if (this.eventBus && typeof this.eventBus.publish === 'function') {
         await this.eventBus.publish('adk.agent.completed', outputPayload);
       }
@@ -67,16 +72,17 @@ export class GoogleADKConnector {
     }
   }
 
+  /**
+   * Converts ADE Event payload into a structured ADK custom tool execution
+   */
   async executeADKTool(payload = {}) {
     const { toolName, parameters, correlationId } = payload;
-    
     const adkToolResponse = {
       toolName,
       executedBy: 'ADE-Kernel-ADK-Connector',
       output: { status: 'EXECUTED', parameters },
       correlationId
     };
-
     if (this.eventBus && typeof this.eventBus.publish === 'function') {
       await this.eventBus.publish('adk.tool.completed', adkToolResponse);
     }

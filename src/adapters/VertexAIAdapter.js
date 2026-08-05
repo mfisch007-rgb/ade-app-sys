@@ -2,6 +2,7 @@ import { VertexAI } from '@google-cloud/vertexai';
 
 /**
  * Enterprise Vertex AI Adapter for ADE Kernel
+ * Connects ADE EventBus/DecisionEngine directly to Google Cloud Vertex AI & Gemini models.
  */
 export class VertexAIAdapter {
   constructor(options = {}) {
@@ -10,6 +11,7 @@ export class VertexAIAdapter {
     this.modelName = options.modelName || 'gemini-1.5-pro';
     this.eventBus = options.eventBus || null;
     this.logger = options.logger || console;
+    this.status = 'uninitialized';
 
     if (this.projectId) {
       this.vertexAI = new VertexAI({ project: this.projectId, location: this.location });
@@ -17,6 +19,9 @@ export class VertexAIAdapter {
     }
   }
 
+  /**
+   * Binds adapter to ADE EventBus topic subscriptions
+   */
   bindEventBus(eventBus) {
     this.eventBus = eventBus;
     if (this.eventBus && typeof this.eventBus.on === 'function') {
@@ -26,9 +31,11 @@ export class VertexAIAdapter {
     }
   }
 
+  /**
+   * Executes inference via Vertex AI Gemini and emits standard ADE response event
+   */
   async handleInferenceRequest(payload = {}) {
     const { prompt, correlationId, systemInstruction } = payload;
-    
     if (!this.generativeModel) {
       const err = new Error('VertexAIAdapter not configured with GCP_PROJECT_ID');
       this.logger.error('[VertexAIAdapter]', err);
@@ -44,14 +51,12 @@ export class VertexAIAdapter {
       const resp = await this.generativeModel.generateContent(req);
       const contentResponse = await resp.response;
       const textResult = contentResponse.candidates[0].content.parts[0].text;
-
       const resultPayload = {
         correlationId,
         text: textResult,
         status: 'SUCCESS',
         timestamp: Date.now()
       };
-
       if (this.eventBus && typeof this.eventBus.publish === 'function') {
         await this.eventBus.publish('vertex.inference.completed', resultPayload);
       }
