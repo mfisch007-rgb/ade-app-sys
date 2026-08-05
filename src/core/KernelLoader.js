@@ -1,123 +1,118 @@
-import fs from 'fs';
-import path from 'path';
-import { pathToFileURL } from 'url';
+import { DIContainer } from './DIContainer.js';
 
-// Static AST import declarations for core dependencies & standing adapters
-import { EventBus } from './EventBus.js';
-import { EventSchemaRegistry } from './EventSchemaRegistry.js';
-import { MasterIntegrationRegistry } from './MasterIntegrationRegistry.js';
-import { VertexAIAdapter } from '../adapters/VertexAIAdapter.js';
-import { GoogleADKConnector } from '../adapters/GoogleADKConnector.js';
-
-/**
- * Enterprise KernelLoader Module
- * Dynamically resolves, builds, and mounts all application subsystems into the DI Container,
- * including cloud AI standing adapters (Vertex AI & Google ADK).
- */
 export class KernelLoader {
-  constructor(container = null, logger = console, eventBus = null) {
-    this.container = container;
+  constructor({ logger = console, observatory = null } = {}) {
     this.logger = logger;
-    this.status = 'uninitialized';
-    this.registeredModules = new Map();
-
-    // Initialize Event Architecture
-    this.eventBus = eventBus || new EventBus();
-    this.schemaRegistry = new EventSchemaRegistry();
-    this.masterRegistry = new MasterIntegrationRegistry(this.eventBus, this.schemaRegistry);
-
-    // Initialize Cloud Adapters
-    this.vertexAIAdapter = new VertexAIAdapter({ eventBus: this.eventBus, logger: this.logger });
-    this.googleADKConnector = new GoogleADKConnector({ eventBus: this.eventBus, logger: this.logger });
-
-    // Bind event subscribers across all 54 layers and adapters
-    if (typeof this.masterRegistry.bindAllSubscribers === 'function') {
-      this.masterRegistry.bindAllSubscribers();
-    }
-    this.vertexAIAdapter.bindEventBus(this.eventBus);
-    this.googleADKConnector.bindEventBus(this.eventBus);
+    this.observatory = observatory;
+    this.container = new DIContainer();
+    this.modules = new Map();
+    this.bootOrder = [];
+    this.isBooted = false;
   }
 
-  /**
-   * Recursively walks system directories to locate engine modules.
-   */
-  walkDir(dir, fileList = []) {
-    if (!fs.existsSync(dir)) return fileList;
-    const files = fs.readdirSync(dir);
-    for (const file of files) {
-      const fullPath = path.join(dir, file);
-      const stat = fs.statSync(fullPath);
-      if (stat.isDirectory()) {
-        if (file !== 'node_modules' && file !== '.git' && file !== 'dist' && file !== 'coverage') {
-          this.walkDir(fullPath, fileList);
-        }
-      } else if (/\.(js|mjs)$/i.test(file)) {
-        fileList.push(fullPath);
+  registerModule(id, ModuleClass, dependencies = [], profileScope = ['default']) {
+    this.container.registerFactory(id, (c) => {
+      const injectedDeps = { id };
+      for (const depKey of dependencies) {
+        injectedDeps[depKey] = c.resolve(depKey);
+      }
+      return new ModuleClass(injectedDeps);
+    }, profileScope);
+
+    this.modules.set(id, { ModuleClass, dependencies, profileScope });
+  }
+
+  async bootProfile(activeProfile = 'default') {
+    this.logger.info(`[KernelLoader] Initializing runtime kernel profile: [${activeProfile}]`);
+
+    // 1. Resolve active DAG nodes for the profile
+    const activeModuleIds = Array.from(this.modules.entries())
+      .filter(([_, meta]) => meta.profileScope.includes('*') || meta.profileScope.includes(activeProfile))
+      .map(([id]) => id);
+
+    // 2. Resolve Topological Sort (Boot DAG)
+    this.bootOrder = this._topologicalSort(activeModuleIds);
+    this.logger.info(`[KernelLoader] Resolved Boot DAG Order: ${this.bootOrder.join(' -> ')}`);
+
+    // 3. Sequential Deterministic Boot
+    for (const moduleId of this.bootOrder) {
+      const instance = this.container.resolve(moduleId);
+      
+      if (this.observatory) {
+        this.observatory.recordLifecycleTransition(moduleId, 'BOOTING');
+      }
+
+      await instance.boot();
+      
+      if (this.observatory) {
+        this.observatory.recordLifecycleTransition(moduleId, 'READY');
       }
     }
-    return fileList;
-  }
 
-  /**
-   * Resolves and registers all subsystem modules dynamically into the container.
-   */
-  async initializeAllModules(rootDir = process.cwd()) {
-    const searchDirs = [
-      path.resolve(rootDir, 'src'),
-      path.resolve(rootDir, 'kernel')
-    ];
-    for (const dir of searchDirs) {
-      if (!fs.existsSync(dir)) continue;
-      const files = this.walkDir(dir);
-      for (const filePath of files) {
-        const relPath = path.relative(rootDir, filePath).replace(/\\/g, '/');
-        try {
-          const fileUrl = pathToFileURL(path.resolve(filePath)).href;
-          const moduleExports = await import(fileUrl);
-          const ClassRef = moduleExports.default || Object.values(moduleExports)[0];
-
-          if (typeof ClassRef === 'function') {
-            const instanceName = path.basename(filePath, path.extname(filePath));
-            if (this.container && typeof this.container.register === 'function') {
-              this.container.register(instanceName, ClassRef);
-            }
-            this.registeredModules.set(relPath, ClassRef);
-          }
-        } catch (err) {
-          if (this.logger && typeof this.logger.warn === 'function') {
-            this.logger.warn(`[KernelLoader] Could not dynamic import ${relPath}: ${err.message}`);
-          }
-        }
-      }
+    // 4. Mark all as ready
+    for (const moduleId of this.bootOrder) {
+      const instance = this.container.resolve(moduleId);
+      await instance.ready();
     }
-    return this.registeredModules;
-  }
 
-  async boot() {
-    await this.initializeAllModules();
-    await this.vertexAIAdapter.boot();
-    await this.googleADKConnector.boot();
-    this.status = 'booted';
-  }
-
-  async ready() {
-    await this.vertexAIAdapter.ready();
-    await this.googleADKConnector.ready();
-    this.status = 'ready';
+    this.isBooted = true;
+    this.logger.info(`[KernelLoader] Core Kernel boot sequence completed successfully.`);
   }
 
   async shutdown() {
-    await this.vertexAIAdapter.shutdown();
-    await this.googleADKConnector.shutdown();
-    this.status = 'shutdown';
+    this.logger.info(`[KernelLoader] Initiating reverse-DAG graceful kernel shutdown...`);
+    
+    // Shutdown in reverse order of boot dependencies
+    const shutdownOrder = [...this.bootOrder].reverse();
+
+    for (const moduleId of shutdownOrder) {
+      try {
+        const instance = this.container.resolve(moduleId);
+        if (this.observatory) {
+          this.observatory.recordLifecycleTransition(moduleId, 'SHUTTING_DOWN');
+        }
+        await instance.shutdown();
+        if (this.observatory) {
+          this.observatory.recordLifecycleTransition(moduleId, 'DISPOSED');
+        }
+      } catch (err) {
+        this.logger.error(`[KernelLoader] Error shutting down module ${moduleId}:`, err);
+      }
+    }
+
+    this.isBooted = false;
+    this.logger.info(`[KernelLoader] All platform runtime services gracefully stopped.`);
   }
 
-  async dispose() {
-    await this.vertexAIAdapter.dispose();
-    await this.googleADKConnector.dispose();
-    this.registeredModules.clear();
-    this.status = 'disposed';
+  _topologicalSort(activeIds) {
+    const visited = new Set();
+    const visiting = new Set();
+    const sorted = [];
+
+    const visit = (id) => {
+      if (visiting.has(id)) {
+        throw new Error(`[KernelLoader] Circular dependency detected in Boot DAG at module: ${id}`);
+      }
+      if (!visited.has(id)) {
+        visiting.add(id);
+        const meta = this.modules.get(id);
+        if (meta) {
+          for (const dep of meta.dependencies) {
+            if (activeIds.includes(dep)) {
+              visit(dep);
+            }
+          }
+        }
+        visiting.delete(id);
+        visited.add(id);
+        sorted.push(id);
+      }
+    };
+
+    for (const id of activeIds) {
+      visit(id);
+    }
+
+    return sorted;
   }
 }
-
-export default KernelLoader;

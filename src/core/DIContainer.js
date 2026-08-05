@@ -1,40 +1,67 @@
-/**
- * Enterprise Dependency Injection Container (Tier 1)
- * Manages service lifetime graphs, singletons, and dynamic scope injection.
- */
+// src/core/DIContainer.js
+
 export class DIContainer {
   constructor() {
-    this.services = new Map();
-    this.singletons = new Map();
+    this.factories = new Map();
+    this.instances = new Map();
   }
 
-  registerService(name, definition, dependencies = []) {
-    this.services.set(name, { definition, dependencies, singleton: false });
+  /**
+   * Register a raw value / instantiated service directly into the container.
+   */
+  registerValue(key, value) {
+    if (!key) throw new Error('[DIContainer] Dependency key is required.');
+    this.instances.set(key, value);
+    return this;
   }
 
-  registerSingleton(name, instance) {
-    this.singletons.set(name, instance);
+  /**
+   * Register a factory function that resolves dependencies dynamically.
+   */
+  registerFactory(key, factoryFn, scope = ['default']) {
+    if (!key) throw new Error('[DIContainer] Dependency key is required.');
+    if (typeof factoryFn !== 'function') {
+      throw new Error(`[DIContainer] Factory for '${key}' must be a function.`);
+    }
+    this.factories.set(key, { factoryFn, scope });
+    return this;
   }
 
-  resolve(name) {
-    if (this.singletons.has(name)) {
-      return this.singletons.get(name);
+  /**
+   * Generic registration method (handles values or factory functions).
+   */
+  register(key, val) {
+    if (typeof val === 'function') {
+      return this.registerFactory(key, val);
+    }
+    return this.registerValue(key, val);
+  }
+
+  /**
+   * Resolve a registered dependency by key.
+   */
+  resolve(key) {
+    if (this.instances.has(key)) {
+      return this.instances.get(key);
     }
 
-    const service = this.services.get(name);
-    if (!service) {
-      throw new Error(`[DIContainer] Service '${name}' not registered in dependency graph.`);
+    if (this.factories.has(key)) {
+      const { factoryFn } = this.factories.get(key);
+      const instance = factoryFn(this);
+      // Cache resolved instance
+      this.instances.set(key, instance);
+      return instance;
     }
 
-    const resolvedDeps = service.dependencies.map(dep => this.resolve(dep));
-    const instance = new service.definition(...resolvedDeps);
+    throw new Error(`[DIContainer] Unregistered dependency key: '${key}'`);
+  }
 
-    if (service.singleton) {
-      this.singletons.set(name, instance);
-    }
+  has(key) {
+    return this.instances.has(key) || this.factories.has(key);
+  }
 
-    return instance;
+  clear() {
+    this.instances.clear();
+    this.factories.clear();
   }
 }
-
-export default DIContainer;
