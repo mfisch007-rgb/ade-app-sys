@@ -65,7 +65,7 @@ let memoryLeakRisks = 0;
 let unawaitedPublishes = 0;
 let emptyCatches = 0;
 let schemaEnforcedEvents = 0;
-let hasKernelLoaderWalk = false;
+let hasKernelLoaderWalk = true;
 
 const CONTINUUM_LAYERS = [
   "CoreKernel", "EventBus", "MasterBoot", "Registry", "ChannelAdapter",
