@@ -2,15 +2,17 @@ import fs from 'fs';
 import path from 'path';
 import { pathToFileURL } from 'url';
 
-// Direct static AST references so static auditors can map topological reachability
+// Static AST import declarations for core dependencies & standing adapters
 import { EventBus } from './EventBus.js';
 import { EventSchemaRegistry } from './EventSchemaRegistry.js';
 import { MasterIntegrationRegistry } from './MasterIntegrationRegistry.js';
+import { VertexAIAdapter } from '../adapters/VertexAIAdapter.js';
+import { GoogleADKConnector } from '../adapters/GoogleADKConnector.js';
 
 /**
  * Enterprise KernelLoader Module
- * Dynamically resolves, builds, and mounts all application subsystems into the DI Container.
- * Formatted with top-level static bindings for AST static reachability analysis.
+ * Dynamically resolves, builds, and mounts all application subsystems into the DI Container,
+ * including cloud AI standing adapters (Vertex AI & Google ADK).
  */
 export class KernelLoader {
   constructor(container = null, logger = console, eventBus = null) {
@@ -19,17 +21,21 @@ export class KernelLoader {
     this.status = 'uninitialized';
     this.registeredModules = new Map();
 
-    // Instantiate core bus structures
+    // Initialize Event Architecture
     this.eventBus = eventBus || new EventBus();
     this.schemaRegistry = new EventSchemaRegistry();
     this.masterRegistry = new MasterIntegrationRegistry(this.eventBus, this.schemaRegistry);
 
-    // Bind event topics statically for AST detection across all layers
+    // Initialize Cloud Adapters
+    this.vertexAIAdapter = new VertexAIAdapter({ eventBus: this.eventBus, logger: this.logger });
+    this.googleADKConnector = new GoogleADKConnector({ eventBus: this.eventBus, logger: this.logger });
+
+    // Bind event subscribers across all 54 layers and adapters
     if (typeof this.masterRegistry.bindAllSubscribers === 'function') {
       this.masterRegistry.bindAllSubscribers();
-    } else if (typeof this.masterRegistry.registerAllSubscriptions === 'function') {
-      this.masterRegistry.registerAllSubscriptions();
     }
+    this.vertexAIAdapter.bindEventBus(this.eventBus);
+    this.googleADKConnector.bindEventBus(this.eventBus);
   }
 
   /**
@@ -55,7 +61,7 @@ export class KernelLoader {
   }
 
   /**
-   * Resolves and registers all subsystem modules into the container.
+   * Resolves and registers all subsystem modules dynamically into the container.
    */
   async initializeAllModules(rootDir = process.cwd()) {
     const searchDirs = [
@@ -83,7 +89,7 @@ export class KernelLoader {
           }
         } catch (err) {
           if (this.logger && typeof this.logger.warn === 'function') {
-            this.logger.warn(`[KernelLoader] Could not load module ${relPath}: ${err.message}`);
+            this.logger.warn(`[KernelLoader] Could not dynamic import ${relPath}: ${err.message}`);
           }
         }
       }
@@ -91,32 +97,28 @@ export class KernelLoader {
     return this.registeredModules;
   }
 
-  /**
-   * Lifecycle Hook: Boot sequence
-   */
   async boot() {
     await this.initializeAllModules();
+    await this.vertexAIAdapter.boot();
+    await this.googleADKConnector.boot();
     this.status = 'booted';
   }
 
-  /**
-   * Lifecycle Hook: System Ready state
-   */
   async ready() {
+    await this.vertexAIAdapter.ready();
+    await this.googleADKConnector.ready();
     this.status = 'ready';
   }
 
-  /**
-   * Lifecycle Hook: Graceful Shutdown
-   */
   async shutdown() {
+    await this.vertexAIAdapter.shutdown();
+    await this.googleADKConnector.shutdown();
     this.status = 'shutdown';
   }
 
-  /**
-   * Lifecycle Hook: Memory Cleanup & Resource Disposal
-   */
   async dispose() {
+    await this.vertexAIAdapter.dispose();
+    await this.googleADKConnector.dispose();
     this.registeredModules.clear();
     this.status = 'disposed';
   }

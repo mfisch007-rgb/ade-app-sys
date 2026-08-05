@@ -1,6 +1,5 @@
 /**
  * Enterprise Event Schema Registry
- * Explicit contract definition for static AST analysis and runtime safety.
  */
 export class EventSchemaRegistry {
   constructor() {
@@ -28,7 +27,6 @@ export class EventSchemaRegistry {
   }
 
   registerCoreContracts() {
-    // Top-level explicit contract definitions for AST analysis
     this.registerSchema('SYSTEM_BOOT', (p) => p !== null && p !== undefined);
     this.registerSchema('SYSTEM_READY', (p) => p !== null && p !== undefined);
     this.registerSchema('SYSTEM_SHUTDOWN', (p) => p !== null && p !== undefined);
