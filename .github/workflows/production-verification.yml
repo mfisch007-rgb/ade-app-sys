@@ -1,1 +1,27 @@
-name: ADE-APEX Enterprise Verification CI/CD`n`non:`n  push:`n    branches: [ "enterprise-modernization-v1", "main" ]`n  pull_request:`n    branches: [ "main" ]`n`njobs:`n  verify:`n    runs-on: ubuntu-latest`n    steps:`n      - uses: actions/checkout@v4`n`n      - name: Setup Node.js Runtime`n        uses: actions/setup-node@v4`n        with:`n          node-version: '24'`n`n      - name: Install Dependencies`n        run: npm ci || npm install`n`n      - name: Security Vulnerability Audit`n        run: npm audit --audit-level=high || true`n`n      - name: Execute Runtime Verification Engine`n        run: node run-runtime-verification.js
+name: ADE-APEX Enterprise Verification CI/CD
+
+on:
+  push:
+    branches: [ "enterprise-modernization-v1", "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js Runtime
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Install Dependencies
+        run: npm ci || npm install
+
+      - name: Security Vulnerability Audit
+        run: npm audit --audit-level=high || true
+
+      - name: Execute Runtime Verification Engine
+        run: node run-runtime-verification.js
