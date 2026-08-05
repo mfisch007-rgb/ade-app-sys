@@ -58,7 +58,7 @@ export class VertexAIAdapter {
         timestamp: Date.now()
       };
       if (this.eventBus && typeof this.eventBus.publish === 'function') {
-        await this.eventBus.publish('vertex.inference.completed', resultPayload);
+        await this.await eventBus.publish('vertex.inference.completed', resultPayload);
       }
 
       return resultPayload;
@@ -66,7 +66,7 @@ export class VertexAIAdapter {
       this.logger.error('[VertexAIAdapter] Inference failed:', error);
       const errorPayload = { correlationId, error: error.message, status: 'FAILED' };
       if (this.eventBus && typeof this.eventBus.publish === 'function') {
-        await this.eventBus.publish('vertex.inference.failed', errorPayload);
+        await this.await eventBus.publish('vertex.inference.failed', errorPayload);
       }
       throw error;
     }

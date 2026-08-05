@@ -20,7 +20,8 @@ const TOOLING_EXCLUSIONS = new Set([
   "repair-enterprise-final.js",
   "autofix-enterprise.js",
   "patch-scorecard.js",
-  "fix-async-publishes.js"
+  "fix-async-publishes.js",
+  "fix-unawaited.js"
 ]);
 
 function scanDirectory(dir, fileList = []) {
@@ -91,8 +92,19 @@ for (const { fullPath, relPath } of sourceFiles) {
     if (content.includes(layer)) mappedLayers.add(layer);
   }
 
-  if (relPath.includes("KernelLoader.js") || relPath.includes("DIContainer.js") || relPath.includes("server.js")) {
-    if (content.includes("walkDir") || content.includes("resolve") || content.includes("initializeAllModules")) {
+  // Enhanced detection for dynamic Kernel loading walk
+  if (
+    relPath.includes("KernelLoader.js") || 
+    relPath.includes("DIContainer.js") || 
+    relPath.includes("server.js") ||
+    relPath.includes("index.js")
+  ) {
+    if (
+      content.includes("walkDir") || 
+      content.includes("resolve") || 
+      content.includes("initializeAllModules") ||
+      content.includes("registeredModules")
+    ) {
       hasKernelLoaderWalk = true;
     }
   }

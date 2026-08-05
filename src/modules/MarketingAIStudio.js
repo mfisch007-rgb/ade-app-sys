@@ -140,8 +140,8 @@ export class MarketingAIStudio extends EventEmitter {
 
       // Emit Completed Event to System Event Bus & Audit Log
       if (this.eventBus) {
-        await this.eventBus.publish('marketing.video.generated', outputPayload).catch(err => console.error('[EventBus Async Error]', err)).catch(err => console.error('[EventBus Async Error]', err));
-        await this.eventBus.publish('audit.log.created', {
+        await this.await eventBus.publish('marketing.video.generated', outputPayload).catch(err => console.error('[EventBus Async Error]', err)).catch(err => console.error('[EventBus Async Error]', err));
+        await this.await eventBus.publish('audit.log.created', {
           action: 'MARKETING_VIDEO_GENERATED',
           subsystem: 'MarketingAIStudio',
           details: outputPayload
@@ -161,7 +161,7 @@ export class MarketingAIStudio extends EventEmitter {
       };
 
       if (this.eventBus) {
-        await this.eventBus.publish('human.escalation.required', {
+        await this.await eventBus.publish('human.escalation.required', {
           reason: `Marketing Video Generation Failure (${provider}).catch(err => console.error('[EventBus Async Error]', err)).catch(err => console.error('[EventBus Async Error]', err))`,
           error: error.message,
           payload: formPayload
@@ -283,7 +283,7 @@ export class MarketingAIStudio extends EventEmitter {
     };
 
     if (this.eventBus) {
-      await this.eventBus.publish('marketing.broadcast.scheduled', broadcastRecord).catch(err => console.error('[EventBus Async Error]', err)).catch(err => console.error('[EventBus Async Error]', err));
+      await this.await eventBus.publish('marketing.broadcast.scheduled', broadcastRecord).catch(err => console.error('[EventBus Async Error]', err)).catch(err => console.error('[EventBus Async Error]', err));
     }
 
     return broadcastRecord;

@@ -58,7 +58,7 @@ export class GoogleADKConnector {
         timestamp: Date.now()
       };
       if (this.eventBus && typeof this.eventBus.publish === 'function') {
-        await this.eventBus.publish('adk.agent.completed', outputPayload);
+        await this.await eventBus.publish('adk.agent.completed', outputPayload);
       }
 
       return outputPayload;
@@ -66,7 +66,7 @@ export class GoogleADKConnector {
       this.logger.error(`[GoogleADKConnector] Failed to dispatch task to agent '${agentId}':`, err);
       const errorPayload = { correlationId, agentId, error: err.message, status: 'FAILED' };
       if (this.eventBus && typeof this.eventBus.publish === 'function') {
-        await this.eventBus.publish('adk.agent.failed', errorPayload);
+        await this.await eventBus.publish('adk.agent.failed', errorPayload);
       }
       throw err;
     }
@@ -84,7 +84,7 @@ export class GoogleADKConnector {
       correlationId
     };
     if (this.eventBus && typeof this.eventBus.publish === 'function') {
-      await this.eventBus.publish('adk.tool.completed', adkToolResponse);
+      await this.await eventBus.publish('adk.tool.completed', adkToolResponse);
     }
 
     return adkToolResponse;
