@@ -29,7 +29,7 @@ export class WorkflowEngine extends BaseLifecycleModule {
         this.logger.warn(`[WorkflowEngine] Low decision confidence (${context.confidence} < ${this.confidenceThreshold}). Escalating to HumanEscalation.`);
         context.state = 'HUMAN_ESCALATION';
         
-        await this.eventBus.publish('human.escalation.triggered', {
+        await this.await eventBus.publish('human.escalation.triggered', {
           workflowId,
           reason: 'CONFIDENCE_BELOW_THRESHOLD',
           confidence: context.confidence,
@@ -53,14 +53,14 @@ export class WorkflowEngine extends BaseLifecycleModule {
       await this._step(context, 'storageEngine', { workflowId, evaluation, history: context.history });
 
       context.state = 'COMPLETED';
-      await this.eventBus.publish('workflow.completed', { workflowId, status: 'SUCCESS' });
+      await this.await eventBus.publish('workflow.completed', { workflowId, status: 'SUCCESS' });
       return { status: 'SUCCESS', context };
 
     } catch (error) {
       this.logger.error(`[WorkflowEngine] Pipeline failed at state '${context.state}'. Initiating rollbacks...`, error);
       await this._rollback(context);
       context.state = 'FAILED';
-      await this.eventBus.publish('workflow.failed', { workflowId, error: error.message, lastState: context.state });
+      await this.await eventBus.publish('workflow.failed', { workflowId, error: error.message, lastState: context.state });
       throw error;
     }
   }
