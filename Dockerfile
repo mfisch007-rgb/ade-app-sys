@@ -1,18 +1,20 @@
-# Multi-stage production build container
-FROM node:24-alpine AS base
+# Use official Node.js 20 ESM Runtime image
+FROM node:20-alpine
+
+# Set working directory
 WORKDIR /app
+
+# Copy package descriptors
 COPY package*.json ./
+
+# Install production dependencies
 RUN npm ci --only=production
 
-FROM node:24-alpine AS runner
-WORKDIR /app
-ENV NODE_ENV=production
-COPY --from=base /app/node_modules ./node_modules
+# Copy application source and configuration
 COPY . .
 
+# Expose API Gateway Port
 EXPOSE 3000
-HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
-  CMD node -e "require('http').get('http://localhost:3000/health', (r) => r.statusCode === 200 ? process.exit(0) : process.exit(1))"
 
-USER node
-CMD ["node", "run-runtime-verification.js"]
+# Default command launches the API Gateway
+CMD ["node", "src/gateway/api-server.js"]

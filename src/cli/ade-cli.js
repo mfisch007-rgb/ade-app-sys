@@ -12,6 +12,7 @@ import { runAdeProfile } from './commands/profile.js';
 import { runAdePlugins } from './commands/plugins.js';
 import { runAdeLogs } from './commands/logs.js';
 import { runAdeKernel } from './commands/kernel.js';
+import { runAdeServer } from './commands/server.js';
 
 const command = process.argv[2] || 'validate';
 
@@ -24,7 +25,8 @@ const commands = {
   profile: runAdeProfile,
   plugins: runAdePlugins,
   logs: runAdeLogs,
-  kernel: runAdeKernel
+  kernel: runAdeKernel,
+  server: runAdeServer
 };
 
 if (!commands[command]) {
