@@ -1,6 +1,1 @@
-* text=auto
-*.js text eol=lf
-*.json text eol=lf
-*.md text eol=lf
-*.yml text eol=lf
-Dockerfile text eol=lf
+* text=auto`n*.js text eol=lf`n*.json text eol=lf`n*.md text eol=lf`n*.html text eol=lf`n*.css text eol=lf
