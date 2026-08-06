@@ -3,5 +3,9 @@
     "id": "TX-999",
     "amount": 5000,
     "status": "VERIFIED"
+  },
+  "cli_health_check": {
+    "status": "healthy",
+    "timestamp": 1786015286657
   }
 }
