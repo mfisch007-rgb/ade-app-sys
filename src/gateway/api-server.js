@@ -9,6 +9,12 @@ let clients = [];
 
 async function init() {
   await kernel.boot();
+  if (kernel.subsystems.has('eventBus')) {
+    kernel.subsystems.get('eventBus').subscribe('*', (event) => {
+      const payload = JSON.stringify({ timestamp: new Date().toISOString(), type: 'EVENT_BUS_BROADCAST', event });
+      clients.forEach(c => c.write(`data: ${payload}\n\n`));
+    });
+  }
   const server = http.createServer((req, res) => {
     if (req.url === '/' || req.url === '/index.html') {
       const htmlPath = path.resolve('public/index.html');
@@ -30,12 +36,18 @@ async function init() {
       req.on('end', () => {
         try {
           const payload = JSON.parse(body || '{}');
-          const event = new KernelEvent({ source: 'COMMAND_CENTER', action: payload.action || 'EXECUTE_MISSION', payload });
+          const authHeader = req.headers['x-ade-auth'] || 'GUEST';
+          const event = new KernelEvent({
+            source: 'COMMAND_CENTER',
+            action: payload.action || 'EXECUTE_MISSION',
+            auth: authHeader,
+            payload
+          });
           if (kernel.subsystems.has('eventBus')) {
             kernel.subsystems.get('eventBus').publish('MISSION_DISPATCHED', event);
           }
           res.writeHead(200, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ status: 'SUCCESS', action: payload.action, timestamp: new Date().toISOString() }));
+          res.end(JSON.stringify({ status: 'ACCEPTED', traceId: event.id || 'TRACE-1001', action: payload.action, auth: authHeader, timestamp: new Date().toISOString() }));
         } catch (err) {
           res.writeHead(400, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ error: 'DISPATCH_FAILED', message: err.message }));
@@ -55,23 +67,6 @@ async function init() {
     res.writeHead(404, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ error: 'NOT_FOUND' }));
   });
-
-  setInterval(() => {
-    const eventData = JSON.stringify({
-      timestamp: new Date().toISOString(),
-      health: '100.0%',
-      subsystemsActive: kernel.subsystems.size,
-      pluginsActive: kernel.pluginRegistry ? kernel.pluginRegistry.plugins.size : 0,
-      telemetry: {
-        oracleState: Math.random() > 0.5 ? 'THINKING' : 'IDLE',
-        guardianState: 'MONITORING',
-        memoryGrowth: '+12 Concepts',
-        workflowExecution: 'SUB_MS_LATENCY'
-      }
-    });
-    clients.forEach(c => c.write(`data: ${eventData}\n\n`));
-  }, 2000);
-
   const PORT = process.env.PORT || 3000;
   server.listen(PORT, () => {
     console.log(`================================================================================`);
