@@ -1,0 +1,22 @@
+{
+  "checksum": "1081eee118e5873f959695fdfe13108c4617d97d650697aed36d5f154e9e2c9e",
+  "payload": {
+    "timestamp": 1786079005630,
+    "reason": "SHUTDOWN_AUTO_CHECKPOINT",
+    "version": "1.0.0",
+    "subsystems": [
+      "eventBus",
+      "logger",
+      "storage",
+      "memory",
+      "knowledge",
+      "decision",
+      "oracle",
+      "guardian",
+      "notification",
+      "ledger",
+      "workflowEngine"
+    ],
+    "activePlugins": []
+  }
+}
