@@ -1,37 +1,37 @@
-// src/server.js
-import express from 'express';
-import BootDAGSequence from './core/BootDAGSequence.js';
-import DIContainer from './core/DIContainer.js';
-import EventSchemaRegistry from './core/EventSchemaRegistry.js';
-import StateMachineGuard from './core/StateMachineGuard.js';
-import KernelLoader from './core/KernelLoader.js';
+import http from 'http';
+import { EnterpriseMasterOrchestrator } from './core/EnterpriseMasterOrchestrator.js';
 
-const app = express();
-const container = new DIContainer();
-const bootDAG = new BootDAGSequence();
-const schemaRegistry = new EventSchemaRegistry();
-const stateGuard = new StateMachineGuard();
+const PORT = process.env.PORT || 3000;
+const orchestrator = new EnterpriseMasterOrchestrator();
 
-async function startServer() {
-  stateGuard.transitionTo('BOOTING');
-
-  // Load and register all runtime modules into DI Container
-  const loader = new KernelLoader(container, schemaRegistry);
-  await loader.initializeAllModules();
-
-  // Execute deterministic DAG boot order
-  await bootDAG.executeBootSequence({ container, app });
-
-  stateGuard.transitionTo('READY');
-
-  const PORT = process.env.PORT || 3000;
-  app.listen(PORT, () => {
-    stateGuard.transitionTo('RUNNING');
-    console.log(`[ADE-APEX] Server listening on port ${PORT}`);
-  });
-}
-
-startServer().catch((err) => {
-  console.error('[ADE-APEX Boot Error]', err);
-  process.exit(1);
+const server = http.createServer(async (req, res) => {
+  res.setHeader('Content-Type', 'application/json');
+  if (req.url === '/health' && req.method === 'GET') {
+    res.writeHead(200);
+    return res.end(JSON.stringify({ status: 'HEALTHY', platform: 'ADE-APEX v1.0.0', uptime: process.uptime() }));
+  }
+  if (req.url === '/api/signal' && req.method === 'POST') {
+    let body = '';
+    req.on('data', chunk => { body += chunk.toString(); });
+    req.on('end', async () => {
+      try {
+        const payload = JSON.parse(body || '{}');
+        const result = await orchestrator.processIncomingWebhookSignal(payload);
+        res.writeHead(200);
+        res.end(JSON.stringify(result));
+      } catch (err) {
+        res.writeHead(400);
+        res.end(JSON.stringify({ error: err.message }));
+      }
+    });
+    return;
+  }
+  res.writeHead(404);
+  res.end(JSON.stringify({ error: 'Route not found' }));
 });
+
+orchestrator.bootEcosystem().then(() => {
+  server.listen(PORT, () => {
+    console.log(`🚀 ADE-APEX Community Edition Production Server running on port ${PORT}`);
+  });
+}).catch(err => console.error('[Server Boot Error]:', err));
