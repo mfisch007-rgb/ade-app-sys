@@ -1,3 +1,4 @@
+import { UniversalWebhookRouter } from '../plugins/UniversalWebhookRouter.js';
 import { ProcartaPlugin } from '../plugins/ProcartaPlugin.js';
 import { UniversalAggregatorPlugin } from '../plugins/UniversalAggregatorPlugin.js';
 import { LeadManagementPlugin } from '../plugins/LeadManagementPlugin.js';
@@ -38,6 +39,7 @@ export class EnterpriseKernelMaster extends EventEmitter {
     this.pluginRegistry.register(new ProcartaPlugin());
     this.pluginRegistry.register(new UniversalAggregatorPlugin());
     this.pluginRegistry.register(new LeadManagementPlugin());
+    this.pluginRegistry.register(new UniversalWebhookRouter());
     this.isBooted = false;
     this.metrics = {
       bootTimeMs: 0,
