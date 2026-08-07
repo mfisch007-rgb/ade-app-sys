@@ -1,3 +1,4 @@
+import { PluginRegistry } from './PluginRegistry.js';
 /**
  * ADE-APEX Enterprise Kernel Master Bootstrapper
  * Orchestrates multi-engine initialization, dependency injection, and health supervision.
@@ -30,6 +31,7 @@ export class EnterpriseKernelMaster extends EventEmitter {
     };
     this.container = new Map();
     this.subsystems = new Map();
+    this.pluginRegistry = new PluginRegistry(this);
     this.isBooted = false;
     this.metrics = {
       bootTimeMs: 0,
