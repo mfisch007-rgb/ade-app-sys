@@ -9,12 +9,18 @@ export class ProcartaPlugin extends BasePlugin {
 
   async boot(kernel) {
     await super.boot(kernel);
-    if (this.kernel && this.kernel.eventBus) {
-      this.kernel.eventBus.subscribe('PROCARTA_TRIGGER_WORKFLOW', (event) => {
-        this.handleWorkflowTrigger(event);
-      });
+    const eventBus = this.kernel.getBus ? this.kernel.getBus() : this.kernel.subsystems?.get('eventBus');
+    if (eventBus) {
+      const subscribeFn = eventBus.subscribe ? eventBus.subscribe.bind(eventBus) : eventBus.on ? eventBus.on.bind(eventBus) : null;
+      if (subscribeFn) {
+        subscribeFn('PROCARTA_TRIGGER_WORKFLOW', (event) => {
+          this.handleWorkflowTrigger(event);
+        });
+        console.log('[ProcartaPlugin] Registered workflow listeners on Kernel EventBus.');
+      }
+    } else {
+      console.warn('[ProcartaPlugin] EventBus subsystem not found on kernel.');
     }
-    console.log('[ProcartaPlugin] Registered workflow listeners on Kernel EventBus.');
   }
 
   handleWorkflowTrigger(event) {

@@ -21,7 +21,12 @@ async function run() {
     payload: { workflowId: 'WF-DOC-PARSE-001' }
   });
 
-  kernel.eventBus.publish('PROCARTA_TRIGGER_WORKFLOW', event);
+  const eventBus = kernel.getBus ? kernel.getBus() : kernel.subsystems.get('eventBus');
+  const publishFn = eventBus.publish ? eventBus.publish.bind(eventBus) : eventBus.emit ? eventBus.emit.bind(eventBus) : null;
+  
+  if (publishFn) {
+    await publishFn('PROCARTA_TRIGGER_WORKFLOW', event);
+  }
 
   await procarta.shutdown();
   await kernel.shutdown();
