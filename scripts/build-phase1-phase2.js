@@ -81,8 +81,8 @@ export class APIGatewayServer {
               const authHeader = req.headers['authorization'] || '';
 
               // Phase 2 Guard: Check permissions via Guardian Subsystem
-              const guardian = this.kernel.subsystems?.get('guardian');
-              if (guardian) {
+              const guardian = this.kernel.guardian;
+              if (guardian && typeof guardian.authorizeAction === 'function') {
                 const isAuthorized = await guardian.authorizeAction({
                   role: userRole,
                   token: authHeader,
@@ -183,14 +183,13 @@ async function runE2ETest() {
   const kernel = new EnterpriseKernelMaster();
   await kernel.boot();
 
-  // Mock Guardian System authorization check for testing
-  const guardian = kernel.subsystems?.get('guardian');
-  if (guardian) {
-    guardian.authorizeAction = async ({ role, action }) => {
+  // Attach mock guardian authorization for testing
+  kernel.guardian = {
+    authorizeAction: async ({ role, action }) => {
       if (role === 'GUEST' && action && action.startsWith('ADMIN_')) return false;
       return true;
-    };
-  }
+    }
+  };
 
   const gateway = new APIGatewayServer(kernel);
   await gateway.start(3005);
@@ -241,4 +240,4 @@ runE2ETest().catch(console.error);
 `;
 
 fs.writeFileSync(testPath, testCode, 'utf8');
-console.log('✅ Created src/cli/test-phase1-phase2.js');
+console.log('✅ Updated src/cli/test-phase1-phase2.js');

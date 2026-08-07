@@ -70,8 +70,8 @@ export class APIGatewayServer {
               const authHeader = req.headers['authorization'] || '';
 
               // Phase 2 Guard: Check permissions via Guardian Subsystem
-              const guardian = this.kernel.subsystems?.get('guardian');
-              if (guardian) {
+              const guardian = this.kernel.guardian;
+              if (guardian && typeof guardian.authorizeAction === 'function') {
                 const isAuthorized = await guardian.authorizeAction({
                   role: userRole,
                   token: authHeader,
