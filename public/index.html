@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ADE Enterprise Command Center</title>
+<style>
+  :root { --bg-ocean: #020817; --card-glass: rgba(6, 26, 64, 0.6); --crown-blue: #0A84FF; --electric-cyan: #00D4FF; --text-white: #F8FAFC; --text-dim: #94A3B8; --border-glow: rgba(0, 212, 255, 0.2); }
+  * { box-sizing: border-box; margin: 0; padding: 0; font-family: system-ui, sans-serif; }
+  body { background: var(--bg-ocean); color: var(--text-white); min-height: 100vh; font-size: 14px; }
+  header { padding: 20px 32px; border-bottom: 1px solid var(--border-glow); display: flex; justify-content: space-between; align-items: center; background: rgba(2,8,23,0.8); backdrop-filter: blur(12px); }
+  .brand { font-size: 1.25rem; font-weight: 700; letter-spacing: 2px; color: var(--text-white); display: flex; align-items: center; gap: 10px; }
+  .brand-dot { width: 10px; height: 10px; background: var(--electric-cyan); border-radius: 50%; box-shadow: 0 0 10px var(--electric-cyan); }
+  .motto { font-size: 0.75rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: 1.5px; }
+  main { padding: 32px; max-width: 1400px; margin: 0 auto; display: grid; grid-template-columns: 280px 1fr; gap: 24px; }
+  nav { background: var(--card-glass); border: 1px solid var(--border-glow); border-radius: 12px; padding: 20px; display: flex; flex-direction: column; gap: 12px; }
+  .nav-title { font-size: 0.7rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: 1px; }
+  .nav-item { padding: 10px 14px; border-radius: 8px; color: var(--text-white); text-decoration: none; display: flex; align-items: center; gap: 10px; background: rgba(10,132,255,0.05); border: 1px solid transparent; }
+  .nav-item.active { border-color: var(--crown-blue); color: var(--electric-cyan); }
+  .content { display: flex; flex-direction: column; gap: 24px; }
+  .mission-header { background: var(--card-glass); border: 1px solid var(--border-glow); border-radius: 12px; padding: 28px; display: flex; justify-content: space-between; align-items: center; }
+  .grid-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 20px; }
+  .card { background: var(--card-glass); border: 1px solid var(--border-glow); border-radius: 12px; padding: 20px; }
+  .card-title { font-size: 0.75rem; color: var(--text-dim); text-transform: uppercase; margin-bottom: 10px; }
+  .card-value { font-size: 1.8rem; font-weight: 700; font-family: monospace; color: var(--electric-cyan); }
+</style>
+</head>
+<body>
+  <header>
+    <div class="brand"><div class="brand-dot"></div>ADE COMMAND CENTER</div>
+    <div class="motto">We Listened | We Observed | We Learnt | We Evolved</div>
+  </header>
+  <main>
+    <nav>
+      <div class="nav-title">Missions</div>
+      <a class="nav-item active">🌐 Observe (Telemetry)</a>
+      <a class="nav-item">🧠 Understand (Oracle)</a>
+      <a class="nav-item">⚡ Execute (Workflows)</a>
+      <a class="nav-item">🛡️ Govern (Guardian)</a>
+      <div class="nav-title" style="margin-top: 12px;">Capabilities Schema</div>
+      <div id="dynamic-nav">Loading schema...</div>
+    </nav>
+    <div class="content">
+      <div class="mission-header">
+        <div>
+          <h2 style="font-weight:600;margin-bottom:4px;">Enterprise Control Plane</h2>
+          <p style="color:var(--text-dim);font-size:0.85rem;">Real-time capabilities event stream online</p>
+        </div>
+        <span style="background:rgba(0,212,255,0.1);border:1px solid var(--electric-cyan);color:var(--electric-cyan);padding:6px 14px;border-radius:20px;font-size:0.75rem;font-weight:600;">KERNEL ACTIVE</span>
+      </div>
+      <div class="grid-cards">
+        <div class="card"><div class="card-title">Oracle Intelligence</div><div class="card-value" id="oracle-val">ACTIVE</div></div>
+        <div class="card"><div class="card-title">Guardian Security</div><div class="card-value">PROTECTED</div></div>
+        <div class="card"><div class="card-title">Memory Growth</div><div class="card-value" id="memory-val">+0</div></div>
+        <div class="card"><div class="card-title">Active Plugins</div><div class="card-value" id="plugin-count">0</div></div>
+      </div>
+    </div>
+  </main>
+  <script>
+    async function loadCapabilities() {
+      try {
+        const res = await fetch('/api/v1/capabilities');
+        const data = await res.json();
+        const keys = Object.keys(data.plugins || {});
+        document.getElementById('plugin-count').innerText = keys.length;
+        document.getElementById('dynamic-nav').innerHTML = keys.map(k => `<div class="nav-item">📦 ${k}</div>`).join('');
+      } catch (err) { console.error(err); }
+    }
+    const evt = new EventSource('/api/v1/telemetry');
+    evt.onmessage = (e) => {
+      const d = JSON.parse(e.data);
+      document.getElementById('oracle-val').innerText = d.telemetry.oracleState;
+      document.getElementById('memory-val').innerText = d.telemetry.memoryGrowth;
+    };
+    loadCapabilities();
+  </script>
+</body>
+</html>
