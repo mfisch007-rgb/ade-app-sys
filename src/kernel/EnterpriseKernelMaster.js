@@ -1,3 +1,5 @@
+import { AffiliateLockPlugin } from '../plugins/AffiliateLockPlugin.js';
+import { ZScoreExecutionEngine } from '../plugins/ZScoreExecutionEngine.js';
 import { UniversalWebhookRouter } from '../plugins/UniversalWebhookRouter.js';
 import { ProcartaPlugin } from '../plugins/ProcartaPlugin.js';
 import { UniversalAggregatorPlugin } from '../plugins/UniversalAggregatorPlugin.js';
@@ -40,6 +42,8 @@ export class EnterpriseKernelMaster extends EventEmitter {
     this.pluginRegistry.register(new UniversalAggregatorPlugin());
     this.pluginRegistry.register(new LeadManagementPlugin());
     this.pluginRegistry.register(new UniversalWebhookRouter());
+    this.pluginRegistry.register(new AffiliateLockPlugin());
+    this.pluginRegistry.register(new ZScoreExecutionEngine());
     this.isBooted = false;
     this.metrics = {
       bootTimeMs: 0,
