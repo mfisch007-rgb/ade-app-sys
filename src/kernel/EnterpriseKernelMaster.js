@@ -1,3 +1,6 @@
+import { ProcartaPlugin } from '../plugins/ProcartaPlugin.js';
+import { UniversalAggregatorPlugin } from '../plugins/UniversalAggregatorPlugin.js';
+import { LeadManagementPlugin } from '../plugins/LeadManagementPlugin.js';
 import { PluginRegistry } from './PluginRegistry.js';
 /**
  * ADE-APEX Enterprise Kernel Master Bootstrapper
@@ -32,6 +35,9 @@ export class EnterpriseKernelMaster extends EventEmitter {
     this.container = new Map();
     this.subsystems = new Map();
     this.pluginRegistry = new PluginRegistry(this);
+    this.pluginRegistry.register(new ProcartaPlugin());
+    this.pluginRegistry.register(new UniversalAggregatorPlugin());
+    this.pluginRegistry.register(new LeadManagementPlugin());
     this.isBooted = false;
     this.metrics = {
       bootTimeMs: 0,
