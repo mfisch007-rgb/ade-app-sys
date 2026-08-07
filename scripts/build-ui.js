@@ -1,4 +1,12 @@
-<!DOCTYPE html>
+import fs from 'fs';
+import path from 'path';
+
+const publicDir = path.join(process.cwd(), 'public');
+if (!fs.existsSync(publicDir)) {
+  fs.mkdirSync(publicDir, { recursive: true });
+}
+
+const htmlContent = `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
@@ -269,4 +277,7 @@
     loadCapabilities();
   </script>
 </body>
-</html>
+</html>`;
+
+fs.writeFileSync(path.join(publicDir, 'index.html'), htmlContent, 'utf8');
+console.log('✅ UI HTML successfully written to public/index.html');
