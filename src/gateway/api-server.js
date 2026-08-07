@@ -9,11 +9,14 @@ let clients = [];
 
 async function init() {
   await kernel.boot();
-  if (kernel.subsystems.has('eventBus')) {
-    kernel.subsystems.get('eventBus').subscribe('*', (event) => {
+  const bus = kernel.subsystems.get('eventBus');
+  if (bus) {
+    const handleEvent = (event) => {
       const payload = JSON.stringify({ timestamp: new Date().toISOString(), type: 'EVENT_BUS_BROADCAST', event });
       clients.forEach(c => c.write(`data: ${payload}\n\n`));
-    });
+    };
+    if (typeof bus.on === 'function') bus.on('*', handleEvent);
+    else if (typeof bus.subscribe === 'function') bus.subscribe('*', handleEvent);
   }
   const server = http.createServer((req, res) => {
     if (req.url === '/' || req.url === '/index.html') {
@@ -43,8 +46,8 @@ async function init() {
             auth: authHeader,
             payload
           });
-          if (kernel.subsystems.has('eventBus')) {
-            kernel.subsystems.get('eventBus').publish('MISSION_DISPATCHED', event);
+          if (bus && typeof bus.publish === 'function') {
+            bus.publish('MISSION_DISPATCHED', event);
           }
           res.writeHead(200, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ status: 'ACCEPTED', traceId: event.id || 'TRACE-1001', action: payload.action, auth: authHeader, timestamp: new Date().toISOString() }));
