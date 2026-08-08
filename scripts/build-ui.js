@@ -48,7 +48,8 @@ const html = `<!DOCTYPE html>
     .log-stream { background: #070a12; border: 1px solid var(--border); border-radius: 6px; padding: 12px; font-family: monospace; font-size: 12px; height: 320px; overflow-y: auto; color: #a7f3d0; display: flex; flex-direction: column; gap: 8px; }
     .log-entry { display: flex; gap: 10px; border-bottom: 1px solid rgba(255,255,255,0.03); padding-bottom: 4px; }
     .log-time { color: var(--text-muted); }
-    .overlay { position: fixed; top:0; left:0; width:100vw; height:100vh; background: rgba(3, 7, 18, 0.85); backdrop-filter: blur(8px); display: none; justify-content: center; align-items: flex-start; padding-top: 100px; z-index: 999; }
+    .overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(3, 7, 18, 0.85); backdrop-filter: blur(8px); display: none; justify-content: center; align-items: flex-start; padding-top: 100px; z-index: 9999; }
+    .overlay.active { display: flex !important; }
     .palette-modal { background: #0f172a; border: 1px solid var(--accent); width: 100%; max-width: 650px; border-radius: 12px; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.5); overflow: hidden; }
     .palette-input { width: 100%; background: transparent; border: none; border-bottom: 1px solid var(--border); padding: 18px 20px; color: #fff; font-size: 16px; outline: none; font-family: monospace; }
     .palette-results { max-height: 350px; overflow-y: auto; padding: 10px; }
@@ -70,7 +71,7 @@ const html = `<!DOCTYPE html>
       </div>
     </div>
     <div class="header-actions">
-      <button class="cmd-btn" onclick="togglePalette()">⌘ Command OS (Ctrl+K)</button>
+      <button class="cmd-btn" id="openPaletteBtn">⌘ Command OS (Ctrl+K)</button>
       <div class="badge">11/11 KERNEL ACTIVE</div>
     </div>
   </header>
@@ -86,7 +87,7 @@ const html = `<!DOCTYPE html>
     <div class="panel">
       <div class="panel-title">
         <span>Live EventBus Telemetry Stream</span>
-        <button class="shortcut-hint" onclick="togglePalette()">Trigger Palette (Ctrl + K)</button>
+        <button class="shortcut-hint" id="panelPaletteBtn">Trigger Palette (Ctrl + K)</button>
       </div>
       <div class="log-stream" id="telemetryLog">
         <div class="log-entry"><span class="log-time">[SYSTEM]</span><span>Kernel Master initialized. EventBus bound.</span></div>
@@ -112,44 +113,57 @@ const html = `<!DOCTYPE html>
     <span>Press <kbd style="background:#1e293b; padding:2px 6px; border-radius:4px; color:var(--accent)">Ctrl + K</kbd> to launch Command Palette</span>
   </footer>
 
-  <div class="overlay" id="paletteOverlay" onclick="closePalette(event)">
-    <div class="palette-modal" onclick="event.stopPropagation()">
-      <input type="text" class="palette-input" id="paletteSearch" placeholder="Search capabilities (e.g. 'health', 'oracle', 'validate')..." oninput="searchCapabilities()" autofocus>
+  <div class="overlay" id="paletteOverlay">
+    <div class="palette-modal" id="paletteModal">
+      <input type="text" class="palette-input" id="paletteSearch" placeholder="Search capabilities (e.g. 'health', 'oracle', 'validate')...">
       <div class="palette-results" id="paletteResults"></div>
     </div>
   </div>
 
   <script>
     const overlay = document.getElementById('paletteOverlay');
+    const modal = document.getElementById('paletteModal');
     const searchInput = document.getElementById('paletteSearch');
     const resultsDiv = document.getElementById('paletteResults');
     const logDiv = document.getElementById('telemetryLog');
+    const openBtn = document.getElementById('openPaletteBtn');
+    const panelBtn = document.getElementById('panelPaletteBtn');
 
-    function togglePalette() {
-      const isVisible = overlay.style.display === 'flex';
-      overlay.style.display = isVisible ? 'none' : 'flex';
-      if (!isVisible) {
-        setTimeout(() => searchInput.focus(), 50);
-        searchCapabilities();
+    function openPalette() {
+      overlay.classList.add('active');
+      setTimeout(() => searchInput.focus(), 50);
+      searchCapabilities();
+    }
+
+    function closePalette() { 
+      overlay.classList.remove('active'); 
+    }
+
+    openBtn.addEventListener('click', openPalette);
+    panelBtn.addEventListener('click', openPalette);
+
+    overlay.addEventListener('click', (e) => {
+      if (!modal.contains(e.target)) {
+        closePalette();
       }
-    }
+    });
 
-    function closePalette(e) { 
-      overlay.style.display = 'none'; 
-    }
-
-    // Global Key Listener (Prevents Browser Ctrl+K Interception)
     window.addEventListener('keydown', (e) => {
       if ((e.ctrlKey || e.metaKey) && (e.key === 'k' || e.key === 'K')) {
         e.preventDefault();
         e.stopPropagation();
-        togglePalette();
-        return false;
+        if (overlay.classList.contains('active')) {
+          closePalette();
+        } else {
+          openPalette();
+        }
       }
       if (e.key === 'Escape') {
-        overlay.style.display = 'none';
+        closePalette();
       }
-    }, true);
+    });
+
+    searchInput.addEventListener('input', searchCapabilities);
 
     async function searchCapabilities() {
       const q = searchInput.value;
@@ -158,11 +172,17 @@ const html = `<!DOCTYPE html>
         const data = await res.json();
         if (data.commands && data.commands.length > 0) {
           resultsDiv.innerHTML = data.commands.map(c => 
-            '<div class="palette-item" onclick="executeCmd(\'' + c.action + '\', \'' + c.label + '\')">' +
+            '<div class="palette-item" data-action="' + c.action + '" data-label="' + c.label + '">' +
             '<span>' + c.label + '</span>' +
             '<span class="palette-cat">' + c.category + '</span>' +
             '</div>'
           ).join('');
+          
+          document.querySelectorAll('.palette-item').forEach(item => {
+            item.addEventListener('click', () => {
+              executeCmd(item.getAttribute('data-action'), item.getAttribute('data-label'));
+            });
+          });
         } else {
           resultsDiv.innerHTML = '<div style="padding:12px; color:var(--text-muted); font-size:12px;">No matching capabilities found.</div>';
         }
@@ -172,7 +192,7 @@ const html = `<!DOCTYPE html>
     }
 
     async function executeCmd(action, label) {
-      overlay.style.display = 'none';
+      closePalette();
       appendLog('[COMMAND]', 'Dispatched: ' + label);
       try {
         const res = await fetch('/api/command/search?q=' + encodeURIComponent(action));
@@ -196,4 +216,4 @@ const html = `<!DOCTYPE html>
 </html>`;
 
 fs.writeFileSync(path.join(publicDir, 'index.html'), html, 'utf8');
-console.log('✅ Generated updated public/index.html with logo & global event handlers.');
+console.log('✅ Rebuilt public/index.html with active class overlay toggling & DOM listeners.');
