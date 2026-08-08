@@ -1,4 +1,6 @@
 import http from 'http';
+import fs from 'fs';
+import path from 'path';
 import { EnterpriseMasterOrchestrator } from './core/EnterpriseMasterOrchestrator.js';
 import { CommandPaletteEngine } from './core/CommandPaletteEngine.js';
 
@@ -7,60 +9,27 @@ const orchestrator = new EnterpriseMasterOrchestrator();
 const commandPalette = new CommandPaletteEngine();
 
 const server = http.createServer(async (req, res) => {
-  res.setHeader('Content-Type', 'application/json');
+  if (req.url === '/' && req.method === 'GET') {
+    const htmlPath = path.join(process.cwd(), 'public', 'index.html');
+    if (fs.existsSync(htmlPath)) {
+      res.writeHead(200, { 'Content-Type': 'text/html' });
+      return res.end(fs.readFileSync(htmlPath, 'utf8'));
+    }
+  }
 
-  // Health check
   if (req.url === '/health' && req.method === 'GET') {
-    res.writeHead(200);
+    res.writeHead(200, { 'Content-Type': 'application/json' });
     return res.end(JSON.stringify({ status: 'HEALTHY', platform: 'ADE-APEX v1.0.0', uptime: process.uptime() }));
   }
 
-  // Ctrl+K Search Route
   if (req.url.startsWith('/api/command/search') && req.method === 'GET') {
+    res.writeHead(200, { 'Content-Type': 'application/json' });
     const urlParams = new URL(req.url, `http://${req.headers.host}`);
     const q = urlParams.searchParams.get('q') || '';
-    const results = commandPalette.search(q);
-    res.writeHead(200);
-    return res.end(JSON.stringify({ query: q, count: results.length, commands: results }));
+    return res.end(JSON.stringify({ query: q, count: commandPalette.search(q).length, commands: commandPalette.search(q) }));
   }
 
-  // Ctrl+K Execute Route
-  if (req.url === '/api/command/execute' && req.method === 'POST') {
-    let body = '';
-    req.on('data', chunk => { body += chunk.toString(); });
-    req.on('end', async () => {
-      try {
-        const { id, payload } = JSON.parse(body || '{}');
-        const result = await commandPalette.executeCommand(id, payload);
-        res.writeHead(200);
-        res.end(JSON.stringify(result));
-      } catch (err) {
-        res.writeHead(400);
-        res.end(JSON.stringify({ error: err.message }));
-      }
-    });
-    return;
-  }
-
-  // Legacy Signal API
-  if (req.url === '/api/signal' && req.method === 'POST') {
-    let body = '';
-    req.on('data', chunk => { body += chunk.toString(); });
-    req.on('end', async () => {
-      try {
-        const payload = JSON.parse(body || '{}');
-        const result = await orchestrator.processIncomingWebhookSignal(payload);
-        res.writeHead(200);
-        res.end(JSON.stringify(result));
-      } catch (err) {
-        res.writeHead(400);
-        res.end(JSON.stringify({ error: err.message }));
-      }
-    });
-    return;
-  }
-
-  res.writeHead(404);
+  res.writeHead(404, { 'Content-Type': 'application/json' });
   res.end(JSON.stringify({ error: 'Route not found' }));
 });
 
