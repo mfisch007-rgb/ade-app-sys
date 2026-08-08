@@ -1,9 +1,21 @@
 import fs from 'fs';
 import path from 'path';
 
-const publicDir = path.join(process.cwd(), 'public');
+const rootDir = process.cwd();
+const publicDir = path.join(rootDir, 'public');
+
+// Ensure public directory exists
 if (!fs.existsSync(publicDir)) {
   fs.mkdirSync(publicDir, { recursive: true });
+}
+
+// Copy official ADE logo to public directory if present in root
+const rootLogoPath = path.join(rootDir, 'ADE-LOGO.png');
+const publicLogoPath = path.join(publicDir, 'ADE-LOGO.png');
+
+if (fs.existsSync(rootLogoPath)) {
+  fs.copyFileSync(rootLogoPath, publicLogoPath);
+  console.log('✅ Synchronized ADE-LOGO.png to public directory.');
 }
 
 const html = `<!DOCTYPE html>
@@ -11,62 +23,62 @@ const html = `<!DOCTYPE html>
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ADE-APEX Enterprise Operating System</title>
+  <title>ADE-APEX Enterprise Operating System (HHI v1.0.0)</title>
   <style>
     :root { 
-      --bg: #0b0f19; 
-      --card-bg: #131b2e; 
+      --quantum-bg: #03070c; 
+      --shield-bg: #0b1222; 
       --border: #1e293b; 
-      --accent: #38bdf8; 
-      --green: #10b981; 
-      --purple: #a855f7; 
-      --text: #f8fafc; 
-      --text-muted: #64748b; 
+      --anchor-cyan: #38bdf8; 
+      --oracle-violet: #a855f7; 
+      --guardian-green: #10b981; 
+      --alert-red: #ef4444; 
+      --ivory-text: #f8fafc; 
+      --shield-grey: #64748b; 
+      --blue-highlight: #1e3a8a; 
     }
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, monospace; }
-    body { background-color: var(--bg); color: var(--text); padding: 24px; min-height: 100vh; display: flex; flex-direction: column; gap: 20px; }
-    header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 20px; }
-    .brand-container { display: flex; align-items: center; gap: 14px; }
-    .brand-logo { width: 38px; height: 38px; background: linear-gradient(135deg, var(--accent), var(--purple)); border-radius: 8px; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 12px rgba(56, 189, 248, 0.3); }
-    .brand-logo svg { width: 22px; height: 22px; fill: #ffffff; }
-    .brand h1 { font-size: 20px; font-weight: 800; color: var(--text); letter-spacing: -0.5px; }
-    .brand p { font-size: 12px; color: var(--text-muted); margin-top: 2px; letter-spacing: 0.5px; }
+    body { background-color: var(--quantum-bg); color: var(--ivory-text); padding: 24px; min-height: 100vh; display: flex; flex-direction: column; gap: 20px; }
+    header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid var(--blue-highlight); padding-bottom: 20px; box-shadow: 0 4px 20px rgba(56, 189, 248, 0.15); }
+    .brand-container { display: flex; align-items: center; gap: 16px; }
+    .brand-logo-img { width: 50px; height: 50px; object-fit: contain; filter: drop-shadow(0 0 12px rgba(56, 189, 248, 0.6)); }
+    .brand h1 { font-size: 22px; font-weight: 800; color: var(--ivory-text); letter-spacing: -0.5px; text-transform: uppercase; }
+    .brand p { font-size: 11px; color: var(--shield-grey); margin-top: 2px; letter-spacing: 0.5px; }
     .header-actions { display: flex; align-items: center; gap: 12px; }
-    .cmd-btn { background: #1e293b; color: var(--accent); border: 1px solid var(--border); padding: 8px 14px; border-radius: 6px; font-weight: 700; font-size: 12px; font-family: monospace; cursor: pointer; transition: all 0.2s ease; }
-    .cmd-btn:hover { background: var(--accent); color: #000; }
-    .badge { background: rgba(16, 185, 129, 0.1); color: var(--green); border: 1px solid var(--green); padding: 6px 14px; border-radius: 20px; font-weight: 700; font-size: 12px; font-family: monospace; }
+    .cmd-btn { background: var(--shield-bg); color: var(--anchor-cyan); border: 1px solid var(--border); padding: 10px 18px; border-radius: 6px; font-weight: 700; font-size: 12px; font-family: monospace; cursor: pointer; transition: all 0.2s ease; box-shadow: 0 0 10px rgba(56, 189, 248, 0.1); }
+    .cmd-btn:hover { background: var(--blue-highlight); color: #fff; border-color: var(--anchor-cyan); box-shadow: 0 0 15px rgba(56, 189, 248, 0.3); }
+    .badge { background: rgba(16, 185, 129, 0.1); color: var(--guardian-green); border: 1px solid var(--guardian-green); padding: 6px 14px; border-radius: 20px; font-weight: 700; font-size: 12px; font-family: monospace; }
     .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; }
-    .card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 10px; padding: 18px; }
-    .card label { font-size: 11px; text-transform: uppercase; color: var(--text-muted); font-weight: 700; display: block; margin-bottom: 6px; }
-    .card .val { font-size: 20px; font-weight: 700; color: var(--accent); font-family: monospace; }
+    .card { background: var(--shield-bg); border: 1px solid var(--border); border-radius: 10px; padding: 20px; transition: border-color 0.2s; }
+    .card:hover { border-color: var(--blue-highlight); }
+    .card label { font-size: 11px; text-transform: uppercase; color: var(--shield-grey); font-weight: 700; display: block; margin-bottom: 6px; }
+    .card .val { font-size: 22px; font-weight: 700; color: var(--anchor-cyan); font-family: monospace; }
     .main-layout { display: grid; grid-template-columns: 2fr 1fr; gap: 20px; flex-grow: 1; }
     @media (max-width: 900px) { .main-layout { grid-template-columns: 1fr; } }
-    .panel { background: var(--card-bg); border: 1px solid var(--border); border-radius: 10px; padding: 20px; display: flex; flex-direction: column; gap: 15px; }
-    .panel-title { font-size: 14px; font-weight: 700; color: var(--text); text-transform: uppercase; letter-spacing: 1px; display: flex; justify-content: space-between; align-items: center; }
-    .shortcut-hint { background: #1e293b; padding: 4px 10px; border-radius: 4px; font-size: 11px; color: var(--accent); cursor: pointer; border: 1px solid var(--border); }
-    .shortcut-hint:hover { border-color: var(--accent); }
-    .log-stream { background: #070a12; border: 1px solid var(--border); border-radius: 6px; padding: 12px; font-family: monospace; font-size: 12px; height: 320px; overflow-y: auto; color: #a7f3d0; display: flex; flex-direction: column; gap: 8px; }
+    .panel { background: var(--shield-bg); border: 1px solid var(--border); border-radius: 10px; padding: 20px; display: flex; flex-direction: column; gap: 15px; }
+    .panel-title { font-size: 14px; font-weight: 700; color: var(--ivory-text); text-transform: uppercase; letter-spacing: 1px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--blue-highlight); padding-bottom: 10px; }
+    .log-stream { background: #010204; border: 1px solid var(--border); border-radius: 6px; padding: 12px; font-family: monospace; font-size: 12px; height: 350px; overflow-y: auto; color: var(--ivory-text); display: flex; flex-direction: column; gap: 8px; }
     .log-entry { display: flex; gap: 10px; border-bottom: 1px solid rgba(255,255,255,0.03); padding-bottom: 4px; }
-    .log-time { color: var(--text-muted); }
-    .overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(3, 7, 18, 0.85); backdrop-filter: blur(8px); display: none; justify-content: center; align-items: flex-start; padding-top: 100px; z-index: 9999; }
-    .overlay.active { display: flex !important; }
-    .palette-modal { background: #0f172a; border: 1px solid var(--accent); width: 100%; max-width: 650px; border-radius: 12px; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.5); overflow: hidden; }
-    .palette-input { width: 100%; background: transparent; border: none; border-bottom: 1px solid var(--border); padding: 18px 20px; color: #fff; font-size: 16px; outline: none; font-family: monospace; }
-    .palette-results { max-height: 350px; overflow-y: auto; padding: 10px; }
-    .palette-item { padding: 12px 16px; border-radius: 6px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; transition: all 0.15s ease; margin-bottom: 4px; }
-    .palette-item:hover { background: #1e293b; color: var(--accent); }
-    .palette-cat { font-size: 10px; text-transform: uppercase; background: #1e293b; color: var(--text-muted); padding: 3px 8px; border-radius: 4px; font-weight: 700; }
-    footer { border-top: 1px solid var(--border); padding-top: 15px; font-size: 11px; color: var(--text-muted); display: flex; justify-content: space-between; align-items: center; }
+    .log-tag-system { color: var(--shield-grey); }
+    .log-tag-oracle { color: var(--oracle-violet); }
+    .log-tag-guardian { color: var(--guardian-green); }
+    .log-tag-alert { color: var(--alert-red); }
+    .registry-list { display: flex; flex-direction: column; gap: 10px; font-size: 13px; font-family: monospace; }
+    .registry-item { padding: 10px; background: #0a0f1d; border-radius: 6px; border: 1px solid var(--border); }
+    footer { border-top: 2px solid var(--blue-highlight); padding-top: 15px; font-size: 11px; color: var(--shield-grey); display: flex; justify-content: space-between; align-items: center; }
+    kbd { background: var(--blue-highlight); padding: 2px 6px; border-radius: 4px; color: var(--anchor-cyan); border: 1px solid rgba(56, 189, 248, 0.2); }
+    .overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(3, 7, 18, 0.95); backdrop-filter: blur(10px); display: none; justify-content: center; align-items: flex-start; padding-top: 100px; z-index: 9999; }
+    .palette-modal { background: var(--shield-bg); border: 2px solid var(--anchor-cyan); width: 100%; max-width: 650px; border-radius: 12px; box-shadow: 0 20px 40px rgba(0,0,0,0.6); overflow: hidden; }
+    .palette-input { width: 100%; background: rgba(56, 189, 248, 0.05); border: none; border-bottom: 1px solid var(--blue-highlight); padding: 18px 20px; color: var(--ivory-text); font-size: 16px; outline: none; font-family: monospace; }
+    .palette-results { max-height: 380px; overflow-y: auto; padding: 10px; }
   </style>
 </head>
 <body>
   <header>
     <div class="brand-container">
-      <div class="brand-logo">
-        <svg viewBox="0 0 24 24"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
-      </div>
+      <img src="/ADE-LOGO.png" alt="ADE Logo" class="brand-logo-img" onerror="this.style.display='none'">
       <div class="brand">
-        <h1>ADE-APEX Enterprise OS</h1>
+        <h1>ADE-APEX Enterprise Operating System</h1>
         <p>We Listened | We Observed | We Learnt | We Evolved</p>
       </div>
     </div>
@@ -75,47 +87,47 @@ const html = `<!DOCTYPE html>
       <div class="badge">11/11 KERNEL ACTIVE</div>
     </div>
   </header>
-  
+
   <div class="grid">
-    <div class="card"><label>Kernel Status</label><div class="val" style="color:var(--green)">OPERATIONAL</div></div>
-    <div class="card"><label>Oracle Intelligence</label><div class="val">ACTIVE</div></div>
-    <div class="card"><label>Guardian Shield</label><div class="val">PROTECTED</div></div>
+    <div class="card"><label>Kernel Status</label><div class="val">OPERATIONAL</div></div>
+    <div class="card"><label>Oracle Intelligence</label><div class="val" style="color:var(--oracle-violet);">ACTIVE</div></div>
+    <div class="card"><label>Guardian Shield</label><div class="val" style="color:var(--guardian-green);">PROTECTED</div></div>
     <div class="card"><label>System Health</label><div class="val">100.0%</div></div>
   </div>
 
   <div class="main-layout">
     <div class="panel">
-      <div class="panel-title">
-        <span>Live EventBus Telemetry Stream</span>
-        <button class="shortcut-hint" id="panelPaletteBtn">Trigger Palette (Ctrl + K)</button>
-      </div>
+      <div class="panel-title">Operational Event Telemetry</div>
       <div class="log-stream" id="telemetryLog">
-        <div class="log-entry"><span class="log-time">[SYSTEM]</span><span>Kernel Master initialized. EventBus bound.</span></div>
-        <div class="log-entry"><span class="log-time">[ORACLE]</span><span>Decision matrix synchronized. Ready for workflow execution.</span></div>
-        <div class="log-entry"><span class="log-time">[GUARDIAN]</span><span>Security claims validated. Zero active anomalies.</span></div>
+        <div class="log-entry"><span class="log-tag-system">[SYSTEM]</span><span>Kernel Master initialized. Ecosystem operational in 20ms.</span></div>
+        <div class="log-entry"><span class="log-tag-oracle">[ORACLE]</span><span>Decision matrix synchronized. Ready for workflow processing.</span></div>
+        <div class="log-entry"><span class="log-tag-guardian">[GUARDIAN]</span><span>Permissions validated. Zero active anomalies detected.</span></div>
       </div>
     </div>
-    
+
     <div class="panel">
-      <div class="panel-title">Capability Registry</div>
-      <div style="display:flex; flex-direction:column; gap:10px; font-size:13px; font-family:monospace;">
-        <div style="padding:8px; background:#1e293b; border-radius:6px;">⚙️ Procarta Workflow Engine</div>
-        <div style="padding:8px; background:#1e293b; border-radius:6px;">🔗 Universal Webhook Router</div>
-        <div style="padding:8px; background:#1e293b; border-radius:6px;">📈 Universal Aggregator</div>
-        <div style="padding:8px; background:#1e293b; border-radius:6px;">🎯 Lead Management Plugin</div>
-        <div style="padding:8px; background:#1e293b; border-radius:6px; color:var(--text-muted)">🧩 Extension: Finance / Z-Score</div>
+      <div class="panel-title">Capability Registry (Auto-Adaptive)</div>
+      <div class="registry-list">
+        <div class="registry-item">⚙️ Procarta Workflow Engine</div>
+        <div class="registry-item">🔗 Universal Webhook Router</div>
+        <div class="registry-item">📈 Universal Aggregator</div>
+        <div class="registry-item">🎯 Lead Management Plugin</div>
+        <div class="registry-item">🧩 affiliateLock (Core Extension)</div>
+        <div class="registry-item">📊 zScore (Z-SCORE_ANOMALY)</div>
+        <div class="registry-item">📉 zScore (MEAN_REVERSION)</div>
+        <div class="registry-item">📈 zScore (TREND_FOLLOWING)</div>
       </div>
     </div>
   </div>
 
   <footer>
     <span>ADE Hybrid Human-AI Architecture &copy; 2026 ADE Enterprise Inc. All Rights Reserved.</span>
-    <span>Press <kbd style="background:#1e293b; padding:2px 6px; border-radius:4px; color:var(--accent)">Ctrl + K</kbd> to launch Command Palette</span>
+    <span>Press <kbd>Ctrl + K</kbd> anywhere to trigger Command Palette</span>
   </footer>
 
   <div class="overlay" id="paletteOverlay">
     <div class="palette-modal" id="paletteModal">
-      <input type="text" class="palette-input" id="paletteSearch" placeholder="Search capabilities (e.g. 'health', 'oracle', 'validate')...">
+      <input type="text" class="palette-input" id="paletteSearch" placeholder="Ask Oracle or type operational intent...">
       <div class="palette-results" id="paletteResults"></div>
     </div>
   </div>
@@ -127,40 +139,30 @@ const html = `<!DOCTYPE html>
     const resultsDiv = document.getElementById('paletteResults');
     const logDiv = document.getElementById('telemetryLog');
     const openBtn = document.getElementById('openPaletteBtn');
-    const panelBtn = document.getElementById('panelPaletteBtn');
 
     function openPalette() {
-      overlay.classList.add('active');
+      overlay.style.display = 'flex';
       setTimeout(() => searchInput.focus(), 50);
       searchCapabilities();
     }
 
     function closePalette() { 
-      overlay.classList.remove('active'); 
+      overlay.style.display = 'none'; 
     }
 
     openBtn.addEventListener('click', openPalette);
-    panelBtn.addEventListener('click', openPalette);
-
+    
     overlay.addEventListener('click', (e) => {
-      if (!modal.contains(e.target)) {
-        closePalette();
-      }
+      if (!modal.contains(e.target)) { closePalette(); }
     });
 
     window.addEventListener('keydown', (e) => {
       if ((e.ctrlKey || e.metaKey) && (e.key === 'k' || e.key === 'K')) {
-        e.preventDefault();
+        e.preventDefault(); 
         e.stopPropagation();
-        if (overlay.classList.contains('active')) {
-          closePalette();
-        } else {
-          openPalette();
-        }
+        if (overlay.style.display === 'flex') { closePalette(); } else { openPalette(); }
       }
-      if (e.key === 'Escape') {
-        closePalette();
-      }
+      if (e.key === 'Escape') { closePalette(); }
     });
 
     searchInput.addEventListener('input', searchCapabilities);
@@ -172,43 +174,44 @@ const html = `<!DOCTYPE html>
         const data = await res.json();
         if (data.commands && data.commands.length > 0) {
           resultsDiv.innerHTML = data.commands.map(c => 
-            '<div class="palette-item" data-action="' + c.action + '" data-label="' + c.label + '">' +
+            '<div style="padding: 12px 16px; border-radius: 6px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; margin-bottom: 4px; border: 1px solid transparent;" ' +
+            'onmouseover="this.style.background=\\'#1e3a8a\\'; this.style.borderColor=\\'#38bdf8\\'" ' +
+            'onmouseout="this.style.background=\\'transparent\\'; this.style.borderColor=\\'transparent\\'" ' +
+            'onclick="executeCmd(\\' ' + c.action + ' \\', \\' ' + c.label + ' \\')">' +
             '<span>' + c.label + '</span>' +
-            '<span class="palette-cat">' + c.category + '</span>' +
+            '<span style="font-size: 10px; text-transform: uppercase; background: #1a1f2e; color: var(--shield-grey); padding: 3px 8px; border-radius: 4px; font-weight: 700;">' + c.category + '</span>' +
             '</div>'
           ).join('');
-          
-          document.querySelectorAll('.palette-item').forEach(item => {
-            item.addEventListener('click', () => {
-              executeCmd(item.getAttribute('data-action'), item.getAttribute('data-label'));
-            });
-          });
-        } else {
-          resultsDiv.innerHTML = '<div style="padding:12px; color:var(--text-muted); font-size:12px;">No matching capabilities found.</div>';
+        } else { 
+          resultsDiv.innerHTML = '<div style="padding:12px; color:var(--shield-grey); font-size:12px;">No matching operational actions discovered.</div>'; 
         }
-      } catch (err) {
-        resultsDiv.innerHTML = '<div style="padding:12px; color:var(--text-muted); font-size:12px;">Failed to fetch command registry.</div>';
+      } catch (err) { 
+        resultsDiv.innerHTML = '<div style="padding:12px; color:var(--shield-grey); font-size:12px;">Communication failure with capability engine.</div>'; 
       }
     }
 
     async function executeCmd(action, label) {
       closePalette();
-      appendLog('[COMMAND]', 'Dispatched: ' + label);
+      appendLog('[COMMAND]', 'Intent Dispatched: ' + label.trim());
       try {
-        const res = await fetch('/api/command/search?q=' + encodeURIComponent(action));
+        const res = await fetch('/api/command/search?q=' + encodeURIComponent(action.trim()));
         const result = await res.json();
-        appendLog('[EXEC-RESULT]', 'Status: ACCEPTED | Query: ' + action);
-      } catch (err) {
-        appendLog('[ERROR]', 'Failed: ' + err.message);
+        appendLog('[EXEC-RESULT]', 'Kernel Response: ACCEPTED');
+      } catch (err) { 
+        appendLog('[ERROR]', 'Kernel Response: FAILURE - ' + err.message); 
       }
     }
 
     function appendLog(tag, msg) {
       const time = new Date().toLocaleTimeString();
-      const entry = document.createElement('div');
+      const entry = document.createElement('div'); 
       entry.className = 'log-entry';
-      entry.innerHTML = '<span class="log-time">[' + time + '] ' + tag + '</span><span>' + msg + '</span>';
-      logDiv.appendChild(entry);
+      let tagClass = 'log-tag-system';
+      if(tag.includes('ORACLE')) tagClass = 'log-tag-oracle';
+      if(tag.includes('GUARDIAN')) tagClass = 'log-tag-guardian';
+      if(tag.includes('ERROR')) tagClass = 'log-tag-alert';
+      entry.innerHTML = '<span class="' + tagClass + '">[' + time + '] ' + tag + '</span><span>' + msg + '</span>';
+      logDiv.appendChild(entry); 
       logDiv.scrollTop = logDiv.scrollHeight;
     }
   </script>
@@ -216,4 +219,4 @@ const html = `<!DOCTYPE html>
 </html>`;
 
 fs.writeFileSync(path.join(publicDir, 'index.html'), html, 'utf8');
-console.log('✅ Rebuilt public/index.html with active class overlay toggling & DOM listeners.');
+console.log('✅ Generated Quantum Blue public/index.html with logo support.');
