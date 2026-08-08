@@ -21,7 +21,8 @@
     body { background-color: var(--quantum-bg); color: var(--ivory-text); padding: 24px; min-height: 100vh; display: flex; flex-direction: column; gap: 20px; }
     header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid var(--blue-highlight); padding-bottom: 20px; box-shadow: 0 4px 20px rgba(56, 189, 248, 0.15); }
     .brand-container { display: flex; align-items: center; gap: 16px; }
-    .brand-logo-img { width: 54px; height: 54px; object-fit: contain; filter: drop-shadow(0 0 10px rgba(56, 189, 248, 0.8)); border-radius: 6px; }
+    .brand-logo-container { width: 54px; height: 54px; display: flex; align-items: center; justify-content: center; background: rgba(56, 189, 248, 0.05); border: 1px solid var(--blue-highlight); border-radius: 8px; }
+    .brand-logo-img { max-width: 100%; max-height: 100%; object-fit: contain; filter: drop-shadow(0 0 8px rgba(56, 189, 248, 0.8)); }
     .brand h1 { font-size: 22px; font-weight: 800; color: var(--ivory-text); letter-spacing: -0.5px; text-transform: uppercase; }
     .brand p { font-size: 11px; color: var(--shield-grey); margin-top: 2px; letter-spacing: 0.5px; }
     .header-actions { display: flex; align-items: center; gap: 12px; }
@@ -43,6 +44,7 @@
     .log-tag-oracle { color: var(--oracle-violet); }
     .log-tag-guardian { color: var(--guardian-green); }
     .log-tag-alert { color: var(--alert-red); }
+    .log-tag-data { color: var(--anchor-cyan); }
     .registry-list { display: flex; flex-direction: column; gap: 10px; font-size: 13px; font-family: monospace; }
     .registry-item { padding: 10px; background: #0a0f1d; border-radius: 6px; border: 1px solid var(--border); }
     footer { border-top: 2px solid var(--blue-highlight); padding-top: 15px; font-size: 11px; color: var(--shield-grey); display: flex; justify-content: space-between; align-items: center; }
@@ -50,13 +52,19 @@
     .overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(3, 7, 18, 0.95); backdrop-filter: blur(10px); display: none; justify-content: center; align-items: flex-start; padding-top: 80px; z-index: 9999; }
     .palette-modal { background: var(--shield-bg); border: 2px solid var(--anchor-cyan); width: 100%; max-width: 700px; border-radius: 12px; box-shadow: 0 20px 40px rgba(0,0,0,0.8); overflow: hidden; }
     .palette-input { width: 100%; background: rgba(56, 189, 248, 0.05); border: none; border-bottom: 1px solid var(--blue-highlight); padding: 18px 20px; color: var(--ivory-text); font-size: 16px; outline: none; font-family: monospace; }
-    .palette-results { max-height: 420px; overflow-y: auto; padding: 10px; }
+    .palette-results { max-height: 420px; overflow-y: auto; padding: 10px; display: flex; flex-direction: column; gap: 6px; }
+    .result-row { padding: 12px 16px; border-radius: 6px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; border: 1px solid transparent; background: rgba(255,255,255,0.02); transition: all 0.15s ease; user-select: none; }
+    .result-row:hover, .result-row.selected { background: var(--blue-highlight); border-color: var(--anchor-cyan); box-shadow: 0 0 10px rgba(56, 189, 248, 0.2); }
+    .result-label { font-size: 13px; font-family: monospace; color: var(--ivory-text); pointer-events: none; }
+    .result-cat { font-size: 10px; text-transform: uppercase; background: #1a1f2e; color: var(--shield-grey); padding: 3px 8px; border-radius: 4px; font-weight: 700; font-family: monospace; pointer-events: none; }
   </style>
 </head>
 <body>
   <header>
     <div class="brand-container">
-      <img src="/ADE-LOGO.png" alt="ADE OS Logo" class="brand-logo-img">
+      <div class="brand-logo-container">
+        <img src="/ADE-LOGO.png?v=1.0.8" alt="ADE Logo" class="brand-logo-img">
+      </div>
       <div class="brand">
         <h1>ADE-APEX Enterprise Operating System</h1>
         <p>We Listened | We Observed | We Learnt | We Evolved</p>
@@ -64,7 +72,7 @@
     </div>
     <div class="header-actions">
       <button class="cmd-btn" id="openPaletteBtn">⌘ Command OS (Ctrl+K)</button>
-      <div class="badge">11/11 KERNEL ACTIVE</div>
+      <div class="badge" id="sseBadge">SYNCED LIVE</div>
     </div>
   </header>
 
@@ -72,30 +80,23 @@
     <div class="card"><label>Kernel Status</label><div class="val">OPERATIONAL</div></div>
     <div class="card"><label>Oracle Intelligence</label><div class="val" style="color:var(--oracle-violet);">ACTIVE</div></div>
     <div class="card"><label>Guardian Shield</label><div class="val" style="color:var(--guardian-green);">PROTECTED</div></div>
-    <div class="card"><label>System Health</label><div class="val">100.0%</div></div>
+    <div class="card"><label>Data Pipeline</label><div class="val">AGNOSTIC</div></div>
   </div>
 
   <div class="main-layout">
     <div class="panel">
-      <div class="panel-title">Operational Event Telemetry</div>
-      <div class="log-stream" id="telemetryLog">
-        <div class="log-entry"><span class="log-tag-system">[SYSTEM]</span><span>Kernel Master initialized. Ecosystem operational in 20ms.</span></div>
-        <div class="log-entry"><span class="log-tag-oracle">[ORACLE]</span><span>Decision matrix synchronized. Ready for workflow processing.</span></div>
-        <div class="log-entry"><span class="log-tag-guardian">[GUARDIAN]</span><span>Permissions validated. Zero active anomalies detected.</span></div>
-      </div>
+      <div class="panel-title">Live Telemetry Stream</div>
+      <div class="log-stream" id="telemetryLog"></div>
     </div>
 
     <div class="panel">
-      <div class="panel-title">Capability Registry (Auto-Adaptive)</div>
+      <div class="panel-title">Agnostic Registry Engine</div>
       <div class="registry-list">
+        <div class="registry-item">⚡ Universal Ingestion Pipeline</div>
         <div class="registry-item">⚙️ Procarta Workflow Engine</div>
         <div class="registry-item">🔗 Universal Webhook Router</div>
-        <div class="registry-item">📈 Universal Aggregator</div>
-        <div class="registry-item">🎯 Lead Management Plugin</div>
-        <div class="registry-item">🧩 affiliateLock (Core Extension)</div>
-        <div class="registry-item">📊 zScore (Z-SCORE_ANOMALY)</div>
-        <div class="registry-item">📉 zScore (MEAN_REVERSION)</div>
-        <div class="registry-item">📈 zScore (TREND_FOLLOWING)</div>
+        <div class="registry-item">📈 Multi-Asset Aggregator</div>
+        <div class="registry-item">🧩 Pluggable Strategy Marketplace</div>
       </div>
     </div>
   </div>
@@ -107,7 +108,7 @@
 
   <div class="overlay" id="paletteOverlay">
     <div class="palette-modal" id="paletteModal">
-      <input type="text" class="palette-input" id="paletteSearch" placeholder="Search capabilities, subsystems, or type operational intent...">
+      <input type="text" class="palette-input" id="paletteSearch" placeholder="Type capability query or operational intent..." autocomplete="off">
       <div class="palette-results" id="paletteResults"></div>
     </div>
   </div>
@@ -120,124 +121,151 @@
     const logDiv = document.getElementById('telemetryLog');
     const openBtn = document.getElementById('openPaletteBtn');
 
-    // Dynamic Universal Capability Index (Kernel + Plugins + Subsystems + Strategies + Extended Capabilities)
-    const systemCapabilities = [
-      { label: "Evaluate Multi-Asset Z-Score Signal", action: "Z_SCORE_ANOMALY", category: "Strategy Engine" },
-      { label: "Run Mean Reversion Signal Analysis", action: "MEAN_REVERSION", category: "Strategy Engine" },
-      { label: "Execute Trend Following Trade Pipeline", action: "TREND_FOLLOWING", category: "Strategy Engine" },
-      { label: "Query Oracle Decision Matrix", action: "QUERY_ORACLE", category: "Kernel Oracle" },
-      { label: "Validate Security Claims & Claims Audit", action: "GUARDIAN_VALIDATE", category: "Kernel Guardian" },
-      { label: "Run Platform Validation & System Diagnostics", action: "RUN_VALIDATION", category: "System Health" },
-      { label: "Trigger Procarta Workflow Engine Async Execution", action: "PROCARTA_EXEC", category: "Workflow Engine" },
-      { label: "Dispatch Universal Webhook Event Router", action: "WEBHOOK_ROUTER", category: "Router Plugin" },
-      { label: "Aggregate Universal Data Feeds", action: "AGGREGATOR_FEED", category: "Aggregator Plugin" },
-      { label: "Process Lead Management Pipeline", action: "LEAD_MGMT", category: "Lead Plugin" },
-      { label: "Check Affiliate Lock License Key Verification", action: "AFFILIATE_LOCK", category: "Security Plugin" },
-      { label: "Inspect Kernel EventBus Active Subscribers", action: "INSPECT_EVENTBUS", category: "Subsystem Telemetry" },
-      { label: "Inspect Ledger Audit Records & Transaction Logs", action: "INSPECT_LEDGER", category: "Ledger Subsystem" },
-      { label: "Checkpoint Kernel State to Storage Engine", action: "STORAGE_CHECKPOINT", category: "Storage Subsystem" },
-      { label: "Synchronize Hybrid Knowledge Graph Base", action: "KNOWLEDGE_SYNC", category: "Knowledge Subsystem" },
-      { label: "Trigger Emergency System Lockdown Shield", action: "SYSTEM_LOCKDOWN", category: "Kernel Guardian" }
-    ];
+    let selectedIndex = 0;
+    let currentResults = [];
+    let lastRenderedCount = 0;
+
+    async function syncLogs() {
+      try {
+        const res = await fetch('/api/telemetry/poll?t=' + Date.now());
+        const data = await res.json();
+        const logs = data.logs || [];
+        
+        if (logs.length !== lastRenderedCount) {
+          logDiv.innerHTML = '';
+          logs.forEach(item => appendLog(item.time, item.tag, item.message));
+          lastRenderedCount = logs.length;
+          logDiv.scrollTop = logDiv.scrollHeight;
+        }
+      } catch (err) {}
+    }
+
+    syncLogs();
+    setInterval(syncLogs, 1000);
 
     function openPalette() {
       overlay.style.display = 'flex';
       setTimeout(() => searchInput.focus(), 50);
-      renderCapabilities('');
+      fetchAndRenderCapabilities('');
     }
 
     function closePalette() { 
       overlay.style.display = 'none'; 
+      searchInput.value = '';
+      selectedIndex = 0;
     }
 
     openBtn.addEventListener('click', openPalette);
     
-    overlay.addEventListener('click', (e) => {
-      if (!modal.contains(e.target)) { closePalette(); }
+    overlay.addEventListener('mousedown', (e) => {
+      if (e.target === overlay) { closePalette(); }
     });
 
     window.addEventListener('keydown', (e) => {
       if ((e.ctrlKey || e.metaKey) && (e.key === 'k' || e.key === 'K')) {
-        e.preventDefault(); 
-        e.stopPropagation();
-        if (overlay.style.display === 'flex') { closePalette(); } else { openPalette(); }
+        e.preventDefault();
+        overlay.style.display === 'flex' ? closePalette() : openPalette();
       }
-      if (e.key === 'Escape') { closePalette(); }
+      if (e.key === 'Escape') closePalette();
+    });
+
+    searchInput.addEventListener('keydown', (e) => {
+      const rows = document.querySelectorAll('.result-row');
+      if (e.key === 'ArrowDown' && rows.length > 0) {
+        e.preventDefault();
+        selectedIndex = (selectedIndex + 1) % rows.length;
+        updateHighlight(rows);
+      } else if (e.key === 'ArrowUp' && rows.length > 0) {
+        e.preventDefault();
+        selectedIndex = (selectedIndex - 1 + rows.length) % rows.length;
+        updateHighlight(rows);
+      } else if (e.key === 'Enter') {
+        e.preventDefault();
+        if (currentResults.length > 0 && selectedIndex >= 0 && selectedIndex < currentResults.length) {
+          const target = currentResults[selectedIndex];
+          executeCmd(target.action, target.label, target.query);
+        }
+      }
     });
 
     searchInput.addEventListener('input', () => {
-      renderCapabilities(searchInput.value.trim().toLowerCase());
+      fetchAndRenderCapabilities(searchInput.value.trim());
     });
 
-    async function renderCapabilities(query) {
-      let matched = systemCapabilities.filter(c => 
-        c.label.toLowerCase().includes(query) || 
-        c.category.toLowerCase().includes(query) ||
-        c.action.toLowerCase().includes(query)
-      );
+    function updateHighlight(rows) {
+      rows.forEach((row, idx) => {
+        if (idx === selectedIndex) {
+          row.classList.add('selected');
+          row.scrollIntoView({ block: 'nearest' });
+        } else {
+          row.classList.remove('selected');
+        }
+      });
+    }
 
-      // Try server endpoint fallback for dynamically registered server capabilities
-      if (query.length > 0) {
-        try {
-          const res = await fetch('/api/command/search?q=' + encodeURIComponent(query));
-          const data = await res.json();
-          if (data.commands && data.commands.length > 0) {
-            data.commands.forEach(serverCmd => {
-              if (!matched.some(m => m.action === serverCmd.action)) {
-                matched.push({
-                  label: serverCmd.label || serverCmd.action,
-                  action: serverCmd.action,
-                  category: serverCmd.category || 'Dynamic Extension'
-                });
+    async function fetchAndRenderCapabilities(query) {
+      try {
+        const res = await fetch('/api/command/search?q=' + encodeURIComponent(query));
+        const data = await res.json();
+        const baseCommands = data.commands || [];
+        
+        currentResults = [...baseCommands];
+
+        if (query.trim().length > 0) {
+          currentResults.push({
+            action: 'DYNAMIC_KERNEL_INTENT',
+            label: '⚡ Dispatch Intent: "' + query + '"',
+            category: 'Kernel Resolver',
+            query: query
+          });
+        }
+
+        selectedIndex = 0;
+
+        if (currentResults.length > 0) {
+          resultsDiv.innerHTML = currentResults.map((item, idx) => `
+            <div class="result-row ${idx === 0 ? 'selected' : ''}" data-idx="${idx}">
+              <span class="result-label">${item.label}</span>
+              <span class="result-cat">${item.category}</span>
+            </div>
+          `).join('');
+
+          // Bind Mouse Left-Click Directly
+          document.querySelectorAll('.result-row').forEach(row => {
+            row.addEventListener('click', (e) => {
+              e.stopPropagation();
+              const idx = parseInt(row.getAttribute('data-idx'), 10);
+              const target = currentResults[idx];
+              if (target) {
+                executeCmd(target.action, target.label, target.query);
               }
             });
-          }
-        } catch (e) {
-          // Dynamic endpoint fallback notice
+          });
+        } else {
+          resultsDiv.innerHTML = '<div style="padding:15px; color:var(--shield-grey); font-family:monospace;">No capability matches found.</div>';
         }
-      }
-
-      if (matched.length > 0) {
-        resultsDiv.innerHTML = matched.map(c => 
-          '<div style="padding: 12px 16px; border-radius: 6px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; margin-bottom: 4px; border: 1px solid transparent;" ' +
-          'onmouseover="this.style.background=\'#1e3a8a\'; this.style.borderColor=\'#38bdf8\'" ' +
-          'onmouseout="this.style.background=\'transparent\'; this.style.borderColor=\'transparent\'" ' +
-          'onclick="executeCmd(\' ' + c.action + ' \', \' ' + c.label + ' \')">' +
-          '<span>' + c.label + '</span>' +
-          '<span style="font-size: 10px; text-transform: uppercase; background: #1a1f2e; color: var(--shield-grey); padding: 3px 8px; border-radius: 4px; font-weight: 700;">' + c.category + '</span>' +
-          '</div>'
-        ).join('');
-      } else {
-        resultsDiv.innerHTML = '<div style="padding:14px; color:var(--anchor-cyan); font-size:12px; font-family:monospace; cursor:pointer;" onclick="executeCmd(\' ' + query + ' \', \' Custom Action: ' + query + ' \')">' +
-          '⚡ Dynamic Capability Execution: Run custom action "<strong>' + query + '</strong>" directly on Kernel EventBus...</div>';
-      }
+      } catch (err) {}
     }
 
-    async function executeCmd(action, label) {
+    async function executeCmd(action, label, query = '') {
       closePalette();
-      const cleanAction = action.trim();
-      const cleanLabel = label.trim();
-      appendLog('[COMMAND]', 'Intent Dispatched: ' + cleanLabel);
-      try {
-        const res = await fetch('/api/command/search?q=' + encodeURIComponent(cleanAction));
-        const result = await res.json();
-        appendLog('[EXEC-RESULT]', 'Kernel Response: ACCEPTED | Action: ' + cleanAction);
-      } catch (err) { 
-        appendLog('[EXEC-RESULT]', 'Kernel EventBus Dispatched: ACCEPTED | Local Action: ' + cleanAction); 
-      }
+      await fetch('/api/command/execute', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action, payload: { label, query } })
+      });
+      syncLogs();
     }
 
-    function appendLog(tag, msg) {
-      const time = new Date().toLocaleTimeString();
+    function appendLog(timeStr, tag, msg) {
       const entry = document.createElement('div'); 
       entry.className = 'log-entry';
       let tagClass = 'log-tag-system';
       if(tag.includes('ORACLE')) tagClass = 'log-tag-oracle';
       if(tag.includes('GUARDIAN')) tagClass = 'log-tag-guardian';
-      if(tag.includes('ERROR')) tagClass = 'log-tag-alert';
-      entry.innerHTML = '<span class="' + tagClass + '">[' + time + '] ' + tag + '</span><span>' + msg + '</span>';
-      logDiv.appendChild(entry); 
-      logDiv.scrollTop = logDiv.scrollHeight;
+      if(tag.includes('DATA') || tag.includes('COMMAND') || tag.includes('RESOLVER')) tagClass = 'log-tag-data';
+      entry.innerHTML = '<span class="' + tagClass + '">[' + timeStr + '] ' + tag + '</span><span>' + msg + '</span>';
+      logDiv.appendChild(entry);
     }
   </script>
 </body>
