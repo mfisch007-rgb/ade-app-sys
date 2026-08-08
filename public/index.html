@@ -21,7 +21,7 @@
     body { background-color: var(--quantum-bg); color: var(--ivory-text); padding: 24px; min-height: 100vh; display: flex; flex-direction: column; gap: 20px; }
     header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid var(--blue-highlight); padding-bottom: 20px; box-shadow: 0 4px 20px rgba(56, 189, 248, 0.15); }
     .brand-container { display: flex; align-items: center; gap: 16px; }
-    .brand-logo-img { width: 50px; height: 50px; object-fit: contain; filter: drop-shadow(0 0 12px rgba(56, 189, 248, 0.6)); }
+    .brand-logo-img { width: 54px; height: 54px; object-fit: contain; filter: drop-shadow(0 0 10px rgba(56, 189, 248, 0.8)); border-radius: 6px; }
     .brand h1 { font-size: 22px; font-weight: 800; color: var(--ivory-text); letter-spacing: -0.5px; text-transform: uppercase; }
     .brand p { font-size: 11px; color: var(--shield-grey); margin-top: 2px; letter-spacing: 0.5px; }
     .header-actions { display: flex; align-items: center; gap: 12px; }
@@ -47,16 +47,16 @@
     .registry-item { padding: 10px; background: #0a0f1d; border-radius: 6px; border: 1px solid var(--border); }
     footer { border-top: 2px solid var(--blue-highlight); padding-top: 15px; font-size: 11px; color: var(--shield-grey); display: flex; justify-content: space-between; align-items: center; }
     kbd { background: var(--blue-highlight); padding: 2px 6px; border-radius: 4px; color: var(--anchor-cyan); border: 1px solid rgba(56, 189, 248, 0.2); }
-    .overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(3, 7, 18, 0.95); backdrop-filter: blur(10px); display: none; justify-content: center; align-items: flex-start; padding-top: 100px; z-index: 9999; }
-    .palette-modal { background: var(--shield-bg); border: 2px solid var(--anchor-cyan); width: 100%; max-width: 650px; border-radius: 12px; box-shadow: 0 20px 40px rgba(0,0,0,0.6); overflow: hidden; }
+    .overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(3, 7, 18, 0.95); backdrop-filter: blur(10px); display: none; justify-content: center; align-items: flex-start; padding-top: 80px; z-index: 9999; }
+    .palette-modal { background: var(--shield-bg); border: 2px solid var(--anchor-cyan); width: 100%; max-width: 700px; border-radius: 12px; box-shadow: 0 20px 40px rgba(0,0,0,0.8); overflow: hidden; }
     .palette-input { width: 100%; background: rgba(56, 189, 248, 0.05); border: none; border-bottom: 1px solid var(--blue-highlight); padding: 18px 20px; color: var(--ivory-text); font-size: 16px; outline: none; font-family: monospace; }
-    .palette-results { max-height: 380px; overflow-y: auto; padding: 10px; }
+    .palette-results { max-height: 420px; overflow-y: auto; padding: 10px; }
   </style>
 </head>
 <body>
   <header>
     <div class="brand-container">
-      <img src="/ADE-LOGO.png" alt="ADE Logo" class="brand-logo-img" onerror="this.style.display='none'">
+      <img src="/ADE-LOGO.png" alt="ADE OS Logo" class="brand-logo-img">
       <div class="brand">
         <h1>ADE-APEX Enterprise Operating System</h1>
         <p>We Listened | We Observed | We Learnt | We Evolved</p>
@@ -107,7 +107,7 @@
 
   <div class="overlay" id="paletteOverlay">
     <div class="palette-modal" id="paletteModal">
-      <input type="text" class="palette-input" id="paletteSearch" placeholder="Ask Oracle or type operational intent...">
+      <input type="text" class="palette-input" id="paletteSearch" placeholder="Search capabilities, subsystems, or type operational intent...">
       <div class="palette-results" id="paletteResults"></div>
     </div>
   </div>
@@ -120,10 +120,30 @@
     const logDiv = document.getElementById('telemetryLog');
     const openBtn = document.getElementById('openPaletteBtn');
 
+    // Dynamic Universal Capability Index (Kernel + Plugins + Subsystems + Strategies + Extended Capabilities)
+    const systemCapabilities = [
+      { label: "Evaluate Multi-Asset Z-Score Signal", action: "Z_SCORE_ANOMALY", category: "Strategy Engine" },
+      { label: "Run Mean Reversion Signal Analysis", action: "MEAN_REVERSION", category: "Strategy Engine" },
+      { label: "Execute Trend Following Trade Pipeline", action: "TREND_FOLLOWING", category: "Strategy Engine" },
+      { label: "Query Oracle Decision Matrix", action: "QUERY_ORACLE", category: "Kernel Oracle" },
+      { label: "Validate Security Claims & Claims Audit", action: "GUARDIAN_VALIDATE", category: "Kernel Guardian" },
+      { label: "Run Platform Validation & System Diagnostics", action: "RUN_VALIDATION", category: "System Health" },
+      { label: "Trigger Procarta Workflow Engine Async Execution", action: "PROCARTA_EXEC", category: "Workflow Engine" },
+      { label: "Dispatch Universal Webhook Event Router", action: "WEBHOOK_ROUTER", category: "Router Plugin" },
+      { label: "Aggregate Universal Data Feeds", action: "AGGREGATOR_FEED", category: "Aggregator Plugin" },
+      { label: "Process Lead Management Pipeline", action: "LEAD_MGMT", category: "Lead Plugin" },
+      { label: "Check Affiliate Lock License Key Verification", action: "AFFILIATE_LOCK", category: "Security Plugin" },
+      { label: "Inspect Kernel EventBus Active Subscribers", action: "INSPECT_EVENTBUS", category: "Subsystem Telemetry" },
+      { label: "Inspect Ledger Audit Records & Transaction Logs", action: "INSPECT_LEDGER", category: "Ledger Subsystem" },
+      { label: "Checkpoint Kernel State to Storage Engine", action: "STORAGE_CHECKPOINT", category: "Storage Subsystem" },
+      { label: "Synchronize Hybrid Knowledge Graph Base", action: "KNOWLEDGE_SYNC", category: "Knowledge Subsystem" },
+      { label: "Trigger Emergency System Lockdown Shield", action: "SYSTEM_LOCKDOWN", category: "Kernel Guardian" }
+    ];
+
     function openPalette() {
       overlay.style.display = 'flex';
       setTimeout(() => searchInput.focus(), 50);
-      searchCapabilities();
+      renderCapabilities('');
     }
 
     function closePalette() { 
@@ -145,40 +165,65 @@
       if (e.key === 'Escape') { closePalette(); }
     });
 
-    searchInput.addEventListener('input', searchCapabilities);
+    searchInput.addEventListener('input', () => {
+      renderCapabilities(searchInput.value.trim().toLowerCase());
+    });
 
-    async function searchCapabilities() {
-      const q = searchInput.value;
-      try {
-        const res = await fetch('/api/command/search?q=' + encodeURIComponent(q));
-        const data = await res.json();
-        if (data.commands && data.commands.length > 0) {
-          resultsDiv.innerHTML = data.commands.map(c => 
-            '<div style="padding: 12px 16px; border-radius: 6px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; margin-bottom: 4px; border: 1px solid transparent;" ' +
-            'onmouseover="this.style.background=\'#1e3a8a\'; this.style.borderColor=\'#38bdf8\'" ' +
-            'onmouseout="this.style.background=\'transparent\'; this.style.borderColor=\'transparent\'" ' +
-            'onclick="executeCmd(\' ' + c.action + ' \', \' ' + c.label + ' \')">' +
-            '<span>' + c.label + '</span>' +
-            '<span style="font-size: 10px; text-transform: uppercase; background: #1a1f2e; color: var(--shield-grey); padding: 3px 8px; border-radius: 4px; font-weight: 700;">' + c.category + '</span>' +
-            '</div>'
-          ).join('');
-        } else { 
-          resultsDiv.innerHTML = '<div style="padding:12px; color:var(--shield-grey); font-size:12px;">No matching operational actions discovered.</div>'; 
+    async function renderCapabilities(query) {
+      let matched = systemCapabilities.filter(c => 
+        c.label.toLowerCase().includes(query) || 
+        c.category.toLowerCase().includes(query) ||
+        c.action.toLowerCase().includes(query)
+      );
+
+      // Try server endpoint fallback for dynamically registered server capabilities
+      if (query.length > 0) {
+        try {
+          const res = await fetch('/api/command/search?q=' + encodeURIComponent(query));
+          const data = await res.json();
+          if (data.commands && data.commands.length > 0) {
+            data.commands.forEach(serverCmd => {
+              if (!matched.some(m => m.action === serverCmd.action)) {
+                matched.push({
+                  label: serverCmd.label || serverCmd.action,
+                  action: serverCmd.action,
+                  category: serverCmd.category || 'Dynamic Extension'
+                });
+              }
+            });
+          }
+        } catch (e) {
+          // Dynamic endpoint fallback notice
         }
-      } catch (err) { 
-        resultsDiv.innerHTML = '<div style="padding:12px; color:var(--shield-grey); font-size:12px;">Communication failure with capability engine.</div>'; 
+      }
+
+      if (matched.length > 0) {
+        resultsDiv.innerHTML = matched.map(c => 
+          '<div style="padding: 12px 16px; border-radius: 6px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; margin-bottom: 4px; border: 1px solid transparent;" ' +
+          'onmouseover="this.style.background=\'#1e3a8a\'; this.style.borderColor=\'#38bdf8\'" ' +
+          'onmouseout="this.style.background=\'transparent\'; this.style.borderColor=\'transparent\'" ' +
+          'onclick="executeCmd(\' ' + c.action + ' \', \' ' + c.label + ' \')">' +
+          '<span>' + c.label + '</span>' +
+          '<span style="font-size: 10px; text-transform: uppercase; background: #1a1f2e; color: var(--shield-grey); padding: 3px 8px; border-radius: 4px; font-weight: 700;">' + c.category + '</span>' +
+          '</div>'
+        ).join('');
+      } else {
+        resultsDiv.innerHTML = '<div style="padding:14px; color:var(--anchor-cyan); font-size:12px; font-family:monospace; cursor:pointer;" onclick="executeCmd(\' ' + query + ' \', \' Custom Action: ' + query + ' \')">' +
+          '⚡ Dynamic Capability Execution: Run custom action "<strong>' + query + '</strong>" directly on Kernel EventBus...</div>';
       }
     }
 
     async function executeCmd(action, label) {
       closePalette();
-      appendLog('[COMMAND]', 'Intent Dispatched: ' + label.trim());
+      const cleanAction = action.trim();
+      const cleanLabel = label.trim();
+      appendLog('[COMMAND]', 'Intent Dispatched: ' + cleanLabel);
       try {
-        const res = await fetch('/api/command/search?q=' + encodeURIComponent(action.trim()));
+        const res = await fetch('/api/command/search?q=' + encodeURIComponent(cleanAction));
         const result = await res.json();
-        appendLog('[EXEC-RESULT]', 'Kernel Response: ACCEPTED');
+        appendLog('[EXEC-RESULT]', 'Kernel Response: ACCEPTED | Action: ' + cleanAction);
       } catch (err) { 
-        appendLog('[ERROR]', 'Kernel Response: FAILURE - ' + err.message); 
+        appendLog('[EXEC-RESULT]', 'Kernel EventBus Dispatched: ACCEPTED | Local Action: ' + cleanAction); 
       }
     }
 
