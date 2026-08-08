@@ -8,13 +8,15 @@ if (!fs.existsSync(publicDir)) {
   fs.mkdirSync(publicDir, { recursive: true });
 }
 
-// Copy logo from root directory if it exists
+// Ensure ADE-LOGO.png is synchronized into the public directory
 const rootLogoPath = path.join(rootDir, 'ADE-LOGO.png');
 const publicLogoPath = path.join(publicDir, 'ADE-LOGO.png');
 
 if (fs.existsSync(rootLogoPath)) {
   fs.copyFileSync(rootLogoPath, publicLogoPath);
   console.log('✅ Synchronized ADE-LOGO.png to public directory.');
+} else {
+  console.log('⚠️ ADE-LOGO.png not found in root directory. Ensure file exists at root.');
 }
 
 const html = `<!DOCTYPE html>
@@ -40,7 +42,8 @@ const html = `<!DOCTYPE html>
     body { background-color: var(--quantum-bg); color: var(--ivory-text); padding: 24px; min-height: 100vh; display: flex; flex-direction: column; gap: 20px; }
     header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid var(--blue-highlight); padding-bottom: 20px; box-shadow: 0 4px 20px rgba(56, 189, 248, 0.15); }
     .brand-container { display: flex; align-items: center; gap: 16px; }
-    .brand-logo-img { width: 54px; height: 54px; object-fit: contain; filter: drop-shadow(0 0 10px rgba(56, 189, 248, 0.8)); border-radius: 6px; }
+    .brand-logo-container { width: 54px; height: 54px; display: flex; align-items: center; justify-content: center; background: rgba(56, 189, 248, 0.05); border: 1px solid var(--blue-highlight); border-radius: 8px; }
+    .brand-logo-img { max-width: 100%; max-height: 100%; object-fit: contain; filter: drop-shadow(0 0 8px rgba(56, 189, 248, 0.8)); }
     .brand h1 { font-size: 22px; font-weight: 800; color: var(--ivory-text); letter-spacing: -0.5px; text-transform: uppercase; }
     .brand p { font-size: 11px; color: var(--shield-grey); margin-top: 2px; letter-spacing: 0.5px; }
     .header-actions { display: flex; align-items: center; gap: 12px; }
@@ -75,7 +78,9 @@ const html = `<!DOCTYPE html>
 <body>
   <header>
     <div class="brand-container">
-      <img src="/ADE-LOGO.png" alt="ADE OS Logo" class="brand-logo-img">
+      <div class="brand-logo-container">
+        <img src="/ADE-LOGO.png?v=1.0.1" alt="ADE Logo" class="brand-logo-img">
+      </div>
       <div class="brand">
         <h1>ADE-APEX Enterprise Operating System</h1>
         <p>We Listened | We Observed | We Learnt | We Evolved</p>
@@ -139,13 +144,12 @@ const html = `<!DOCTYPE html>
     const logDiv = document.getElementById('telemetryLog');
     const openBtn = document.getElementById('openPaletteBtn');
 
-    // Dynamic Universal Capability Index (Kernel + Plugins + Subsystems + Strategies + Extended Capabilities)
     const systemCapabilities = [
       { label: "Evaluate Multi-Asset Z-Score Signal", action: "Z_SCORE_ANOMALY", category: "Strategy Engine" },
       { label: "Run Mean Reversion Signal Analysis", action: "MEAN_REVERSION", category: "Strategy Engine" },
       { label: "Execute Trend Following Trade Pipeline", action: "TREND_FOLLOWING", category: "Strategy Engine" },
       { label: "Query Oracle Decision Matrix", action: "QUERY_ORACLE", category: "Kernel Oracle" },
-      { label: "Validate Security Claims & Claims Audit", action: "GUARDIAN_VALIDATE", category: "Kernel Guardian" },
+      { label: "Validate Security Claims & Audit", action: "GUARDIAN_VALIDATE", category: "Kernel Guardian" },
       { label: "Run Platform Validation & System Diagnostics", action: "RUN_VALIDATION", category: "System Health" },
       { label: "Trigger Procarta Workflow Engine Async Execution", action: "PROCARTA_EXEC", category: "Workflow Engine" },
       { label: "Dispatch Universal Webhook Event Router", action: "WEBHOOK_ROUTER", category: "Router Plugin" },
@@ -195,7 +199,6 @@ const html = `<!DOCTYPE html>
         c.action.toLowerCase().includes(query)
       );
 
-      // Try server endpoint fallback for dynamically registered server capabilities
       if (query.length > 0) {
         try {
           const res = await fetch('/api/command/search?q=' + encodeURIComponent(query));
@@ -211,9 +214,7 @@ const html = `<!DOCTYPE html>
               }
             });
           }
-        } catch (e) {
-          // Dynamic endpoint fallback notice
-        }
+        } catch (e) {}
       }
 
       if (matched.length > 0) {
@@ -263,4 +264,4 @@ const html = `<!DOCTYPE html>
 </html>`;
 
 fs.writeFileSync(path.join(publicDir, 'index.html'), html, 'utf8');
-console.log('✅ Updated public/index.html with ADE logo and Universal Ctrl+K capabilities.');
+console.log('✅ Generated public/index.html with logo support and dynamic capability search.');
