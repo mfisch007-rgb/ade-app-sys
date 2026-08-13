@@ -1,7 +1,8 @@
-﻿import { verify, generateKeyPairSync, sign } from "crypto";
+﻿import { verify, sign } from "crypto";
 import fs from "fs";
 import path from "path";
 import KernelEventBus from "../core/EventBus.js";
+import KeyManager from "./KeyManager.js";
 
 export const RBAC_MATRIX = {
   LEVEL_0_GUEST: { level: 0, name: "GUEST", allowedIntents: ["PING", "PUBLIC_INFO"] },
@@ -14,21 +15,12 @@ export const RBAC_MATRIX = {
 export class CommunityEditionGuard {
   constructor() {
     this.eventBus = KernelEventBus.getInstance();
+    this.keyManager = KeyManager.getInstance();
     this.defaultTier = process.env.ADE_EDITION || "COMMUNITY";
     this.auditLogPath = path.resolve(process.cwd(), "ade_audit_persistence.json");
     
-    if (!process.env.ADE_PUBLIC_KEY || !process.env.ADE_PRIVATE_KEY) {
-      const { publicKey, privateKey } = generateKeyPairSync("rsa", {
-        modulusLength: 2048,
-        publicKeyEncoding: { type: "spki", format: "pem" },
-        privateKeyEncoding: { type: "pkcs8", format: "pem" }
-      });
-      this.PUBLIC_KEY = publicKey;
-      this.PRIVATE_KEY = privateKey;
-    } else {
-      this.PUBLIC_KEY = process.env.ADE_PUBLIC_KEY;
-      this.PRIVATE_KEY = process.env.ADE_PRIVATE_KEY;
-    }
+    this.PUBLIC_KEY = this.keyManager.getPublicKey();
+    this.PRIVATE_KEY = this.keyManager.getPrivateKey();
 
     this.limits = {
       maxConcurrentStreams: 2,
@@ -66,7 +58,6 @@ export class CommunityEditionGuard {
     logs.push(record);
     fs.writeFileSync(this.auditLogPath, JSON.stringify(logs, null, 2), "utf8");
     
-    // Publish to Kernel EventBus
     this.eventBus.publish("SECURITY_AUDIT_LOG", record);
     return record;
   }
@@ -109,17 +100,24 @@ export class CommunityEditionGuard {
     return { remaining: maxRequests - clientData.requests.length };
   }
 
-  createSession(clientId, tier = "COMMUNITY") {
+  createSession(clientId, tier = "COMMUNITY", levelOverride = null) {
     const sessionId = `ADE-SESS-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    let level = 1;
+    if (tier === "GUEST") level = 0;
+    if (tier === "PRO") level = 2;
+    if (tier === "ENTERPRISE") level = 3;
+    if (levelOverride !== null) level = levelOverride;
+
     const sessionData = {
       sessionId,
       clientId,
       tier,
+      level,
       createdAt: Date.now(),
       expiresAt: Date.now() + 3600000
     };
     this.activeSessions.set(sessionId, sessionData);
-    this.logAuditEvent({ type: "SESSION_CREATED", sessionId, clientId, tier });
+    this.logAuditEvent({ type: "SESSION_CREATED", sessionId, clientId, tier, level });
     return sessionData;
   }
 

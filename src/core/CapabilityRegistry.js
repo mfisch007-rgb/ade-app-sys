@@ -1,42 +1,69 @@
-﻿export class CapabilityRegistry {
+﻿import KernelEventBus from "./EventBus.js";
+
+export class CapabilityRegistry {
   constructor() {
+    this.eventBus = KernelEventBus.getInstance();
     this.capabilities = new Map();
-    this.initializeDefaults();
+    this.initCoreCapabilities();
   }
 
-  initializeDefaults() {
-    const defaults = [
-      { id: 'cap-oracle', name: 'Oracle Intelligence Engine', category: 'Supervisory', description: 'Real-time telemetry and decision confidence synthesis' },
-      { id: 'cap-guardian', name: 'Guardian Risk Governor', category: 'Security', description: 'RBAC policy enforcement and threat auditing' },
-      { id: 'cap-telemetry', name: 'System Telemetry Core', category: 'Kernel', description: 'Uptime and subsystem metrics' },
-      { id: 'cap-sse', name: 'SSE Event Stream', category: 'Networking', description: 'Real-time server-sent events stream' }
-    ];
-    defaults.forEach(c => this.register(c));
-  }
-
-  register(capability) {
-    if (!capability || !capability.id) {
-      throw new Error('Capability must have a valid id');
+  static getInstance() {
+    if (!global.__capabilityRegistryInstance) {
+      global.__capabilityRegistryInstance = new CapabilityRegistry();
     }
-    this.capabilities.set(capability.id, capability);
-    return capability;
+    return global.__capabilityRegistryInstance;
   }
 
-  getAll() {
-    return Array.from(this.capabilities.values());
+  initCoreCapabilities() {
+    this.registerCapability({
+      intent: "WATCH_ASSET",
+      rbacLevel: 1,
+      handler: (params) => `Subscribed to asset stream: ${params.asset}`
+    });
+    this.registerCapability({
+      intent: "TELEMETRY_SSE",
+      rbacLevel: 1,
+      handler: (params) => `Telemetry stream initialized on channel: ${params.channel}`
+    });
+    this.registerCapability({
+      intent: "UNIVERSAL_AI_GATEWAY",
+      rbacLevel: 1,
+      handler: (params) => `AI Gateway dispatch executed: ${params.prompt}`
+    });
+    this.registerCapability({
+      intent: "MULTI_STREAM",
+      rbacLevel: 2,
+      handler: (params) => `Multi-stream routing unlocked for ${params.count} streams`
+    });
+    this.registerCapability({
+      intent: "SYSTEM_SHUTDOWN",
+      rbacLevel: 4,
+      handler: (params) => `SYSTEM EXECUTION: Core shutdown initiated.`
+    });
   }
 
-  getById(id) {
-    return this.capabilities.get(id);
+  registerCapability(cap) {
+    if (!cap.intent || !cap.handler) {
+      throw new Error("Invalid Capability registration: 'intent' and 'handler' are required.");
+    }
+    this.capabilities.set(cap.intent, {
+      rbacLevel: cap.rbacLevel || 1,
+      handler: cap.handler,
+      registeredAt: new Date().toISOString()
+    });
+    this.eventBus.publish("CAPABILITY_REGISTERED", { intent: cap.intent, rbacLevel: cap.rbacLevel });
   }
 
-  search(query) {
-    if (!query) return this.getAll();
-    const q = query.toLowerCase();
-    return this.getAll().filter(c => 
-      c.name.toLowerCase().includes(q) || 
-      c.category.toLowerCase().includes(q) || 
-      (c.description && c.description.toLowerCase().includes(q))
-    );
+  getCapability(intent) {
+    return this.capabilities.get(intent);
+  }
+
+  listCapabilities() {
+    return Array.from(this.capabilities.entries()).map(([intent, cap]) => ({
+      intent,
+      rbacLevel: cap.rbacLevel
+    }));
   }
 }
+
+export default CapabilityRegistry;

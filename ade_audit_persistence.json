@@ -67,5 +67,28 @@
     "intent": "SYSTEM_SHUTDOWN",
     "level": 1,
     "tier": "COMMUNITY"
+  },
+  {
+    "timestamp": "2026-08-13T15:56:48.243Z",
+    "type": "SESSION_CREATED",
+    "sessionId": "ADE-SESS-1786636608242-fhqfdiyir",
+    "clientId": "user-pro",
+    "tier": "PRO",
+    "level": 2
+  },
+  {
+    "timestamp": "2026-08-13T15:56:48.262Z",
+    "type": "SESSION_CREATED",
+    "sessionId": "ADE-SESS-1786636608262-02600d3e0",
+    "clientId": "user-sys",
+    "tier": "ENTERPRISE",
+    "level": 4
+  },
+  {
+    "timestamp": "2026-08-13T15:56:48.267Z",
+    "type": "AUTHORIZATION_GRANTED",
+    "intent": "MULTI_STREAM",
+    "level": 2,
+    "tier": "PRO"
   }
 ]
