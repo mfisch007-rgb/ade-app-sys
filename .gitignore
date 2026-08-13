@@ -93,3 +93,6 @@ coverage/
 *.backup
 *.bak
 *.old.git_corrupt_backup/ 
+
+audit/
+
