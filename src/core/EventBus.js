@@ -1,66 +1,29 @@
-import { EventEmitter } from 'events';
+﻿import { EventEmitter } from "events";
 
-/**
- * Enterprise EventBus Core Module
- * Guarantees zero unhandled promise rejections and safe async execution.
- */
-export class EventBus extends EventEmitter {
-  constructor(options = {}) {
+export class KernelEventBus extends EventEmitter {
+  constructor() {
     super();
-    this.setMaxListeners(options.maxListeners || 100);
-    this.schemaRegistry = options.schemaRegistry || null;
-    this.logger = options.logger || console;
+    this.setMaxListeners(50);
   }
 
-  /**
-   * Fully awaited publish method for inline workflow execution.
-   */
-  async publish(topic, payload = {}) {
-    if (this.schemaRegistry && typeof this.schemaRegistry.validate === 'function') {
-      const validation = this.schemaRegistry.validate(topic, payload);
-      if (!validation.valid) {
-        const errorMsg = `[EventBus] Schema contract violation on topic '${topic}'`;
-        this.logger.error(errorMsg, { payload });
-        throw new Error(errorMsg);
-      }
+  static getInstance() {
+    if (!global.__kernelEventBusInstance) {
+      global.__kernelEventBusInstance = new KernelEventBus();
     }
-
-    const listeners = this.listeners(topic);
-    if (listeners.length === 0) {
-      this.logger.warn(`[EventBus] No subscriber registered for published topic: '${topic}'`);
-      return false;
-    }
-
-    const promises = listeners.map(async (listener) => {
-      try {
-        return await listener(payload);
-      } catch (err) {
-        this.logger.error(`[EventBus Error] Subscriber failed on topic '${topic}':`, err);
-        throw err;
-      }
-    });
-
-    await Promise.all(promises);
-    return true;
+    return global.__kernelEventBusInstance;
   }
 
-  /**
-   * Safe non-blocking publish call for background tasks.
-   * Catches rejections automatically so un-awaited calls don't trigger unhandled promise rejections.
-   */
-  safePublish(topic, payload = {}) {
-    this.publish(topic, payload).catch((err) => {
-      this.logger.error(`[EventBus Background Error] Failed on topic '${topic}':`, err);
-    });
-  }
-
-  /**
-   * Strongly typed subscriber helper.
-   */
-  subscribe(topic, handler) {
-    this.on(topic, handler);
-    return () => this.off(topic, handler);
+  publish(eventName, payload) {
+    const eventRecord = {
+      eventId: `EVT-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
+      timestamp: new Date().toISOString(),
+      eventName,
+      payload
+    };
+    this.emit(eventName, eventRecord);
+    this.emit("*", eventRecord); // Global stream listener
+    return eventRecord;
   }
 }
 
-export default EventBus;
+export default KernelEventBus;

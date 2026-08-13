@@ -1,0 +1,71 @@
+[
+  {
+    "timestamp": "2026-08-13T13:49:10.024Z",
+    "type": "AUTHORIZATION_DENIED",
+    "intent": "MULTI_STREAM",
+    "level": 0,
+    "tier": "GUEST"
+  },
+  {
+    "timestamp": "2026-08-13T13:49:10.051Z",
+    "type": "AUTHORIZATION_GRANTED",
+    "intent": "MULTI_STREAM",
+    "level": 2,
+    "tier": "PRO"
+  },
+  {
+    "timestamp": "2026-08-13T13:49:10.074Z",
+    "type": "AUTHORIZATION_GRANTED",
+    "intent": "SYSTEM_SHUTDOWN",
+    "level": 3,
+    "tier": "ENTERPRISE"
+  },
+  {
+    "timestamp": "2026-08-13T13:49:10.160Z",
+    "type": "SESSION_CREATED",
+    "sessionId": "ADE-SESS-1786628950159-tblqxd88i",
+    "clientId": "client-test-99",
+    "tier": "COMMUNITY"
+  },
+  {
+    "timestamp": "2026-08-13T13:49:10.178Z",
+    "type": "RATE_LIMIT_EXCEEDED",
+    "clientId": "test-rate-limit-user",
+    "count": 3
+  },
+  {
+    "timestamp": "2026-08-13T13:49:10.203Z",
+    "type": "AUTHORIZATION_GRANTED",
+    "intent": "WATCH_ASSET",
+    "level": 1,
+    "tier": "COMMUNITY"
+  },
+  {
+    "timestamp": "2026-08-13T13:49:10.208Z",
+    "type": "AUTHORIZATION_DENIED",
+    "intent": "SYSTEM_SHUTDOWN",
+    "level": 1,
+    "tier": "COMMUNITY"
+  },
+  {
+    "timestamp": "2026-08-13T15:50:43.072Z",
+    "type": "SESSION_CREATED",
+    "sessionId": "ADE-SESS-1786636243072-5xezxgpcp",
+    "clientId": "user-batch1",
+    "tier": "COMMUNITY"
+  },
+  {
+    "timestamp": "2026-08-13T15:50:43.133Z",
+    "type": "AUTHORIZATION_GRANTED",
+    "intent": "WATCH_ASSET",
+    "level": 1,
+    "tier": "COMMUNITY"
+  },
+  {
+    "timestamp": "2026-08-13T15:50:43.138Z",
+    "type": "AUTHORIZATION_DENIED",
+    "intent": "SYSTEM_SHUTDOWN",
+    "level": 1,
+    "tier": "COMMUNITY"
+  }
+]

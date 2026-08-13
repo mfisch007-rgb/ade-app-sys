@@ -1,48 +1,58 @@
+﻿import CommunityEditionGuard from "../security/CommunityEditionGuard.js";
+import KernelEventBus from "./EventBus.js";
+
 export class CommandPaletteEngine {
   constructor() {
-    this.registry = new Map();
-    this.registerDefaultCommands();
+    this.guard = CommunityEditionGuard.getInstance();
+    this.eventBus = KernelEventBus.getInstance();
+    this.registeredCommands = new Map();
+    this.initDefaultCommands();
   }
 
-  registerCommand(id, metadata) {
-    this.registry.set(id, metadata);
+  initDefaultCommands() {
+    this.registerCommand("WATCH_ASSET", (params) => `Subscribed to asset stream: ${params.asset}`, 1);
+    this.registerCommand("TELEMETRY_SSE", (params) => `Telemetry stream initialized on channel: ${params.channel}`, 1);
+    this.registerCommand("UNIVERSAL_AI_GATEWAY", (params) => `AI Gateway dispatch executed: ${params.prompt}`, 1);
+    this.registerCommand("MULTI_STREAM", (params) => `Multi-stream routing unlocked for ${params.count} streams`, 2);
+    this.registerCommand("SYSTEM_SHUTDOWN", (params) => `SYSTEM EXECUTION: Core shutdown initiated.`, 4);
   }
 
-  registerDefaultCommands() {
-    // System & Health
-    this.registerCommand('system:validate', { category: 'System', label: 'Run Platform Validation', action: 'ade validate' });
-    this.registerCommand('system:health', { category: 'System', label: 'Check Platform Health Report', action: 'ade health' });
-    this.registerCommand('system:doctor', { category: 'System', label: 'Run System Diagnostics', action: 'ade doctor' });
-
-    // Kernel Controls
-    this.registerCommand('kernel:boot', { category: 'Kernel', label: 'Boot Enterprise Ecosystem', action: 'boot' });
-    this.registerCommand('kernel:shutdown', { category: 'Kernel', label: 'Graceful Shutdown Ecosystem', action: 'shutdown' });
-
-    // Oracle Intelligence
-    this.registerCommand('oracle:explain', { category: 'Oracle', label: 'Explain Recent Guardian Decision', action: 'explain' });
-    this.registerCommand('oracle:ask', { category: 'Oracle', label: 'Prompt Oracle Intelligence AI', action: 'prompt' });
-
-    // Extensions & Domain Plugins
-    this.registerCommand('extension:finance:signal', { category: 'Trading Extension', label: 'Evaluate Multi-Asset Z-Score Signal', action: 'evaluate_signal' });
-    this.registerCommand('extension:procarta:workflow', { category: 'Procarta Extension', label: 'Trigger Business Automation Flow', action: 'trigger_procarta' });
+  registerCommand(intentName, handler, requiredRbacLevel = 1) {
+    this.registeredCommands.set(intentName, { handler, requiredRbacLevel });
+    this.eventBus.publish("COMMAND_REGISTERED", { intentName, requiredRbacLevel });
   }
 
-  search(query) {
-    if (!query) return Array.from(this.registry.values());
-    const q = query.toLowerCase();
-    return Array.from(this.registry.values()).filter(cmd =>
-      cmd.label.toLowerCase().includes(q) ||
-      cmd.category.toLowerCase().includes(q) ||
-      cmd.action.toLowerCase().includes(q)
-    );
-  }
-
-  async executeCommand(id, payload = {}) {
-    const command = this.registry.get(id);
-    if (!command) {
-      return { status: 'ERROR', message: `Command \${id}\` not found in registry.` };
+  executeCommand(intentName, params = {}, sessionToken = null) {
+    const cmd = this.registeredCommands.get(intentName);
+    if (!cmd) {
+      throw new Error(`Command '${intentName}' is not registered in Universal API Contract.`);
     }
-    console.log(`[CommandPalette] Executing ${command.category} -> ${command.label}`);
-    return { status: 'SUCCESS', command: command.label, executedAt: Date.now(), payload };
+
+    let userLevel = 1;
+    if (sessionToken) {
+      const session = this.guard.verifySession(sessionToken);
+      if (session.tier === "ENTERPRISE") userLevel = 3;
+    }
+
+    // Gate D Authorization check
+    this.guard.assertCapabilityAllowed(intentName, userLevel);
+
+    if (userLevel < cmd.requiredRbacLevel) {
+      throw new Error(`Command '${intentName}' requires RBAC Level ${cmd.requiredRbacLevel}, user level is ${userLevel}.`);
+    }
+
+    const executionResult = {
+      status: "SUCCESS",
+      intent: intentName,
+      executedAt: new Date().toISOString(),
+      result: cmd.handler(params)
+    };
+
+    // Broadcast command execution through EventBus
+    this.eventBus.publish("COMMAND_EXECUTED", executionResult);
+
+    return executionResult;
   }
 }
+
+export default CommandPaletteEngine;

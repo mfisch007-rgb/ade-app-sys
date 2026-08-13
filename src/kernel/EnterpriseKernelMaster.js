@@ -1,69 +1,56 @@
-﻿import fs from "fs";
-import path from "path";
-import { fileURLToPath } from "url";
-import { EventEmitter } from "events";
+﻿import TelemetryEventHub from "../telemetry/TelemetryEventHub.js";
+import CommunityEditionGuard from "../security/CommunityEditionGuard.js";
+import UniversalAIGateway from "../ai/UniversalAIGateway.js";
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-export class EnterpriseKernelMaster extends EventEmitter {
+export class EnterpriseKernelMaster {
   constructor() {
-    super();
-    this.plugins = new Map();
-    this.isBooted = false;
+    this.status = "OFFLINE";
+    this.hub = TelemetryEventHub.getInstance();
+    this.guard = CommunityEditionGuard.getInstance();
+    this.activeAssets = new Set();
+    
+    try {
+      this.aiGateway = UniversalAIGateway.getInstance ? UniversalAIGateway.getInstance() : new UniversalAIGateway();
+    } catch (e) {
+      this.aiGateway = {
+        complete: async (prompt, opts) => ({ provider: "kernel-offline-fallback", mode: "OFFLINE_FALLBACK" })
+      };
+    }
   }
 
   static getInstance() {
-    if (!global.__kernelInstance) {
-      global.__kernelInstance = new EnterpriseKernelMaster();
+    if (!global.__kernelMaster) {
+      global.__kernelMaster = new EnterpriseKernelMaster();
     }
-    return global.__kernelInstance;
+    return global.__kernelMaster;
   }
 
   async boot() {
-    if (this.isBooted) return;
-    console.log("[KERNEL KINEMATICS] Initializing Dynamic Self-Evolving Kernel...");
-    
-    await this.autoDiscoverPlugins();
-    this.isBooted = true;
-    this.emit("KERNEL_BOOT_COMPLETE", { timestamp: new Date().toISOString() });
+    this.status = "BOOTING";
+    this.hub.broadcast("KERNEL_STATUS", { status: this.status });
+    await new Promise(resolve => setTimeout(resolve, 50));
+    this.status = "ONLINE";
+    this.hub.broadcast("KERNEL_STATUS", { status: this.status });
   }
 
-  async autoDiscoverPlugins() {
-    const pluginsDir = path.resolve(__dirname, "../plugins");
-    if (!fs.existsSync(pluginsDir)) return;
+  dispatchIntent(intentName, payload, userTier = "COMMUNITY") {
+    try {
+      this.guard.assertCapabilityAllowed(intentName, userTier);
 
-    const files = fs.readdirSync(pluginsDir);
-    for (const file of files) {
-      if (file.endsWith(".js") || file.endsWith(".plugin.js")) {
-        try {
-          const pluginPath = path.join(pluginsDir, file);
-          const fileUrl = "file://" + pluginPath.replace(/\\/g, "/");
-          const pluginModule = await import(fileUrl);
-          const PluginClass = pluginModule.default || Object.values(pluginModule)[0];
-
-          if (typeof PluginClass === "function") {
-            const instance = new PluginClass();
-            const id = instance.id || instance.name || file.replace(/\.js$/, "");
-            this.plugins.set(id, instance);
-            
-            if (typeof instance.initialize === "function") {
-              await instance.initialize(this);
-            }
-            console.log(`[AUTO-EVOLVE] Successfully registered and wired plugin: ${id}`);
-          }
-        } catch (e) {
-          console.warn(`[AUTO-EVOLVE NOTICE] Dynamic registration bypassed for ${file}:`, e.message);
-        }
+      if (payload && payload.symbol && intentName === "WATCH_ASSET") {
+        this.activeAssets.add(payload.symbol);
+        this.guard.validateAssetLimit(this.activeAssets.size, userTier);
       }
-    }
-  }
 
-  dispatchIntent(action, payload) {
-    const event = { action, payload, timestamp: new Date().toISOString() };
-    this.emit("INTENT_DISPATCHED", event);
-    this.emit(action, payload);
-    return true;
+      this.hub.broadcast("KERNEL_INTENT", { intent: intentName, payload, userTier });
+      return { success: true, intent: intentName };
+
+    } catch (error) {
+      if (payload && payload.symbol && intentName === "WATCH_ASSET") {
+        this.activeAssets.delete(payload.symbol);
+      }
+      return { success: false, reason: error.message };
+    }
   }
 }
 
