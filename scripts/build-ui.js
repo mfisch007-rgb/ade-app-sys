@@ -8,15 +8,12 @@ if (!fs.existsSync(publicDir)) {
   fs.mkdirSync(publicDir, { recursive: true });
 }
 
-// Ensure ADE-LOGO.png exists in public directory
 const rootLogoPath = path.join(rootDir, 'ADE-LOGO.png');
 const publicLogoPath = path.join(publicDir, 'ADE-LOGO.png');
 
 if (fs.existsSync(rootLogoPath)) {
   fs.copyFileSync(rootLogoPath, publicLogoPath);
   console.log('✅ Synchronized ADE-LOGO.png to public directory.');
-} else {
-  console.log('⚠️ ADE-LOGO.png not found in root directory.');
 }
 
 const html = `<!DOCTYPE html>
@@ -65,6 +62,7 @@ const html = `<!DOCTYPE html>
     .log-tag-oracle { color: var(--oracle-violet); }
     .log-tag-guardian { color: var(--guardian-green); }
     .log-tag-alert { color: var(--alert-red); }
+    .log-tag-data { color: var(--anchor-cyan); }
     .registry-list { display: flex; flex-direction: column; gap: 10px; font-size: 13px; font-family: monospace; }
     .registry-item { padding: 10px; background: #0a0f1d; border-radius: 6px; border: 1px solid var(--border); }
     footer { border-top: 2px solid var(--blue-highlight); padding-top: 15px; font-size: 11px; color: var(--shield-grey); display: flex; justify-content: space-between; align-items: center; }
@@ -73,17 +71,17 @@ const html = `<!DOCTYPE html>
     .palette-modal { background: var(--shield-bg); border: 2px solid var(--anchor-cyan); width: 100%; max-width: 700px; border-radius: 12px; box-shadow: 0 20px 40px rgba(0,0,0,0.8); overflow: hidden; }
     .palette-input { width: 100%; background: rgba(56, 189, 248, 0.05); border: none; border-bottom: 1px solid var(--blue-highlight); padding: 18px 20px; color: var(--ivory-text); font-size: 16px; outline: none; font-family: monospace; }
     .palette-results { max-height: 420px; overflow-y: auto; padding: 10px; display: flex; flex-direction: column; gap: 6px; }
-    .result-row { padding: 12px 16px; border-radius: 6px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; border: 1px solid transparent; background: rgba(255,255,255,0.02); transition: all 0.15s ease; }
-    .result-row:hover { background: var(--blue-highlight); border-color: var(--anchor-cyan); }
-    .result-label { font-size: 13px; font-family: monospace; color: var(--ivory-text); }
-    .result-cat { font-size: 10px; text-transform: uppercase; background: #1a1f2e; color: var(--shield-grey); padding: 3px 8px; border-radius: 4px; font-weight: 700; font-family: monospace; }
+    .result-row { padding: 12px 16px; border-radius: 6px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; border: 1px solid transparent; background: rgba(255,255,255,0.02); transition: all 0.15s ease; user-select: none; }
+    .result-row:hover, .result-row.selected { background: var(--blue-highlight); border-color: var(--anchor-cyan); box-shadow: 0 0 10px rgba(56, 189, 248, 0.2); }
+    .result-label { font-size: 13px; font-family: monospace; color: var(--ivory-text); pointer-events: none; }
+    .result-cat { font-size: 10px; text-transform: uppercase; background: #1a1f2e; color: var(--shield-grey); padding: 3px 8px; border-radius: 4px; font-weight: 700; font-family: monospace; pointer-events: none; }
   </style>
 </head>
 <body>
   <header>
     <div class="brand-container">
       <div class="brand-logo-container">
-        <img src="/ADE-LOGO.png?v=1.0.2" alt="ADE Logo" class="brand-logo-img">
+        <img src="/ADE-LOGO.png?v=1.0.8" alt="ADE Logo" class="brand-logo-img">
       </div>
       <div class="brand">
         <h1>ADE-APEX Enterprise Operating System</h1>
@@ -92,7 +90,7 @@ const html = `<!DOCTYPE html>
     </div>
     <div class="header-actions">
       <button class="cmd-btn" id="openPaletteBtn">⌘ Command OS (Ctrl+K)</button>
-      <div class="badge">11/11 KERNEL ACTIVE</div>
+      <div class="badge" id="sseBadge">SYNCED LIVE</div>
     </div>
   </header>
 
@@ -100,30 +98,23 @@ const html = `<!DOCTYPE html>
     <div class="card"><label>Kernel Status</label><div class="val">OPERATIONAL</div></div>
     <div class="card"><label>Oracle Intelligence</label><div class="val" style="color:var(--oracle-violet);">ACTIVE</div></div>
     <div class="card"><label>Guardian Shield</label><div class="val" style="color:var(--guardian-green);">PROTECTED</div></div>
-    <div class="card"><label>System Health</label><div class="val">100.0%</div></div>
+    <div class="card"><label>Data Pipeline</label><div class="val">AGNOSTIC</div></div>
   </div>
 
   <div class="main-layout">
     <div class="panel">
-      <div class="panel-title">Operational Event Telemetry</div>
-      <div class="log-stream" id="telemetryLog">
-        <div class="log-entry"><span class="log-tag-system">[SYSTEM]</span><span>Kernel Master initialized. Ecosystem operational in 20ms.</span></div>
-        <div class="log-entry"><span class="log-tag-oracle">[ORACLE]</span><span>Decision matrix synchronized. Ready for workflow processing.</span></div>
-        <div class="log-entry"><span class="log-tag-guardian">[GUARDIAN]</span><span>Permissions validated. Zero active anomalies detected.</span></div>
-      </div>
+      <div class="panel-title">Live Telemetry Stream</div>
+      <div class="log-stream" id="telemetryLog"></div>
     </div>
 
     <div class="panel">
-      <div class="panel-title">Capability Registry (Auto-Adaptive)</div>
+      <div class="panel-title">Agnostic Registry Engine</div>
       <div class="registry-list">
+        <div class="registry-item">⚡ Universal Ingestion Pipeline</div>
         <div class="registry-item">⚙️ Procarta Workflow Engine</div>
         <div class="registry-item">🔗 Universal Webhook Router</div>
-        <div class="registry-item">📈 Universal Aggregator</div>
-        <div class="registry-item">🎯 Lead Management Plugin</div>
-        <div class="registry-item">🧩 affiliateLock (Core Extension)</div>
-        <div class="registry-item">📊 zScore (Z-SCORE_ANOMALY)</div>
-        <div class="registry-item">📉 zScore (MEAN_REVERSION)</div>
-        <div class="registry-item">📈 zScore (TREND_FOLLOWING)</div>
+        <div class="registry-item">📈 Multi-Asset Aggregator</div>
+        <div class="registry-item">🧩 Pluggable Strategy Marketplace</div>
       </div>
     </div>
   </div>
@@ -148,7 +139,27 @@ const html = `<!DOCTYPE html>
     const logDiv = document.getElementById('telemetryLog');
     const openBtn = document.getElementById('openPaletteBtn');
 
-    let debounceTimer = null;
+    let selectedIndex = 0;
+    let currentResults = [];
+    let lastRenderedCount = 0;
+
+    async function syncLogs() {
+      try {
+        const res = await fetch('/api/telemetry/poll?t=' + Date.now());
+        const data = await res.json();
+        const logs = data.logs || [];
+        
+        if (logs.length !== lastRenderedCount) {
+          logDiv.innerHTML = '';
+          logs.forEach(item => appendLog(item.time, item.tag, item.message));
+          lastRenderedCount = logs.length;
+          logDiv.scrollTop = logDiv.scrollHeight;
+        }
+      } catch (err) {}
+    }
+
+    syncLogs();
+    setInterval(syncLogs, 1000);
 
     function openPalette() {
       overlay.style.display = 'flex';
@@ -159,85 +170,124 @@ const html = `<!DOCTYPE html>
     function closePalette() { 
       overlay.style.display = 'none'; 
       searchInput.value = '';
+      selectedIndex = 0;
     }
 
     openBtn.addEventListener('click', openPalette);
     
-    overlay.addEventListener('click', (e) => {
-      if (!modal.contains(e.target)) { closePalette(); }
+    overlay.addEventListener('mousedown', (e) => {
+      if (e.target === overlay) { closePalette(); }
     });
 
     window.addEventListener('keydown', (e) => {
       if ((e.ctrlKey || e.metaKey) && (e.key === 'k' || e.key === 'K')) {
-        e.preventDefault(); 
-        e.stopPropagation();
-        if (overlay.style.display === 'flex') { closePalette(); } else { openPalette(); }
+        e.preventDefault();
+        overlay.style.display === 'flex' ? closePalette() : openPalette();
       }
-      if (e.key === 'Escape') { closePalette(); }
+      if (e.key === 'Escape') closePalette();
+    });
+
+    searchInput.addEventListener('keydown', (e) => {
+      const rows = document.querySelectorAll('.result-row');
+      if (e.key === 'ArrowDown' && rows.length > 0) {
+        e.preventDefault();
+        selectedIndex = (selectedIndex + 1) % rows.length;
+        updateHighlight(rows);
+      } else if (e.key === 'ArrowUp' && rows.length > 0) {
+        e.preventDefault();
+        selectedIndex = (selectedIndex - 1 + rows.length) % rows.length;
+        updateHighlight(rows);
+      } else if (e.key === 'Enter') {
+        e.preventDefault();
+        if (currentResults.length > 0 && selectedIndex >= 0 && selectedIndex < currentResults.length) {
+          const target = currentResults[selectedIndex];
+          executeCmd(target.action, target.label, target.query);
+        }
+      }
     });
 
     searchInput.addEventListener('input', () => {
-      clearTimeout(debounceTimer);
-      debounceTimer = setTimeout(() => {
-        fetchAndRenderCapabilities(searchInput.value.trim());
-      }, 150);
+      fetchAndRenderCapabilities(searchInput.value.trim());
     });
+
+    function updateHighlight(rows) {
+      rows.forEach((row, idx) => {
+        if (idx === selectedIndex) {
+          row.classList.add('selected');
+          row.scrollIntoView({ block: 'nearest' });
+        } else {
+          row.classList.remove('selected');
+        }
+      });
+    }
 
     async function fetchAndRenderCapabilities(query) {
       try {
         const res = await fetch('/api/command/search?q=' + encodeURIComponent(query));
         const data = await res.json();
-        const items = data.commands || [];
+        const baseCommands = data.commands || [];
+        
+        currentResults = [...baseCommands];
 
-        if (items.length > 0) {
-          resultsDiv.innerHTML = items.map(item => \`
-            <div class="result-row" onclick="executeCmd('\${item.action}', '\${item.label}')">
+        if (query.trim().length > 0) {
+          currentResults.push({
+            action: 'DYNAMIC_KERNEL_INTENT',
+            label: '⚡ Dispatch Intent: "' + query + '"',
+            category: 'Kernel Resolver',
+            query: query
+          });
+        }
+
+        selectedIndex = 0;
+
+        if (currentResults.length > 0) {
+          resultsDiv.innerHTML = currentResults.map((item, idx) => \`
+            <div class="result-row \${idx === 0 ? 'selected' : ''}" data-idx="\${idx}">
               <span class="result-label">\${item.label}</span>
               <span class="result-cat">\${item.category}</span>
             </div>
           \`).join('');
-        } else if (query.length > 0) {
-          resultsDiv.innerHTML = \`
-            <div class="result-row" onclick="executeCmd('\${query}', 'Custom Dynamic Intent: \${query}')">
-              <span class="result-label" style="color:var(--anchor-cyan);">⚡ Dispatch Live Dynamic Intent: "\${query}"</span>
-              <span class="result-cat">Kernel EventBus</span>
-            </div>
-          \`;
+
+          // Bind Mouse Left-Click Directly
+          document.querySelectorAll('.result-row').forEach(row => {
+            row.addEventListener('click', (e) => {
+              e.stopPropagation();
+              const idx = parseInt(row.getAttribute('data-idx'), 10);
+              const target = currentResults[idx];
+              if (target) {
+                executeCmd(target.action, target.label, target.query);
+              }
+            });
+          });
         } else {
-          resultsDiv.innerHTML = '<div style="padding:14px; color:var(--shield-grey); font-family:monospace; font-size:12px;">No matching capabilities found.</div>';
+          resultsDiv.innerHTML = '<div style="padding:15px; color:var(--shield-grey); font-family:monospace;">No capability matches found.</div>';
         }
-      } catch (err) {
-        resultsDiv.innerHTML = '<div style="padding:14px; color:var(--alert-red); font-family:monospace; font-size:12px;">Failed to reach Kernel EventBus endpoint.</div>';
-      }
+      } catch (err) {}
     }
 
-    async function executeCmd(action, label) {
+    async function executeCmd(action, label, query = '') {
       closePalette();
-      appendLog('[COMMAND]', 'Intent Dispatched: ' + label);
-      try {
-        const res = await fetch('/api/command/search?q=' + encodeURIComponent(action));
-        const data = await res.json();
-        appendLog('[EXEC-RESULT]', 'Kernel Response: ACCEPTED | Executed: ' + action);
-      } catch (err) { 
-        appendLog('[EXEC-RESULT]', 'Kernel EventBus Dispatched: ACCEPTED | Local Execution: ' + action); 
-      }
+      await fetch('/api/command/execute', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action, payload: { label, query } })
+      });
+      syncLogs();
     }
 
-    function appendLog(tag, msg) {
-      const time = new Date().toLocaleTimeString();
+    function appendLog(timeStr, tag, msg) {
       const entry = document.createElement('div'); 
       entry.className = 'log-entry';
       let tagClass = 'log-tag-system';
       if(tag.includes('ORACLE')) tagClass = 'log-tag-oracle';
       if(tag.includes('GUARDIAN')) tagClass = 'log-tag-guardian';
-      if(tag.includes('ERROR')) tagClass = 'log-tag-alert';
-      entry.innerHTML = '<span class="' + tagClass + '">[' + time + '] ' + tag + '</span><span>' + msg + '</span>';
-      logDiv.appendChild(entry); 
-      logDiv.scrollTop = logDiv.scrollHeight;
+      if(tag.includes('DATA') || tag.includes('COMMAND') || tag.includes('RESOLVER')) tagClass = 'log-tag-data';
+      entry.innerHTML = '<span class="' + tagClass + '">[' + timeStr + '] ' + tag + '</span><span>' + msg + '</span>';
+      logDiv.appendChild(entry);
     }
   </script>
 </body>
 </html>`;
 
 fs.writeFileSync(path.join(publicDir, 'index.html'), html, 'utf8');
-console.log('✅ Generated public/index.html with live server-side Command Search.');
+console.log('✅ Updated public/index.html with Left-Click Event Delegation & Dynamic Resolver UI.');

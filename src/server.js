@@ -1,96 +1,194 @@
-import express from 'express';
-import path from 'path';
-import fs from 'fs';
-import { CommandPaletteEngine } from './core/CommandPaletteEngine.js';
+﻿import express from "express";
+import path from "path";
+import { fileURLToPath } from "url";
+
+// Namespace imports to safely handle named and default ESM exports
+import * as KernelModule from "./kernel/EnterpriseKernelMaster.js";
+import * as RegistryModule from "./kernel/PluginRegistry.js";
+import * as ObservatoryModule from "./observatory/RuntimeObservatory.js";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-const rootDir = process.cwd();
-const publicDir = path.join(rootDir, 'public');
 
 app.use(express.json());
-const commandPalette = new CommandPaletteEngine();
-const ADMIN_PIN = '123456';
-let recentLogs = [];
-let pulseActive = true;
+app.use(express.urlencoded({ extended: true }));
 
-function pushLog(tag, message, metadata = {}) {
-  const logItem = {
-    time: new Date().toLocaleTimeString('en-US', { hour12: false }),
-    tag,
-    message,
-    metadata
-  };
-  recentLogs.push(logItem);
-  if (recentLogs.length > 50) recentLogs.shift();
-  return logItem;
+// Resolve Module Classes / Export Interfaces
+const EnterpriseKernelMaster = KernelModule.EnterpriseKernelMaster || KernelModule.default;
+const PluginRegistry = RegistryModule.PluginRegistry || RegistryModule.default;
+const RuntimeObservatory = ObservatoryModule.RuntimeObservatory || ObservatoryModule.default;
+
+function resolveSingleton(TargetClass) {
+  if (!TargetClass) return null;
+  if (typeof TargetClass.getInstance === "function") {
+    return TargetClass.getInstance();
+  }
+  try {
+    return new TargetClass();
+  } catch (e) {
+    return null;
+  }
 }
 
-pushLog('[SYSTEM]', 'ADE-APEX Enterprise Master Kernel booted. Guardian PIN engine active.');
+const kernel = resolveSingleton(EnterpriseKernelMaster);
+const registry = resolveSingleton(PluginRegistry);
+const observatory = resolveSingleton(RuntimeObservatory);
 
-app.get('/api/telemetry/poll', (req, res) => res.json({ logs: recentLogs }));
+// Kernel Boot
+if (kernel && typeof kernel.boot === "function") {
+  try { kernel.boot(); } catch (e) { console.warn("[KERNEL BOOT NOTICE]", e.message); }
+}
 
-app.get('/api/command/search', (req, res) => {
-  const q = (req.query.q || '').toString().trim();
-  const commands = commandPalette.search(q);
-  res.json({ query: q, commands });
+// Memory Log Buffer & Central Logging Pipeline
+const systemLogs = [
+  { time: new Date().toLocaleTimeString(), tag: "[KERNEL]", message: "ADE-APEX Enterprise Operating System booted." },
+  { time: new Date().toLocaleTimeString(), tag: "[GUARDIAN]", message: "Security Gate initialized and active." }
+];
+
+function logEvent(tag, message) {
+  const entry = { time: new Date().toLocaleTimeString(), tag: `[${tag}]`, message };
+  systemLogs.push(entry);
+  if (systemLogs.length > 200) systemLogs.shift(); // Bound memory size
+
+  if (observatory && typeof observatory.logSystem === "function") {
+    try { observatory.logSystem(tag, message); } catch(e){}
+  }
+}
+
+console.log("[KERNEL ARCHITECTURE] Enterprise Kernel, Plugin Registry & Observatory wired.");
+
+// Ecosystem Capabilities Catalog
+const BUILTIN_ECOSYSTEM_CAPABILITIES = [
+  { action: "ADE_AWBULI_HUB", label: "ADE-AWBULI System Controller & Automation Engine", category: "ADE Internal Subsystem" },
+  { action: "PROCARTA_WORKFLOW", label: "Procarta Workflow Execution Hub", category: "Automation Subsystem" },
+  { action: "LEAD_MGMT_PIPELINE", label: "Lead Management & CRM Engine", category: "Business Ops" },
+  { action: "AFFILIATE_LOCK", label: "Affiliate Lock & License Validation Gateway", category: "Security & Licensing" },
+  { action: "ORACLE_QUERY", label: "Oracle System Intelligence Engine & Knowledge Base", category: "Kernel AI & Analytics" },
+  { action: "MARKETING_AI_STUDIO", label: "Marketing AI Studio & Content Generator", category: "AI Subsystem" },
+  { action: "VERTEX_AI_ADAPTER", label: "Vertex AI / Google ADK Connector", category: "AI Adapters" },
+  { action: "WHATSAPP_GATEWAY", label: "WhatsApp Automation Client & Webhook Gateway", category: "Communication Hub" },
+  { action: "UNIVERSAL_WEBHOOK_ROUTER", label: "Universal Inbound Webhook Router", category: "External API Integration" },
+  { action: "UNIVERSAL_AGGREGATOR", label: "Universal Data & Asset Stream Aggregator", category: "Data Ingestion" },
+  { action: "ECHO_TOGGLE", label: "Toggle Kernel CLI Command Echoing (ECHO-OFF / ECHO-ON)", category: "Kernel CLI Control" },
+  { action: "KERNEL_SHUTDOWN", label: "Safe Operating System Shutdown & Disconnect", category: "Kernel Control" },
+  { action: "SECURITY_GATE_VERIFY", label: "Security Gate & PIN Validation", category: "System Security" }
+];
+
+// GATE 1 & 2: Auth
+app.post("/api/v1/auth/pin", (req, res) => {
+  const { pin } = req.body || {};
+  if (!pin || pin !== "888888") {
+    logEvent("GUARDIAN", "Unauthorized access attempt blocked.");
+    return res.status(401).json({ success: false, message: "Invalid credentials" });
+  }
+
+  logEvent("GUARDIAN", "Admin Authenticated via Gate 2 PIN.");
+  return res.status(200).json({
+    success: true,
+    authLevel: 4,
+    token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.valid_token_mock"
+  });
 });
 
-app.post('/api/command/execute', (req, res) => {
-  const { action, payload, pinConfirmed, pin } = req.body;
-  const query = (payload?.query || action || '').toUpperCase().trim();
-  const sensitiveActions = ['KERNEL_SHUTDOWN', 'SHUTDOWN', 'SYSTEM_RESET', 'FLUSH_LEDGER'];
-  const isSensitive = sensitiveActions.includes(action) || sensitiveActions.includes(query);
-
-  if (isSensitive && !pinConfirmed) {
-    return res.json({ status: 'PIN_REQUIRED', action, message: 'CRITICAL INTENT DETECTED: 2-Step Authorization Required.' });
+// GATE 3: Telemetry Stream
+app.get("/api/telemetry/poll", (req, res) => {
+  let observatoryLogs = [];
+  if (observatory && typeof observatory.getRecentLogs === "function") {
+    try { observatoryLogs = observatory.getRecentLogs(50) || []; } catch(e){}
   }
 
-  if (isSensitive && pinConfirmed) {
-    if (pin !== ADMIN_PIN) {
-      pushLog('[SECURITY-ALERT]', 'Unauthorized PIN attempt detected and logged for audit.');
-      return res.status(403).json({ status: 'PIN_FAILED', message: 'INVALID AUTHORIZATION PIN. Action rejected.' });
-    }
-    pushLog('[AUDIT-LOG]', 'ACTION AUTHORIZED VIA ADMIN PIN: ' + (action || query));
-  }
-
-  let tag = '[COMMAND-EXEC]';
-  let logMessage = 'Executed: ' + action;
-
-  if (query === 'ECHO OFF' || query === 'PAUSE') {
-    pulseActive = false;
-    logMessage = 'Telemetry Heartbeat SUSPENDED (ECHO OFF)';
-  } else if (query === 'ECHO ON' || query === 'RESUME') {
-    pulseActive = true;
-    logMessage = 'Telemetry Heartbeat RESUMED (ECHO ON)';
-  } else if (query === 'CLEAR') {
-    recentLogs = [];
-    logMessage = 'Telemetry Buffer Flushed';
-  } else if (query.includes('ORACLE') || query.includes('DIAGNOSTIC')) {
-    tag = '[ORACLE-DIAGNOSTIC]';
-    logMessage = 'Human/AI Hybrid Diagnostic -> Status: 100% Operational | Query: ' + query;
-  } else if (query === 'SHUTDOWN' || action === 'KERNEL_SHUTDOWN') {
-    pushLog('[SYSTEM]', 'CRITICAL: Kernel Shutdown Initiated via Verified PIN.');
-    res.json({ status: 'SUCCESS', message: 'System terminating gracefully...' });
-    setTimeout(() => process.exit(0), 1000);
-    return;
-  } else if (action === 'DYNAMIC_KERNEL_INTENT') {
-    tag = '[KERNEL-RESOLVER]';
-    logMessage = 'Resolved Smart Query -> ' + (payload?.query || action);
-  }
-
-  const entry = pushLog(tag, logMessage, payload);
-  res.json({ status: 'SUCCESS', action, logged: entry });
+  // Fallback to internal memory buffer if observatory logs array is empty
+  const output = observatoryLogs.length > 0 ? observatoryLogs : systemLogs;
+  return res.json({ success: true, logs: output });
 });
 
-app.use(express.static(publicDir));
-app.use((req, res) => res.sendFile(path.join(publicDir, 'index.html')));
+// GATE 4: Search Engine
+app.get("/api/command/search", (req, res) => {
+  const rawQuery = (req.query.q || "").trim();
+  const query = rawQuery.toLowerCase();
 
-let pulseCount = 0;
-setInterval(() => {
-  if (!pulseActive) return;
-  pulseCount++;
-  pushLog('[KERNEL-PULSE]', 'System Health 100% | Heartbeat #' + pulseCount);
-}, 3000);
+  let registeredCommands = [];
 
-app.listen(PORT, () => console.log('🚀 ADE-APEX Universal Command Center running on port ' + PORT));
+  if (registry && typeof registry.getAllPlugins === "function") {
+    try {
+      const plugins = registry.getAllPlugins() || [];
+      plugins.forEach((plugin) => {
+        registeredCommands.push({
+          action: plugin.id || plugin.name,
+          label: plugin.name || plugin.id,
+          category: plugin.category || "Registered Kernel Subsystem"
+        });
+      });
+    } catch(e){}
+  }
+
+  const allCapabilities = [...registeredCommands, ...BUILTIN_ECOSYSTEM_CAPABILITIES];
+
+  let matched = query
+    ? allCapabilities.filter(
+        (cmd) =>
+          cmd.label.toLowerCase().includes(query) ||
+          cmd.category.toLowerCase().includes(query) ||
+          cmd.action.toLowerCase().includes(query)
+      )
+    : allCapabilities;
+
+  const uniqueMap = new Map();
+  matched.forEach(item => uniqueMap.set(item.action, item));
+  matched = Array.from(uniqueMap.values());
+
+  if (rawQuery.length > 0) {
+    matched.push({
+      action: "DYNAMIC_KERNEL_INTENT",
+      label: `⚡ Kernel Intent Dispatch: "${rawQuery}"`,
+      category: "Kernel Dynamic Resolver",
+      query: rawQuery
+    });
+  }
+
+  return res.json({ success: true, commands: matched });
+});
+
+// GATE 4 (Exec): Dispatcher
+app.post("/api/command/execute", (req, res) => {
+  const { action, payload } = req.body || {};
+  const details = payload ? JSON.stringify(payload) : "none";
+
+  logEvent("COMMAND", `Kernel Action Dispatched: ${action} | Payload: ${details}`);
+
+  if (kernel && typeof kernel.dispatchIntent === "function") {
+    try { kernel.dispatchIntent(action, payload); } catch(e){}
+  }
+
+  return res.json({ success: true, action, payload, status: "DISPATCHED_TO_KERNEL" });
+});
+
+// GATE 5: Real-time SSE Stream
+app.get("/api/v1/sse", (req, res) => {
+  res.setHeader("Content-Type", "text/event-stream");
+  res.setHeader("Cache-Control", "no-cache");
+  res.setHeader("Connection", "keep-alive");
+  if (res.flushHeaders) res.flushHeaders();
+
+  res.write(`data: ${JSON.stringify({ type: "CONNECTED", message: "Kernel SSE Bus Stream Active" })}\n\n`);
+
+  const timer = setInterval(() => {
+    res.write(`data: ${JSON.stringify({ type: "HEARTBEAT", timestamp: new Date().toISOString() })}\n\n`);
+  }, 15000);
+
+  req.on("close", () => clearInterval(timer));
+});
+
+// Serve Static UI Assets
+app.use(express.static(path.join(__dirname, "../public")));
+
+app.get("*", (req, res) => {
+  res.send(`<!DOCTYPE html><html><head><title>ADE-APEX EOS</title></head><body><h1>ADE-APEX ENTERPRISE OS OPERATIONAL</h1></body></html>`);
+});
+
+app.listen(PORT, () => {
+  console.log(`[ADE-APEX KERNEL] Server online at http://localhost:${PORT}`);
+});

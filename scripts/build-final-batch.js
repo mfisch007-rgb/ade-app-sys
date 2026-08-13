@@ -42,7 +42,7 @@ export class EnterpriseMasterOrchestrator {
         action: pipelineRes.signal.action
       });
 
-      await this.eventBus.publish('trade:executed', execRes);
+      await this.eventBus.publish('trade:executed', execRes).catch(err => console.error('[EventBus Async Error]', err));
       return { status: 'EXECUTED', execution: execRes };
     }
 

@@ -1,122 +1,70 @@
-import { AffiliateLockPlugin } from '../plugins/AffiliateLockPlugin.js';
-import { ZScoreExecutionEngine } from '../plugins/ZScoreExecutionEngine.js';
-import { UniversalWebhookRouter } from '../plugins/UniversalWebhookRouter.js';
-import { ProcartaPlugin } from '../plugins/ProcartaPlugin.js';
-import { UniversalAggregatorPlugin } from '../plugins/UniversalAggregatorPlugin.js';
-import { LeadManagementPlugin } from '../plugins/LeadManagementPlugin.js';
-import { PluginRegistry } from './PluginRegistry.js';
-/**
- * ADE-APEX Enterprise Kernel Master Bootstrapper
- * Orchestrates multi-engine initialization, dependency injection, and health supervision.
- */
+﻿import fs from "fs";
+import path from "path";
+import { fileURLToPath } from "url";
+import { EventEmitter } from "events";
 
-import { EventEmitter } from 'node:events';
-import fs from 'node:fs';
-import path from 'node:path';
-import { EnterpriseEventBus } from './EnterpriseEventBus.js';
-import { PersistentStorageEngine } from './PersistentStorageEngine.js';
-import { 
-  StructuredJSONLogger, 
-  ContextMemoryEngine, 
-  KnowledgeEngine, 
-  DecisionEngine, 
-  OracleIntelligenceEngine, 
-  GuardianSecurityEngine, 
-  NotificationEngine, 
-  NexusLedgerEngine, 
-  WorkflowEngine 
-} from './SupportingEngines.js';
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 export class EnterpriseKernelMaster extends EventEmitter {
-  constructor(config = {}) {
+  constructor() {
     super();
-    this.config = {
-      env: process.env.NODE_ENV || 'production',
-      persistencePath: './data/kernel_state.json',
-      ...config
-    };
-    this.container = new Map();
-    this.subsystems = new Map();
-    this.pluginRegistry = new PluginRegistry(this);
-    this.pluginRegistry.register(new ProcartaPlugin());
-    this.pluginRegistry.register(new UniversalAggregatorPlugin());
-    this.pluginRegistry.register(new LeadManagementPlugin());
-    this.pluginRegistry.register(new UniversalWebhookRouter());
-    this.pluginRegistry.register(new AffiliateLockPlugin());
-    this.pluginRegistry.register(new ZScoreExecutionEngine());
+    this.plugins = new Map();
     this.isBooted = false;
-    this.metrics = {
-      bootTimeMs: 0,
-      activeSubsystems: 0,
-      errorsCount: 0
-    };
   }
 
-  register(name, instance) {
-    this.container.set(name, instance);
-    return this;
-  }
-
-  resolve(name) {
-    if (!this.container.has(name)) {
-      throw new Error(`[KernelMaster] Subsystem '${name}' not found in container.`);
+  static getInstance() {
+    if (!global.__kernelInstance) {
+      global.__kernelInstance = new EnterpriseKernelMaster();
     }
-    return this.container.get(name);
+    return global.__kernelInstance;
   }
 
   async boot() {
-    const start = Date.now();
-    console.log('[KernelMaster] Initializing ADE-APEX Enterprise Ecosystem...');
-
-    const bootSequence = [
-      ['eventBus', () => new EnterpriseEventBus()],
-      ['logger', () => new StructuredJSONLogger()],
-      ['storage', () => new PersistentStorageEngine(this.config.persistencePath)],
-      ['memory', () => new ContextMemoryEngine()],
-      ['knowledge', () => new KnowledgeEngine()],
-      ['decision', () => new DecisionEngine()],
-      ['oracle', () => new OracleIntelligenceEngine()],
-      ['guardian', () => new GuardianSecurityEngine()],
-      ['notification', () => new NotificationEngine()],
-      ['ledger', () => new NexusLedgerEngine()],
-      ['workflowEngine', () => new WorkflowEngine()]
-    ];
-
-    for (const [name, factory] of bootSequence) {
-      try {
-        const instance = factory();
-        if (typeof instance.initialize === 'function') {
-          await instance.initialize(this);
-        }
-        this.register(name, instance);
-        this.subsystems.set(name, 'READY');
-        console.log(`[KernelMaster] Subsystem '${name}' booted successfully.`);
-      } catch (error) {
-        this.metrics.errorsCount++;
-        console.error(`[KernelMaster] Failed to boot subsystem '${name}':`, error.message);
-        throw error;
-      }
-    }
-
+    if (this.isBooted) return;
+    console.log("[KERNEL KINEMATICS] Initializing Dynamic Self-Evolving Kernel...");
+    
+    await this.autoDiscoverPlugins();
     this.isBooted = true;
-    this.metrics.bootTimeMs = Date.now() - start;
-    this.metrics.activeSubsystems = this.subsystems.size;
-    console.log(`[KernelMaster] Ecosystem fully operational in ${this.metrics.bootTimeMs}ms.`);
+    this.emit("KERNEL_BOOT_COMPLETE", { timestamp: new Date().toISOString() });
   }
 
-  async shutdown() {
-    console.log('[KernelMaster] Initiating graceful ecosystem shutdown...');
-    for (const [name, instance] of this.container.entries()) {
-      try {
-        if (typeof instance.dispose === 'function') {
-          await instance.dispose();
+  async autoDiscoverPlugins() {
+    const pluginsDir = path.resolve(__dirname, "../plugins");
+    if (!fs.existsSync(pluginsDir)) return;
+
+    const files = fs.readdirSync(pluginsDir);
+    for (const file of files) {
+      if (file.endsWith(".js") || file.endsWith(".plugin.js")) {
+        try {
+          const pluginPath = path.join(pluginsDir, file);
+          const fileUrl = "file://" + pluginPath.replace(/\\/g, "/");
+          const pluginModule = await import(fileUrl);
+          const PluginClass = pluginModule.default || Object.values(pluginModule)[0];
+
+          if (typeof PluginClass === "function") {
+            const instance = new PluginClass();
+            const id = instance.id || instance.name || file.replace(/\.js$/, "");
+            this.plugins.set(id, instance);
+            
+            if (typeof instance.initialize === "function") {
+              await instance.initialize(this);
+            }
+            console.log(`[AUTO-EVOLVE] Successfully registered and wired plugin: ${id}`);
+          }
+        } catch (e) {
+          console.warn(`[AUTO-EVOLVE NOTICE] Dynamic registration bypassed for ${file}:`, e.message);
         }
-        this.subsystems.set(name, 'DISPOSED');
-        console.log(`[KernelMaster] Subsystem '${name}' shut down cleanly.`);
-      } catch (err) {
-        console.error(`[KernelMaster] Error disposing subsystem '${name}':`, err.message);
       }
     }
-    this.isBooted = false;
+  }
+
+  dispatchIntent(action, payload) {
+    const event = { action, payload, timestamp: new Date().toISOString() };
+    this.emit("INTENT_DISPATCHED", event);
+    this.emit(action, payload);
+    return true;
   }
 }
+
+export default EnterpriseKernelMaster;

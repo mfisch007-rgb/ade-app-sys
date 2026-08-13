@@ -94,7 +94,7 @@ export class APIGatewayServer {
                   params: payload.params || {},
                   dispatchedBy: userRole,
                   timestamp: Date.now()
-                });
+                }).catch(err => console.error('[EventBus Async Error]', err));
               }
 
               res.writeHead(200, { 'Content-Type': 'application/json' });
