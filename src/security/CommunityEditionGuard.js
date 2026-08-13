@@ -17,7 +17,7 @@ export class CommunityEditionGuard {
     this.eventBus = KernelEventBus.getInstance();
     this.keyManager = KeyManager.getInstance();
     this.defaultTier = process.env.ADE_EDITION || "COMMUNITY";
-    this.auditLogPath = path.resolve(process.cwd(), "ade_audit_persistence.json");
+    this.auditLogPath = path.resolve(process.cwd(), "ade_audit_persistence.ndjson");
     
     this.PUBLIC_KEY = this.keyManager.getPublicKey();
     this.PRIVATE_KEY = this.keyManager.getPrivateKey();
@@ -47,16 +47,13 @@ export class CommunityEditionGuard {
       timestamp: new Date().toISOString(),
       ...event
     };
-    let logs = [];
-    if (fs.existsSync(this.auditLogPath)) {
-      try {
-        logs = JSON.parse(fs.readFileSync(this.auditLogPath, "utf8"));
-      } catch (e) {
-        logs = [];
-      }
+    
+    // Append-only high performance log entry (O(1) write cost)
+    try {
+      fs.appendFileSync(this.auditLogPath, JSON.stringify(record) + "\n", "utf8");
+    } catch (err) {
+      console.error("[CRITICAL] Failed to write to audit stream:", err.message);
     }
-    logs.push(record);
-    fs.writeFileSync(this.auditLogPath, JSON.stringify(logs, null, 2), "utf8");
     
     this.eventBus.publish("SECURITY_AUDIT_LOG", record);
     return record;
