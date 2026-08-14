@@ -1,29 +1,32 @@
 ﻿import React, { useState, useEffect } from 'react';
 import CommandPaletteModal from './CommandPaletteModal.jsx';
 
-export function SpatialCommandCenter() {
+export function SpatialCommandCenter({ commandEngine, sseUrl = "http://localhost:3000/api/telemetry/sse" }) {
   const [isPaletteOpen, setIsPaletteOpen] = useState(false);
   const [telemetryEvents, setTelemetryEvents] = useState([]);
   const [userTier, setUserTier] = useState("ENTERPRISE_ADMIN");
 
   useEffect(() => {
-    // Mock or Live SSE Event Listener Hook
-    const timer = setInterval(() => {
-      const mockEvent = {
-        id: Date.now(),
-        timestamp: new Date().toLocaleTimeString(),
-        type: "GHOSTBRAIN_TICK",
-        asset: "EURUSD_OTC",
-        zScore: (Math.random() * 4 - 2).toFixed(2)
-      };
-      setTelemetryEvents(prev => [mockEvent, ...prev.slice(0, 9)]);
-    }, 2000);
+    // Real SSE Connection
+    const eventSource = new EventSource(sseUrl);
+    eventSource.onmessage = (event) => {
+      try {
+        const parsed = JSON.parse(event.data);
+        setTelemetryEvents(prev => [parsed, ...prev.slice(0, 9)]);
+      } catch (err) {
+        console.error("SSE parse error:", err);
+      }
+    };
+    return () => eventSource.close();
+  }, [sseUrl]);
 
-    return () => clearInterval(timer);
-  }, []);
-
-  const handleExecuteCommand = (cmd) => {
-    console.log(`[SPATIAL UI]: Executed Command ${cmd.id} (${cmd.capability})`);
+  const handleExecuteCommand = async (cmd) => {
+    if (commandEngine) {
+      const result = await commandEngine.dispatch(cmd.id, { initiatedBy: userTier });
+      console.log(`[SPATIAL KERNEL EXECUTION]:`, result);
+    } else {
+      console.log(`[SPATIAL UI FALLBACK]: Executed Command ${cmd.id} (${cmd.capability})`);
+    }
   };
 
   return (
@@ -38,15 +41,15 @@ export function SpatialCommandCenter() {
 
       <main style={uiStyles.mainGrid}>
         <section style={uiStyles.card}>
-          <h3>Live Telemetry SSE Stream</h3>
+          <h3>Live Telemetry SSE Stream (Real-Time)</h3>
           <div style={uiStyles.streamBox}>
             {telemetryEvents.map(evt => (
-              <div key={evt.id} style={uiStyles.streamRow}>
+              <div key={evt.id || evt.timestamp} style={uiStyles.streamRow}>
                 <span>[{evt.timestamp}]</span>
-                <span style={{ color: '#38bdf8' }}>{evt.type}</span>
-                <span>{evt.asset}</span>
+                <span style={{ color: '#38bdf8' }}>{evt.type || 'GHOSTBRAIN_TICK'}</span>
+                <span>{evt.asset || 'EURUSD_OTC'}</span>
                 <span style={{ color: Math.abs(evt.zScore) >= 2 ? '#ef4444' : '#22c55e' }}>
-                  Z: {evt.zScore}
+                  Z: {evt.zScore ?? '0.00'}
                 </span>
               </div>
             ))}
