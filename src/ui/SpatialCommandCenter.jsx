@@ -1,66 +1,79 @@
-﻿import React, { useState, useEffect } from "react";
+﻿import React, { useState, useEffect } from 'react';
+import CommandPaletteModal from './CommandPaletteModal.jsx';
 
 export function SpatialCommandCenter() {
-  const [telemetryLogs, setTelemetryLogs] = useState([]);
-  const [systemState, setSystemState] = useState({
-    kernelBooted: true,
-    activeSubsystems: ["ALPHA_AI_MODULE", "GUARDIAN_ORACLE_ENGINE"],
-    aiGatewayRoute: "OFFLINE_LEXICAL_ENGINE"
-  });
+  const [isPaletteOpen, setIsPaletteOpen] = useState(false);
+  const [telemetryEvents, setTelemetryEvents] = useState([]);
+  const [userTier, setUserTier] = useState("ENTERPRISE_ADMIN");
 
   useEffect(() => {
-    // Simulated SSE listener hook for Command Center Telemetry
-    const eventSource = {
-      onmessage: (event) => {
-        try {
-          const data = JSON.parse(event.data);
-          setTelemetryLogs((prev) => [data, ...prev.slice(0, 49)]);
-        } catch {}
-      }
-    };
+    // Mock or Live SSE Event Listener Hook
+    const timer = setInterval(() => {
+      const mockEvent = {
+        id: Date.now(),
+        timestamp: new Date().toLocaleTimeString(),
+        type: "GHOSTBRAIN_TICK",
+        asset: "EURUSD_OTC",
+        zScore: (Math.random() * 4 - 2).toFixed(2)
+      };
+      setTelemetryEvents(prev => [mockEvent, ...prev.slice(0, 9)]);
+    }, 2000);
+
+    return () => clearInterval(timer);
   }, []);
 
+  const handleExecuteCommand = (cmd) => {
+    console.log(`[SPATIAL UI]: Executed Command ${cmd.id} (${cmd.capability})`);
+  };
+
   return (
-    <div style={{ backgroundColor: "#0f172a", color: "#f8fafc", padding: "24px", fontFamily: "monospace", minHeight: "100vh" }}>
-      <header style={{ borderBottom: "1px solid #334155", paddingBottom: "12px", marginBottom: "20px" }}>
-        <h1 style={{ margin: 0, fontSize: "20px", color: "#38bdf8" }}>ADE SYSTEM ENGINE // COMMAND CENTER (GATE E)</h1>
-        <p style={{ margin: "4px 0 0 0", color: "#94a3b8", fontSize: "12px" }}>Spatial UI & System Telemetry Bridge</p>
+    <div style={uiStyles.container}>
+      <header style={uiStyles.header}>
+        <h1 style={uiStyles.title}>ADE APEX SYSTEM ENGINE</h1>
+        <div style={uiStyles.tierBadge}>Active Tier: {userTier}</div>
+        <button style={uiStyles.paletteBtn} onClick={() => setIsPaletteOpen(true)}>
+          Press <kbd style={uiStyles.kbd}>Ctrl + K</kbd> for Commands
+        </button>
       </header>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 2fr", gap: "20px" }}>
-        {/* System State Box */}
-        <div style={{ backgroundColor: "#1e293b", padding: "16px", borderRadius: "6px", border: "1px solid #334155" }}>
-          <h2 style={{ fontSize: "14px", color: "#f1f5f9", marginTop: 0 }}>KERNEL SYSTEM STATE</h2>
-          <div style={{ fontSize: "12px", lineHeight: "1.8" }}>
-            <div>Status: <span style={{ color: "#4ade80" }}>{systemState.kernelBooted ? "BOOTED ✅" : "OFFLINE ❌"}</span></div>
-            <div>Gateway Route: <span style={{ color: "#38bdf8" }}>{systemState.aiGatewayRoute}</span></div>
-            <div style={{ marginTop: "10px" }}>Subsystems Attached:</div>
-            <ul style={{ margin: "4px 0", paddingLeft: "20px", color: "#cbd5e1" }}>
-              {systemState.activeSubsystems.map((sub, idx) => (
-                <li key={idx}>{sub}</li>
-              ))}
-            </ul>
+      <main style={uiStyles.mainGrid}>
+        <section style={uiStyles.card}>
+          <h3>Live Telemetry SSE Stream</h3>
+          <div style={uiStyles.streamBox}>
+            {telemetryEvents.map(evt => (
+              <div key={evt.id} style={uiStyles.streamRow}>
+                <span>[{evt.timestamp}]</span>
+                <span style={{ color: '#38bdf8' }}>{evt.type}</span>
+                <span>{evt.asset}</span>
+                <span style={{ color: Math.abs(evt.zScore) >= 2 ? '#ef4444' : '#22c55e' }}>
+                  Z: {evt.zScore}
+                </span>
+              </div>
+            ))}
           </div>
-        </div>
+        </section>
+      </main>
 
-        {/* Telemetry Stream Box */}
-        <div style={{ backgroundColor: "#1e293b", padding: "16px", borderRadius: "6px", border: "1px solid #334155" }}>
-          <h2 style={{ fontSize: "14px", color: "#f1f5f9", marginTop: 0 }}>LIVE TELEMETRY STREAM (SSE)</h2>
-          <div style={{ backgroundColor: "#090d16", padding: "12px", borderRadius: "4px", height: "250px", overflowY: "auto", fontSize: "11px" }}>
-            {telemetryLogs.length === 0 ? (
-              <div style={{ color: "#64748b" }}>[STREAM IDLE]: Awaiting Kernel Events...</div>
-            ) : (
-              telemetryLogs.map((log, index) => (
-                <div key={index} style={{ marginBottom: "6px", color: "#a7f3d0" }}>
-                  [{new Date().toISOString()}] {JSON.stringify(log)}
-                </div>
-              ))
-            )}
-          </div>
-        </div>
-      </div>
+      <CommandPaletteModal
+        isOpen={isPaletteOpen}
+        onClose={setIsPaletteOpen}
+        onExecuteCommand={handleExecuteCommand}
+      />
     </div>
   );
 }
+
+const uiStyles = {
+  container: { minHeight: '100vh', backgroundColor: '#020617', color: '#f8fafc', padding: '24px', fontFamily: 'sans-serif' },
+  header: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px' },
+  title: { fontSize: '20px', fontWeight: 'bold', letterSpacing: '1px' },
+  tierBadge: { backgroundColor: 'rgba(34, 197, 94, 0.1)', color: '#22c55e', padding: '6px 12px', borderRadius: '20px', fontSize: '12px' },
+  paletteBtn: { backgroundColor: '#1e293b', border: '1px solid #334155', color: '#94a3b8', padding: '8px 16px', borderRadius: '8px', cursor: 'pointer' },
+  kbd: { backgroundColor: '#0f172a', padding: '2px 6px', borderRadius: '4px', border: '1px solid #475569', color: '#f1f5f9' },
+  mainGrid: { display: 'grid', gridTemplateColumns: '1fr', gap: '24px' },
+  card: { backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: '12px', padding: '20px' },
+  streamBox: { marginTop: '16px', backgroundColor: '#020617', borderRadius: '8px', padding: '12px', fontFamily: 'monospace', fontSize: '13px' },
+  streamRow: { display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid #1e293b' }
+};
 
 export default SpatialCommandCenter;
