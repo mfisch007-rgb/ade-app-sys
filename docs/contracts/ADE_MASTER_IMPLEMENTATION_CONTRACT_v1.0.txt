@@ -1,0 +1,1122 @@
+# ADE-APEX — MASTER IMPLEMENTATION CONTRACT
+## P0/P1 Runtime Reconciliation + ADE-ICX + Security + Build Integrity + Telematics Boundaries
+**Version:** 1.0 FINAL ENGINEERING CONTRACT
+**Date:** 2026-08-17
+**Authority:** ADE-APEX platform engineering
+**Mode:** Controlled implementation — one consolidated engineering batch
+**Primary implementation agent:** Gemini / repository engineer
+**Human operator:** Execute the supplied instruction from the repository root
+**Principle:** Reality first. No claimed feature is accepted without physical repository/runtime evidence.
+
+---
+
+# 0. PURPOSE
+
+This contract replaces the previous fragmented verification/fix cycle.
+
+The repository evidence supplied on 2026-08-17 establishes that the current working tree is **not equivalent** to the Gemini baseline that claimed the P0/P1 work was complete.
+
+The current verified state is:
+
+- Branch: `main`
+- Actual HEAD: `181c5390f3b1b1cee17af2fd824fff8481273d7c`
+- Working tree: **DIRTY**
+- Gemini claimed HEAD: `c8f32a18e2098d1a12398b111409228318bc00a1`
+- Gemini claimed completed files such as `IdentityOnboarding.js`, `ADE_ICX_Engine.js`, `CommandCenter.jsx`, build artifacts and tests are physically **missing** from the current checkout.
+- 9/21 expected artifacts are present.
+- 12/21 expected artifacts are missing.
+- Current syntax checks pass for the seven/eight core files that physically exist.
+- `package.json` has no usable `test` script in the current checkout.
+- The current repository contains a substantial Block-01 / older-build working set that must NOT be casually deleted.
+
+Therefore this contract requires a **reconciliation-and-implementation batch**, not another report.
+
+---
+
+# 1. HARD ENGINEERING RULES
+
+1. Do not trust previous Gemini reports as proof of implementation.
+2. Do not claim implementation from filenames alone.
+3. Do not delete useful legacy/older-build material merely because it is not currently canonical.
+4. Do not overwrite the user's existing dirty work blindly.
+5. Preserve the current working tree before destructive/restructuring operations.
+6. Establish one authoritative runtime path.
+7. Preserve compatibility facades only where they are demonstrably useful and safe.
+8. UI must never be the authority for identity, permissions, capabilities, sessions, presence, or security.
+9. Server/kernel/EventBus state is authoritative.
+10. Dynamic capabilities must persist and support revocation.
+11. Security decisions must be deny-by-default.
+12. ADE-ICX must be a first-class kernel subsystem, not a cosmetic frontend.
+13. Staff communication must be organization-aware and hierarchy-aware.
+14. Founder/executive access must be protected by protocol, not ordinary unrestricted direct access.
+15. Presence must be server-derived.
+16. Media/document access must be authorization-controlled.
+17. GPS/GNSS/GSM/IMEI/IMSI/ICCID/SIM/cell-tower/MQTT/OBD-II/CAN/J1939/fleet/geofence integrations must remain explicitly UNIMPLEMENTED until their dedicated hardware/provider phase.
+18. Never fabricate hardware telemetry or carrier state.
+19. Simulation/demo data must be unmistakably separated from production data.
+20. Every accepted capability requires automated regression coverage.
+21. Every final claim must be reproducible from the repository.
+22. No new architectural fork is permitted without an explicit compatibility reason.
+23. The implementation must be idempotent: rerunning the engineering operation must not create duplicate authorities, duplicate routes, duplicate registries, or duplicate migrations.
+24. Existing useful older-build artifacts may be classified as `LEGACY`, `REFERENCE`, or `CANDIDATE_FOR_REUSE`; they must not be silently discarded.
+25. Final acceptance is based on actual commands/results, not prose.
+
+---
+
+# 2. CURRENT REALITY RECONCILIATION
+
+## 2.1 Verified repository facts
+
+The latest supplied reality check reports:
+
+### Present
+
+The following physically exist:
+
+- `src/kernel/EnterpriseKernelMaster.js`
+- `src/core/EnterpriseKernelMaster.js`
+- `src/core/CapabilityRegistry.js`
+- `src/kernel/EnterpriseEventBus.js`
+- `src/kernel/PluginRegistry.js`
+- `src/ai/UniversalAIGateway.js`
+- `src/kernel/SupportingEngines.js`
+- `src/server.js`
+- `lib/core/demoGuard.ts`
+
+### Missing despite previous Gemini claims
+
+- `src/kernel/IdentityOnboarding.js`
+- `frontend/src/app/CommandCenter.jsx`
+- `src/kernel/ScenarioEngine.js`
+- `src/kernel/FeedbackPipeline.js`
+- `scripts/build-community.mjs`
+- `src/kernel/ADE_ICX_Engine.js`
+- `docs/architecture/ADE-ICX-SPEC.md`
+- `tests/ade-icx.test.js`
+- `tests/capability-registry.test.js`
+- `dist/build-manifest.json`
+- `dist/ade-community-edition.zip`
+- `.ade_capability_store.json`
+
+These missing files must be treated as **not implemented in the current checkout**, regardless of previous reports.
+
+---
+
+# 3. DIRTY WORKTREE PRESERVATION
+
+Before changing source:
+
+1. Record:
+   - current HEAD
+   - branch
+   - status
+   - staged diff
+   - unstaged diff
+   - untracked files
+   - hashes of all relevant current files
+2. Create a non-destructive recovery point.
+3. Do not reset, clean, checkout, or delete the current dirty work.
+4. Do not destroy:
+   - `ADE-BLOCK01-EXPERIENCE-FOUNDATION.md`
+   - `ADE-PHASE01-BASELINE.json`
+   - `ADE-PHASE01-GEMINI-ENGINEERING-DIRECTIVE.md`
+   - `src/core/reconciled/Block01Adapter.js`
+   - `tests/core/block01-foundation.test.ts`
+   - `types/ade/*`
+   - existing kernel/bus/engine work
+5. Classify older files instead of deleting them.
+
+The final implementation may reorganize these assets only after proving what they contain and where they belong.
+
+---
+
+# 4. CANONICAL RUNTIME
+
+The target authority graph is:
+
+`src/server.js`
+→ `src/kernel/EnterpriseKernelMaster.js`
+→ `src/kernel/EnterpriseEventBus.js`
+→ `src/core/CapabilityRegistry.js`
+→ `src/kernel/PluginRegistry.js`
+→ `src/ai/UniversalAIGateway.js`
+→ supporting engines
+→ ADE-ICX
+
+Compatibility facade:
+
+`src/core/EnterpriseKernelMaster.js`
+
+Allowed legacy wrappers:
+
+- `src/core/KernelLoader.js`
+- `kernel/engine/MasterBoot.js`
+- `src/core/EventBus.js`
+- `src/ai/AIGatewayMaster.js`
+
+These may delegate to canonical authorities but must never become alternate authorities.
+
+Acceptance rule:
+
+> There must be exactly one authoritative implementation of each kernel/event/capability/AI authority.
+
+---
+
+# 5. IDENTITY + SESSION AUTHORITY
+
+Implement/restore a canonical server-authoritative identity subsystem.
+
+Required properties:
+
+- cryptographically verifiable server-issued session tokens
+- expiration
+- revocation
+- missing-session rejection
+- persona/role entitlement enforcement
+- server-side authorization
+- protected mutation routes
+- deny-by-default authorization
+- no privilege escalation through browser storage
+- no trust in client-supplied role/persona/permission claims
+
+`localStorage` may hold presentation/session hints if necessary, but it must never determine authorization.
+
+Required regression tests:
+
+- valid session succeeds
+- malformed token fails
+- expired token fails
+- revoked token fails
+- missing token fails
+- wrong persona fails
+- unauthorized role fails
+- client-side role manipulation fails
+
+---
+
+# 6. CAPABILITY REGISTRY
+
+Restore or complete:
+
+- `registerCapability`
+- `verifyCapability`
+- `getSubsystems`
+- `unregisterCapability`
+- `revokeCapability`
+- `restoreCapability`
+
+Required lifecycle states:
+
+- `STATIC_CORE_CAPABILITY`
+- `DYNAMIC_CAPABILITY`
+- `TEMPORARY_CAPABILITY`
+- `REVOKED_CAPABILITY`
+
+Persistence:
+
+- file-backed initially
+- atomic writes
+- restart-safe
+- corruption-resistant
+- no partial writes
+- revocation survives restart
+
+Never allow the UI to create an effective privilege merely by changing local state.
+
+Required regression tests:
+
+- registration
+- duplicate handling
+- verification
+- revocation
+- restoration
+- unregister
+- persistence
+- restart recovery
+- invalid capability rejection
+
+---
+
+# 7. COMMAND CENTER RECONCILIATION
+
+CommandCenter must use authoritative server state.
+
+Required flow:
+
+`REST initial state`
+→ `SSE live updates`
+→ `reconciliation`
+→ `authoritative state`
+
+When SSE fails:
+
+- no fabricated capability state
+- no silent fallback
+- show `STALE_DATA`
+- show `CONNECTION_UNAVAILABLE`
+- reconcile after reconnection
+
+Remove static capability arrays that can impersonate live state.
+
+The frontend may render state; it must not manufacture state.
+
+---
+
+# 8. SCENARIO / DEMO SAFETY
+
+`lib/core/demoGuard.ts` is a hard boundary.
+
+For:
+
+- `SIMULATED`
+- `CONCEPT`
+- demo-only execution
+
+the system must block real network/database/device side effects unless an explicit, separately authorized test mode exists.
+
+Scenario execution must provide:
+
+- deterministic setup
+- deterministic cleanup
+- rollback on failure
+- rollback on cancellation
+- no leaked state between repeated runs
+
+Acceptance:
+
+Run the same scenario repeatedly and verify that state does not accumulate unintentionally.
+
+---
+
+# 9. FEEDBACK / TELEMETRY INGESTION
+
+Feedback ingestion must be resilient.
+
+Required:
+
+- input validation
+- PII sanitization
+- EventBus delivery
+- backpressure handling
+- temporary queue/buffer
+- AI enrichment must be non-blocking to core ingestion
+- enrichment failure must not destroy the original feedback
+- retry policy must be bounded
+- queue recovery must be deterministic
+
+No secret, token, password, authorization header, or unnecessary PII may enter persistent telemetry.
+
+---
+
+# 10. COMMUNITY BUILD INTEGRITY
+
+Restore:
+
+`scripts/build-community.mjs`
+
+Build must generate:
+
+`dist/build-manifest.json`
+
+Manifest fields:
+
+- artifact
+- relative path
+- size_bytes
+- sha256_hash
+- build_timestamp
+- build_version
+- commit_sha
+
+Build output:
+
+`dist/ade-community-edition.zip`
+
+The manifest hash must be independently recomputable.
+
+The build must fail closed if the produced artifact does not match its declared digest.
+
+---
+
+# 11. ADE INTERNAL COMMUNICATIONS EXCHANGE — ADE-ICX
+
+## 11.1 Status
+
+ADE-ICX is now a required first-class platform subsystem.
+
+It must exist before the full APEX AIOPS/AIBOS marketplace rollout.
+
+## 11.2 Purpose
+
+ADE-ICX is the internal staff communications and organizational coordination system for the ADE ecosystem.
+
+It covers staff operating across:
+
+- ADE Core
+- AWBULI
+- PROCARTA
+- ADE Infrastructure
+- ADE ecosystem/platform units
+- future ADE products and operational subsidiaries/units
+
+## 11.3 Automatic staff onboarding
+
+When an eligible person is formally onboarded/employed into an ADE organizational unit:
+
+1. ADE identity is created/linked.
+2. Organizational unit is assigned.
+3. Department/team is assigned.
+4. Role is assigned.
+5. Communication entitlements are provisioned automatically.
+6. Presence becomes available through the central system.
+7. The staff member becomes discoverable according to their visibility policy.
+8. Audit records are created.
+
+Deprovisioning must occur when employment/access ends.
+
+No stale employee access may remain active indefinitely.
+
+---
+
+# 12. ADE-ICX ORGANIZATION MODEL
+
+Minimum organizational roles:
+
+- Founder
+- Executive
+- Department Head
+- Manager
+- Team Lead
+- Operational Staff
+
+The model must be data-driven rather than hard-coded to a handful of people.
+
+Every staff identity should support:
+
+- full name
+- current role
+- previous role/portfolio history
+- organizational unit
+- department
+- branch
+- city
+- country
+- work email
+- work contact number
+- employment/engagement status
+- last active timestamp
+- presence state
+
+Display must remain lightweight and non-overwhelming.
+
+Sensitive personal data must not be exposed merely because a user can browse the staff directory.
+
+---
+
+# 13. ADE-ICX COMMUNICATION CHANNELS
+
+Supported channel classes:
+
+- `DIRECT`
+- `TEAM`
+- `DEPARTMENT`
+- `PRODUCT`
+- `ESCALATION`
+- `ANNOUNCEMENT`
+
+Supported message types:
+
+- TEXT
+- FILE
+- DOCUMENT
+- IMAGE
+- VIDEO
+- VOICE
+- SYSTEM_EVENT
+- ESCALATION_REQUEST
+
+The communication layer must support:
+
+- delivery state
+- timestamps
+- sender
+- recipient/channel
+- authorization context
+- attachment metadata
+- audit identifiers
+- retention policy
+- deletion/retention rules
+- moderation/security hooks where required
+
+---
+
+# 14. STAFF HIERARCHY + CONTACT PROTOCOL
+
+The system must not treat the Founder or senior executives as ordinary unrestricted direct-message targets.
+
+Default escalation chain:
+
+`Operational Staff`
+→ `Team Lead`
+→ `Manager`
+→ `Department Head`
+→ `Executive`
+→ `Founder`
+
+The exact route must be data-driven.
+
+Normal communication should follow the user's organizational scope.
+
+Direct access to senior leadership may exist where policy explicitly grants it, but the platform must not assume universal direct access.
+
+Emergency/security pathways may bypass ordinary routing only under explicit policy and must generate an audit record.
+
+Required:
+
+- reason for escalation
+- originating staff member
+- organizational context
+- target level
+- timestamp
+- escalation status
+- acknowledgement
+- resolution/closure
+- audit trail
+
+This is a protocol system, not merely a chat UI.
+
+---
+
+# 15. PRESENCE
+
+Presence is server-derived.
+
+Supported states:
+
+- ONLINE
+- AWAY
+- BUSY
+- OFFLINE
+
+The client may signal activity but may not simply declare itself `ONLINE`.
+
+Required:
+
+- lastSeen
+- lastActive
+- heartbeat/session evidence
+- disconnect detection
+- stale-session handling
+- server-side expiry
+
+Presence should be lightweight in directory and messaging views.
+
+Do not make presence a user-editable privilege signal.
+
+---
+
+# 16. MEDIA / FILE SECURITY
+
+ADE-ICX must support secure sharing of:
+
+- files
+- documents
+- images
+- video
+- voice
+
+Required controls:
+
+- MIME validation
+- extension/content consistency checks where practical
+- size limits
+- authorization checks
+- access control
+- retention
+- audit events
+- safe download handling
+- executable upload restrictions
+- path traversal prevention
+- filename sanitization
+- no public-by-default private staff documents
+
+Storage should be provider-neutral.
+
+---
+
+# 17. PRODUCT-WIDE IDENTITY INTEGRATION
+
+ADE-ICX must not create a second unrelated employee identity database.
+
+Identity authority:
+
+`ADE Core Identity`
+→ organizational membership
+→ product membership
+→ communication entitlements
+
+Examples:
+
+A staff member belonging to AWBULI can communicate with an authorized PROCARTA staff member.
+
+A staff member can be reassigned between units without creating a new person identity.
+
+A staff member's previous portfolio remains historical metadata, not an active privilege.
+
+When employment/access ends:
+
+- active sessions revoked
+- communication privileges revoked
+- directory visibility adjusted
+- outstanding access reviewed
+- audit preserved
+
+---
+
+# 18. RBAC + ABAC
+
+Use both:
+
+### RBAC
+Role determines baseline permissions.
+
+### ABAC
+Context determines whether a specific action is allowed.
+
+Relevant attributes include:
+
+- staff identity
+- role
+- department
+- organizational unit
+- reporting relationship
+- message channel
+- resource sensitivity
+- employment status
+- escalation state
+- security policy
+- time/context where required
+
+Authorization must be evaluated server-side.
+
+---
+
+# 19. AUDIT + EVENTBUS
+
+All important ICX actions must use the canonical EventBus.
+
+Required events include:
+
+- `staff.onboarded`
+- `staff.offboarded`
+- `message.sent`
+- `message.delivered`
+- `message.read`
+- `message.rejected`
+- `presence.changed`
+- `escalation.created`
+- `escalation.acknowledged`
+- `escalation.resolved`
+- `media.uploaded`
+- `media.accessed`
+- `capability.revoked`
+
+Events must not bypass the canonical EventBus.
+
+---
+
+# 20. GPS / GSM / IMEI / SIM / IOT BOUNDARY
+
+These remain intentionally unimplemented.
+
+Do NOT create fake production integrations.
+
+Explicitly unimplemented:
+
+- GPS/GNSS hardware ingestion
+- GSM/cellular ingestion
+- IMEI
+- IMSI
+- ICCID
+- SIM state
+- MSISDN
+- carrier APIs
+- cell tower positioning
+- MQTT broker integration
+- OBD-II
+- CAN bus
+- J1939
+- fleet hardware
+- geofencing backed by real device telemetry
+
+Allowed now:
+
+- provider-neutral interfaces
+- schemas/contracts
+- adapters/interfaces
+- capability declarations
+- simulation-only fixtures
+- future integration boundaries
+
+Not allowed:
+
+- pretending simulated coordinates are real GPS
+- pretending a generated IMEI is a device IMEI
+- pretending an HTTP request is carrier/GSM telemetry
+- fake hardware status presented as production telemetry
+
+Every UI element showing future telemetry must visibly distinguish `SIMULATED`, `CONCEPT`, or `UNIMPLEMENTED`.
+
+---
+
+# 21. LEGACY / OLDER BUILD MATERIAL
+
+The repository currently contains older/build-transition material.
+
+Do not delete it just to make the repository look clean.
+
+Inspect and classify:
+
+- kernel/bus/*
+- kernel/engine/*
+- `src/core/*`
+- `src/core/reconciled/*`
+- `types/ade/*`
+- Block-01 documentation
+- existing adapters
+- existing orchestration engines
+- existing validation code
+
+Classification:
+
+`CANONICAL`
+`COMPATIBILITY`
+`LEGACY`
+`REFERENCE`
+`CANDIDATE_FOR_REUSE`
+`DEPRECATED`
+
+Only remove something when:
+
+1. its function is understood,
+2. its replacement is proven,
+3. references are migrated,
+4. tests pass,
+5. removal is explicitly recorded.
+
+---
+
+# 22. TEST CONTRACT
+
+Restore a real automated test command.
+
+At minimum:
+
+- core kernel boot
+- canonical EventBus
+- capability lifecycle
+- identity/session security
+- CommandCenter reconciliation
+- scenario safety
+- feedback resilience
+- ADE-ICX identity
+- organization hierarchy
+- RBAC/ABAC
+- messaging authorization
+- media authorization
+- presence
+- escalation chain
+- telemetry boundary enforcement
+- build manifest verification
+
+No acceptance statement may say "17/17" or "78/78" unless the current checkout actually produces those results.
+
+Required output must be generated by the current repository.
+
+---
+
+# 23. VALIDATION COMMANDS
+
+The implementation agent must run, as applicable:
+
+```powershell
+node src/cli/ade-validate.js
+npm test
+npm run build
+git status --short
+git diff --stat
+```
+
+If a script does not exist, the agent must create the appropriate deterministic script rather than merely reporting it missing.
+
+Run syntax validation on all JavaScript entry points touched by the batch.
+
+If TypeScript is present, run the repository's configured TypeScript validation where applicable.
+
+---
+
+# 24. FINAL ACCEPTANCE GATES
+
+The batch is accepted only if ALL are true:
+
+### Runtime
+- one canonical kernel
+- one canonical EventBus
+- one canonical CapabilityRegistry
+- one canonical AI gateway
+- one canonical server entry
+
+### Identity
+- server authoritative
+- signed sessions
+- expiration
+- revocation
+- persona/role enforcement
+- no client privilege escalation
+
+### Capability
+- lifecycle complete
+- persistence works
+- revocation survives restart
+- UI cannot override authorization
+
+### Command Center
+- server state authoritative
+- REST/SSE reconciliation
+- stale state visible
+- no fabricated fallback
+
+### Scenario
+- demo side effects blocked
+- rollback deterministic
+- repeated runs clean
+
+### Feedback
+- PII sanitized
+- buffering works
+- enrichment failure isolated
+
+### Build
+- community build succeeds
+- manifest generated
+- SHA-256 independently verified
+
+### ADE-ICX
+- staff identity integration
+- automatic onboarding provisioning
+- offboarding/revocation
+- organization hierarchy
+- RBAC/ABAC
+- presence
+- messaging
+- file/media security
+- escalation protocol
+- EventBus integration
+- audit trail
+
+### Telematics
+- explicitly unimplemented
+- no fake production hardware
+
+### Tests
+- all configured tests pass
+- no skipped critical suites
+- no false claims
+
+### Git
+- changes documented
+- no unexplained destructive changes
+- final commit/recovery point recorded
+
+---
+
+# 25. REQUIRED FINAL ENGINEERING REPORT
+
+The engineering agent must produce exactly one final report with:
+
+1. CURRENT TRUTH
+2. RECONCILIATION FINDINGS
+3. ACTUALLY IMPLEMENTED
+4. PRESERVED LEGACY / REFERENCE MATERIAL
+5. SECURITY CHANGES
+6. ADE-ICX CHANGES
+7. TELEMATICS BOUNDARY
+8. TEST RESULTS
+9. BUILD RESULTS
+10. GIT DIFF SUMMARY
+11. REMAINING BLOCKERS
+12. FINAL ACCEPTANCE: PASS / FAIL
+
+Every claim must include concrete evidence such as:
+
+- file path
+- test name
+- command
+- result
+- relevant hash where appropriate
+
+No narrative-only acceptance.
+
+---
+
+# 26. EXACT GEMINI MASTER ENGINEERING INSTRUCTION
+
+Copy the following block to Gemini from the repository root.
+
+---
+
+## GEMINI — EXECUTE ONE CONTROLLED MASTER ENGINEERING BATCH
+
+You are operating on the ADE-APEX repository.
+
+Do NOT produce another investigation-only report.
+
+Do NOT ask the operator to perform another series of manual discovery tasks.
+
+Execute one controlled engineering batch against the current repository state.
+
+### CURRENT TRUTH
+
+Actual repository HEAD:
+
+`181c5390f3b1b1cee17af2fd824fff8481273d7c`
+
+Working tree is dirty.
+
+Previous Gemini claims referenced a different HEAD:
+
+`c8f32a18e2098d1a12398b111409228318bc00a1`
+
+Therefore the previous claimed implementation is NOT accepted as current truth.
+
+The current checkout physically lacks these previously claimed files:
+
+- `src/kernel/IdentityOnboarding.js`
+- `frontend/src/app/CommandCenter.jsx`
+- `src/kernel/ScenarioEngine.js`
+- `src/kernel/FeedbackPipeline.js`
+- `scripts/build-community.mjs`
+- `src/kernel/ADE_ICX_Engine.js`
+- `docs/architecture/ADE-ICX-SPEC.md`
+- `tests/ade-icx.test.js`
+- `tests/capability-registry.test.js`
+- `dist/build-manifest.json`
+- `dist/ade-community-edition.zip`
+- `.ade_capability_store.json`
+
+Do not claim these features exist until the current checkout physically contains working implementations.
+
+### PRESERVE FIRST
+
+Before modification:
+
+- record current git state
+- preserve dirty work
+- do not git reset
+- do not git clean
+- do not delete older-build material
+- create a recoverable implementation checkpoint
+- inspect existing Block-01/reconciled/type/engine work and reuse it where appropriate
+
+### THEN IMPLEMENT
+
+Implement the entire master contract below as one coherent architecture:
+
+1. canonical kernel authority
+2. canonical EventBus
+3. canonical CapabilityRegistry
+4. canonical AI gateway
+5. server-authoritative identity/session security
+6. persistent capability lifecycle and revocation
+7. CommandCenter REST/SSE reconciliation
+8. scenario/demo side-effect boundaries and rollback
+9. feedback PII sanitization and resilient buffering
+10. deterministic community build + SHA-256 manifest
+11. ADE-ICX kernel subsystem
+12. ADE staff identity and automatic onboarding
+13. organizational units and hierarchy
+14. RBAC + ABAC
+15. server-derived presence
+16. text/file/document/image/video/voice messaging
+17. secure media/document access
+18. structured escalation chain
+19. EventBus audit events
+20. product-wide ADE/AWBULI/PROCARTA identity integration
+21. explicit telemetry/IoT contracts without fake hardware
+22. regression test suites
+23. deterministic validation/build scripts
+
+### ADE-ICX NON-NEGOTIABLES
+
+ADE-ICX is a first-class internal staff communications system.
+
+Staff onboarded into ADE, AWBULI, PROCARTA, ADE Infrastructure, or another authorized ADE operational unit automatically receive communication access appropriate to their organizational role.
+
+Staff can communicate across authorized organizational boundaries.
+
+The system must support:
+
+- text
+- files
+- documents
+- images
+- video
+- voice
+- system events
+- escalation requests
+
+Staff directory/profile must be lightweight and include, according to authorization:
+
+- full name
+- current role
+- previous roles/portfolio
+- unit
+- department
+- branch
+- city
+- country
+- work email
+- work contact
+- online/offline state
+- last active/last seen
+
+Presence is server-derived and not a client-editable authorization field.
+
+### HIERARCHY
+
+Implement a data-driven chain:
+
+Operational Staff
+→ Team Lead
+→ Manager
+→ Department Head
+→ Executive
+→ Founder
+
+Do not give every employee unrestricted direct access to Founder/executive channels.
+
+Use policy-driven direct access where explicitly permitted.
+
+Emergency/security escalation may bypass ordinary routing only under explicit policy and must be audited.
+
+### TELEMATICS
+
+Do NOT fake:
+
+GPS/GNSS/GSM/IMEI/IMSI/ICCID/SIM/cell tower/carrier/MQTT/OBD-II/CAN/J1939/fleet/geofence telemetry.
+
+Keep these explicitly unimplemented while preserving provider-neutral contracts for the future hardware phase.
+
+### SECURITY
+
+Authorization is server-side.
+
+Deny by default.
+
+Never trust:
+
+- localStorage roles
+- browser capability state
+- client persona
+- client-supplied authorization claims
+
+Protect mutation routes.
+
+Use cryptographic session verification, expiry, and revocation.
+
+### LEGACY
+
+Do not delete useful older code simply because it is not canonical.
+
+Create compatibility facades where useful.
+
+Migrate references to canonical authorities.
+
+Remove duplicates only after proving they are redundant and recording the reason.
+
+### IDEMPOTENCE
+
+The engineering batch must be safe to rerun.
+
+Do not create duplicate files, routes, event buses, registries, boot authorities, or database/file migrations.
+
+### TESTING
+
+Create/restore a real `npm test` script if one does not exist.
+
+Run:
+
+```powershell
+node src/cli/ade-validate.js
+npm test
+npm run build
+```
+
+plus appropriate syntax/type checks.
+
+Do not fabricate test counts.
+
+### BUILD
+
+Produce:
+
+`dist/ade-community-edition.zip`
+
+and:
+
+`dist/build-manifest.json`
+
+Verify SHA-256 independently.
+
+### FINAL REPORT
+
+Return one report only.
+
+Format:
+
+CURRENT TRUTH
+RECONCILIATION
+IMPLEMENTED
+PRESERVED LEGACY
+SECURITY
+ADE-ICX
+TELEMATICS
+TESTS
+BUILD
+GIT
+REMAINING BLOCKERS
+FINAL ACCEPTANCE
+
+For every material claim give actual evidence from the current repository.
+
+If a requirement cannot be completed safely, implement the correct boundary and mark that specific item UNIMPLEMENTED rather than fabricating it.
+
+Do not ask the operator what to inspect next.
+
+Do not return a planning essay.
+
+Execute the engineering batch.
+
+---
+
+# 27. DEFINITION OF DONE
+
+The ADE-APEX platform is not considered ready for the full APEX AIOPS / AIBOS marketplace rollout merely because a build succeeds.
+
+The platform becomes eligible for that transition only after:
+
+- runtime authority is reconciled,
+- identity/security is authoritative,
+- capability lifecycle is persistent,
+- CommandCenter reflects real server state,
+- ADE-ICX is operationally integrated,
+- staff hierarchy and escalation are enforceable,
+- presence is server-derived,
+- messaging/media authorization is enforced,
+- tests are real and passing,
+- build integrity is verified,
+- telematics boundaries remain honest,
+- no duplicate runtime authority remains,
+- and the final repository state can reproduce every acceptance claim.
+
+This contract is the controlling engineering specification for the next consolidated batch.

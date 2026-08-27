@@ -1,0 +1,23 @@
+{
+  "audit": "ADE-APEX Final Enterprise Audit",
+  "date": "2026-08-17",
+  "source": "uploaded ADE-APEX Community/MVP engineering source",
+  "canonical_server": "src/server.js",
+  "canonical_kernel": "src/kernel/EnterpriseKernelMaster.js",
+  "canonical_event_bus": "src/kernel/EnterpriseEventBus.js",
+  "canonical_capability_registry": "src/core/CapabilityRegistry.js",
+  "active_import_graph": {"reachable_modules": 18, "missing_local_imports": 0},
+  "syntax": {"javascript_mjs_files_checked": 386, "failures": 0},
+  "tests": {"full_js_sweep_passed": 23, "full_js_sweep_failed": 0, "acceptance_passed": 6, "level3_passed": 13, "level3_total": 13, "release_verification_passed": 3, "release_verification_total": 3},
+  "hardening": [
+    "canonical capability handlers are executed by kernel dispatch",
+    "persisted capabilities expose explicit runtime binding",
+    "ICX actor identity is bound to authenticated sessions",
+    "public SSE excludes security and internal ICX payloads",
+    "active AI Gateway and Community Guard use canonical EventBus",
+    "legacy hardcoded frontend command fallbacks removed",
+    "obvious zero-byte shell artifact files removed"
+  ],
+  "deferred": ["physical GPS/GNSS", "GSM/cellular", "IMEI/IMSI/ICCID/SIM", "carrier/cell tower", "MQTT", "OBD-II", "CAN/J1939", "physical vehicle control", "fleet/geofence production integration"],
+  "external_verification_required": ["npm ci on CI/deployment", "live HTTPS smoke test", "Vercel environment configuration", "Cloudflare DNS/TLS", "UptimeRobot monitor", "persistent production signing keys", "real AI provider credentials if desired"]
+}

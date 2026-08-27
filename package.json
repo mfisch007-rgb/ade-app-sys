@@ -5,7 +5,11 @@
   "main": "src/server.js",
   "scripts": {
     "start": "node src/server.js",
-    "dev": "node --watch src/server.js"
+    "dev": "node --watch src/server.js",
+    "test": "node --test tests/acceptance.test.js",
+    "validate": "node src/cli/ade-validate.js",
+    "build:community": "node scripts/build-community.mjs",
+    "verify:release": "node tests/release-verification.test.js"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",

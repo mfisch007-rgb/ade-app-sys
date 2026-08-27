@@ -1,0 +1,49 @@
+﻿{
+    "phase":  "ADE-NATIVE-RUNTIME-RECONCILIATION-01",
+    "repository":  "C:\\Users\\USER\\Desktop\\ADE-APP-SYS",
+    "git":  {
+                "branch":  "main",
+                "head":  "181c5390f3b1b1cee17af2fd824fff8481273d7c",
+                "worktree_entries":  [
+                                         "?? docs/architecture/ADE-BLOCK01-EXPERIENCE-FOUNDATION.md",
+                                         "?? lib/",
+                                         "?? tests/core/",
+                                         "?? types/"
+                                     ]
+            },
+    "runtime":  {
+                    "node":  "v20.20.0",
+                    "npm":  "11.11.0",
+                    "package_name":  "ade-app-sys",
+                    "package_version":  "1.0.0",
+                    "scripts":  [
+                                    {
+                                        "name":  "start",
+                                        "command":  "node src/server.js"
+                                    },
+                                    {
+                                        "name":  "dev",
+                                        "command":  "node --watch src/server.js"
+                                    }
+                                ]
+                },
+    "validation_assumptions_rejected":  [
+                                            "npm run type-check",
+                                            "TypeScript compiler assumption",
+                                            "Jest assumption",
+                                            "Vitest assumption",
+                                            "Next.js build assumption"
+                                        ],
+    "block01_artifacts":  [
+                              "types/ade/design.ts",
+                              "types/ade/execution.ts",
+                              "types/ade/edition.ts",
+                              "types/ade/onboarding.ts",
+                              "types/ade/verification.ts",
+                              "lib/core/demoGuard.ts",
+                              "lib/core/edition.ts",
+                              "lib/core/mediaRegistry.ts",
+                              "tests/core/block01-foundation.test.ts"
+                          ],
+    "mode":  "READ_ONLY_BASELINE_FOR_GEMINI_ENGINEERING_STRETCH"
+}

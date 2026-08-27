@@ -1,272 +1,42 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ADE-APEX Enterprise Operating System (HHI v1.0.0)</title>
-  <style>
-    :root { 
-      --quantum-bg: #03070c; 
-      --shield-bg: #0b1222; 
-      --border: #1e293b; 
-      --anchor-cyan: #38bdf8; 
-      --oracle-violet: #a855f7; 
-      --guardian-green: #10b981; 
-      --alert-red: #ef4444; 
-      --ivory-text: #f8fafc; 
-      --shield-grey: #64748b; 
-      --blue-highlight: #1e3a8a; 
-    }
-    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, monospace; }
-    body { background-color: var(--quantum-bg); color: var(--ivory-text); padding: 24px; min-height: 100vh; display: flex; flex-direction: column; gap: 20px; }
-    header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid var(--blue-highlight); padding-bottom: 20px; box-shadow: 0 4px 20px rgba(56, 189, 248, 0.15); }
-    .brand-container { display: flex; align-items: center; gap: 16px; }
-    .brand-logo-container { width: 54px; height: 54px; display: flex; align-items: center; justify-content: center; background: rgba(56, 189, 248, 0.05); border: 1px solid var(--blue-highlight); border-radius: 8px; }
-    .brand-logo-img { max-width: 100%; max-height: 100%; object-fit: contain; filter: drop-shadow(0 0 8px rgba(56, 189, 248, 0.8)); }
-    .brand h1 { font-size: 22px; font-weight: 800; color: var(--ivory-text); letter-spacing: -0.5px; text-transform: uppercase; }
-    .brand p { font-size: 11px; color: var(--shield-grey); margin-top: 2px; letter-spacing: 0.5px; }
-    .header-actions { display: flex; align-items: center; gap: 12px; }
-    .cmd-btn { background: var(--shield-bg); color: var(--anchor-cyan); border: 1px solid var(--border); padding: 10px 18px; border-radius: 6px; font-weight: 700; font-size: 12px; font-family: monospace; cursor: pointer; transition: all 0.2s ease; box-shadow: 0 0 10px rgba(56, 189, 248, 0.1); }
-    .cmd-btn:hover { background: var(--blue-highlight); color: #fff; border-color: var(--anchor-cyan); box-shadow: 0 0 15px rgba(56, 189, 248, 0.3); }
-    .badge { background: rgba(16, 185, 129, 0.1); color: var(--guardian-green); border: 1px solid var(--guardian-green); padding: 6px 14px; border-radius: 20px; font-weight: 700; font-size: 12px; font-family: monospace; }
-    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; }
-    .card { background: var(--shield-bg); border: 1px solid var(--border); border-radius: 10px; padding: 20px; transition: border-color 0.2s; }
-    .card:hover { border-color: var(--blue-highlight); }
-    .card label { font-size: 11px; text-transform: uppercase; color: var(--shield-grey); font-weight: 700; display: block; margin-bottom: 6px; }
-    .card .val { font-size: 22px; font-weight: 700; color: var(--anchor-cyan); font-family: monospace; }
-    .main-layout { display: grid; grid-template-columns: 2fr 1fr; gap: 20px; flex-grow: 1; }
-    @media (max-width: 900px) { .main-layout { grid-template-columns: 1fr; } }
-    .panel { background: var(--shield-bg); border: 1px solid var(--border); border-radius: 10px; padding: 20px; display: flex; flex-direction: column; gap: 15px; }
-    .panel-title { font-size: 14px; font-weight: 700; color: var(--ivory-text); text-transform: uppercase; letter-spacing: 1px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--blue-highlight); padding-bottom: 10px; }
-    .log-stream { background: #010204; border: 1px solid var(--border); border-radius: 6px; padding: 12px; font-family: monospace; font-size: 12px; height: 350px; overflow-y: auto; color: var(--ivory-text); display: flex; flex-direction: column; gap: 8px; }
-    .log-entry { display: flex; gap: 10px; border-bottom: 1px solid rgba(255,255,255,0.03); padding-bottom: 4px; }
-    .log-tag-system { color: var(--shield-grey); }
-    .log-tag-oracle { color: var(--oracle-violet); }
-    .log-tag-guardian { color: var(--guardian-green); }
-    .log-tag-alert { color: var(--alert-red); }
-    .log-tag-data { color: var(--anchor-cyan); }
-    .registry-list { display: flex; flex-direction: column; gap: 10px; font-size: 13px; font-family: monospace; }
-    .registry-item { padding: 10px; background: #0a0f1d; border-radius: 6px; border: 1px solid var(--border); }
-    footer { border-top: 2px solid var(--blue-highlight); padding-top: 15px; font-size: 11px; color: var(--shield-grey); display: flex; justify-content: space-between; align-items: center; }
-    kbd { background: var(--blue-highlight); padding: 2px 6px; border-radius: 4px; color: var(--anchor-cyan); border: 1px solid rgba(56, 189, 248, 0.2); }
-    .overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(3, 7, 18, 0.95); backdrop-filter: blur(10px); display: none; justify-content: center; align-items: flex-start; padding-top: 80px; z-index: 9999; }
-    .palette-modal { background: var(--shield-bg); border: 2px solid var(--anchor-cyan); width: 100%; max-width: 700px; border-radius: 12px; box-shadow: 0 20px 40px rgba(0,0,0,0.8); overflow: hidden; }
-    .palette-input { width: 100%; background: rgba(56, 189, 248, 0.05); border: none; border-bottom: 1px solid var(--blue-highlight); padding: 18px 20px; color: var(--ivory-text); font-size: 16px; outline: none; font-family: monospace; }
-    .palette-results { max-height: 420px; overflow-y: auto; padding: 10px; display: flex; flex-direction: column; gap: 6px; }
-    .result-row { padding: 12px 16px; border-radius: 6px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; border: 1px solid transparent; background: rgba(255,255,255,0.02); transition: all 0.15s ease; user-select: none; }
-    .result-row:hover, .result-row.selected { background: var(--blue-highlight); border-color: var(--anchor-cyan); box-shadow: 0 0 10px rgba(56, 189, 248, 0.2); }
-    .result-label { font-size: 13px; font-family: monospace; color: var(--ivory-text); pointer-events: none; }
-    .result-cat { font-size: 10px; text-transform: uppercase; background: #1a1f2e; color: var(--shield-grey); padding: 3px 8px; border-radius: 4px; font-weight: 700; font-family: monospace; pointer-events: none; }
-  </style>
-</head>
-<body>
-  <header>
-    <div class="brand-container">
-      <div class="brand-logo-container">
-        <img src="/ADE-LOGO.png?v=1.0.8" alt="ADE Logo" class="brand-logo-img">
-      </div>
-      <div class="brand">
-        <h1>ADE-APEX Enterprise Operating System</h1>
-        <p>We Listened | We Observed | We Learnt | We Evolved</p>
-      </div>
-    </div>
-    <div class="header-actions">
-      <button class="cmd-btn" id="openPaletteBtn">⌘ Command OS (Ctrl+K)</button>
-      <div class="badge" id="sseBadge">SYNCED LIVE</div>
-    </div>
-  </header>
-
-  <div class="grid">
-    <div class="card"><label>Kernel Status</label><div class="val">OPERATIONAL</div></div>
-    <div class="card"><label>Oracle Intelligence</label><div class="val" style="color:var(--oracle-violet);">ACTIVE</div></div>
-    <div class="card"><label>Guardian Shield</label><div class="val" style="color:var(--guardian-green);">PROTECTED</div></div>
-    <div class="card"><label>Data Pipeline</label><div class="val">AGNOSTIC</div></div>
-  </div>
-
-  <div class="main-layout">
-    <div class="panel">
-      <div class="panel-title">Live Telemetry Stream</div>
-      <div class="log-stream" id="telemetryLog"></div>
-    </div>
-
-    <div class="panel">
-      <div class="panel-title">Agnostic Registry Engine</div>
-      <div class="registry-list">
-        <div class="registry-item">⚡ Universal Ingestion Pipeline</div>
-        <div class="registry-item">⚙️ Procarta Workflow Engine</div>
-        <div class="registry-item">🔗 Universal Webhook Router</div>
-        <div class="registry-item">📈 Multi-Asset Aggregator</div>
-        <div class="registry-item">🧩 Pluggable Strategy Marketplace</div>
-      </div>
-    </div>
-  </div>
-
-  <footer>
-    <span>ADE Hybrid Human-AI Architecture &copy; 2026 ADE Enterprise Inc. All Rights Reserved.</span>
-    <span>Press <kbd>Ctrl + K</kbd> anywhere to trigger Command Palette</span>
-  </footer>
-
-  <div class="overlay" id="paletteOverlay">
-    <div class="palette-modal" id="paletteModal">
-      <input type="text" class="palette-input" id="paletteSearch" placeholder="Type capability query or operational intent..." autocomplete="off">
-      <div class="palette-results" id="paletteResults"></div>
-    </div>
-  </div>
-
-  <script>
-    const overlay = document.getElementById('paletteOverlay');
-    const modal = document.getElementById('paletteModal');
-    const searchInput = document.getElementById('paletteSearch');
-    const resultsDiv = document.getElementById('paletteResults');
-    const logDiv = document.getElementById('telemetryLog');
-    const openBtn = document.getElementById('openPaletteBtn');
-
-    let selectedIndex = 0;
-    let currentResults = [];
-    let lastRenderedCount = 0;
-
-    async function syncLogs() {
-      try {
-        const res = await fetch('/api/telemetry/poll?t=' + Date.now());
-        const data = await res.json();
-        const logs = data.logs || [];
-        
-        if (logs.length !== lastRenderedCount) {
-          logDiv.innerHTML = '';
-          logs.forEach(item => appendLog(item.time, item.tag, item.message));
-          lastRenderedCount = logs.length;
-          logDiv.scrollTop = logDiv.scrollHeight;
-        }
-      } catch (err) {}
-    }
-
-    syncLogs();
-    setInterval(syncLogs, 1000);
-
-    function openPalette() {
-      overlay.style.display = 'flex';
-      setTimeout(() => searchInput.focus(), 50);
-      fetchAndRenderCapabilities('');
-    }
-
-    function closePalette() { 
-      overlay.style.display = 'none'; 
-      searchInput.value = '';
-      selectedIndex = 0;
-    }
-
-    openBtn.addEventListener('click', openPalette);
-    
-    overlay.addEventListener('mousedown', (e) => {
-      if (e.target === overlay) { closePalette(); }
-    });
-
-    window.addEventListener('keydown', (e) => {
-      if ((e.ctrlKey || e.metaKey) && (e.key === 'k' || e.key === 'K')) {
-        e.preventDefault();
-        overlay.style.display === 'flex' ? closePalette() : openPalette();
-      }
-      if (e.key === 'Escape') closePalette();
-    });
-
-    searchInput.addEventListener('keydown', (e) => {
-      const rows = document.querySelectorAll('.result-row');
-      if (e.key === 'ArrowDown' && rows.length > 0) {
-        e.preventDefault();
-        selectedIndex = (selectedIndex + 1) % rows.length;
-        updateHighlight(rows);
-      } else if (e.key === 'ArrowUp' && rows.length > 0) {
-        e.preventDefault();
-        selectedIndex = (selectedIndex - 1 + rows.length) % rows.length;
-        updateHighlight(rows);
-      } else if (e.key === 'Enter') {
-        e.preventDefault();
-        if (currentResults.length > 0 && selectedIndex >= 0 && selectedIndex < currentResults.length) {
-          const target = currentResults[selectedIndex];
-          executeCmd(target.action, target.label, target.query);
-        }
-      }
-    });
-
-    searchInput.addEventListener('input', () => {
-      fetchAndRenderCapabilities(searchInput.value.trim());
-    });
-
-    function updateHighlight(rows) {
-      rows.forEach((row, idx) => {
-        if (idx === selectedIndex) {
-          row.classList.add('selected');
-          row.scrollIntoView({ block: 'nearest' });
-        } else {
-          row.classList.remove('selected');
-        }
-      });
-    }
-
-    async function fetchAndRenderCapabilities(query) {
-      try {
-        const res = await fetch('/api/command/search?q=' + encodeURIComponent(query));
-        const data = await res.json();
-        const baseCommands = data.commands || [];
-        
-        currentResults = [...baseCommands];
-
-        if (query.trim().length > 0) {
-          currentResults.push({
-            action: 'DYNAMIC_KERNEL_INTENT',
-            label: '⚡ Dispatch Intent: "' + query + '"',
-            category: 'Kernel Resolver',
-            query: query
-          });
-        }
-
-        selectedIndex = 0;
-
-        if (currentResults.length > 0) {
-          resultsDiv.innerHTML = currentResults.map((item, idx) => `
-            <div class="result-row ${idx === 0 ? 'selected' : ''}" data-idx="${idx}">
-              <span class="result-label">${item.label}</span>
-              <span class="result-cat">${item.category}</span>
-            </div>
-          `).join('');
-
-          // Bind Mouse Left-Click Directly
-          document.querySelectorAll('.result-row').forEach(row => {
-            row.addEventListener('click', (e) => {
-              e.stopPropagation();
-              const idx = parseInt(row.getAttribute('data-idx'), 10);
-              const target = currentResults[idx];
-              if (target) {
-                executeCmd(target.action, target.label, target.query);
-              }
-            });
-          });
-        } else {
-          resultsDiv.innerHTML = '<div style="padding:15px; color:var(--shield-grey); font-family:monospace;">No capability matches found.</div>';
-        }
-      } catch (err) {}
-    }
-
-    async function executeCmd(action, label, query = '') {
-      closePalette();
-      await fetch('/api/command/execute', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action, payload: { label, query } })
-      });
-      syncLogs();
-    }
-
-    function appendLog(timeStr, tag, msg) {
-      const entry = document.createElement('div'); 
-      entry.className = 'log-entry';
-      let tagClass = 'log-tag-system';
-      if(tag.includes('ORACLE')) tagClass = 'log-tag-oracle';
-      if(tag.includes('GUARDIAN')) tagClass = 'log-tag-guardian';
-      if(tag.includes('DATA') || tag.includes('COMMAND') || tag.includes('RESOLVER')) tagClass = 'log-tag-data';
-      entry.innerHTML = '<span class="' + tagClass + '">[' + timeStr + '] ' + tag + '</span><span>' + msg + '</span>';
-      logDiv.appendChild(entry);
-    }
-  </script>
-</body>
-</html>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#061A40"><title>ADE APEX — Autonomous Enterprise Operations</title>
+<script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<style>
+:root{--bg:#020817;--panel:#07162f;--panel2:#0a2147;--blue:#0a84ff;--cyan:#00d4ff;--coral:#ff2d55;--text:#eef6ff;--muted:#8ca5c6;--line:rgba(84,157,255,.2);--good:#32e6a1;--warn:#ffd166;--bad:#ff5575;--shadow:0 24px 70px rgba(0,0,0,.38)}
+*{box-sizing:border-box}html,body,#root{margin:0;min-height:100%;background:radial-gradient(circle at 15% 10%,#103e75 0,#020817 32%,#01050d 100%);color:var(--text);font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}body{overflow-x:hidden}.app{min-height:100vh;position:relative}.app:before{content:"";position:fixed;inset:0;background:linear-gradient(rgba(0,212,255,.025) 1px,transparent 1px),linear-gradient(90deg,rgba(0,212,255,.025) 1px,transparent 1px);background-size:36px 36px;pointer-events:none}.shell{position:relative;z-index:1;display:grid;grid-template-columns:260px 1fr;min-height:100vh}.side{padding:22px 16px;border-right:1px solid var(--line);background:linear-gradient(180deg,rgba(4,18,40,.94),rgba(2,8,23,.9));backdrop-filter:blur(18px);box-shadow:18px 0 60px rgba(0,0,0,.22)}.brand{display:flex;align-items:center;gap:12px;padding:10px 10px 24px}.brand img{width:48px;height:48px;object-fit:contain;filter:drop-shadow(0 0 14px rgba(0,212,255,.55))}.brand strong{font-size:17px;letter-spacing:.14em}.brand span{display:block;font-size:10px;color:var(--muted);letter-spacing:.2em;margin-top:4px}.nav{display:grid;gap:8px}.nav button{all:unset;cursor:pointer;padding:12px 13px;border-radius:14px;color:#9eb6d6;border:1px solid transparent;transition:.18s}.nav button:hover,.nav button.active{color:#fff;background:linear-gradient(145deg,rgba(10,132,255,.22),rgba(0,212,255,.06));border-color:var(--line);box-shadow:inset 0 1px rgba(255,255,255,.08),0 8px 24px rgba(0,0,0,.18)}.nav small{display:block;color:#6381a7;margin:20px 10px 8px;letter-spacing:.14em}.sideFooter{position:absolute;bottom:20px;left:16px;right:16px;color:#5f789b;font-size:11px;line-height:1.5}.main{padding:20px 22px 30px;min-width:0}.topbar{display:flex;gap:16px;align-items:center;justify-content:space-between;margin-bottom:18px}.title h1{font-size:24px;margin:0;letter-spacing:.02em}.title p{margin:6px 0 0;color:var(--muted);font-size:12px}.topActions{display:flex;gap:10px;align-items:center}.pill{padding:7px 10px;border-radius:999px;border:1px solid var(--line);background:rgba(8,28,59,.75);font-size:11px}.statusDot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--good);box-shadow:0 0 12px var(--good);margin-right:6px}.btn{border:1px solid var(--line);background:linear-gradient(145deg,#0d2e60,#07152f);color:#eaf5ff;border-radius:12px;padding:9px 13px;cursor:pointer;box-shadow:inset 0 1px rgba(255,255,255,.08),0 8px 18px rgba(0,0,0,.2)}.btn:hover{transform:translateY(-1px);border-color:rgba(0,212,255,.5)}.btn.primary{background:linear-gradient(145deg,#0a84ff,#0754b9);border-color:#42a8ff}.btn.danger{background:linear-gradient(145deg,#7f1830,#3d0c1a);border-color:rgba(255,85,117,.45)}.hero{display:grid;grid-template-columns:1.4fr .6fr;gap:16px}.card{background:linear-gradient(145deg,rgba(9,31,65,.92),rgba(3,14,31,.94));border:1px solid var(--line);border-radius:20px;padding:18px;box-shadow:var(--shadow),inset 0 1px rgba(255,255,255,.06);position:relative;overflow:hidden}.card:after{content:"";position:absolute;inset:-1px;background:linear-gradient(120deg,rgba(0,212,255,.06),transparent 35%,rgba(10,132,255,.05));pointer-events:none}.heroMain{min-height:235px;display:flex;flex-direction:column;justify-content:space-between}.eyebrow{color:#63caff;font-size:10px;letter-spacing:.2em;font-weight:700}.hero h2{font-size:31px;max-width:760px;margin:10px 0 8px}.hero p{color:#9db6d6;max-width:680px;line-height:1.55;font-size:13px}.heroStats{display:flex;gap:10px;flex-wrap:wrap}.stat{padding:10px 12px;border-radius:14px;background:rgba(0,0,0,.2);border:1px solid rgba(100,170,255,.12);min-width:120px}.stat b{display:block;font-size:19px}.stat span{font-size:10px;color:var(--muted)}.orb{height:100%;min-height:235px;display:grid;place-items:center}.orbCore{width:160px;height:160px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#62dfff,#0a84ff 38%,#06265a 70%,#020817);box-shadow:0 0 30px rgba(0,212,255,.45),inset 10px 10px 30px rgba(255,255,255,.12),inset -20px -20px 40px rgba(0,0,0,.35);position:relative}.orbCore:before,.orbCore:after{content:"";position:absolute;border:1px solid rgba(0,212,255,.38);border-radius:50%;inset:-18px;transform:rotate(24deg)}.orbCore:after{inset:-34px;transform:rotate(-24deg);border-color:rgba(255,45,85,.18)}.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-top:16px}.metric{min-height:110px}.metric .value{font-size:28px;font-weight:800;margin-top:8px}.metric .label{color:var(--muted);font-size:11px}.metric .trend{font-size:10px;color:var(--good);margin-top:8px}.sectionGrid{display:grid;grid-template-columns:1.1fr .9fr;gap:16px;margin-top:16px}.panelTitle{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}.panelTitle h3{margin:0;font-size:14px}.panelTitle span{color:var(--muted);font-size:10px}.stream{height:310px;overflow:auto;padding-right:5px}.event{display:grid;grid-template-columns:92px 170px 1fr;gap:10px;padding:9px 5px;border-bottom:1px solid rgba(100,170,255,.08);font-family:ui-monospace,monospace;font-size:10px}.event time{color:#6381a7}.event b{color:#61d4ff}.event span{color:#aac0dd;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.capGrid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;max-height:310px;overflow:auto}.cap{padding:11px;border:1px solid rgba(100,170,255,.11);border-radius:13px;background:rgba(0,0,0,.14)}.cap b{font-size:11px}.cap span{display:block;color:var(--muted);font-size:9px;margin-top:4px}.cap em{display:inline-block;font-style:normal;font-size:8px;margin-top:8px;padding:3px 6px;border-radius:999px;background:rgba(0,212,255,.08);color:#75dfff}.search{width:100%;padding:12px 13px;border-radius:12px;background:#020b18;border:1px solid var(--line);color:#fff;outline:none}.palette{position:fixed;inset:0;background:rgba(0,4,12,.72);backdrop-filter:blur(14px);display:grid;place-items:start center;padding-top:10vh;z-index:20}.paletteBox{width:min(760px,92vw);background:#06162f;border:1px solid rgba(72,169,255,.35);border-radius:20px;box-shadow:0 40px 100px rgba(0,0,0,.65);overflow:hidden}.paletteHead{padding:14px;border-bottom:1px solid var(--line)}.commandList{max-height:55vh;overflow:auto}.command{display:flex;justify-content:space-between;align-items:center;padding:13px 15px;border-bottom:1px solid rgba(100,170,255,.08);cursor:pointer}.command:hover{background:rgba(10,132,255,.12)}.command small{color:var(--muted)}.auth{position:fixed;inset:0;background:rgba(0,4,12,.82);backdrop-filter:blur(12px);display:grid;place-items:center;z-index:30}.authBox{width:min(420px,92vw);padding:25px}.authBox input{width:100%;margin:12px 0;padding:13px;border-radius:12px;background:#020b18;border:1px solid var(--line);color:#fff;outline:none;letter-spacing:.2em}.toast{position:fixed;right:20px;bottom:20px;z-index:40;background:#061a38;border:1px solid var(--line);border-radius:14px;padding:12px 15px;box-shadow:var(--shadow);font-size:12px}.muted{color:var(--muted)}@media(max-width:1000px){.shell{grid-template-columns:1fr}.side{position:relative;border-right:0;border-bottom:1px solid var(--line)}.sideFooter{position:static;margin-top:20px}.nav{grid-template-columns:repeat(3,1fr)}.hero{grid-template-columns:1fr}.grid{grid-template-columns:repeat(2,1fr)}.sectionGrid{grid-template-columns:1fr}}@media(max-width:600px){.main{padding:14px}.topbar{align-items:flex-start}.topActions{display:none}.nav{grid-template-columns:1fr 1fr}.grid{grid-template-columns:1fr}.event{grid-template-columns:70px 1fr}.event span{display:none}.hero h2{font-size:24px}}
+</style></head>
+<body><div id="root"></div>
+<script>
+(()=>{
+const {useEffect,useMemo,useState}=React; const h=React.createElement;
+function App(){
+ const [health,setHealth]=useState(null),[caps,setCaps]=useState([]),[events,setEvents]=useState([]),[runtime,setRuntime]=useState(null),[query,setQuery]=useState(""),[palette,setPalette]=useState(false),[auth,setAuth]=useState(false),[pin,setPin]=useState(""),[token,setToken]=useState(null),[toast,setToast]=useState(""),[section,setSection]=useState("Command Center");
+ const notify=m=>{setToast(m);setTimeout(()=>setToast(""),2600)};
+ const api=async(url,opt={})=>{const headers={"Content-Type":"application/json",...(opt.headers||{})};if(token)headers.Authorization="Bearer "+token;const r=await fetch(url,{...opt,headers});const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.error||"Request failed");return d};
+ const refresh=async()=>{try{const [a,b,c]=await Promise.all([fetch('/api/v1/health').then(r=>r.json()),fetch('/api/v1/capabilities').then(r=>r.json()),fetch('/api/v1/runtime').then(r=>r.json())]);setHealth(a);setCaps(b.capabilities||[]);setRuntime(c)}catch(e){notify(e.message)}};
+ useEffect(()=>{refresh();const poll=setInterval(refresh,10000);const es=new EventSource('/api/v1/events/stream');es.onopen=()=>setHealth(x=>x?{...x,connected:true}:x);es.onmessage=e=>{try{const x=JSON.parse(e.data);if(x.type!=="STREAM_CONNECTED"){setEvents(v=>[x,...v].slice(0,80));}}catch{}};es.onerror=()=>setHealth(x=>x?{...x,connected:false}:x);return()=>{clearInterval(poll);es.close()}},[]);
+ useEffect(()=>{const f=e=>{if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='k'){e.preventDefault();setPalette(v=>!v)}if(e.key==='Escape'){setPalette(false);setAuth(false)}};addEventListener('keydown',f);return()=>removeEventListener('keydown',f)},[]);
+ const filtered=useMemo(()=>caps.filter(c=>!query||[c.intent,c.name,c.description,c.sourceModule].join(' ').toLowerCase().includes(query.toLowerCase())),[caps,query]);
+ const execute=async cap=>{try{if(cap.rbacLevel>0&&!token){setAuth(true);return}const r=await api('/api/v1/dispatch',{method:'POST',body:JSON.stringify({action:cap.intent,payload:{}})});notify(r.success?'Command accepted by kernel':'Kernel rejected command')}catch(e){notify(e.message)}};
+ const login=async()=>{try{const r=await api('/api/v1/auth/pin',{method:'POST',body:JSON.stringify({pin})});setToken(r.token);setAuth(false);setPin('');notify('Server-authoritative session established')}catch(e){notify(e.message)}};
+ const logout=async()=>{try{if(token)await api('/api/v1/auth/revoke',{method:'POST'});}catch{}setToken(null);notify('Session ended')};
+ const metric=(label,value,sub)=>h('div',{className:'card metric',key:label},h('div',{className:'label'},label),h('div',{className:'value'},value),h('div',{className:'trend'},sub||''));
+ return h('div',{className:'app'},h('div',{className:'shell'},
+   h('aside',{className:'side'},h('div',{className:'brand'},h('img',{src:'/ADE-LOGO.png',alt:'ADE'}),h('div',null,h('strong',null,'ADE APEX'),h('span',null,'OPERATIONS OS'))),h('div',{className:'nav'},h('small',null,'OPERATIONS'),['Command Center','Event Stream','Capabilities','ICX','Security','Release'].map(x=>h('button',{key:x,className:section===x?'active':'',onClick:()=>setSection(x)},x))),h('div',{className:'sideFooter'},'Kernel-first • event-driven • server authoritative',h('br'),token?'Authenticated session active':'Public observation mode')),
+   h('main',{className:'main'},h('div',{className:'topbar'},h('div',{className:'title'},h('h1',null,'ADE APEX COMMAND CENTER'),h('p',null,'Autonomous enterprise operations surface • live kernel telemetry • capability authority')),h('div',{className:'topActions'},h('span',{className:'pill'},h('i',{className:'statusDot'}),health?.runtime?.kernel?.status||'CONNECTING'),token?h('button',{className:'btn',onClick:logout},'End Session'):h('button',{className:'btn primary',onClick:()=>setAuth(true)},'Authorize'),h('button',{className:'btn',onClick:()=>setPalette(true)},'⌘ K'))),
+   h('section',{className:'hero'},h('div',{className:'card heroMain'},h('div',null,h('div',{className:'eyebrow'},'AUTONOMOUS EVENT-DRIVEN CONTROL PLANE'),h('h2',null,'One runtime. One authority. Every signal connected.'),h('p',null,'The interface observes the canonical ADE kernel, renders server-owned capabilities, listens to the EventBus through SSE, and sends authorized commands back through the same runtime boundary.')) ,h('div',{className:'heroStats'},h('div',{className:'stat'},h('b',null,health?.runtime?.subsystems?.total??'—'),h('span',null,'CORE SUBSYSTEMS')),h('div',{className:'stat'},h('b',null,caps.length),h('span',null,'CAPABILITIES')),h('div',{className:'stat'},h('b',null,events.length),h('span',null,'LIVE EVENTS')),h('div',{className:'stat'},h('b',null,token?'AUTH':'PUBLIC'),h('span',null,'AUTHORITY')))),h('div',{className:'card orb'},h('div',{className:'orbCore'})),
+   h('div',{className:'grid'},metric('KERNEL STATUS',health?.runtime?.kernel?.status||'—','canonical runtime'),metric('EVENTS PUBLISHED',runtime?.eventBus?.metrics?.published??'—','EventBus'),metric('INTENTS',runtime?.runtime?.metrics?.intentsDispatched??'—','dispatch count'),metric('UPTIME',runtime?.observatory?.uptimeSeconds!=null?runtime.observatory.uptimeSeconds+'s':'—','runtime observatory')),
+   h('section',{className:'sectionGrid'},h('div',{className:'card'},h('div',{className:'panelTitle'},h('h3',null,'LIVE EVENT FABRIC'),h('span',null,'SSE / EventBus')),h('div',{className:'stream'},events.length?events.map((e,i)=>h('div',{className:'event',key:e.eventId||e.id||i},h('time',null,e.meta?.timestamp||e.timestamp||''),h('b',null,e.topic||e.type||'EVENT'),h('span',null,JSON.stringify(e.payload||e).slice(0,220)))):h('div',{className:'muted'},'Waiting for kernel events…'))),h('div',{className:'card'},h('div',{className:'panelTitle'},h('h3',null,'CAPABILITY MATRIX'),h('span',null,'SERVER AUTHORITY')),h('input',{className:'search',placeholder:'Search capability, subsystem or intent…',value:query,onChange:e=>setQuery(e.target.value),onFocus:()=>setPalette(true)}),h('div',{className:'capGrid'},filtered.slice(0,40).map(c=>h('div',{className:'cap',key:c.intent,onClick:()=>execute(c)},h('b',null,c.name||c.intent),h('span',null,c.intent+' • RBAC '+c.rbacLevel),h('em',null,c.revoked?'REVOKED':c.tier||'FREE'))))),
+   section==='Capabilities'&&h('div',{className:'card',style:{marginTop:16}},h('h3',null,'All Authoritative Capabilities'),h('p',{className:'muted'},'No UI-local command catalogue is used. This list is sourced from the runtime registry.')),section==='Security'&&h('div',{className:'card',style:{marginTop:16}},h('h3',null,'Security Authority'),h('p',{className:'muted'},token?'Cryptographically signed server session in memory. Privileges are evaluated server-side.':'Public observation only. No privileged session exists.')),section==='ICX'&&h('div',{className:'card',style:{marginTop:16}},h('h3',null,'ADE Internal Communications Exchange'),h('p',{className:'muted'},token?'ICX endpoints are available to authorized roles.':'Authorize to inspect ICX organizational data.')),section==='Release'&&h('div',{className:'card',style:{marginTop:16}},h('h3',null,'Release Ladder'),h('p',{className:'muted'},'Community MVP → Business → Enterprise → Evolution. The runtime exposes only capabilities actually implemented and entitled.')),
+   ),
+   palette&&h('div',{className:'palette',onMouseDown:e=>{if(e.target===e.currentTarget)setPalette(false)}},h('div',{className:'paletteBox'},h('div',{className:'paletteHead'},h('input',{className:'search',autoFocus:true,placeholder:'Search the ADE command surface…',value:query,onChange:e=>setQuery(e.target.value)})),h('div',{className:'commandList'},filtered.map(c=>h('div',{className:'command',key:c.intent,onClick:()=>{setPalette(false);execute(c)}},h('div',null,h('b',null,c.name||c.intent),h('small',null,' '+c.intent)),h('small',null,'RBAC '+c.rbacLevel)))))),
+   auth&&h('div',{className:'auth'},h('div',{className:'card authBox'},h('div',{className:'eyebrow'},'SERVER-AUTHORITATIVE SESSION'),h('h2',null,'Authorize ADE APEX'),h('p',{className:'muted'},'The credential is submitted only to the server. The resulting session is kept in memory; browser storage is not an authority.'),h('input',{type:'password',inputMode:'numeric',value:pin,onChange:e=>setPin(e.target.value),placeholder:'ADMIN PIN',onKeyDown:e=>{if(e.key==='Enter')login()}}),h('div',{style:{display:'flex',gap:8}},h('button',{className:'btn primary',onClick:login},'Establish Session'),h('button',{className:'btn',onClick:()=>setAuth(false)},'Cancel')))),toast&&h('div',{className:'toast'},toast)
+  ));
+}
+ReactDOM.createRoot(document.getElementById('root')).render(h(App));
+})();
+</script></body></html>

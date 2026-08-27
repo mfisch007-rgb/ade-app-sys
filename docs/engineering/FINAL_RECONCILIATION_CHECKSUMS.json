@@ -1,0 +1,21 @@
+{
+  "generatedAt": "2026-08-17T13:46:30Z",
+  "files": {
+    "src/server.js": "7c03657d8a356a09e0dd6d3ad14266dea661f6e9f45da436658db1c60ef7078f",
+    "src/kernel/EnterpriseKernelMaster.js": "cd9659939a23f88b3a40e095df8a3610d79bd457cb13f66ed1828c7f2ef38cf7",
+    "src/kernel/EnterpriseEventBus.js": "4cf69080a330dfdab2933c9863746cfac57cebb8aa13921ce459b3bdc1944d3c",
+    "src/core/CapabilityRegistry.js": "851fd89b69bbee2757a77f37e889fb5bb69ca459fe1fd3cd6daed416c9f09879",
+    "src/kernel/IdentityOnboarding.js": "aa56dbeb42ccf2e44d10704f234df83f3c5d9eba84881f032357d59b0d185559",
+    "src/kernel/ADE_ICX_Engine.js": "7ab9561b15eac19897eb93198e80485d7d1f4fde45e99f1872ed9567377ddc45",
+    "src/kernel/ScenarioEngine.js": "772b2b91cec20b8025fcb8c00190136f25683fbc26b0101de7d9f816cdef5d99",
+    "src/kernel/FeedbackPipeline.js": "eae7dc2f72189c126b82d742ea233c638f7d4afd425712f6923b60401e384281",
+    "src/ai/UniversalAIGateway.js": "cb34d099c2782969ca7a6ecd8eee7e0bfe32ba9fdbdb42ea889236c1c7f96d1e",
+    "src/security/CommunityEditionGuard.js": "87d07394e043b3008141482a544fd206204ed2b5528e92781cae6b84d995fabf",
+    "public/index.html": "9dbef3d4c832ed2f682750dbd86021c4cb98cbdb9b1eb3b95ff7e5f4ab161916",
+    "scripts/build-community.mjs": "d78b03bf8e0148fbd3130d81065a30739dc7d8bf1d248efd6b099774e7ac4638",
+    "tests/acceptance.test.js": "a40a8f630a5453fe5242943a8f347f532eeabe7db775037dfdbbb0ac1a47b95d",
+    "tests/release-verification.test.js": "2cac720297f342881c68df5f8bb1123e72b838a3e023c53d722e9901883ca024",
+    "docs/engineering/FINAL_ENTERPRISE_AUDIT.md": "74af4dc61e34d50cb8e9be3b367b0b516924ea686ee23ecad7f084daa2c011ee",
+    "docs/contracts/ADE_MASTER_IMPLEMENTATION_CONTRACT_v1.0.txt": "2f674edeb7e611e28d820d71d69bbdd91894c565f6214552addb3ce16810d100"
+  }
+}

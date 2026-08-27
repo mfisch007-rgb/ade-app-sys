@@ -6,6 +6,10 @@
 import "dotenv/config";
 import path from "path";
 import fs from "fs";
+import { fileURLToPath } from "url";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 let googleAuth = null;
 let sheetsApi  = null;
@@ -19,7 +23,7 @@ async function init() {
   if (initialized) return sheetsApi !== null;
 
   try {
-    import { google  } from "googleapis";
+    const { google } = await import("googleapis");
     const credsPath  = path.join(__dirname, '../../credentials.json');
 
     if (!fs.existsSync(credsPath)) {
@@ -98,7 +102,7 @@ async function createClientSheet(businessName) {
   if (!sheetsApi)    return null;
 
   try {
-    import { google  } from "googleapis";
+    const { google } = await import("googleapis");
     const authClient = await googleAuth.getClient();
     const driveApi   = google.drive({ version: 'v3', auth: authClient });
 

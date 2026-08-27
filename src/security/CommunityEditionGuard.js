@@ -1,7 +1,7 @@
-﻿import { verify, sign } from "crypto";
+import { verify, sign } from "crypto";
 import fs from "fs";
 import path from "path";
-import KernelEventBus from "../core/EventBus.js";
+import KernelEventBus from "../kernel/EnterpriseEventBus.js";
 import KeyManager from "./KeyManager.js";
 
 export const RBAC_MATRIX = {

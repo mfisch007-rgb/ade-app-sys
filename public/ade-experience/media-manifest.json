@@ -1,0 +1,206 @@
+{
+  "name": "ADE Experience Layer",
+  "version": "2026.08.19-final-experience",
+  "media_boundary": {
+    "live": "Actual backend/provider execution with executable evidence",
+    "simulated": "Bounded simulation with visible SIMULATED label",
+    "concept": "Design/contract only; never represented as operational"
+  },
+  "languages": [
+    {
+      "code": "en",
+      "name": "English"
+    },
+    {
+      "code": "pcm",
+      "name": "Naija Pidgin English"
+    },
+    {
+      "code": "yo",
+      "name": "Yorùbá"
+    },
+    {
+      "code": "ha",
+      "name": "Hausa"
+    },
+    {
+      "code": "ig",
+      "name": "Igbo"
+    },
+    {
+      "code": "bin",
+      "name": "Edo / Bini"
+    },
+    {
+      "code": "fr",
+      "name": "French"
+    },
+    {
+      "code": "es",
+      "name": "Spanish"
+    },
+    {
+      "code": "pt",
+      "name": "Portuguese"
+    },
+    {
+      "code": "de",
+      "name": "German"
+    },
+    {
+      "code": "it",
+      "name": "Italian"
+    },
+    {
+      "code": "nl",
+      "name": "Dutch"
+    },
+    {
+      "code": "ar",
+      "name": "Arabic"
+    },
+    {
+      "code": "sw",
+      "name": "Swahili"
+    },
+    {
+      "code": "am",
+      "name": "Amharic"
+    },
+    {
+      "code": "zu",
+      "name": "Zulu"
+    },
+    {
+      "code": "xh",
+      "name": "Xhosa"
+    },
+    {
+      "code": "af",
+      "name": "Afrikaans"
+    },
+    {
+      "code": "rw",
+      "name": "Kinyarwanda"
+    },
+    {
+      "code": "so",
+      "name": "Somali"
+    },
+    {
+      "code": "tr",
+      "name": "Turkish"
+    },
+    {
+      "code": "ru",
+      "name": "Russian"
+    },
+    {
+      "code": "uk",
+      "name": "Ukrainian"
+    },
+    {
+      "code": "pl",
+      "name": "Polish"
+    },
+    {
+      "code": "hi",
+      "name": "Hindi"
+    },
+    {
+      "code": "bn",
+      "name": "Bengali"
+    },
+    {
+      "code": "ur",
+      "name": "Urdu"
+    },
+    {
+      "code": "zh",
+      "name": "Mandarin Chinese"
+    },
+    {
+      "code": "ja",
+      "name": "Japanese"
+    },
+    {
+      "code": "ko",
+      "name": "Korean"
+    },
+    {
+      "code": "id",
+      "name": "Indonesian"
+    },
+    {
+      "code": "ms",
+      "name": "Malay"
+    },
+    {
+      "code": "vi",
+      "name": "Vietnamese"
+    },
+    {
+      "code": "th",
+      "name": "Thai"
+    },
+    {
+      "code": "he",
+      "name": "Hebrew"
+    },
+    {
+      "code": "fa",
+      "name": "Persian"
+    }
+  ],
+  "source_videos": [
+    {
+      "file": "Continue(2).mp4",
+      "sha256": "15d91660b8061ac61a0c5194f1cb4943d788ebcafaf8fa8fbc8435ad655b629a",
+      "duration_seconds": 10.05424,
+      "classification": "SOURCE_MEDIA",
+      "status": "AVAILABLE_FOR_MEDIA_STUDIO"
+    },
+    {
+      "file": "Continue_again_to_the_next_fro(2).mp4",
+      "sha256": "aeab41ee4ae719d82e444c028fa23d05c0f24f4bcc6394bcbee07c5c7eec8041",
+      "duration_seconds": 10.05424,
+      "classification": "SOURCE_MEDIA",
+      "status": "AVAILABLE_FOR_MEDIA_STUDIO"
+    },
+    {
+      "file": "Good_job_continuing_From_where(2).mp4",
+      "sha256": "8e15ce2d61484476dc5af7eced0ad822d2e07ede3af5afd0f1d8c8afdc747916",
+      "duration_seconds": 10.05424,
+      "classification": "SOURCE_MEDIA",
+      "status": "AVAILABLE_FOR_MEDIA_STUDIO"
+    },
+    {
+      "file": "The_video_you_have_done_is_imp(3).mp4",
+      "sha256": "79d20b7c73744d57784ce0e10cff222cebfa64ea596b9522be126006efcc7d0e",
+      "duration_seconds": 10.05424,
+      "classification": "SOURCE_MEDIA",
+      "status": "AVAILABLE_FOR_MEDIA_STUDIO"
+    },
+    {
+      "file": "Those_pictures_I_had_just_sent(2).mp4",
+      "sha256": "9a25f802e3bfea0c0fd2780b17cfd281c847fc6f4aabba41ad27b411d9e0fc6c",
+      "duration_seconds": 10.05424,
+      "classification": "SOURCE_MEDIA",
+      "status": "AVAILABLE_FOR_MEDIA_STUDIO"
+    },
+    {
+      "file": "Try_again(3).mp4",
+      "sha256": "de8e0e424e313106fa3456f3d3cb8cbce6956a1be9c348c82fea791410aa5569",
+      "duration_seconds": 10.05424,
+      "classification": "SOURCE_MEDIA",
+      "status": "AVAILABLE_FOR_MEDIA_STUDIO"
+    }
+  ],
+  "integration_contracts": {
+    "capabilities": "GET /api/v1/capabilities",
+    "events": "GET /api/v1/events/stream",
+    "search": "GET /api/v1/search",
+    "media_generate": "POST /api/v1/media/generate (optional provider adapter)",
+    "video_generate": "POST /api/v1/media/video (optional provider adapter)"
+  }
+}

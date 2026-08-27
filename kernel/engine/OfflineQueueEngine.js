@@ -21,7 +21,7 @@ export default class OfflineQueueEngine {
         this.queue = [];
 
         if (this.bus) {
-            await this.await bus.publish("queue.flushed", { count, timestamp: Date.now() });
+            await this.bus.publish("queue.flushed", { count, timestamp: Date.now() });
         }
 
         return flushedItems;

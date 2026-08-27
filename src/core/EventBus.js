@@ -1,28 +1,12 @@
-﻿import { EventEmitter } from "events";
+/**
+ * Compatibility facade for the canonical ADE Enterprise Event Bus.
+ * No second event-bus implementation is permitted.
+ */
+import EnterpriseEventBus from "../kernel/EnterpriseEventBus.js";
 
-export class KernelEventBus extends EventEmitter {
-  constructor() {
-    super();
-    this.setMaxListeners(50);
-  }
-
+export class KernelEventBus extends EnterpriseEventBus {
   static getInstance() {
-    if (!global.__kernelEventBusInstance) {
-      global.__kernelEventBusInstance = new KernelEventBus();
-    }
-    return global.__kernelEventBusInstance;
-  }
-
-  publish(eventName, payload) {
-    const eventRecord = {
-      eventId: `EVT-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
-      timestamp: new Date().toISOString(),
-      eventName,
-      payload
-    };
-    this.emit(eventName, eventRecord);
-    this.emit("*", eventRecord); // Global stream listener
-    return eventRecord;
+    return EnterpriseEventBus.getInstance();
   }
 }
 

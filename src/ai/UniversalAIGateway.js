@@ -1,4 +1,4 @@
-﻿import KernelEventBus from "../core/EventBus.js";
+import KernelEventBus from "../kernel/EnterpriseEventBus.js";
 import CommunityEditionGuard from "../security/CommunityEditionGuard.js";
 
 export class UniversalAIGateway {

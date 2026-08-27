@@ -1,34 +1,31 @@
-﻿export function CommandPalette({ isOpen, onClose, searchQuery, setSearchQuery, filteredCapabilities, kernelFallbacks }) {
+export function CommandPalette({ isOpen, onClose, searchQuery, setSearchQuery, filteredCapabilities = [], onExecute }) {
   if (!isOpen) return null;
 
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-box glass-panel" onClick={e => e.stopPropagation()}>
-        <input 
-          type="text" 
-          className="search-input" 
-          placeholder="Search capabilities or query kernel (e.g. 'oracle', 'guardian')..." 
-          value={searchQuery} 
-          onChange={e => setSearchQuery(e.target.value)} 
-          autoFocus 
+        <input
+          type="text"
+          className="search-input"
+          placeholder="Search server-owned capabilities..."
+          value={searchQuery}
+          onChange={e => setSearchQuery(e.target.value)}
+          autoFocus
         />
-
         {filteredCapabilities.map(item => (
-          <div key={item.id} className="search-result-item" onClick={() => { alert(`Selected capability: ${item.name}`); onClose(); }}>
-            <strong>{item.name}</strong> [{item.category}]
-          </div>
+          <button
+            key={item.intent || item.id}
+            className="search-result-item"
+            type="button"
+            onClick={() => { onExecute?.(item); onClose(); }}
+          >
+            <strong>{item.name || item.intent}</strong> <span>[{item.intent}]</span>
+            <small>RBAC {item.rbacLevel} • {item.runtimeBound === false ? 'UNBOUND' : 'READY'}</small>
+          </button>
         ))}
-
-        {kernelFallbacks.map(fb => (
-          <div key={fb.id} className="search-result-item" onClick={() => { alert(`Triggered kernel synthesis for: ${fb.name}`); onClose(); }}>
-            <strong>{fb.name}</strong> 
-            <span className="fallback-tag">Kernel Self-Search Match</span>
-          </div>
-        ))}
-
-        {filteredCapabilities.length === 0 && kernelFallbacks.length === 0 && (
+        {filteredCapabilities.length === 0 && (
           <div style={{ color: '#8892B0', textAlign: 'center', padding: '15px' }}>
-            No exact capability or kernel matches found.
+            No server-owned capabilities found.
           </div>
         )}
       </div>

@@ -1,84 +1,41 @@
-﻿import KernelEventBus from "./EventBus.js";
-import CapabilityRegistry from "./CapabilityRegistry.js";
-import CommunityEditionGuard from "../security/CommunityEditionGuard.js";
+﻿/**
+ * ADE-APEX CORE KERNEL COMPATIBILITY FACADE
+ *
+ * IMPORTANT:
+ * The canonical runtime kernel lives at:
+ *
+ *   ../kernel/EnterpriseKernelMaster.js
+ *
+ * This file MUST NOT implement a second kernel.
+ *
+ * It exists only so legacy/core imports continue to resolve to the
+ * canonical runtime architecture.
+ */
 
-export class EnterpriseKernelMaster {
-  constructor() {
-    this.eventBus = KernelEventBus.getInstance();
-    this.capabilityRegistry = CapabilityRegistry.getInstance();
-    this.guard = CommunityEditionGuard.getInstance();
-    this.isBooted = false;
-    this.activeSubsystems = new Set();
-    this.systemState = {
-      status: "STOPPED",
-      bootTime: null,
-      activeConnections: 0,
-      telemetryChannels: new Set(["SYS_HEALTH", "AUDIT_LOGS", "AI_GATEWAY"])
-    };
+import CanonicalEnterpriseKernelMaster from "../kernel/EnterpriseKernelMaster.js";
+
+export class EnterpriseKernelMaster extends CanonicalEnterpriseKernelMaster {
+
+  constructor(options = {}) {
+    super(options);
   }
 
   static getInstance() {
-    if (!global.__enterpriseKernelMasterInstance) {
-      global.__enterpriseKernelMasterInstance = new EnterpriseKernelMaster();
-    }
-    return global.__enterpriseKernelMasterInstance;
+    return CanonicalEnterpriseKernelMaster.getInstance();
   }
 
-  boot() {
-    if (this.isBooted) return { status: "ALREADY_RUNNING", state: this.getSystemState() };
-    
-    this.isBooted = true;
-    this.systemState.status = "ONLINE";
-    this.systemState.bootTime = new Date().toISOString();
-
-    const bootPayload = {
-      event: "KERNEL_BOOT_COMPLETE",
-      status: "ONLINE",
-      timestamp: this.systemState.bootTime,
-      subsystemsLoaded: Array.from(this.activeSubsystems)
-    };
-
-    this.eventBus.publish("KERNEL_STATUS_CHANGE", bootPayload);
-    this.guard.logAuditEvent({ type: "KERNEL_EVENT", action: "BOOT", status: "SUCCESS" });
-    return bootPayload;
-  }
-
-  registerSubsystemToKernel(moduleName, capabilitiesManifest) {
-    this.capabilityRegistry.registerSubsystem(moduleName, capabilitiesManifest);
-    this.activeSubsystems.add(moduleName);
-    
-    this.eventBus.publish("KERNEL_SUBSYSTEM_ATTACHED", {
-      moduleName,
-      activeSubsystemsCount: this.activeSubsystems.size
-    });
-  }
-
+  /*
+   * Legacy core API compatibility.
+   */
   getSystemState() {
-    return {
-      isBooted: this.isBooted,
-      status: this.systemState.status,
-      bootTime: this.systemState.bootTime,
-      activeSubsystems: Array.from(this.activeSubsystems),
-      registeredCapabilitiesCount: this.capabilityRegistry.listCapabilities().length
-    };
+    return super.getSystemState();
   }
 
-  shutdown() {
-    if (!this.isBooted) return { status: "ALREADY_OFFLINE" };
-    
-    this.isBooted = false;
-    this.systemState.status = "OFFLINE";
-    const timestamp = new Date().toISOString();
-
-    const shutdownPayload = {
-      event: "KERNEL_SHUTDOWN_COMPLETE",
-      status: "OFFLINE",
-      timestamp
-    };
-
-    this.eventBus.publish("KERNEL_STATUS_CHANGE", shutdownPayload);
-    this.guard.logAuditEvent({ type: "KERNEL_EVENT", action: "SHUTDOWN", status: "SUCCESS" });
-    return shutdownPayload;
+  registerSubsystemToKernel(moduleName, capabilitiesManifest = {}) {
+    return super.registerSubsystemToKernel(
+      moduleName,
+      capabilitiesManifest
+    );
   }
 }
 

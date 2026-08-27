@@ -1,1 +1,35 @@
-name: ADE Production CI/CD`non:`n  push:`n    branches: [ enterprise-modernization-v1, main ]`njobs:`n  build-test-deploy:`n    runs-on: ubuntu-latest`n    steps:`n      - uses: actions/checkout@v3`n      - name: Setup Node.js 24`n        uses: actions/setup-node@v3`n        with:`n          node-version: "24"`n      - run: npm install || true`n      - run: node -e "console.log(\"ADE Build Verification Passed\")"
+name: ADE Production CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Behavioral validation
+        run: npm test
+
+      - name: Canonical runtime validation
+        run: npm run validate
+
+      - name: Release verification
+        run: npm run verify:release
+
+      - name: Community build
+        run: npm run build:community

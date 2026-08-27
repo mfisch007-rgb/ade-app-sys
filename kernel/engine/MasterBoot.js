@@ -27,23 +27,7 @@ async function bootSequence() {
     
     console.log("[SYSTEM] All core engines online and wired. God-Mode Active.");
 
-  async boot() {
-    this.status = 'booting';
-    if (typeof this.init === 'function') await this.init();
-    this.status = 'booted';
-  }
-
-  async ready() {
-    this.status = 'ready';
-  }
-
-  async shutdown() {
-    this.status = 'shutting_down';
-  }
-
-  async dispose() {
-    this.status = 'disposed';
-  }
 }
+
 
 bootSequence().catch(console.error);

@@ -1,10 +1,15 @@
 ﻿import React, { useState, useEffect } from 'react';
 import CommandPaletteModal from './CommandPaletteModal.jsx';
 
-export function SpatialCommandCenter({ commandEngine, sseUrl = "http://localhost:3000/api/telemetry/sse" }) {
+export function SpatialCommandCenter({ commandEngine, sseUrl = "/api/v1/events/stream", capabilitiesUrl = "/api/v1/capabilities" }) {
   const [isPaletteOpen, setIsPaletteOpen] = useState(false);
   const [telemetryEvents, setTelemetryEvents] = useState([]);
-  const [userTier, setUserTier] = useState("ENTERPRISE_ADMIN");
+  const [capabilities, setCapabilities] = useState([]);
+  const [userLevel, setUserLevel] = useState(0);
+
+  useEffect(() => {
+    fetch(capabilitiesUrl).then(r => r.json()).then(data => setCapabilities(data.capabilities || [])).catch(() => setCapabilities([]));
+  }, [capabilitiesUrl]);
 
   useEffect(() => {
     // Real SSE Connection
@@ -22,10 +27,11 @@ export function SpatialCommandCenter({ commandEngine, sseUrl = "http://localhost
 
   const handleExecuteCommand = async (cmd) => {
     if (commandEngine) {
-      const result = await commandEngine.dispatch(cmd.id, { initiatedBy: userTier });
+      const result = await commandEngine.dispatch(cmd.intent, { initiatedBy: "authenticated-session" });
       console.log(`[SPATIAL KERNEL EXECUTION]:`, result);
     } else {
-      console.log(`[SPATIAL UI FALLBACK]: Executed Command ${cmd.id} (${cmd.capability})`);
+      const response = await fetch("/api/v1/dispatch", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: cmd.intent, payload: {} }) });
+      if (!response.ok) throw new Error("Kernel rejected command");
     }
   };
 
@@ -33,7 +39,7 @@ export function SpatialCommandCenter({ commandEngine, sseUrl = "http://localhost
     <div style={uiStyles.container}>
       <header style={uiStyles.header}>
         <h1 style={uiStyles.title}>ADE APEX SYSTEM ENGINE</h1>
-        <div style={uiStyles.tierBadge}>Active Tier: {userTier}</div>
+        <div style={uiStyles.tierBadge}>RBAC Level: {userLevel}</div>
         <button style={uiStyles.paletteBtn} onClick={() => setIsPaletteOpen(true)}>
           Press <kbd style={uiStyles.kbd}>Ctrl + K</kbd> for Commands
         </button>
@@ -60,6 +66,7 @@ export function SpatialCommandCenter({ commandEngine, sseUrl = "http://localhost
       <CommandPaletteModal
         isOpen={isPaletteOpen}
         onClose={setIsPaletteOpen}
+        capabilities={capabilities}
         onExecuteCommand={handleExecuteCommand}
       />
     </div>

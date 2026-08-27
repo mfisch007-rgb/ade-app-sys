@@ -32,8 +32,8 @@ export class KeyManager {
       fs.writeFileSync(this.privKeyPath, privateKey, "utf8");
     }
 
-    this.publicKey = fs.readFileSync(this.pubKeyPath, "utf8");
-    this.privateKey = fs.readFileSync(this.privKeyPath, "utf8");
+    this.publicKey = process.env.ADE_PUBLIC_KEY || fs.readFileSync(this.pubKeyPath, "utf8");
+    this.privateKey = process.env.ADE_PRIVATE_KEY || fs.readFileSync(this.privKeyPath, "utf8");
   }
 
   getPublicKey() {
