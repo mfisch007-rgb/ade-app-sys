@@ -6,8 +6,8 @@ import KeyManager from "./KeyManager.js";
 
 export const RBAC_MATRIX = {
   LEVEL_0_GUEST: { level: 0, name: "GUEST", allowedIntents: ["PING", "PUBLIC_INFO"] },
-  LEVEL_1_COMMUNITY: { level: 1, name: "COMMUNITY", allowedIntents: ["WATCH_ASSET", "TELEMETRY_SSE", "UNIVERSAL_AI_GATEWAY", "OFFLINE_FALLBACK"] },
-  LEVEL_2_PRO: { level: 2, name: "PRO", allowedIntents: ["WATCH_ASSET", "TELEMETRY_SSE", "UNIVERSAL_AI_GATEWAY", "OFFLINE_FALLBACK", "MULTI_STREAM", "SIGNAL_ANALYTICS"] },
+  LEVEL_1_COMMUNITY: { level: 1, name: "COMMUNITY", allowedIntents: ["WATCH_ASSET", "TELEMETRY_SSE", "UNIVERSAL_AI_GATEWAY", "OFFLINE_FALLBACK", "PROCARTA_EXECUTE"] },
+  LEVEL_2_PRO: { level: 2, name: "PRO", allowedIntents: ["WATCH_ASSET", "TELEMETRY_SSE", "UNIVERSAL_AI_GATEWAY", "OFFLINE_FALLBACK", "MULTI_STREAM", "SIGNAL_ANALYTICS", "PROCARTA_EXECUTE"] },
   LEVEL_3_ENTERPRISE: { level: 3, name: "ENTERPRISE", allowedIntents: ["*"] },
   LEVEL_4_SYSTEM: { level: 4, name: "SYSTEM", allowedIntents: ["*"] }
 };

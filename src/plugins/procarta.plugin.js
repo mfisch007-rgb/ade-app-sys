@@ -11,6 +11,7 @@ export function createProcartaPlugin(kernelEventBus) {
       return sandbox.executeInSandbox((data) => {
         const { accountId = 'DEFAULT', ledgerAmount = 0 } = data;
         return {
+          executionMode: "SIMULATED",
           accountId,
           reconciled: true,
           ledgerAmount,
