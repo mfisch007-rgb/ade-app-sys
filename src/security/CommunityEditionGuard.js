@@ -33,6 +33,7 @@ export class CommunityEditionGuard {
     this.rateLimitMap = new Map();
     this.dailyUsageCounter = new Map();
     this.activeSessions = new Map();
+    this.revokedLicenseKeys = new Set();
   }
 
   static getInstance() {
@@ -138,6 +139,27 @@ export class CommunityEditionGuard {
     return `${header}.${signature}`;
   }
 
+  revokeLicenseKey(rawKey) {
+    if (!rawKey || typeof rawKey !== "string" || !rawKey.startsWith("ADE-")) {
+      this.logAuditEvent({ type: "LICENSE_REVOKE_REJECTED", reason: "Malformed key." });
+      return { revoked: false, reason: "Malformed key; revocation rejected." };
+    }
+
+    const existing = this.verifyLicenseKey(rawKey);
+    if (!existing.valid) {
+      this.logAuditEvent({ type: "LICENSE_REVOKE_REJECTED", reason: existing.reason });
+      return { revoked: false, reason: existing.reason };
+    }
+
+    this.revokedLicenseKeys.add(rawKey);
+    this.logAuditEvent({ type: "LICENSE_REVOKED", tier: existing.tier, issuer: existing.issuer });
+    return { revoked: true, reason: "License key revoked and no longer valid." };
+  }
+
+  isLicenseRevoked(rawKey) {
+    return Boolean(rawKey && typeof rawKey === "string" && this.revokedLicenseKeys.has(rawKey));
+  }
+
   verifyLicenseKey(rawKey) {
     if (!rawKey || typeof rawKey !== "string" || !rawKey.startsWith("ADE-")) {
       return { valid: false, reason: "Malformed or invalid key prefix." };
@@ -151,6 +173,10 @@ export class CommunityEditionGuard {
       const signatureRaw = parts[1];
       const payloadRaw = Buffer.from(header.replace(/^ADE-(COMMUNITY|ENT)-/, ""), "base64").toString("utf8");
       const payload = JSON.parse(payloadRaw);
+
+      if (this.revokedLicenseKeys.has(rawKey)) {
+        return { valid: false, reason: "License key has been revoked." };
+      }
 
       if (payload.exp && Date.now() > payload.exp) {
         return { valid: false, reason: "License key has expired." };

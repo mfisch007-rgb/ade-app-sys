@@ -15,7 +15,7 @@ Evidence class language: exact status categories are used throughout —
 - COMMUNITY edition + `LocalStorageAdapter` locally verified; live PM2 `ade-awbuli` pid 4940 on port 3000, healthy, 0 restarts.
 - Canonical suite checkpoint 182/182; release verification 3/3; community-build defect already fixed in `scripts/build-community.mjs`.
 - Legacy surfaces classified/neutralized, not deleted. G23 external deployment/proof genuinely external.
-- Test suite growth during this span (all measured): **182 → 184 (+2 storage regression) → 208 (+24 G26 gate) → 213 (+5 forced-failure storage regression) → 214 (+1 case-context write truthfulness)**.
+- Test suite growth during this span (all measured): **182 → 184 (+2 storage regression) → 208 (+24 G26 gate) → 213 (+5 forced-failure storage regression) → 214 (+1 case-context write truthfulness) → 236 (+22 G27–G30 closeout: pilot gate, partner catalog, pilot registry, license revocation)**.
 
 ---
 
@@ -248,10 +248,11 @@ arrive. The chain below is dependency-ordered and non-speculative.
 | Syntax checks (9 changed canonical files) | **OK** | <1s |
 | Focused storage regression (2 files) | **14/14** | 11.6s (test) |
 | Storage/integration tier (case-durability, supabase-adapter, acceptance) | **16/16** | 11.5s (test) |
-| Full canonical `npm test` | **214/214** (serialized `--test-concurrency=1`, 2 consecutive green runs) | 21.7s (test) / 23.9s wall |
-| Release verification | **3/3** | 284.5s (test) |
-| Community build | **success** — 1188 files, sha `c43cd316…`, 31,438,833 B | ~139s |
+| Full canonical `npm test` | **236/236** (serialized `--test-concurrency=1`; 214 before + 22 G27–G30) | 52.8s wall (single run) |
+| Release verification | **3/3** | 442.8s wall (build runs inside) |
+| Community build | **success** — artifact 31,463,384 B, sha256 `53d5dc…943d0` (build manifest) | inside verify |
 | G26 gate suite (`tests/procarta/…`) | **25/25** | 23.2s (test) |
+| G27–G30 closeout suites (4 files) | **22/22** | 13.5s wall |
 | Bounded runtime smoke (ephemeral server) | health✓ COMMUNITY✓ 9 capabilities✓ procarta registered✓ map✓ products 4✓ progression✓ admin✓ `/procarta/status` ONLINE✓ execute 200 LIVE CASE-2026-D8468E81✓ invalid 400 PROCARTA_INPUT_REQUIRED✓ | bounded |
 | SSE stream | not probed (bounded evidence only, per instruction) | — |
 | Process hygiene | 2 node processes (PM2 only), port 3000→4940, no strays | — |
@@ -301,16 +302,21 @@ arrive. The chain below is dependency-ordered and non-speculative.
 
 ## Final status
 
-**VERIFIED COMPLETE (internal local scope):** G17–G26. The `.tmp` defect is
-confirmed-fixed, G26 PROCARTA is a real canonical capability, canonical suite is
-214/214 with causal negative-path tests (deterministic, serialized), release 3/3,
-build reproduces, runtime smoke green, single authority confirmed, no stray
-processes.
+**VERIFIED COMPLETE (internal local scope):** G17–G30. The `.tmp` defect is
+confirmed-fixed, G26 PROCARTA is a real canonical capability, G27 pilot gate,
+G28 partner catalog, G29 durable pilot registry, and G30 license revocation are
+implemented with causal negative-path tests, canonical suite is **236/236** (214
+before + 22 new) deterministic and serialized, release 3/3, build reproduces
+(sha `53d5dc…943d0`), single authority confirmed, no stray processes.
 
 **REQUIRES EXTERNAL PROOF / BLOCKED:** live deployment, public verification,
-real-provider durability, enterprise/partner/customer validation.
+real-provider durability, enterprise/partner/customer validation, and any pilot
+verdict semantics (operator-owned by design — no automated verdict policy).
 
-**NOT IMPLEMENTED:** G27–G30 (dependency-aware; gated on policy and credentials).
+**NOT IMPLEMENTED:** nothing internally executable remains; G29 verdict policy
+and pilot execution are intentionally operator/human-owned; persisted license
+revocation across process restarts waits on the enterprise license-admin
+surface (documented limitation of the in-memory revocation set).
 
 No fabricated execution, no new platform, no new dependencies, no legacy surface
 activated, no destructive action, no secrets exposed. Claims are limited to the

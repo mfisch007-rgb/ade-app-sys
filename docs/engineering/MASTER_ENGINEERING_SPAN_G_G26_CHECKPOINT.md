@@ -138,6 +138,57 @@ restarts and uptime > 3 hours throughout this span — untouched, because it run
 pre-change code. All new-capability smoke tests used a separate ephemeral server
 on an OS-assigned port.
 
+## 5a. G27–G30 closeout addendum (post-checkpoint, same span family)
+
+After the G26 checkpoint (commit `e0fdf12` + tag `ADE-G26-CHECKPOINT`), the
+G27–G30 reconciliation closured internally-executable pieces with full
+regression. All additive; the G26 gate suite remains 25/25.
+
+- **G27 — AWBULI pilot gate (canonical).** `src/community/PilotGate.js` derives
+  pilot candidates from engine-qualified CommunityProgression intakes
+  (`metadata.procarta === true`) — no qualification policy encoded. Approval is
+  an explicit level-2 operator act requiring a reason; decisions are recorded as
+  `audit.log.created` ({category:"PILOT", action:"CANDIDATE_APPROVED"}) +
+  domain event `pilot.candidate.approved`; bounded to 500 decisions; no
+  case-state mutation. Routes: `GET /api/v1/procarta/pilot-candidates`,
+  `POST /api/v1/procarta/pilot/approve`, `GET /api/v1/procarta/pilot/status`
+  (all level 2). Suite: `tests/community/g27-pilot-gate.test.js` (module +
+  full HTTP flow incl. 401/403 level enforcement).
+- **G28 — Partner catalog (canonical read surface).** Existing partner machinery
+  (PartnerRegistry, `/api/v1/admin/partners`, `PARTNER_REGISTRATION`
+  entitlement, `PARTNER_RECOMMENDED` case status, partner events) was confirmed;
+  the genuinely missing public surface was added: `GET /api/v1/partners`
+  (level 1) with the availability truth rule — `SIMULATED` unless status
+  `ACTIVE` → `LIVE`; contact/priority never leaked. Suite:
+  `tests/community/g28-partner-catalog.test.js`.
+- **G29 — Pilot factory foundation.** `src/community/PilotRegistry.js`: a pilot
+  approval materializes as a **durable** pilot package (canonical
+  RuntimeConfigStore section `pilots`) at the existing `EVALUATION` status.
+  Verdicts (`PROMOTED` / `ARCHIVED`) are strictly operator-gated
+  (level 2), require an evidence reason, are terminal (no re-verdict;
+  `PILOT_VERDICT_TERMINAL`), and emit `audit.log.created` +
+  `pilot.verdict.recorded`. Routes: `GET /api/v1/procarta/pilot/registry`,
+  `POST /api/v1/procarta/pilot/verdict`. No evaluation/verdict policy is
+  automated. Suite: `tests/community/g29-pilot-registry.test.js` (durability,
+  strict gating, events, HTTP).
+- **G30 — Enterprise license revocation.** `CommunityEditionGuard` gained
+  `revokedLicenseKeys` (in-memory), `revokeLicenseKey(rawKey)` (rejects
+  malformed/never-valid keys; audits `LICENSE_REVOKED` /
+  `LICENSE_REVOKE_REJECTED`) and `isLicenseRevoked(rawKey)`; `verifyLicenseKey`
+  now returns `valid:false` + reason for revoked keys. Persistence of the
+  revocation set across process restarts remains bound to the audit stream and
+  to the enterprise license-admin surface (documented limitation, not silently
+  treated as durable). Suite: `tests/security/license-revocation.test.js`.
+- **Roll-forward totals.** Canonical `npm test` = **236/236 PASS**
+  (214 before + 22 new G27–G30), serialized, single green run; release
+  verification `npm run verify:release` = **3/3 PASS** (build inside,
+  ~443 s wall); rebuilt artifact `dist/ade-community-edition.zip` =
+  31,463,384 bytes, sha256 `53d5dc…943d0` (build manifest
+  `dist/build-manifest.json`).
+- **Working-tree discipline.** Only post-G26 changes were authored; pre-existing
+  uncommitted/foreign files in the working tree were never staged. No `git add
+  .`/`-A`, no destructive git commands.
+
 ## 6. Boundary record
 
 - External real deployment (Vercel + Supabase public) still requires founder

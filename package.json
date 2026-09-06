@@ -6,7 +6,7 @@
   "scripts": {
     "start": "node src/server.js",
     "dev": "node --watch src/server.js",
-    "test": "node --test --test-concurrency=1 tests/acceptance.test.js tests/wave1-contract.test.js tests/case-durability.test.js tests/storage/supabase-storage-adapter.test.js tests/security/rate-limiter.test.js tests/engagement-reconciliation.test.js tests/storage/local-storage-adapter.test.js tests/storage/runtime-config-adapter.test.js tests/ai/g20-provider-neutral.test.js tests/g21-observability.test.js tests/g22-deployment-readiness.test.js tests/community-foundation.test.js tests/final-reconciliation.test.js tests/g17-g21-completion.test.js tests/g25-phase4-reconciliation.test.js tests/procarta/g26-procarta-vertical-slice.test.js",
+    "test": "node --test --test-concurrency=1 tests/acceptance.test.js tests/wave1-contract.test.js tests/case-durability.test.js tests/storage/supabase-storage-adapter.test.js tests/security/rate-limiter.test.js tests/security/license-revocation.test.js tests/engagement-reconciliation.test.js tests/storage/local-storage-adapter.test.js tests/storage/runtime-config-adapter.test.js tests/ai/g20-provider-neutral.test.js tests/g21-observability.test.js tests/g22-deployment-readiness.test.js tests/community-foundation.test.js tests/community/g27-pilot-gate.test.js tests/community/g28-partner-catalog.test.js tests/community/g29-pilot-registry.test.js tests/final-reconciliation.test.js tests/g17-g21-completion.test.js tests/g25-phase4-reconciliation.test.js tests/procarta/g26-procarta-vertical-slice.test.js",
     "test:full": "node --test --test-concurrency=1 tests/",
     "validate": "node src/cli/ade-validate.js",
     "build:community": "node scripts/build-community.mjs",

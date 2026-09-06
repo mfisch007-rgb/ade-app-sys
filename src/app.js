@@ -57,6 +57,8 @@ import { FeedbackIntelligence } from "./feedback/FeedbackIntelligence.js";
 import { MediaEngine } from "./media/MediaEngine.js";
 import { MediaRegistry } from "./media/MediaRegistry.js";
 import { CommunityProgression } from "./community/CommunityProgression.js";
+import { PilotGate } from "./community/PilotGate.js";
+import { PilotRegistry } from "./community/PilotRegistry.js";
 import { ProductRegistry } from "./products/ProductRegistry.js";
 import { ProductNotificationEngine } from "./notification/ProductNotificationEngine.js";
 import { ProcartaExecutionEngine } from "./procarta/ProcartaExecutionEngine.js";
@@ -164,6 +166,15 @@ const feedbackIntelligence = new FeedbackIntelligence({ eventBus: kernel?.eventB
 const mediaRegistry = new MediaRegistry();
 const mediaEngine = new MediaEngine({ eventBus: kernel?.eventBus, mediaRegistry });
 const communityProgression = new CommunityProgression({ eventBus: kernel?.eventBus });
+const pilotGate = new PilotGate({ eventBus: kernel?.eventBus, progression: communityProgression });
+const pilotRegistry = new PilotRegistry({ store: runtimeConfig, eventBus: kernel?.eventBus });
+kernel?.eventBus?.subscribe?.("pilot.candidate.approved", (decision) => {
+  try {
+    pilotRegistry.recordApproved(decision);
+  } catch (error) {
+    console.warn(`[PilotGate] record sync failed: ${error.message}`);
+  }
+});
 const productRegistry = new ProductRegistry();
 const notificationEngine = new ProductNotificationEngine({ eventBus: kernel?.eventBus });
 const engagementOrchestrator = new EngagementOrchestrator({
@@ -1042,6 +1053,79 @@ app.get('/api/v1/procarta/status', (req, res) => {
   }
 });
 
+// === PILOT PROGRESSION (G27) ===============================================
+
+// Controlled pilot progression. Candidates are exactly the PROCARTA
+// engine-qualified intakes (metadata.procarta === true); promotion happens only
+// through an explicit level-2 operator decision with a reason. No qualification
+// policy is encoded here — the mechanism, not the policy, is automated.
+app.get('/api/v1/procarta/pilot-candidates', security.requireLevel(2), (req, res) => {
+  try {
+    res.json({ success: true, candidates: pilotGate.listCandidates() });
+  } catch (error) {
+    res.status(500).json({ success: false, error: "PILOT_CANDIDATES_FAILED", message: error.message });
+  }
+});
+
+app.post('/api/v1/procarta/pilot/approve', security.requireLevel(2), (req, res) => {
+  try {
+    const approvedBy = req.user?.subject || "LEVEL_2_OPERATOR";
+    const decision = pilotGate.approveCandidate({
+      intakeId: req.body?.intakeId,
+      approvedBy,
+      reason: req.body?.reason
+    });
+    res.status(201).json({ success: true, decision });
+  } catch (error) {
+    const code = error.code || "PILOT_APPROVE_FAILED";
+    res.status(code === "PILOT_APPROVE_INTAKE_REQUIRED" || code === "PILOT_APPROVE_REASON_REQUIRED" ? 400 : 404).json({ success: false, error: code, message: error.message });
+  }
+});
+
+app.get('/api/v1/procarta/pilot/status', security.requireLevel(2), (req, res) => {
+  try {
+    res.json({ success: true, pilotGate: pilotGate.getStatus(), recentDecisions: pilotGate.recentDecisions(10) });
+  } catch (error) {
+    res.status(500).json({ success: false, error: "PILOT_STATUS_FAILED", message: error.message });
+  }
+});
+
+// === PILOT FACTORY (G29 foundation) ======================================
+// Durable pilot packages derive from G27 approvals. Verdicts (PROMOTED /
+// ARCHIVED) are strictly operator-gated and evidence-reasoned; no automated
+// evaluation policy is encoded.
+app.get('/api/v1/procarta/pilot/registry', security.requireLevel(2), (req, res) => {
+  try {
+    res.json({ success: true, records: pilotRegistry.list(), stats: pilotRegistry.stats() });
+  } catch (error) {
+    res.status(500).json({ success: false, error: "PILOT_REGISTRY_FAILED", message: error.message });
+  }
+});
+
+app.post('/api/v1/procarta/pilot/verdict', security.requireLevel(2), (req, res) => {
+  try {
+    const decidedBy = req.user?.subject || "LEVEL_2_OPERATOR";
+    const record = pilotRegistry.recordVerdict({
+      recordId: req.body?.recordId,
+      verdict: req.body?.verdict,
+      reason: req.body?.reason,
+      decidedBy
+    });
+    res.status(201).json({ success: true, record });
+  } catch (error) {
+    const code = error.code || "PILOT_VERDICT_FAILED";
+    const status =
+      code === "PILOT_VERDICT_INVALID" || code === "PILOT_VERDICT_REASON_REQUIRED"
+        ? 400
+        : code === "PILOT_RECORD_NOT_FOUND"
+          ? 404
+          : code === "PILOT_VERDICT_TERMINAL"
+            ? 409
+            : 500;
+    res.status(status).json({ success: false, error: code, message: error.message });
+  }
+});
+
 // === PRODUCT INTEGRATION ====================================================
 
 app.get('/api/v1/products', (req, res) => {
@@ -1049,6 +1133,29 @@ app.get('/api/v1/products', (req, res) => {
     res.json({ success: true, products: productRegistry.listProducts(), variants: productRegistry.getCampaignVariants() });
   } catch (error) {
     res.status(500).json({ success: false, error: "PRODUCTS_FAILED", message: error.message });
+  }
+});
+
+// G28 — public partner catalog (truthful availability). No contact/priority
+// fields are exposed. Every partner reports SIMULATED until a real external
+// integration is onboarded and validated (external/human work); no fabricated
+// live partner execution is ever advertised.
+app.get('/api/v1/partners', security.requireAuth(), (req, res) => {
+  try {
+    const rows = partners.list();
+    res.json({
+      success: true,
+      catalogAvailable: editionPolicy.isCapabilityAvailable("PARTNER_REGISTRATION"),
+      partners: rows.map((partner) => ({
+        id: partner.id,
+        name: partner.name,
+        status: partner.status,
+        capabilities: Array.isArray(partner.capabilities) ? partner.capabilities : [],
+        availability: partner.status === "ACTIVE" ? "LIVE" : "SIMULATED"
+      }))
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, error: "PARTNERS_FAILED", message: error.message });
   }
 });
 
