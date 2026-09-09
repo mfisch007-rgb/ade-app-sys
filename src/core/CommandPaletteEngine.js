@@ -1,4 +1,25 @@
-﻿import CommunityEditionGuard from "../security/CommunityEditionGuard.js";
+﻿/**
+ * CommandPaletteEngine — SECONDARY / CLI-ONLY surface (G25 reconciliation).
+ *
+ * NOT wired into the canonical runtime (src/app.js). Used only by standalone
+ * CLI/verification tooling: src/cli/verify_batch_1.js,
+ * src/cli/verify_master_system.js, and the repo-root build.js scaffold.
+ *
+ * CANONICAL COMMAND AUTHORITY (single, no duplicate pipelines):
+ *   - Command search  : GET /api/command/search  (src/app.js) over
+ *                       canonical PluginRegistry.getAllPlugins() + the static
+ *                       ecosystem capability catalog.
+ *   - Capability maps : CapabilityRegistry (dynamic) + /api/v1/capabilities.
+ *   - Plugin discovery: src/kernel/PluginRegistry.getAllPlugins().
+ *   - Command execution: POST /api/command/execute (src/app.js), gated by
+ *                       security.requireAuth() and CommunityEditionGuard RBAC,
+ *                       dispatched through EnterpriseKernelMaster.dispatchIntent.
+ *   - Intent fallback  : DYNAMIC_KERNEL_INTENT resolver on /api/command/search.
+ *
+ * CommandPaletteEngine must NOT be adopted into canonical routing; it bypasses
+ * the canonical HTTP authentication surface.
+ */
+import CommunityEditionGuard from "../security/CommunityEditionGuard.js";
 import CapabilityRegistry from "./CapabilityRegistry.js";
 import KernelEventBus from "./EventBus.js";
 

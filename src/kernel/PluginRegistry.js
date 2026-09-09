@@ -37,4 +37,8 @@ export class PluginRegistry {
     }
     return health;
   }
+
+  getAllPlugins() {
+    return Array.from(this.plugins.values());
+  }
 }

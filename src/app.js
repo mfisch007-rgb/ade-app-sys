@@ -49,6 +49,9 @@ import { TelemetrySSEGateway } from "./telemetry/TelemetrySSEGateway.js";
 import { TelemetryEventHub } from "./telemetry/TelemetryEventHub.js";
 import { authRateLimit } from "./security/RateLimiter.js";
 import { UniversalAIGateway } from "./ai/UniversalAIGateway.js";
+import { WorkforceManager } from "./identity/WorkforceManager.js";
+import { AnnouncementsManager } from "./identity/AnnouncementsManager.js";
+import { registerIdentityRoutes } from "./routes/identityRoutes.js";
 import { EditionPolicy } from "./core/EditionPolicy.js";
 import { DemoSafetyBoundary } from "./core/DemoSafetyBoundary.js";
 import { DemoOrchestrator } from "./demo/DemoOrchestrator.js";
@@ -123,6 +126,30 @@ if (registry && kernel?.subsystems && typeof registry.register === "function") {
 // safely instead of degrading silently.
 const storageProvider = createStorageProvider();
 console.log(`[STORAGE] Storage provider active: ${storageProvider.constructor.name || "LocalStorageAdapter"}`);
+
+// Identity / Workforce — Person → Account → Role → Permissions → Authentication →
+// Authorization → Action → Audit. Persisted through the same provider-neutral
+// storage contract so durable providers (e.g. Supabase) apply automatically.
+const workforce = new WorkforceManager({
+  store: storageProvider,
+  eventBus: kernel?.eventBus
+});
+const announcements = new AnnouncementsManager({
+  store: storageProvider,
+  eventBus: kernel?.eventBus
+});
+
+// Canonical workforce + announcement manager initialization (lazy on first use
+// when the provider is remote; eager here for local state).
+Promise.allSettled([workforce.initialize(), announcements.initialize()]).then(
+  (results) => {
+    for (const result of results) {
+      if (result.status === "rejected") {
+        console.error(`[IDENTITY] Manager initialization failed: ${result.reason?.message || result.reason}`);
+      }
+    }
+  }
+);
 
 // G17 durable mode: when an operator has configured a durable provider, the
 // operational document store (runtime config + case list) is backed by that
@@ -254,6 +281,16 @@ if (kernel?.eventBus && typeof kernel.eventBus.subscribe === "function") {
 // the same live bridges.
 const telemetryGateway = TelemetrySSEGateway.getInstance();
 const telemetryHub = TelemetryEventHub.getInstance();
+
+// Workforce identity + announcements + audit surfaces (canonical routing).
+registerIdentityRoutes({
+  app,
+  identity: security.identity,
+  workforce,
+  announcements,
+  auditStore,
+  runtimeMode: ADE_RUNTIME_MODE
+});
 
 // G17 — durable boot hydration. In durable mode the authoritative document
 // is loaded before the server listens, then in-memory authorities
@@ -529,6 +566,19 @@ try {
         action,
         requiredLevel: capabilityExecution.requiredLevel,
         userLevel: capabilityExecution.userLevel
+      });
+    }
+
+    if (capabilityExecution.reason === "EDITION_GATED") {
+      logEvent(
+        "COMMAND",
+        `Command ${action} gated by edition for level ${req.identity?.level ?? 1}`
+      );
+      return res.status(403).json({
+        success: false,
+        error: "EDITION_GATED",
+        action,
+        edition: capabilityExecution.edition
       });
     }
 

@@ -3,6 +3,7 @@ import fs from "fs";
 import path from "path";
 import KernelEventBus from "../kernel/EnterpriseEventBus.js";
 import KeyManager from "./KeyManager.js";
+import EditionPolicy, { CAPABILITY_AVAILABILITY } from "../core/EditionPolicy.js";
 
 export const RBAC_MATRIX = {
   LEVEL_0_GUEST: { level: 0, name: "GUEST", allowedIntents: ["PING", "PUBLIC_INFO"] },
@@ -66,7 +67,14 @@ export class CommunityEditionGuard {
     if (userLevel === 2) tierName = "PRO";
     if (userLevel >= 3) tierName = "ENTERPRISE";
 
+    const editionEntry = CAPABILITY_AVAILABILITY[intentName];
+    const editionTier = new EditionPolicy(process.env.ADE_EDITION || process.env.ADE_RUNTIME_MODE || this.defaultTier || "COMMUNITY").getEdition().toLowerCase();
+
     if (userLevel >= 3) {
+      if (editionEntry && !editionEntry[editionTier]) {
+        this.logAuditEvent({ type: "AUTHORIZATION_DENIED", intent: intentName, level: userLevel, tier: tierName, reason: "EDITION_GATED" });
+        throw new Error(`Intent '${intentName}' is not available in the ${editionTier.toUpperCase()} edition.`);
+      }
       this.logAuditEvent({ type: "AUTHORIZATION_GRANTED", intent: intentName, level: userLevel, tier: tierName });
       return true;
     }
@@ -77,6 +85,11 @@ export class CommunityEditionGuard {
     if (!rbacRole.allowedIntents.includes(intentName) && !rbacRole.allowedIntents.includes("*")) {
       this.logAuditEvent({ type: "AUTHORIZATION_DENIED", intent: intentName, level: userLevel, tier: tierName });
       throw new Error(`Intent '${intentName}' is denied for RBAC Level ${userLevel} (${tierName}). Enterprise License Required.`);
+    }
+
+    if (editionEntry && !editionEntry[editionTier]) {
+      this.logAuditEvent({ type: "AUTHORIZATION_DENIED", intent: intentName, level: userLevel, tier: tierName, reason: "EDITION_GATED" });
+      throw new Error(`Intent '${intentName}' is not available in the ${editionTier.toUpperCase()} edition.`);
     }
 
     this.logAuditEvent({ type: "AUTHORIZATION_GRANTED", intent: intentName, level: userLevel, tier: tierName });

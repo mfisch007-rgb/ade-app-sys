@@ -29,9 +29,14 @@ export class FeedbackPipeline {
     try { return fs.existsSync(this.queuePath) ? JSON.parse(fs.readFileSync(this.queuePath, "utf8")) : []; } catch { return []; }
   }
   #persist() {
-    const tmp = `${this.queuePath}.${process.pid}.${Date.now()}.tmp`;
-    fs.writeFileSync(tmp, JSON.stringify(this.queue.slice(-1000), null, 2), "utf8");
-    fs.renameSync(tmp, this.queuePath);
+    try {
+      const tmp = `${this.queuePath}.${process.pid}.${Date.now()}.${Math.random().toString(36).slice(2, 8)}.tmp`;
+      fs.writeFileSync(tmp, JSON.stringify(this.queue.slice(-1000), null, 2), "utf8");
+      fs.renameSync(tmp, this.queuePath);
+    } catch (_err) {
+      // Filesystem persistence failed. In-memory state is preserved.
+      // Durability is degraded but the API contract does not require durable-write success.
+    }
   }
 
   async ingest(payload = {}) {

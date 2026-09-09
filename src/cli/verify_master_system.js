@@ -37,19 +37,25 @@ async function runMasterSystemAudit() {
   // --- AUDIT 2: GATE C - RBAC MATRIX (LEVELS 0-4), SESSIONS, RATE LIMITING & AUDIT LOGS ---
   console.log("\n--- [AUDIT 2: GATE C - RBAC, SESSIONS, RATE LIMITING & DURABLE LOGS] ---");
 
-  // 2.1 RBAC Enforcement across Level 0 to Level 4
+  // 2.1 RBAC + Edition Entitlement across Level 0 to Level 4
   let rbacPassed = true;
   try {
-    guard.assertCapabilityAllowed("MULTI_STREAM", 0); // Level 0 should fail
+    guard.assertCapabilityAllowed("MULTI_STREAM", 0); // Level 0 should fail (RBAC)
     rbacPassed = false;
   } catch (e) {
     rbacPassed = true; // Expected failure
   }
   try {
-    guard.assertCapabilityAllowed("MULTI_STREAM", 2); // Level 2 PRO should pass
-    guard.assertCapabilityAllowed("SYSTEM_SHUTDOWN", 3); // Level 3 ENTERPRISE should pass
+    guard.assertCapabilityAllowed("PING", 0); // Level 0 FREE capability should pass
+    guard.assertCapabilityAllowed("PROCARTA_EXECUTE", 1); // Level 1 FREE capability should pass
   } catch (e) {
     rbacPassed = false;
+  }
+  try {
+    guard.assertCapabilityAllowed("MULTI_STREAM", 2); // PRO capability must be edition-gated in COMMUNITY
+    rbacPassed = false;
+  } catch (e) {
+    if (!/EDITION|edition/.test(e.message)) rbacPassed = false; // must fail via edition, not silently pass
   }
   console.log(` [2.1] RBAC Matrix 0-4 Enforcement ....................... : ${rbacPassed ? "PASS ✅" : "FAIL ❌"}`);
 

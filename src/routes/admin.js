@@ -1,3 +1,7 @@
+// LEGACY / NON-CANONICAL SURFACE — NOT mounted into src/app.js.
+// Canonical admin console: /admin (public/admin/index.html) over /api/v1/admin/*,
+// gated by security.requireLevel(2). This router's endpoints (/admin/login, ...)
+// are dead on the canonical runtime. Do not mount.
 import express from 'express';
 import db from '../config/database.js';
 import { activateSubscription } from '../engines/subscriptionEngine.js';

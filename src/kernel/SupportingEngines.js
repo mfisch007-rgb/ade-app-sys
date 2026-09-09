@@ -498,4 +498,118 @@ export class WorkflowEngine extends EngineBase {
       throw error;
     }
   }
+
+  async executeAutonomousWorkflow(workflowId, inputData = {}) {
+    this._assertReady();
+    if (!workflowId) throw new Error("Workflow id is required.");
+
+    const bus = this.kernel.resolve("eventBus");
+    const ledger = this.kernel.resolve("ledger");
+    const caseData = inputData.case || inputData;
+
+    const context = {
+      caseId: workflowId,
+      request: caseData.request || inputData.request || {},
+      organization: caseData.organization || inputData.organization || null,
+      decision: inputData.decision || caseData.decision || null,
+      confidence: Number(
+        caseData.confidence ?? inputData.decision?.confidence ?? 0
+      )
+    };
+
+    this.kernel.metrics.workflowStarted++;
+
+    const emit = async (topic, payload) => {
+      const result = await bus.publish(topic, payload);
+      this.kernel.metrics.eventsDelivered += result.deliveredCount;
+      this.kernel.metrics.eventsFailed += result.failedCount;
+      if (result.failedCount) {
+        throw new Error(`${topic} delivery failed.`);
+      }
+      return result;
+    };
+
+    try {
+      await emit("engagement.workflow.started", {
+        workflowId,
+        caseContext: context
+      });
+
+      // OBSERVE + LEARN: persist the case context into the canonical
+      // memory and knowledge authorities so downstream work is grounded.
+      const memory = this.kernel.resolve("memory");
+      const knowledge = this.kernel.resolve("knowledge");
+
+      if (memory?.set) {
+        memory.storeValue(`workflow:${workflowId}`, structuredClone(context));
+      }
+      if (knowledge?.ingest) {
+        knowledge.ingest(`workflow:${workflowId}`, JSON.stringify(context));
+      }
+
+      // DECIDE: run the canonical deterministic decision gate. HOLD and
+      // REJECT never proceed silently — they escalate to human review.
+      const decisionEngine = this.kernel.resolve("decision");
+      let decisionResult = {
+        decision: "HOLD",
+        reason: "Decision engine unavailable.",
+        confidence: context.confidence
+      };
+
+      if (decisionEngine?.evaluate) {
+        decisionResult = await decisionEngine.evaluate(context);
+      }
+
+      if (decisionResult.decision === "REJECT") {
+        throw new Error("WORKFLOW_REJECTED");
+      }
+
+      if (decisionResult.decision === "HOLD") {
+        await emit("human.escalation.required", {
+          workflowId,
+          reason: decisionResult.reason || "HOLD"
+        });
+        throw new Error("WORKFLOW_ESCALATED");
+      }
+
+      // EXECUTE: record an immutable ledger transaction for the action.
+      const ledgerResult = await ledger.record({
+        type: "CASE_EXECUTION",
+        caseId: workflowId,
+        decision: decisionResult.decision,
+        confidence: context.confidence,
+        source: "AUTONOMOUS_WORKFLOW"
+      });
+
+      // EVALUATE + COMPLETE: produce an objective completion result.
+      const result = {
+        status: "COMPLETED",
+        workflowId,
+        decision: decisionResult,
+        context: context.decision || null,
+        ledger: ledgerResult,
+        completedAt: new Date().toISOString()
+      };
+
+      await emit("engagement.workflow.completed", {
+        workflowId,
+        result
+      });
+
+      this.kernel.metrics.workflowCompleted++;
+      this.kernel.metrics.workflowExecutions++;
+
+      return structuredClone(result);
+    } catch (error) {
+      this.kernel.metrics.workflowFailed++;
+      this.kernel.metrics.errors++;
+      try {
+        await emit("engagement.workflow.failed", {
+          workflowId,
+          error: error?.message || String(error)
+        }).catch(() => {});
+      } catch {}
+      throw error;
+    }
+  }
 }

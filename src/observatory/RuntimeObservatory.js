@@ -4,6 +4,7 @@ export class RuntimeObservatory {
     this.moduleStates = new Map();
     this.eventMetrics = { published: 0, delivered: 0, failed: 0 };
     this.workflowMetrics = { started: 0, completed: 0, escalated: 0, failed: 0 };
+    this.systemLogs = [];
     this.startTime = Date.now();
   }
 
@@ -23,6 +24,15 @@ export class RuntimeObservatory {
     if (resultStatus === 'SUCCESS') this.workflowMetrics.completed++;
     else if (resultStatus === 'ESCALATED') this.workflowMetrics.escalated++;
     else if (resultStatus === 'FAILED') this.workflowMetrics.failed++;
+  }
+
+  logSystem(tag, message) {
+    this.systemLogs.push({ time: new Date().toISOString(), tag: `[${tag}]`, message });
+    if (this.systemLogs.length > 200) this.systemLogs.shift();
+  }
+
+  getRecentLogs(limit = 50) {
+    return this.systemLogs.slice(-Math.max(0, limit));
   }
 
   getLiveSnapshot() {

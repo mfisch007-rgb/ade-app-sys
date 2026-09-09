@@ -1,3 +1,6 @@
+// LEGACY / NON-CANONICAL SURFACE — NOT wired into src/app.js.
+// Canonical HTTP runtime: src/app.js -> src/server.js (serverless wrapper: api/index.js).
+// Reachable only via explicit CLI invocation (src/cli/commands/server.js). Do not adopt.
 import http from 'http';
 import { parse } from 'url';
 

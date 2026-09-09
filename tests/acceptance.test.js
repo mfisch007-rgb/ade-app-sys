@@ -42,7 +42,14 @@ const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "ade-acceptance-"));
 });
 
 test("Identity session is cryptographically verifiable and revocable", () => {
-  const identity = new IdentityOnboarding();
+  const credentialStore = {
+    getCredentialVersion: () => 1
+  };
+
+  const identity =
+    new IdentityOnboarding({
+      credentialStore
+    });
   const session = identity.issueSession({ subject: "test-user", level: 3, tier: "ENTERPRISE", persona: "ADMIN" });
   const claims = identity.verifySession(session.token);
   assert.equal(claims.sub, "test-user");

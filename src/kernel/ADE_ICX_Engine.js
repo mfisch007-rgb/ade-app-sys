@@ -13,6 +13,36 @@ export class ADE_ICX_Engine {
     this.staff = new Map();
     this.messages = [];
     this.escalations = [];
+    this.kernel = null;
+    this.status = "STOPPED";
+  }
+
+  initialize(kernel = null) {
+    this.kernel = kernel;
+    this.status = "ONLINE";
+    return this;
+  }
+
+  async boot(kernel = null) {
+    return this.initialize(kernel);
+  }
+
+  async dispose() {
+    this.status = "OFFLINE";
+    this.kernel = null;
+  }
+
+  async shutdown() {
+    return this.dispose();
+  }
+
+  getHealth() {
+    return {
+      status: this.status,
+      staffCount: this.staff.size,
+      messageCount: this.messages.length,
+      escalationCount: this.escalations.length
+    };
   }
 
   upsertStaff(profile) {

@@ -1,11 +1,20 @@
 ```html
+<!--
+  LEGACY / DEPRECATED SURFACE (G25 reconciliation).
+  This artifact targets dead, non-canonical routes that are NOT mounted on the
+  canonical runtime: /admin/login, /admin/stats, /admin/clients, /admin/onboard,
+  /admin/fraud, /api/whatsapp/status, /api/whatsapp/pair.
+  It must NOT be treated as a working canonical dashboard and is kept only as
+  historical source. Canonical admin console: /admin (public/admin/index.html).
+  The script below is inerted: it will not call any dead endpoint.
+-->
 <!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-<title>ADE-LedgerFlow™ Admin</title>
+<title>ADE-LedgerFlow™ Admin [LEGACY/DEPRECATED]</title>
 
 <style>
 
@@ -165,6 +174,12 @@ text-align:center
 
 <body>
 
+<!-- LEGACY / DEPRECATED — dead-route surface. Not served by the canonical runtime. -->
+
+<div id="legacy-notice" style="background:#3a1d1d;color:#ffb3b3;border-bottom:1px solid #ff3366;padding:10px 24px;font-family:Segoe UI;font-size:13px">
+⚠ LEGACY / DEPRECATED — this admin console targets dead, non-canonical routes (/admin/*, /api/whatsapp/*) that are NOT mounted on the canonical runtime. It is not a working dashboard. The canonical admin console is <b>/admin</b> (public/admin/index.html).
+</div>
+
 <!-- LOGIN -->
 
 <div id="login">
@@ -310,39 +325,20 @@ text-align:center
 
 <script>
 
+// LEGACY/DEPRECATED: every endpoint this legacy script targets (/admin/login,
+// /admin/stats, /admin/clients, /admin/onboard, /admin/fraud,
+// /api/whatsapp/status, /api/whatsapp/pair) is dead on the canonical runtime.
+// All calls are inerted so this artifact can never masquerade as a working
+// dashboard. The canonical admin console (public/admin/index.html) uses the
+// live /api/v1/auth/* + /api/v1/admin/* surface instead.
+
 const API = window.location.origin
 let token = null
+const LEGACY_INERT = true
 
 async function login(){
-
-const pin = document.getElementById("pin").value
-
-const res = await fetch(`${API}/admin/login`,{
-method:"POST",
-headers:{'Content-Type':'application/json'},
-body:JSON.stringify({pin})
-})
-
-const data = await res.json()
-
-if(data.success){
-
-token = data.token
-
-document.getElementById("login").classList.add("hidden")
-document.getElementById("app").classList.remove("hidden")
-
-loadStats()
-checkWA()
-
-setInterval(checkWA,10000)
-
-}else{
-
-document.getElementById("loginError").innerText="Invalid PIN"
-
-}
-
+LEGACY_INERT && console.warn("[LEGACY/DEPRECATED] dead route /admin/login not called; canonical console: /admin")
+return false
 }
 
 function logout(){
@@ -365,117 +361,42 @@ document.getElementById(id).classList.remove("hidden")
 /* STATS */
 
 async function loadStats(){
-
-let r = await fetch(`${API}/admin/stats`,{
-headers:{Authorization:token}
-})
-
-let d = await r.json()
-
-document.getElementById("statClients").innerText=d.clients
-document.getElementById("statRevenue").innerText="₦"+d.revenue
-document.getElementById("statFraud").innerText=d.fraud
-
+console.warn("[LEGACY/DEPRECATED] dead route /admin/stats not called")
+document.getElementById("statClients").innerText="-"
+document.getElementById("statRevenue").innerText="-"
+document.getElementById("statFraud").innerText="-"
 }
 
 /* CLIENTS */
 
 async function loadClients(){
-
-let r = await fetch(`${API}/admin/clients`,{
-headers:{Authorization:token}
-})
-
-let d = await r.json()
-
-document.getElementById("clientsData").innerText=
-JSON.stringify(d,null,2)
-
+console.warn("[LEGACY/DEPRECATED] dead route /admin/clients not called")
+document.getElementById("clientsData").innerText="LEGACY/DEPRECATED — not a canonical surface"
 }
 
 async function onboard(){
-
-let body={
-name:document.getElementById("name").value,
-business:document.getElementById("business").value,
-phone:document.getElementById("phone").value
-}
-
-await fetch(`${API}/admin/onboard`,{
-method:"POST",
-headers:{
-'Content-Type':'application/json',
-Authorization:token
-},
-body:JSON.stringify(body)
-})
-
-alert("Client created")
-
+console.warn("[LEGACY/DEPRECATED] dead route /admin/onboard not called")
 }
 
 /* FRAUD */
 
 async function loadFraud(){
-
-let r = await fetch(`${API}/admin/fraud`,{
-headers:{Authorization:token}
-})
-
-let d = await r.json()
-
-document.getElementById("fraudData").innerText=
-JSON.stringify(d,null,2)
-
+console.warn("[LEGACY/DEPRECATED] dead route /admin/fraud not called")
+document.getElementById("fraudData").innerText="LEGACY/DEPRECATED — not a canonical surface"
 }
 
 /* WHATSAPP */
 
 async function checkWA(){
-
-try{
-
-let r = await fetch(`${API}/api/whatsapp/status`)
-let d = await r.json()
-
+console.warn("[LEGACY/DEPRECATED] dead route /api/whatsapp/status not called")
 let dot = document.getElementById("wa-dot")
 let label = document.getElementById("wa-label")
-
-if(d.connected){
-
-dot.className="dot green"
-label.innerText="Bot Online"
-
-}else{
-
-dot.className="dot red"
-label.innerText="Bot Offline"
-
-}
-
-}catch{}
-
+if(dot){dot.className="dot red"}
+if(label){label.innerText="Legacy (not canonical)"}
 }
 
 async function linkWhatsApp(){
-
-let phone=document.getElementById("waPhone").value
-
-let r=await fetch(`${API}/api/whatsapp/pair`,{
-method:"POST",
-headers:{'Content-Type':'application/json'},
-body:JSON.stringify({phone})
-})
-
-let d=await r.json()
-
-if(d.code){
-
-document.getElementById("pairCode").innerHTML=
-"<h1>"+d.code+"</h1>"
-
-}
-
+console.warn("[LEGACY/DEPRECATED] dead route /api/whatsapp/pair not called")
 }
 
 </script>

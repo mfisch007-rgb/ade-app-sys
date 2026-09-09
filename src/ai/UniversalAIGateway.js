@@ -7,6 +7,7 @@ export class UniversalAIGateway {
     this.guard = CommunityEditionGuard.getInstance();
 
     this.semanticCache = new Map();
+    this.semanticCacheMaxSize = Number(process.env.ADE_AI_CACHE_MAX_SIZE) || 1000;
     this.semanticThreshold = 0.75;
     this.requestTimeoutMs = 8000; // 8-second circuit breaker timeout
 
@@ -125,6 +126,39 @@ export class UniversalAIGateway {
     return data.choices?.[0]?.message?.content || "[QWEN]: Empty response";
   }
 
+  /**
+   * Honest provider-availability report for observability (G20/G21).
+   *
+   * Reports configuration state only. A provider is "configured" when its
+   * API key is present in the environment. Configured does NOT imply a
+   * successful live connection — connectivity is only ever proven by an
+   * actual successful remote call during dispatchPrompt. No fabricated
+   * external success is ever represented here.
+   */
+  getProviderStatus() {
+    const providers = this.providers.map(provider => {
+      const configured = Boolean(process.env[provider.envKey]);
+      return {
+        name: provider.name,
+        envKey: provider.envKey,
+        configured,
+        state: configured ? "CONFIGURED" : "UNCONFIGURED",
+        // connectivity is intentionally unknown until a real dispatch succeeds
+        liveConnected: false
+      };
+    });
+    const configuredCount = providers.filter(p => p.configured).length;
+    return {
+      mode: "PROVIDER_NEUTRAL",
+      providers,
+      configuredProviderCount: configuredCount,
+      totalProviderCount: providers.length,
+      fallbackAvailable: true,
+      fallbackState: "OFFLINE_LEXICAL_ENGINE",
+      externalAIAvailable: configuredCount > 0
+    };
+  }
+
   async dispatchPrompt(prompt, options = {}) {
     const cacheKey = Buffer.from(prompt).toString("base64");
 
@@ -152,7 +186,7 @@ export class UniversalAIGateway {
       if (apiKey) {
         try {
           const response = await provider.handler(prompt, apiKey);
-          this.semanticCache.set(cacheKey, { response, timestamp: Date.now() });
+          this._cacheSet(cacheKey, { response, timestamp: Date.now() });
           this.eventBus.publish("AI_DISPATCH_EVENT", { prompt, source: provider.name });
           return { response, route: provider.name, status: "SUCCESS" };
         } catch (err) {
@@ -164,10 +198,18 @@ export class UniversalAIGateway {
 
     // 4. Offline Lexical Engine Fallback
     const fallbackResponse = `[ADE-LEXICAL-ENGINE]: Executed query analysis for: "${prompt}". System operating on zero-latency offline processing.`;
-    this.semanticCache.set(cacheKey, { response: fallbackResponse, timestamp: Date.now() });
+    this._cacheSet(cacheKey, { response: fallbackResponse, timestamp: Date.now() });
 
     this.eventBus.publish("AI_DISPATCH_EVENT", { prompt, source: "OFFLINE_LEXICAL_ENGINE" });
     return { response: fallbackResponse, route: "OFFLINE_LEXICAL_ENGINE", status: "SUCCESS" };
+  }
+
+  _cacheSet(key, value) {
+    if (this.semanticCache.size >= this.semanticCacheMaxSize) {
+      const oldestKey = this.semanticCache.keys().next().value;
+      this.semanticCache.delete(oldestKey);
+    }
+    this.semanticCache.set(key, value);
   }
 }
 

@@ -17,12 +17,22 @@ function gitSha() { try { return execFileSync("git", ["rev-parse", "HEAD"], { cw
 function excluded(full, name) {
   return /[\\/]node_modules[\\/]/.test(full) || /[\\/]\.git[\\/]/.test(full) || /[\\/]dist[\\/]/.test(full) || /[\\/]\.keys[\\/]/.test(full) || /(^|[\\/])\.env($|\.)/.test(name) || /\.(pem|key|p12|pfx|crt|cer|der)$/i.test(name) || /credentials|secret/i.test(name) || /^ade_audit_persistence\./i.test(name) || /^\.ade_(capability_store|session_revocations|feedback_queue)/i.test(name);
 }
+// The excluded() regexes require a trailing separator, so a bare directory
+// basename never matches them (e.g. ".git" has no trailing "\"). Skip the
+// well-known excluded directory roots here so the walk never descends into the
+// git object store, the dependency tree, the dist output, or key material.
+const EXCLUDED_DIR_ROOTS = new Set([".git", "node_modules", "dist", ".keys"]);
 function walk(dir) {
   const out=[];
   for (const ent of fs.readdirSync(dir,{withFileTypes:true})) {
     const full=path.join(dir,ent.name);
     if (excluded(full,ent.name)) continue;
-    if (ent.isDirectory()) out.push(...walk(full)); else out.push(full);
+    if (ent.isDirectory()) {
+      if (EXCLUDED_DIR_ROOTS.has(ent.name)) continue;
+      out.push(...walk(full));
+    } else {
+      out.push(full);
+    }
   }
   return out;
 }

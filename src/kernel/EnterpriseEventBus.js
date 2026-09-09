@@ -7,6 +7,7 @@
  */
 import EventEmitter from "node:events";
 import crypto from "node:crypto";
+import { EventSchemaRegistry } from "../core/EventSchemaRegistry.js";
 
 export class EnterpriseEventBus extends EventEmitter {
   constructor() {
@@ -20,10 +21,14 @@ export class EnterpriseEventBus extends EventEmitter {
       delivered: 0,
       failed: 0,
       retried: 0,
-      subscriberFailures: 0
+      subscriberFailures: 0,
+      schemaViolations: 0
     };
     this.maxHistory = 1000;
     this.maxDlq = 500;
+    this.schemaRegistry = new EventSchemaRegistry();
+    this.schemaViolations = [];
+    this.maxSchemaViolations = 500;
   }
 
   static getInstance() {
@@ -73,17 +78,38 @@ export class EnterpriseEventBus extends EventEmitter {
     this.history.push(envelope);
     if (this.history.length > this.maxHistory) this.history.shift();
 
+    let schema = null;
+    if (this.schemaRegistry && typeof this.schemaRegistry.validate === "function") {
+      try {
+        schema = this.schemaRegistry.validate(topic, payload) || null;
+      } catch (_e) {
+        schema = null;
+      }
+      if (schema?.schemaEnforced && !schema.valid) {
+        this.metrics.schemaViolations++;
+        this.schemaViolations.push({
+          eventId: envelope.eventId,
+          topic,
+          error: schema.error || "SCHEMA_MISMATCH",
+          timestamp: envelope.meta.timestamp
+        });
+        if (this.schemaViolations.length > this.maxSchemaViolations) {
+          this.schemaViolations.shift();
+        }
+      }
+    }
+
     const handlers = this.listeners(topic);
     let deliveredCount = 0;
     const results = [];
 
-    for (const handler of handlers) {
+    const deliverToHandler = async (handler, payload, eventRecord) => {
       let attempt = 0;
       let delivered = false;
 
       while (attempt <= retries && !delivered) {
         try {
-          await handler(envelope.payload, envelope);
+          await handler(payload, eventRecord);
           delivered = true;
           deliveredCount++;
           this.metrics.delivered++;
@@ -98,8 +124,9 @@ export class EnterpriseEventBus extends EventEmitter {
           }
 
           this.metrics.failed++;
+
           const dlqEntry = {
-            event: envelope,
+            event: eventRecord,
             error: error?.message || String(error),
             failedAt: new Date().toISOString(),
             attempts: attempt
@@ -110,6 +137,20 @@ export class EnterpriseEventBus extends EventEmitter {
           results.push({ success: false, error: dlqEntry.error });
         }
       }
+    };
+
+    for (const handler of handlers) {
+      await deliverToHandler(handler, envelope.payload, envelope);
+    }
+
+    // Wildcard meta-delivery: listeners subscribed to "*" receive the full
+    // event record for every publication. Topic listeners are always
+    // delivered first so per-topic ordering is preserved. This is what makes
+    // the live telemetry SSE bridge reachable from the canonical bus.
+    if (this.listenerCount("*") > 0) {
+      for (const handler of this.listeners("*")) {
+        await deliverToHandler(handler, envelope, envelope);
+      }
     }
 
     return {
@@ -119,12 +160,17 @@ export class EnterpriseEventBus extends EventEmitter {
       deliveredCount,
       handlerCount: handlers.length,
       failedCount: results.filter(r => !r.success).length,
+      schema: schema ? { enforced: schema.schemaEnforced, valid: schema.valid } : null,
       results
     };
   }
 
   getMetrics() {
     return { ...this.metrics };
+  }
+
+  getSchemaViolations(limit = 100) {
+    return this.schemaViolations.slice(-Math.max(0, limit));
   }
 
   getHistory(limit = 100) {

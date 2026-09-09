@@ -21,11 +21,14 @@ import {
 } from "./SupportingEngines.js";
 import { CapabilityRegistry } from "../core/CapabilityRegistry.js";
 import { runtimeState, updateRuntimeState, recordRuntimeFailure } from "../core/runtimeState.js";
+import { SnapshotManager } from "../core/SnapshotManager.js";
+import { ADE_ICX_Engine } from "./ADE_ICX_Engine.js";
 
 export class EnterpriseKernelMaster {
   constructor(options = {}) {
     this.status = "STOPPED";
     this.isBooted = false;
+    this._bootPromise = null;
     this.logger = options.logger || new StructuredJSONLogger();
     this.hub = options.telemetry || TelemetryEventHub.getInstance();
     this.eventBus = options.eventBus || EnterpriseEventBus.getInstance();
@@ -170,6 +173,7 @@ export class EnterpriseKernelMaster {
     const notification = new NotificationEngine({ kernel: this });
     const ledger = new NexusLedgerEngine({ kernel: this });
     const workflow = new WorkflowEngine({ kernel: this });
+    const icx = new ADE_ICX_Engine({ eventBus: this.eventBus });
 
     this._registerSubsystem("memory", memory);
     this._registerSubsystem("knowledge", knowledge);
@@ -179,6 +183,7 @@ export class EnterpriseKernelMaster {
     this._registerSubsystem("notification", notification);
     this._registerSubsystem("ledger", ledger);
     this._registerSubsystem("workflowEngine", workflow);
+    this._registerSubsystem("icx", icx);
 
     this.container.set("memoryEngine", memory);
     this.container.set("contextMemory", memory);
@@ -188,7 +193,19 @@ export class EnterpriseKernelMaster {
     this.container.set("guardianSecurity", guardian);
     this.container.set("workflow", workflow);
     this.container.set("ledger", ledger);
+    this.container.set("icx", icx);
     this.container.set("kernel", this);
+  }
+
+  _trySnapshot(reason) {
+    try {
+      if (!this.snapshotManager) {
+        this.snapshotManager = new SnapshotManager(this);
+      }
+      return this.snapshotManager.createSnapshot(reason);
+    } catch (_e) {
+      return null;
+    }
   }
 
   _registerSubsystem(name, instance) {
@@ -250,11 +267,38 @@ export class EnterpriseKernelMaster {
     return this.registerSubsystemToKernel(moduleName, instance);
   }
 
-  async boot() {
+  boot() {
     if (this.isBooted) {
-      return { status: "ALREADY_RUNNING", ...this.getSystemState() };
+      return Promise.resolve({
+        ...this.getSystemState(),
+        status: "ALREADY_RUNNING"
+      });
     }
 
+    if (this._bootPromise) {
+      return this._bootPromise;
+    }
+
+    const bootPromise = this._performBoot();
+    this._bootPromise = bootPromise;
+
+    bootPromise.then(
+      () => {
+        if (this._bootPromise === bootPromise) {
+          this._bootPromise = null;
+        }
+      },
+      () => {
+        if (this._bootPromise === bootPromise) {
+          this._bootPromise = null;
+        }
+      }
+    );
+
+    return bootPromise;
+  }
+
+  async _performBoot() {
     const start = Date.now();
     this.status = "BOOTING";
     this.systemState.status = "BOOTING";
@@ -433,6 +477,8 @@ export class EnterpriseKernelMaster {
         });
       }
     }
+
+    this._trySnapshot("KERNEL_SHUTDOWN");
 
     this.isBooted = false;
     this.status = "OFFLINE";

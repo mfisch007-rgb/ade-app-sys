@@ -33,18 +33,35 @@ export class CapabilityRegistry {
   }
 
   #persist() {
-    const dir = path.dirname(this.storePath);
-    fs.mkdirSync(dir, { recursive: true });
-    const state = {
-      version: 1,
-      updatedAt: new Date().toISOString(),
-      capabilities: [...this.capabilities.values()].map(({ handler, ...cap }) => cap),
-      subsystems: [...this.subsystems.entries()],
-      revoked: [...this.revoked]
-    };
-    const tmp = `${this.storePath}.${process.pid}.${Date.now()}.tmp`;
-    fs.writeFileSync(tmp, JSON.stringify(state, null, 2), "utf8");
-    fs.renameSync(tmp, this.storePath);
+    try {
+      const dir = path.dirname(this.storePath);
+      fs.mkdirSync(dir, { recursive: true });
+      const state = {
+        version: 1,
+        updatedAt: new Date().toISOString(),
+        capabilities: [...this.capabilities.values()].map(({ handler, ...cap }) => cap),
+        subsystems: [...this.subsystems.entries()],
+        revoked: [...this.revoked]
+      };
+      const tmp = `${this.storePath}.${process.pid}.${Date.now()}.${Math.random().toString(36).slice(2, 8)}.tmp`;
+      fs.writeFileSync(tmp, JSON.stringify(state, null, 2), "utf8");
+      const tryRename = (attempts) => {
+        try {
+          fs.renameSync(tmp, this.storePath);
+          return true;
+        } catch (error) {
+          if (attempts <= 0) throw error;
+          return tryRename(attempts - 1);
+        }
+      };
+      try {
+        tryRename(3);
+      } catch {
+        fs.writeFileSync(this.storePath, JSON.stringify(state, null, 2), "utf8");
+      }
+    } catch {
+      // Filesystem unavailable (e.g. serverless runtime) — operate in-memory only.
+    }
   }
 
   initCoreCapabilities() {
@@ -67,8 +84,11 @@ export class CapabilityRegistry {
 
   registerCapability(capabilityOrExtension, intent, handlerOrLevel, rbacLevel = 1, options = {}) {
     let cap;
-    if (capabilityOrExtension && typeof capabilityOrExtension === "object" && !Array.isArray(capabilityOrExtension)) cap = { ...capabilityOrExtension };
-    else if (typeof capabilityOrExtension === "string" && typeof intent === "string" && typeof handlerOrLevel === "function") cap = { extensionId: capabilityOrExtension, intent, handler: handlerOrLevel, rbacLevel, sourceModule: capabilityOrExtension };
+    let opts = options;
+    if (capabilityOrExtension && typeof capabilityOrExtension === "object" && !Array.isArray(capabilityOrExtension)) {
+      cap = { ...capabilityOrExtension };
+      if (intent && typeof intent === "object" && !Array.isArray(intent) && handlerOrLevel === undefined) opts = intent;
+    } else if (typeof capabilityOrExtension === "string" && typeof intent === "string" && typeof handlerOrLevel === "function") cap = { extensionId: capabilityOrExtension, intent, handler: handlerOrLevel, rbacLevel, sourceModule: capabilityOrExtension };
     else throw new Error("Invalid Capability registration.");
     if (!cap.intent) throw new Error("Capability intent is required.");
     if (typeof cap.handler !== "function") throw new Error(`Capability '${cap.intent}' requires a runtime handler.`);
@@ -87,7 +107,7 @@ export class CapabilityRegistry {
     };
     this.capabilities.set(record.intent, record);
     this.revoked.delete(record.intent);
-    if (options.persist !== false) this.#persist();
+    if (opts.persist !== false) this.#persist();
     try { this.eventBus.publish("CAPABILITY_REGISTERED", this.publicRecord(record)); } catch {}
     return record;
   }

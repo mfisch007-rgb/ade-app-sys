@@ -5,9 +5,13 @@
  * runtime-bound, non-revoked capability handler. RBAC is enforced here
  * (matching EnterpriseKernelMaster.dispatchIntent): a capability whose
  * rbacLevel exceeds the caller's authenticated level is never executed.
+ * Edition entitlement is also enforced: a capability not granted in the
+ * active edition (EditionPolicy) is never executed regardless of RBAC level.
  * Async handlers are awaited so the result is the real execution output,
  * never a pending Promise serialized as an empty object.
  */
+import EditionPolicy, { CAPABILITY_AVAILABILITY } from "./EditionPolicy.js";
+
 export async function executeCapability(registry, intent, payload = {}, userLevel = Infinity) {
   if (!registry || typeof registry.getCapability !== "function") {
     return {
@@ -42,6 +46,17 @@ export async function executeCapability(registry, intent, payload = {}, userLeve
       intent,
       requiredLevel: Number(capability.rbacLevel),
       userLevel: Number(userLevel)
+    };
+  }
+
+  const editionTier = new EditionPolicy(process.env.ADE_EDITION || process.env.ADE_RUNTIME_MODE || "COMMUNITY").getEdition().toLowerCase();
+  const editionEntry = CAPABILITY_AVAILABILITY[intent];
+  if (editionEntry && !editionEntry[editionTier]) {
+    return {
+      executed: false,
+      reason: "EDITION_GATED",
+      intent,
+      edition: editionTier.toUpperCase()
     };
   }
 

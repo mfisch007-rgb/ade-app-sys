@@ -1,4 +1,7 @@
 // ═══════════════════════════════════════════════════════════
+// LEGACY / NON-CANONICAL SURFACE — NOT mounted into src/app.js.
+// Canonical WhatsApp route does not exist; /api/whatsapp/* is dead on the
+// canonical runtime. Do not mount.
 // LedgerFlow — WhatsApp & Payment Routes
 // ═══════════════════════════════════════════════════════════
 import express from "express";

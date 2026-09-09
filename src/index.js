@@ -1,3 +1,5 @@
+// LEGACY / NON-CANONICAL SURFACE — alternate bootstrap, NOT used by the canonical
+// runtime (src/app.js -> src/server.js; serverless wrapper api/index.js). Do not adopt.
 import { EventBus } from './core/EventBus.js';
 import { EventSchemaRegistry } from './core/EventSchemaRegistry.js';
 import { MasterIntegrationRegistry } from './core/MasterIntegrationRegistry.js';

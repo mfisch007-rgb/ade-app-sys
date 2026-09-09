@@ -1,9 +1,16 @@
 <!DOCTYPE html>
+<!-- LEGACY / DEPRECATED SURFACE (G25 reconciliation).
+     This dashboard targets the retired localhost:8080 god-mode runtime
+     (EventSource /api/stream, /api/godmode/command) which is NOT part of the
+     canonical ADE runtime. It is no longer a working canonical dashboard.
+     Canonical primary UI: /  (public/index.html).
+     Canonical admin console: /admin (public/admin/index.html).
+     Dead endpoints are intentionally NOT called below. -->
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ADE Omni Hub | Apex Operating System</title>
+    <title>ADE Omni Hub | Apex Operating System [LEGACY/DEPRECATED]</title>
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -40,21 +47,12 @@
             const [pinInput, setPinInput] = React.useState("");
 
             React.useEffect(() => {
-                const source = new EventSource("http://localhost:8080/api/stream");
-                source.onopen = () => setStatus("ONLINE");
-                source.onmessage = (event) => {
-                    try {
-                        const data = JSON.parse(event.data);
-                        if (data.topic === "GODMODE_EVENT" && data.payload?.action === "FEATURE_TOGGLED") {
-                            setFeatures(prev => ({ ...prev, [data.payload.feature]: data.payload.state }));
-                        }
-                        setLogs(prev => [JSON.stringify(data), ...prev.slice(0, 49)]);
-                    } catch(e) {
-                        console.error('[GODMODE TELEMETRY ERROR]', e);
-                    }
-                };
-                source.onerror = () => setStatus("OFFLINE");
-                return () => source.close();
+                // LEGACY: the retired runtime streamed over http://localhost:8080/api/stream.
+                // That endpoint does not exist on the canonical runtime, so no EventSource is
+                // attempted and no god-mode telemetry is consumed.
+                console.warn("[LEGACY/DEPRECATED] localhost:8080/api/stream is not part of the canonical ADE runtime. Stream disabled.");
+                setStatus("LEGACY OFFLINE");
+                return () => {};
             }, []);
 
             const handlePinSubmit = (e) => {
@@ -67,19 +65,12 @@
             };
 
             const toggleFeature = async (featureKey, currentState) => {
-                try {
-                    await fetch("http://localhost:8080/api/godmode/command", {
-                        method: "POST",
-                        headers: {
-                            "Content-Type": "application/json",
-                            "Authorization": "Bearer ADE_SUPREME_FOUNDER_KEY_2026",
-                            "X-Security-PIN": pinInput
-                        },
-                        body: JSON.stringify({ action: "TOGGLE_FEATURE", feature: featureKey, state: !currentState })
-                    });
-                } catch (err) {
-                    console.error('[PATCH-INDEX] Logged graceful exception handling:', err.message);
-                }
+                // LEGACY: /api/godmode/command with the fixed founder key was a non-canonical
+                // god-mode surface. It is NOT mounted on the canonical runtime and must not be
+                // invoked. Feature toggles now require the canonical, authenticated management
+                // path (see /admin control plane), never a hardcoded secret.
+                console.warn("[LEGACY/DEPRECATED] /api/godmode/command is not part of the canonical ADE runtime. Feature toggles are managed via the canonical /admin control plane.");
+                return false;
             };
 
             return (
@@ -107,6 +98,9 @@
                     )}
 
                     <div className="glass-panel">
+                        <div style={{ background: "#3a1d1d", color: "#ffb3b3", padding: "10px 20px", fontSize: "12px", border: "1px solid #ff3366", borderRadius: "8px", marginBottom: "16px" }}>
+                            LEGACY / DEPRECATED SURFACE — this dashboard targets the retired localhost:8080 god-mode runtime and is not part of the canonical ADE runtime. Canonical primary UI: <b>/</b> · Canonical admin console: <b>/admin</b>.
+                        </div>
                         <div className="header">
                             <h2>ADE <span className="text-neon">APEX OMNI HUB</span></h2>
                             <div style={{ display: 'flex', gap: '20px', alignItems: 'center' }}>

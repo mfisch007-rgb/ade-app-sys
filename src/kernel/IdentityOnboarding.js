@@ -3,13 +3,15 @@ import path from "node:path";
 import crypto from "node:crypto";
 import KeyManager from "../security/KeyManager.js";
 import EnterpriseEventBus from "./EnterpriseEventBus.js";
+import CredentialLifecycleStore from "../security/CredentialLifecycleStore.js";
 
 const SESSION_TTL_SECONDS = Number(process.env.ADE_SESSION_TTL_SECONDS || 3600);
 
 export class IdentityOnboarding {
-  constructor({ keyManager = KeyManager.getInstance(), eventBus = EnterpriseEventBus.getInstance() } = {}) {
+  constructor({ keyManager = KeyManager.getInstance(), eventBus = EnterpriseEventBus.getInstance(), credentialStore = new CredentialLifecycleStore() } = {}) {
     this.keyManager = keyManager;
     this.eventBus = eventBus;
+    this.credentialStore = credentialStore;
     this.revocationPath = path.resolve(process.env.ADE_SESSION_REVOCATION_FILE || ".ade_session_revocations.json");
     this.revoked = this.#loadRevocations();
   }
@@ -32,11 +34,15 @@ export class IdentityOnboarding {
   }
 
   #persistRevocations() {
-    const dir = path.dirname(this.revocationPath);
-    fs.mkdirSync(dir, { recursive: true });
-    const tmp = `${this.revocationPath}.${process.pid}.${Date.now()}.tmp`;
-    fs.writeFileSync(tmp, JSON.stringify([...this.revoked].slice(-5000), null, 2), "utf8");
-    fs.renameSync(tmp, this.revocationPath);
+    try {
+      const dir = path.dirname(this.revocationPath);
+      fs.mkdirSync(dir, { recursive: true });
+      const tmp = `${this.revocationPath}.${process.pid}.${Date.now()}.${Math.random().toString(36).slice(2, 8)}.tmp`;
+      fs.writeFileSync(tmp, JSON.stringify([...this.revoked].slice(-5000), null, 2), "utf8");
+      fs.renameSync(tmp, this.revocationPath);
+    } catch {
+      // Filesystem unavailable (e.g. serverless) — revocations survive only in this instance.
+    }
   }
 
   #claims({ subject, tier = "COMMUNITY", level = 1, persona = "OPERATOR", edition = "COMMUNITY", metadata = {} }) {
@@ -78,7 +84,30 @@ export class IdentityOnboarding {
     if (!subject) throw new Error("Identity subject is required.");
     const privateKey = this.keyManager.getPrivateKey();
     const now = Math.floor(Date.now() / 1000);
-    const claims = { ...this.#claims({ subject, tier, level, persona, edition, metadata }), iat: now, exp: now + SESSION_TTL_SECONDS };
+    let credentialVersion;
+
+    try {
+      credentialVersion =
+        this.credentialStore.getCredentialVersion();
+    } catch (error) {
+      if (
+        Number(level) >= 2 &&
+        String(persona).toUpperCase() === "ADMIN"
+      ) {
+        throw new Error(
+          "CREDENTIAL_LIFECYCLE_UNAVAILABLE"
+        );
+      }
+
+      credentialVersion = null;
+    }
+
+    const claims = {
+      ...this.#claims({ subject, tier, level, persona, edition, metadata }),
+      ...(credentialVersion !== null ? { credentialVersion } : {}),
+      iat: now,
+      exp: now + SESSION_TTL_SECONDS
+    };
     const token = this.#signJwt(claims, privateKey);
     this.#audit("SESSION_ISSUED", { subject, tier, level, persona, jti: claims.jti });
     return { token, expiresIn: SESSION_TTL_SECONDS, expiresAt: claims.exp * 1000, identity: { subject, tier, level, persona, edition } };
@@ -95,6 +124,31 @@ export class IdentityOnboarding {
     if (claims.aud !== (process.env.ADE_TOKEN_AUDIENCE || "ADE-APEX-RUNTIME")) throw new Error("Session audience is invalid.");
     if (this.revoked.has(claims.jti)) throw new Error("Session has been revoked.");
     if (!claims.sub || !claims.jti) throw new Error("Session identity is incomplete.");
+    const isPrivilegedAdmin =
+      Number(claims.level) >= 2 &&
+      String(claims.persona || "").toUpperCase() === "ADMIN";
+
+    if (isPrivilegedAdmin && claims.credentialVersion === undefined) {
+      throw new Error(
+        "Privileged session credential version is missing."
+      );
+    }
+
+    if (claims.credentialVersion !== undefined) {
+      let currentCredentialVersion;
+      try {
+        currentCredentialVersion = this.credentialStore.getCredentialVersion();
+      } catch {
+        throw new Error("Credential lifecycle state is unavailable.");
+      }
+
+      if (
+        Number(claims.credentialVersion) !==
+        Number(currentCredentialVersion)
+      ) {
+        throw new Error("Session was invalidated by credential rotation.");
+      }
+    }
     return claims;
   }
 

@@ -1,41 +1,543 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="theme-color" content="#061A40"><title>ADE APEX — Autonomous Enterprise Operations</title>
+<meta name="theme-color" content="#f5f2eb">
+<meta name="description" content="ADE APEX — Autonomous Event-Driven Operations Platform. Community Edition public surface: products, PROCARTA, AWBULI, Product Theater, community and feedback.">
+<title>ADE APEX — Autonomous Event-Driven Operations Platform</title>
 <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
 <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
 <style>
-:root{--bg:#020817;--panel:#07162f;--panel2:#0a2147;--blue:#0a84ff;--cyan:#00d4ff;--coral:#ff2d55;--text:#eef6ff;--muted:#8ca5c6;--line:rgba(84,157,255,.2);--good:#32e6a1;--warn:#ffd166;--bad:#ff5575;--shadow:0 24px 70px rgba(0,0,0,.38)}
-*{box-sizing:border-box}html,body,#root{margin:0;min-height:100%;background:radial-gradient(circle at 15% 10%,#103e75 0,#020817 32%,#01050d 100%);color:var(--text);font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}body{overflow-x:hidden}.app{min-height:100vh;position:relative}.app:before{content:"";position:fixed;inset:0;background:linear-gradient(rgba(0,212,255,.025) 1px,transparent 1px),linear-gradient(90deg,rgba(0,212,255,.025) 1px,transparent 1px);background-size:36px 36px;pointer-events:none}.shell{position:relative;z-index:1;display:grid;grid-template-columns:260px 1fr;min-height:100vh}.side{padding:22px 16px;border-right:1px solid var(--line);background:linear-gradient(180deg,rgba(4,18,40,.94),rgba(2,8,23,.9));backdrop-filter:blur(18px);box-shadow:18px 0 60px rgba(0,0,0,.22)}.brand{display:flex;align-items:center;gap:12px;padding:10px 10px 24px}.brand img{width:48px;height:48px;object-fit:contain;filter:drop-shadow(0 0 14px rgba(0,212,255,.55))}.brand strong{font-size:17px;letter-spacing:.14em}.brand span{display:block;font-size:10px;color:var(--muted);letter-spacing:.2em;margin-top:4px}.nav{display:grid;gap:8px}.nav button{all:unset;cursor:pointer;padding:12px 13px;border-radius:14px;color:#9eb6d6;border:1px solid transparent;transition:.18s}.nav button:hover,.nav button.active{color:#fff;background:linear-gradient(145deg,rgba(10,132,255,.22),rgba(0,212,255,.06));border-color:var(--line);box-shadow:inset 0 1px rgba(255,255,255,.08),0 8px 24px rgba(0,0,0,.18)}.nav small{display:block;color:#6381a7;margin:20px 10px 8px;letter-spacing:.14em}.sideFooter{position:absolute;bottom:20px;left:16px;right:16px;color:#5f789b;font-size:11px;line-height:1.5}.main{padding:20px 22px 30px;min-width:0}.topbar{display:flex;gap:16px;align-items:center;justify-content:space-between;margin-bottom:18px}.title h1{font-size:24px;margin:0;letter-spacing:.02em}.title p{margin:6px 0 0;color:var(--muted);font-size:12px}.topActions{display:flex;gap:10px;align-items:center}.pill{padding:7px 10px;border-radius:999px;border:1px solid var(--line);background:rgba(8,28,59,.75);font-size:11px}.statusDot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--good);box-shadow:0 0 12px var(--good);margin-right:6px}.btn{border:1px solid var(--line);background:linear-gradient(145deg,#0d2e60,#07152f);color:#eaf5ff;border-radius:12px;padding:9px 13px;cursor:pointer;box-shadow:inset 0 1px rgba(255,255,255,.08),0 8px 18px rgba(0,0,0,.2)}.btn:hover{transform:translateY(-1px);border-color:rgba(0,212,255,.5)}.btn.primary{background:linear-gradient(145deg,#0a84ff,#0754b9);border-color:#42a8ff}.btn.danger{background:linear-gradient(145deg,#7f1830,#3d0c1a);border-color:rgba(255,85,117,.45)}.hero{display:grid;grid-template-columns:1.4fr .6fr;gap:16px}.card{background:linear-gradient(145deg,rgba(9,31,65,.92),rgba(3,14,31,.94));border:1px solid var(--line);border-radius:20px;padding:18px;box-shadow:var(--shadow),inset 0 1px rgba(255,255,255,.06);position:relative;overflow:hidden}.card:after{content:"";position:absolute;inset:-1px;background:linear-gradient(120deg,rgba(0,212,255,.06),transparent 35%,rgba(10,132,255,.05));pointer-events:none}.heroMain{min-height:235px;display:flex;flex-direction:column;justify-content:space-between}.eyebrow{color:#63caff;font-size:10px;letter-spacing:.2em;font-weight:700}.hero h2{font-size:31px;max-width:760px;margin:10px 0 8px}.hero p{color:#9db6d6;max-width:680px;line-height:1.55;font-size:13px}.heroStats{display:flex;gap:10px;flex-wrap:wrap}.stat{padding:10px 12px;border-radius:14px;background:rgba(0,0,0,.2);border:1px solid rgba(100,170,255,.12);min-width:120px}.stat b{display:block;font-size:19px}.stat span{font-size:10px;color:var(--muted)}.orb{height:100%;min-height:235px;display:grid;place-items:center}.orbCore{width:160px;height:160px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#62dfff,#0a84ff 38%,#06265a 70%,#020817);box-shadow:0 0 30px rgba(0,212,255,.45),inset 10px 10px 30px rgba(255,255,255,.12),inset -20px -20px 40px rgba(0,0,0,.35);position:relative}.orbCore:before,.orbCore:after{content:"";position:absolute;border:1px solid rgba(0,212,255,.38);border-radius:50%;inset:-18px;transform:rotate(24deg)}.orbCore:after{inset:-34px;transform:rotate(-24deg);border-color:rgba(255,45,85,.18)}.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-top:16px}.metric{min-height:110px}.metric .value{font-size:28px;font-weight:800;margin-top:8px}.metric .label{color:var(--muted);font-size:11px}.metric .trend{font-size:10px;color:var(--good);margin-top:8px}.sectionGrid{display:grid;grid-template-columns:1.1fr .9fr;gap:16px;margin-top:16px}.panelTitle{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}.panelTitle h3{margin:0;font-size:14px}.panelTitle span{color:var(--muted);font-size:10px}.stream{height:310px;overflow:auto;padding-right:5px}.event{display:grid;grid-template-columns:92px 170px 1fr;gap:10px;padding:9px 5px;border-bottom:1px solid rgba(100,170,255,.08);font-family:ui-monospace,monospace;font-size:10px}.event time{color:#6381a7}.event b{color:#61d4ff}.event span{color:#aac0dd;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.capGrid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;max-height:310px;overflow:auto}.cap{padding:11px;border:1px solid rgba(100,170,255,.11);border-radius:13px;background:rgba(0,0,0,.14)}.cap b{font-size:11px}.cap span{display:block;color:var(--muted);font-size:9px;margin-top:4px}.cap em{display:inline-block;font-style:normal;font-size:8px;margin-top:8px;padding:3px 6px;border-radius:999px;background:rgba(0,212,255,.08);color:#75dfff}.search{width:100%;padding:12px 13px;border-radius:12px;background:#020b18;border:1px solid var(--line);color:#fff;outline:none}.palette{position:fixed;inset:0;background:rgba(0,4,12,.72);backdrop-filter:blur(14px);display:grid;place-items:start center;padding-top:10vh;z-index:20}.paletteBox{width:min(760px,92vw);background:#06162f;border:1px solid rgba(72,169,255,.35);border-radius:20px;box-shadow:0 40px 100px rgba(0,0,0,.65);overflow:hidden}.paletteHead{padding:14px;border-bottom:1px solid var(--line)}.commandList{max-height:55vh;overflow:auto}.command{display:flex;justify-content:space-between;align-items:center;padding:13px 15px;border-bottom:1px solid rgba(100,170,255,.08);cursor:pointer}.command:hover{background:rgba(10,132,255,.12)}.command small{color:var(--muted)}.auth{position:fixed;inset:0;background:rgba(0,4,12,.82);backdrop-filter:blur(12px);display:grid;place-items:center;z-index:30}.authBox{width:min(420px,92vw);padding:25px}.authBox input{width:100%;margin:12px 0;padding:13px;border-radius:12px;background:#020b18;border:1px solid var(--line);color:#fff;outline:none;letter-spacing:.2em}.toast{position:fixed;right:20px;bottom:20px;z-index:40;background:#061a38;border:1px solid var(--line);border-radius:14px;padding:12px 15px;box-shadow:var(--shadow);font-size:12px}.muted{color:var(--muted)}@media(max-width:1000px){.shell{grid-template-columns:1fr}.side{position:relative;border-right:0;border-bottom:1px solid var(--line)}.sideFooter{position:static;margin-top:20px}.nav{grid-template-columns:repeat(3,1fr)}.hero{grid-template-columns:1fr}.grid{grid-template-columns:repeat(2,1fr)}.sectionGrid{grid-template-columns:1fr}}@media(max-width:600px){.main{padding:14px}.topbar{align-items:flex-start}.topActions{display:none}.nav{grid-template-columns:1fr 1fr}.grid{grid-template-columns:1fr}.event{grid-template-columns:70px 1fr}.event span{display:none}.hero h2{font-size:24px}}
+:root{
+ --bg:#f5f2eb;--bg2:#ece8df;--surface:rgba(255,255,255,.9);--surface2:rgba(255,255,255,.62);
+ --ocean:#061a40;--royal:#0a3d91;--blue:#1b5fdc;--cyan:#0bb6d2;--coral:#ef3b52;
+ --ink:#0b1c36;--muted:#5a6a85;--faint:#7c89a1;
+ --line:rgba(6,26,64,.13);--lineSoft:rgba(6,26,64,.08);
+ --good:#12906a;--warn:#c58a16;--bad:#d93a4e;
+ --shadow:0 22px 60px rgba(6,26,64,.12);--shadowSm:0 10px 30px rgba(6,26,64,.08);
+ --radius:18px;--radiusSm:12px;
+ --page-gutter:16px;--content-max:1240px;
+ --touch:44px;
+}
+*{box-sizing:border-box;min-width:0}html,body,#root{margin:0;width:100%;max-width:100%}
+html{scroll-behavior:smooth}
+body{background:radial-gradient(1200px 600px at 18% -8%,rgba(11,182,210,.10),transparent 60%),radial-gradient(1100px 700px at 92% 6%,rgba(27,95,220,.12),transparent 55%),var(--bg);color:var(--ink);font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;overflow-x:clip}
+.app{min-height:100vh;display:flex;flex-direction:column}
+img{max-width:100%;height:auto}
+pre{white-space:pre-wrap;word-break:break-word}
+button{font-family:inherit}
+a{color:var(--royal)}
+.btn{all:unset;box-sizing:border-box;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:10px 18px;border-radius:13px;border:1px solid var(--line);background:var(--surface);color:var(--ink);font-size:14px;font-weight:650;transition:.18s;white-space:nowrap}
+.btn:hover{border-color:var(--royal);background:#fff;box-shadow:var(--shadowSm)}
+.btn.primary{background:linear-gradient(135deg,var(--royal),var(--blue));border-color:rgba(6,26,64,.3);color:#fff;box-shadow:0 8px 24px rgba(10,61,145,.28)}
+.btn.primary:hover{background:linear-gradient(135deg,#0c4bb0,#2467e8);color:#fff}
+.btn.azure{background:linear-gradient(135deg,rgba(11,182,210,.14),rgba(27,95,220,.1));border-color:rgba(11,182,210,.4);color:var(--royal)}
+.btn.coral{background:linear-gradient(135deg,rgba(239,59,82,.12),rgba(239,59,82,.05));border-color:rgba(239,59,82,.35);color:#b9273a}
+.btn.sm{min-height:38px;padding:7px 13px;font-size:12.5px;border-radius:11px}
+.btn.ghost{background:transparent;border-color:transparent;color:var(--royal);font-weight:700}
+.btn[disabled]{opacity:.55;cursor:default}
+.iconBtn{all:unset;box-sizing:border-box;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;min-height:var(--touch);min-width:44px;padding:8px 12px;border-radius:12px;border:1px solid var(--line);background:var(--surface);color:var(--muted);font-size:15px;transition:.18s}
+.iconBtn:hover{border-color:var(--cyan);color:var(--royal)}
+/* ── Header ────────────────────────────────── */
+.top{position:sticky;top:0;z-index:30;width:100%;background:rgba(245,242,235,.82);backdrop-filter:blur(18px);border-bottom:1px solid var(--lineSoft)}
+.topInner{width:min(calc(100% - 2*var(--page-gutter)),var(--content-max));margin:0 auto;display:flex;align-items:center;gap:14px;padding:12px 0;flex-wrap:wrap}
+.brand{display:flex;align-items:center;gap:12px;flex:0 0 auto}
+.brand img{width:44px;height:44px;object-fit:contain}
+.brandName strong{display:block;font-size:15.5px;letter-spacing:.11em;color:var(--ocean)}
+.brandName span{display:block;font-size:10px;color:var(--muted);letter-spacing:.14em;margin-top:2px;text-transform:uppercase}
+.topNav{display:flex;align-items:center;gap:2px;flex:1 1 auto;justify-content:flex-end;flex-wrap:wrap}
+.topNav button{all:unset;cursor:pointer;min-height:40px;padding:8px 12px;border-radius:11px;color:#3c4d68;font-size:13.5px;font-weight:600;border:1px solid transparent;transition:.16s}
+.topNav button:hover{color:var(--ocean);background:rgba(255,255,255,.7)}
+.topNav button.active{color:var(--royal);background:#fff;border-color:var(--lineSoft);box-shadow:var(--shadowSm)}
+.topNav button.ops{color:var(--coral)}
+.topNav button.ops.active{color:#fff;background:linear-gradient(135deg,var(--coral),#f07a8c);border-color:transparent}
+.topRight{display:flex;align-items:center;gap:10px;flex:0 0 auto;margin-left:auto}
+.pill{display:inline-flex;align-items:center;gap:7px;min-height:32px;padding:6px 12px;border-radius:99px;border:1px solid var(--line);background:var(--surface);font-size:11px;font-weight:750;letter-spacing:.06em;color:var(--muted);white-space:nowrap}
+.pill .dot{width:8px;height:8px;border-radius:50%;background:var(--warn);box-shadow:0 0 10px var(--warn);flex:none}
+.pill.live .dot{background:var(--good);box-shadow:0 0 10px var(--good)}
+.pill.off .dot{background:var(--bad);box-shadow:0 0 10px var(--bad)}
+.badge{display:inline-flex;align-items:center;gap:6px;min-height:24px;padding:3px 10px;border-radius:99px;font-size:10px;font-weight:800;letter-spacing:.08em;border:1px solid var(--line);color:var(--muted);white-space:nowrap}
+.badge.community{color:var(--royal);border-color:rgba(27,95,220,.35);background:rgba(27,95,220,.07)}
+.badge.pro{color:var(--warn);border-color:rgba(197,138,22,.4);background:rgba(197,138,22,.07)}
+.badge.enterprise{color:var(--coral);border-color:rgba(239,59,82,.4);background:rgba(239,59,82,.07)}
+.badge.good{color:var(--good);border-color:rgba(18,144,106,.4);background:rgba(18,144,106,.07)}
+.badge.bad{color:var(--bad);border-color:rgba(217,58,78,.4);background:rgba(217,58,78,.07)}
+.badge.muted{color:var(--muted);border-color:var(--line)}
+.hamburger{display:none}
+.topRight .btn span.hideL{display:none}
+/* mobile menu */
+.mobileMenu{display:none;border-top:1px solid var(--lineSoft);background:rgba(255,255,255,.98);padding:10px 16px 18px;gap:4px}
+.mobileMenu.open{display:grid}
+.mobileMenu button{all:unset;cursor:pointer;min-height:48px;padding:12px 12px;border-radius:12px;color:#3c4d68;font-size:15px;font-weight:650;border:1px solid transparent}
+.mobileMenu button:hover,.mobileMenu button.active{color:var(--royal);background:rgba(27,95,220,.07);border-color:var(--lineSoft)}
+.mobileMenu button.ops{color:var(--coral)}
+.mobileMenu .sub{font-size:11px;color:var(--faint);padding:12px 12px 4px;letter-spacing:.16em;font-weight:800}
+.mobileMenu a{color:var(--royal);text-decoration:none;min-height:48px;padding:13px 12px;font-size:14.5px;border-radius:12px;font-weight:600}
+/* ── Shared ────────────────────────────────── */
+.shell{width:min(calc(100% - 2*var(--page-gutter)),var(--content-max));margin:0 auto;padding:26px 0 60px;flex:1}
+.card{border:1px solid var(--line);border-radius:var(--radius);background:linear-gradient(150deg,rgba(255,255,255,.94),rgba(255,255,255,.72));box-shadow:var(--shadowSm);backdrop-filter:blur(10px)}
+.card.pad{padding:20px}
+.panelTitle{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:15px 18px;border-bottom:1px solid var(--lineSoft);flex-wrap:wrap}
+.panelTitle h3{margin:0;font-size:12.5px;letter-spacing:.15em;color:var(--ocean)}
+.panelTitle span{font-size:10px;color:var(--muted);letter-spacing:.12em}
+.muted{color:var(--muted)}
+.eyebrow{color:var(--royal);font-size:11px;font-weight:800;letter-spacing:.26em;text-transform:uppercase}
+.cardBody{padding:18px}
+.stack{display:grid;gap:22px}
+/* ── Home hero ──────────────────────────────── */
+.hero{display:grid;grid-template-columns:minmax(0,1.45fr) minmax(0,.55fr);gap:20px}
+.heroMain{padding:clamp(22px,4vw,44px);position:relative;overflow:hidden}
+.heroMain h1{font-size:clamp(1.95rem,4.6vw,3.6rem);line-height:1.06;margin:14px 0 14px;letter-spacing:-.025em;color:var(--ocean);max-width:760px}
+.heroMain p{color:var(--muted);font-size:clamp(0.95rem,1.2vw,1.06rem);line-height:1.65;max-width:660px;margin:0 0 22px}
+.heroActions{display:flex;gap:12px;flex-wrap:wrap}
+.heroStatus{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:20px;padding-top:18px;border-top:1px solid var(--lineSoft)}
+.suggestion-carousel{position:relative;height:22px;overflow:hidden;margin-top:16px}
+.suggestion-text{position:absolute;width:100%;animation:suggestionFade 12s infinite;opacity:0;font-size:12px;color:var(--muted);font-style:italic;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding-right:8px}
+.suggestion-text:nth-child(1){animation-delay:0s}.suggestion-text:nth-child(2){animation-delay:3s}.suggestion-text:nth-child(3){animation-delay:6s}.suggestion-text:nth-child(4){animation-delay:9s}
+@keyframes suggestionFade{0%,2%{opacity:0;transform:translateY(8px)}5%,25%{opacity:1;transform:translateY(0)}28%,100%{opacity:0;transform:translateY(-8px)}}
+.heroStats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.stat{padding:14px 12px;border:1px solid var(--lineSoft);border-radius:14px;background:rgba(255,255,255,.7)}
+.stat b{display:block;font-size:clamp(18px,2.6vw,24px);letter-spacing:.02em;color:var(--ocean)}
+.stat span{display:block;color:var(--muted);font-size:10px;letter-spacing:.13em;margin-top:4px;text-transform:uppercase}
+.orb{align-self:stretch;display:grid;place-items:center;min-height:280px;background:radial-gradient(circle at center,rgba(11,182,210,.16),transparent 48%),linear-gradient(150deg,rgba(255,255,255,.6),rgba(236,232,223,.4))}
+.orbCore{width:150px;height:150px;border-radius:42% 58% 55% 45%;transform:rotate(17deg);background:linear-gradient(135deg,rgba(255,255,255,.55),rgba(11,182,210,.18) 35%,rgba(27,95,220,.24) 60%,rgba(255,255,255,.4));border:1px solid rgba(6,26,64,.18);box-shadow:inset -14px -16px 30px rgba(6,26,64,.08),inset 10px 8px 22px rgba(255,255,255,.5),0 0 70px rgba(27,95,220,.22);animation:float 6s ease-in-out infinite;display:grid;place-items:center;color:var(--royal);font-weight:900;letter-spacing:.1em}
+@keyframes float{50%{transform:rotate(21deg) translateY(-10px)}}
+/* value pillars */
+.pillars{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,250px),1fr));gap:14px}
+.pillar{padding:20px 18px}
+.pillar .n{color:var(--royal);font-size:11px;font-weight:800;letter-spacing:.18em;text-transform:uppercase}
+.pillar h4{margin:10px 0 6px;color:var(--ocean);font-size:16px}
+.pillar p{margin:0;color:var(--muted);font-size:13px;line-height:1.6}
+/* products */
+.featureGrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,280px),1fr));gap:16px}
+.feature{padding:22px;display:flex;flex-direction:column;gap:10px}
+.feature .mark{width:44px;height:44px;border-radius:13px;display:grid;place-items:center;font-weight:900;color:#fff;background:linear-gradient(135deg,var(--royal),var(--blue));font-size:14px;letter-spacing:.04em}
+.feature .mark.m2{background:linear-gradient(135deg,var(--coral),#f07a8c)}
+.feature .mark.m3{background:linear-gradient(135deg,var(--cyan),#37c9df)}
+.feature .n{font-size:17px;font-weight:800;color:var(--ocean)}
+.feature .d{font-size:13px;color:var(--muted);line-height:1.6;flex:1}
+.feature .accent{display:flex;gap:8px;flex-wrap:wrap;margin-top:auto}
+.productGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,240px),1fr));gap:12px}
+.product{padding:16px;border:1px solid var(--lineSoft);border-radius:14px;background:rgba(255,255,255,.7);display:flex;flex-direction:column;gap:8px}
+.product .n{font-size:14px;font-weight:800;letter-spacing:.02em;color:var(--ocean)}
+.product .d{font-size:12px;color:var(--muted);line-height:1.5;flex:1}
+.product .tags{display:flex;flex-wrap:wrap;gap:6px}
+/* theater / media */
+.truthRow{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+.truthChip{display:inline-flex;align-items:center;gap:6px;min-height:32px;padding:5px 12px;border-radius:99px;border:1px solid var(--line);font-size:11px;font-weight:750;color:var(--muted);background:rgba(255,255,255,.7)}
+.truthChip.live{color:var(--good);border-color:rgba(18,144,106,.4);background:rgba(18,144,106,.06)}
+.truthChip.sim{color:var(--warn);border-color:rgba(197,138,22,.4);background:rgba(197,138,22,.06)}
+.truthChip.promo{color:var(--royal);border-color:rgba(27,95,220,.35);background:rgba(27,95,220,.06)}
+.truthChip.future{color:var(--cyan);border-color:rgba(11,182,210,.4);background:rgba(11,182,210,.06)}
+.mediaGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,220px),1fr));gap:12px}
+.mediaCard{border:1px solid var(--lineSoft);border-radius:14px;background:rgba(255,255,255,.7);overflow:hidden;display:flex;flex-direction:column}
+.mediaThumb{aspect-ratio:16/9;display:grid;place-items:center;background:linear-gradient(135deg,rgba(27,95,220,.14),rgba(11,182,210,.1));color:var(--royal);font-size:26px;border-bottom:1px solid var(--lineSoft)}
+.mediaCard .meta{padding:12px;display:flex;flex-direction:column;gap:6px;flex:1}
+.mediaCard .n{font-size:12.5px;font-weight:700;line-height:1.4;color:var(--ink)}
+.mediaCard .d{font-size:11px;color:var(--muted);line-height:1.4}
+/* metrics (ops) */
+.metricRow{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,200px),1fr));gap:12px}
+.metric{padding:16px 18px}
+.metric .label{color:var(--muted);font-size:10px;letter-spacing:.16em;font-weight:800;text-transform:uppercase}
+.metric .value{font-size:clamp(20px,3vw,26px);font-weight:800;margin-top:8px;letter-spacing:.01em;color:var(--ocean)}
+.metric .trend{color:var(--muted);font-size:11px;margin-top:6px}
+.metric .value.small{font-size:16px}
+.metric .value.good{color:var(--good)}.metric .value.warn{color:var(--warn)}.metric .value.coral{color:var(--coral)}
+/* two-column surface (ops) */
+.sectionGrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,400px),1fr));gap:16px}
+.stream{max-height:330px;overflow:auto;padding:6px 16px 14px}
+.event{padding:11px 0;border-bottom:1px solid var(--lineSoft)}
+.event time{display:block;color:var(--muted);font-size:10px;letter-spacing:.06em}
+.event b{display:block;font-size:12px;margin-top:2px;color:var(--royal)}
+.event pre{margin:4px 0 0;color:#44567a;font-size:11px;font-family:ui-monospace,SFMono-Regular,Consolas,monospace;line-height:1.5;max-height:72px;overflow:hidden}
+.emptyState{padding:30px 18px;text-align:center;color:var(--muted)}
+.emptyState .big{font-size:30px;margin-bottom:8px;letter-spacing:.02em}
+.search{width:100%;margin:0;min-height:44px;padding:11px 13px;border-radius:12px;border:1px solid var(--line);background:rgba(255,255,255,.85);color:var(--ink);font-size:14px;outline:none}
+.search:focus{border-color:var(--cyan);box-shadow:0 0 0 3px rgba(11,182,210,.14)}
+/* capability matrix (ops) */
+.capGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,240px),1fr));gap:10px}
+.cap{padding:14px;border:1px solid var(--lineSoft);background:rgba(255,255,255,.8);border-radius:14px;cursor:pointer;transition:.16s;display:flex;flex-direction:column;gap:6px}
+.cap:hover{border-color:var(--blue);background:#fff;transform:translateY(-1px);box-shadow:var(--shadowSm)}
+.cap .capTitle{font-size:13px;font-weight:700;color:var(--ocean)}
+.cap .capIntent{font-family:ui-monospace,Consolas,monospace;font-size:10px;color:var(--muted);letter-spacing:.04em}
+.cap .capDesc{font-size:11px;color:var(--muted);line-height:1.45;flex:1}
+.cap .capTags{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px}
+.cap .capTags .badge{font-size:9px}
+/* procarta */
+.enginePill{display:inline-flex;align-items:center;gap:8px;min-height:36px;padding:9px 14px;border-radius:99px;border:1px solid rgba(18,144,106,.4);background:rgba(18,144,106,.07);color:var(--good);font-size:12px;font-weight:800;letter-spacing:.08em}
+.enginePill .dot{width:9px;height:9px;border-radius:50%;background:var(--good);box-shadow:0 0 12px var(--good)}
+.enginePill.off{border-color:rgba(197,138,22,.4);background:rgba(197,138,22,.07);color:var(--warn)}
+.enginePill.off .dot{background:var(--warn);box-shadow:0 0 12px var(--warn)}
+.intakeForm{display:grid;gap:10px;margin-top:14px}
+.intakeForm input,.intakeForm textarea,.intakeForm select,.feedback-form select,.feedback-form textarea,.feedback-form input,.progression-form select,.progression-form textarea,.progression-form input{padding:12px 13px;min-height:44px;border-radius:12px;border:1px solid var(--line);background:rgba(255,255,255,.85);color:var(--ink);font-size:14px;outline:none;width:100%}
+.intakeForm input:focus,.intakeForm textarea:focus,.intakeForm select:focus,.feedback-form select:focus,.feedback-form textarea:focus,.feedback-form input:focus,.progression-form select:focus,.progression-form textarea:focus,.progression-form input:focus{border-color:var(--cyan);box-shadow:0 0 0 3px rgba(11,182,210,.14)}
+.intakeForm textarea{min-height:92px;resize:vertical}
+.runList{display:grid;gap:8px;margin-top:12px}
+.runItem{display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--lineSoft);border-radius:12px;background:rgba(255,255,255,.7);font-size:12px}
+.runItem time{color:var(--muted);font-size:10px;flex:none}
+.runItem .id{font-family:ui-monospace,Consolas,monospace;font-size:10px;color:var(--royal)}
+/* architecture */
+.archRow{display:grid;gap:8px;margin-top:12px}
+.archLayer{padding:12px 14px;border:1px solid var(--lineSoft);border-radius:12px;background:rgba(255,255,255,.75);font-size:13px;color:var(--ink)}
+.archLayer b{color:var(--royal)}
+.archRow .ops{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:8px}
+/* scenarios / demo */
+.scenario-card{padding:16px;border-radius:14px;border:1px solid var(--line);cursor:pointer;transition:.15s;margin-bottom:10px;background:rgba(255,255,255,.72)}
+.scenario-card:hover{background:#fff;border-color:var(--royal);box-shadow:var(--shadowSm)}
+.scenario-card h4{margin:0 0 4px;font-size:14px;color:var(--ocean)}
+.scenario-card p{margin:0;color:var(--muted);font-size:12px}
+.scenario-card .meta{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+.scenario-card .meta span{font-size:10px;padding:3px 9px;border-radius:99px;border:1px solid var(--line);color:var(--muted)}
+.truth-live{color:var(--good);border-color:rgba(18,144,106,.4)!important}
+.truth-simulated{color:var(--warn);border-color:rgba(197,138,22,.4)!important}
+.demo-result{margin-top:16px;padding:16px;border-radius:14px;border:1px solid var(--line);background:rgba(255,255,255,.75)}
+.demo-result h4{margin:0 0 8px;font-size:13px;color:var(--royal)}
+.demo-stage{display:flex;align-items:center;gap:8px;padding:6px 0;font-size:11px;border-bottom:1px solid var(--lineSoft);flex-wrap:wrap}
+.demo-stage .stage-name{width:86px;font-weight:700;color:var(--ocean);flex:none}
+.demo-stage .stage-class{width:92px;text-align:center;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:700;flex:none}
+.stage-LIVE{background:rgba(18,144,106,.14);color:var(--good)}
+.stage-SIMULATED{background:rgba(197,138,22,.14);color:var(--warn)}
+.stage-BLOCKED{background:rgba(217,58,78,.14);color:var(--bad)}
+.demo-stage .stage-dur{color:var(--muted);margin-left:auto}
+/* feedback / progression */
+.feedback-form,.progression-form{display:grid;gap:10px;margin-top:12px}
+.feedback-form textarea,.progression-form textarea{min-height:92px;resize:vertical}
+/* section heads / next */
+.sectionHead{margin:8px 0 4px}
+.sectionHead h2{font-size:clamp(1.35rem,2.6vw,1.8rem);margin:0 0 4px;letter-spacing:-.01em;color:var(--ocean)}
+.sectionHead p{margin:0;color:var(--muted);font-size:13.5px}
+.nextRow{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,210px),1fr));gap:12px;margin-top:6px}
+.nextCard{padding:16px;border:1px solid var(--line);border-radius:14px;background:rgba(255,255,255,.75);cursor:pointer;transition:.16s;min-height:88px}
+.nextCard:hover{border-color:var(--cyan);background:#fff;box-shadow:var(--shadowSm)}
+.nextCard b{display:block;font-size:13.5px;color:var(--ocean)}
+.nextCard span{display:block;color:var(--muted);font-size:11.5px;margin-top:4px;line-height:1.5}
+/* auth gate */
+.gate{max-width:720px;margin:0 auto;padding:24px}
+.gate .orbMini{width:64px;height:64px;border-radius:20px;display:grid;place-items:center;color:#fff;font-weight:900;font-size:16px;background:linear-gradient(135deg,var(--royal),var(--blue));box-shadow:0 10px 30px rgba(10,61,145,.3);margin-bottom:16px}
+/* footer */
+.footer{margin-top:auto;border-top:1px solid var(--lineSoft);background:linear-gradient(180deg,rgba(255,255,255,.55),rgba(249,247,242,.95))}
+.footerInner{width:min(calc(100% - 2*var(--page-gutter)),var(--content-max));margin:0 auto;display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,220px),1fr));gap:26px;padding:34px 0 10px}
+.footer .fbrand{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+.footer .fbrand img{width:38px;height:38px;object-fit:contain}
+.footer h5{margin:0 0 10px;font-size:11px;letter-spacing:.16em;color:var(--ocean)}
+.footer a,.footer .flink{color:var(--muted);display:block;min-height:34px;padding:6px 0;font-size:13px;cursor:pointer;text-decoration:none;background:none;border:none;line-height:1.4}
+.footer a:hover,.footer .flink:hover{color:var(--royal)}
+.footerLegal{width:min(calc(100% - 2*var(--page-gutter)),var(--content-max));margin:22px auto 0;padding:16px 0 22px;border-top:1px solid var(--lineSoft);color:var(--faint);font-size:11.5px;line-height:1.7}
+.motto{color:var(--ocean);font-weight:750;font-size:13px;margin:0}
+.motto em{color:var(--coral);font-style:normal}
+/* overlays */
+.palette{position:fixed;inset:0;z-index:60;background:rgba(6,26,64,.38);backdrop-filter:blur(6px);display:flex;align-items:flex-start;justify-content:center;padding:14vh 16px 20px}
+.paletteBox{width:100%;max-width:540px;border:1px solid var(--line);border-radius:18px;background:#fff;box-shadow:var(--shadow);overflow:hidden}
+.paletteHead{padding:12px;border-bottom:1px solid var(--lineSoft)}
+.commandList{max-height:60vh;overflow:auto;padding:8px}
+.command{padding:11px 13px;border-radius:12px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:10px}
+.command:hover{background:rgba(27,95,220,.07)}
+.command b{font-size:13px;color:var(--ink)}
+.command small{color:var(--muted);font-size:10px}
+.auth{position:fixed;inset:0;z-index:60;background:rgba(6,26,64,.45);backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;padding:18px}
+.authBox{width:100%;max-width:400px;padding:26px}
+.authBox .eyebrow{margin-bottom:6px}
+.authBox h2{margin:0 0 8px;font-size:20px;color:var(--ocean)}
+.authBox p{color:var(--muted);font-size:13px;line-height:1.6;margin:0 0 14px}
+.authBox input{width:100%;min-height:48px;padding:12px 13px;border-radius:12px;border:1px solid var(--line);background:rgba(255,255,255,.85);color:var(--ink);font-size:18px;letter-spacing:.3em;text-align:center;outline:none}
+.authBox input:focus{border-color:var(--cyan);box-shadow:0 0 0 3px rgba(11,182,210,.14)}
+/* account + announcements */
+.fieldLabel{display:block;font-size:10.5px;font-weight:800;letter-spacing:.14em;color:var(--muted);margin:0 0 6px;text-transform:uppercase}
+.authInput{width:100%;min-height:48px;padding:12px 13px;border-radius:12px;border:1px solid var(--line);background:rgba(255,255,255,.85);color:var(--ink);font-size:15px;outline:none;letter-spacing:normal;text-align:left}
+.authInput:focus{border-color:var(--cyan);box-shadow:0 0 0 3px rgba(11,182,210,.14)}
+.authBox .accountForm{display:grid;gap:12px}
+.authActions{display:flex;gap:8px;flex-wrap:wrap}
+.authActions .btn{flex:1 1 auto}
+.authAlt{margin-top:4px;border-top:1px solid var(--lineSoft);padding-top:12px;display:flex;justify-content:center}
+.accountGrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr));gap:14px}
+.acctName{font-size:clamp(1.15rem,2.2vw,1.4rem);font-weight:800;color:var(--ocean);margin-top:10px}
+.acctMeta{color:var(--muted);font-size:12px;margin-top:4px}
+.acctRoles{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.acctForm{display:grid;gap:12px;margin-top:14px}
+.notice{margin:14px 0 0;padding:12px 14px;border-radius:12px;background:rgba(197,138,22,.1);border:1px solid rgba(197,138,22,.35);color:#7a5a10;font-size:12px;line-height:1.6}
+.codes{display:grid;gap:8px;margin-top:12px}
+.code{font-family:ui-monospace,Consolas,monospace;font-size:13px;padding:10px 12px;border:1px dashed var(--line);border-radius:10px;background:rgba(255,255,255,.7);letter-spacing:.08em;color:var(--ocean)}
+.ticker{width:min(calc(100% - 2*var(--page-gutter)),var(--content-max));margin:0 auto;padding:10px 0 2px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.tickerLabel{color:var(--coral);font-size:10px;font-weight:800;letter-spacing:.18em;white-space:nowrap}
+.tickerItem{display:inline-flex;align-items:center;gap:8px;min-height:32px;padding:6px 12px;border-radius:99px;border:1px solid var(--line);background:var(--surface);font-size:11.5px;color:#3c4d68;line-height:1.4;cursor:default}
+.tickerItem b{color:var(--royal);font-weight:800;font-size:10px;letter-spacing:.1em;white-space:nowrap}
+.newsRow{display:grid;gap:10px;margin-top:14px}
+.newsItem{display:flex;gap:12px;align-items:flex-start;padding:14px 16px;border:1px solid var(--lineSoft);border-radius:14px;background:rgba(255,255,255,.75)}
+.newsItem .kind{flex:none;padding:3px 9px;border-radius:99px;font-size:9px;font-weight:800;letter-spacing:.12em;white-space:nowrap}
+.newsItem .kind.NEWS{color:var(--royal);border:1px solid rgba(27,95,220,.35);background:rgba(27,95,220,.07)}
+.newsItem .kind.BULLETIN{color:var(--warn);border:1px solid rgba(197,138,22,.4);background:rgba(197,138,22,.07)}
+.newsItem .kind.ANNOUNCEMENT{color:var(--good);border:1px solid rgba(18,144,106,.4);background:rgba(18,144,106,.07)}
+.newsItem .kind.ADVERT{color:var(--coral);border:1px solid rgba(239,59,82,.4);background:rgba(239,59,82,.07)}
+.newsItem .newsTitle{font-size:13.5px;font-weight:750;color:var(--ocean);line-height:1.4}
+.newsItem .newsBody{font-size:12px;color:var(--muted);line-height:1.55;margin-top:3px}
+.newsItem .newsDate{font-size:10px;color:var(--faint);margin-top:6px;letter-spacing:.06em}
+.toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);z-index:70;min-height:44px;padding:11px 18px;border-radius:13px;background:var(--ocean);color:#fff;font-size:13px;box-shadow:var(--shadow);max-width:92vw;display:flex;align-items:center}
+/* responsive math */
+@media(max-width:1023px){
+ :root{--page-gutter:24px}
+ .topNav{justify-content:flex-start}
+ .hero{grid-template-columns:1fr}
+ .orb{min-height:160px}
+}
+@media(max-width:900px){
+ :root{--page-gutter:16px}
+ .topNav{display:none}
+ .hamburger{display:inline-flex}
+ .topRight .pill.kern{display:none}
+}
+@media(max-width:719px){
+ .heroStats{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .metricRow{margin-top:0}
+ .topRight .btn span.hideS{display:none}
+ .topRight .btn span.hideL{display:inline;font-size:15px;line-height:1}
+ .topInner{gap:10px}
+}
+@media(max-width:520px){
+ .btn{padding:9px 13px}
+ .heroMain h1{font-size:clamp(1.75rem,7.2vw,2.2rem)}
+ .brandName span{display:none}
+ .topRight .pill.badgeWrap{display:none!important}
+}
+@media(prefers-reduced-motion:reduce){.suggestion-text{animation:none!important;opacity:.7}.orbCore{animation:none}.html{scroll-behavior:auto}}
 </style></head>
 <body><div id="root"></div>
 <script>
 (()=>{
-const {useEffect,useMemo,useState}=React; const h=React.createElement;
+const {useEffect,useMemo,useState,useCallback}=React; const h=React.createElement;
+const SUGGESTIONS=["Find the bottleneck in our customer operations.","Simulate a customer complaint workflow.","Why has operational performance declined?","Assess this business process.","Recommend an automation opportunity."];
+const NAV=[['Home','Curated ADE platform overview'],['Products','ADE APEX · PROCARTA · AWBULI'],['PROCARTA','Business process intelligence'],['Product Theater','Gallery and product media'],['Try ADE','Guided demonstrations'],['Architecture','Public architecture'],['Community','Pilot and partners'],['Feedback','Help improve ADE'],['Account','Workforce account & security'],['Command Center','Operator surface · session required']];
+const fmtTime=t=>{if(!t)return'';const d=new Date(t);if(isNaN(d))return String(t);return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0')+':'+String(d.getSeconds()).padStart(2,'0')};
+const fmtUptime=u=>{if(u==null||isNaN(u))return'—';if(u<60)return Math.round(u)+'s';if(u<3600){const m=Math.floor(u/60);return m+'m '+(Math.round(u%60))+'s'}const hh=Math.floor(u/3600);const mm=Math.round((u%3600)/60);return hh+'h'+(mm?' '+mm+'m':'')};
+const tierLabel=t=>t==='FREE'?'COMMUNITY':(t||'COMMUNITY');
+const tierClass=t=>t==='FREE'?'community':t==='PRO'?'pro':t==='ENTERPRISE'?'enterprise':'muted';
+const B=(label,cls)=>h('span',{className:'badge '+(cls||'muted')},label);
+function CapCard({c,onRun}){
+ const title=c.name||c.intent;
+ const tags=[];
+ if(c.revoked){tags.push(B('REVOKED','bad'))}
+ else{
+  tags.push(B(tierLabel(c.tier),tierClass(c.tier)));
+  if(c.rbacLevel!=null)tags.push(h('span',{className:'badge muted'},'RBAC L'+c.rbacLevel));
+  if(c.executionMode)tags.push(h('span',{className:'badge muted'},c.executionMode));
+  if(c.available===false)tags.push(B('UNAVAILABLE','muted'));
+ }
+ return h('div',{className:'cap',onClick:()=>onRun(c)},h('div',{className:'capTitle'},title),h('div',{className:'capIntent'},c.intent),(c.description&&c.name)?h('div',{className:'capDesc'},c.description):((c.note&&!c.name)?h('div',{className:'capDesc'},c.note):null),h('div',{className:'capTags'},...tags));
+}
+function Metric({label,value,sub,cls}){
+ return h('div',{className:'card metric'},h('div',{className:'label'},label),h('div',{className:'value '+(cls||'')},value),h('div',{className:'trend'},sub||''));
+}
 function App(){
- const [health,setHealth]=useState(null),[caps,setCaps]=useState([]),[events,setEvents]=useState([]),[runtime,setRuntime]=useState(null),[query,setQuery]=useState(""),[palette,setPalette]=useState(false),[auth,setAuth]=useState(false),[pin,setPin]=useState(""),[token,setToken]=useState(null),[toast,setToast]=useState(""),[section,setSection]=useState("Command Center");
- const notify=m=>{setToast(m);setTimeout(()=>setToast(""),2600)};
+ const [health,setHealth]=useState(null),[caps,setCaps]=useState([]),[events,setEvents]=useState([]),[runtime,setRuntime]=useState(null),[metrics,setMetrics]=useState(null),[products,setProducts]=useState([]),[providers,setProviders]=useState([]),[mediaStats,setMediaStats]=useState(null),[mediaManifest,setMediaManifest]=useState(null),[procarta,setProcarta]=useState(null),[query,setQuery]=useState(""),[palette,setPalette]=useState(false),[auth,setAuth]=useState(false),[pin,setPin]=useState(""),[token,setToken]=useState(null),[toast,setToast]=useState(""),[section,setSection]=useState("Home"),[menuOpen,setMenuOpen]=useState(false),[sse,setSse]=useState('connecting');
+ const [edition,setEdition]=useState(null),[scenarios,setScenarios]=useState([]),[demoResult,setDemoResult]=useState(null),[demoRunning,setDemoRunning]=useState(false),[feedbackCat,setFeedbackCat]=useState("OTHER"),[feedbackMsg,setFeedbackMsg]=useState(""),[feedbackFeat,setFeedbackFeat]=useState(""),[intakeKind,setIntakeKind]=useState("USE_CASE"),[intakeOrg,setIntakeOrg]=useState(""),[intakeDesc,setIntakeDesc]=useState(""),[pOrg,setPOrg]=useState(""),[pDesc,setPDesc]=useState(""),[pBusy,setPBusy]=useState(false),[pResult,setPResult]=useState(null);
+ const [account,setAccount]=useState(null),[announcements,setAnnouncements]=useState([]),[acctMode,setAcctMode]=useState("signin"),[signUser,setSignUser]=useState(""),[signPass,setSignPass]=useState(""),[curPass,setCurPass]=useState(""),[newPass,setNewPass]=useState(""),[curPassPin,setCurPassPin]=useState(""),[newPin,setNewPin]=useState(""),[recoveryCodes,setRecoveryCodes]=useState([]);
+ const notify=m=>{setToast(m);setTimeout(()=>setToast(""),2800)};
  const api=async(url,opt={})=>{const headers={"Content-Type":"application/json",...(opt.headers||{})};if(token)headers.Authorization="Bearer "+token;const r=await fetch(url,{...opt,headers});const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.error||"Request failed");return d};
- const refresh=async()=>{try{const [a,b,c]=await Promise.all([fetch('/api/v1/health').then(r=>r.json()),fetch('/api/v1/capabilities').then(r=>r.json()),fetch('/api/v1/runtime').then(r=>r.json())]);setHealth(a);setCaps(b.capabilities||[]);setRuntime(c)}catch(e){notify(e.message)}};
- useEffect(()=>{refresh();const poll=setInterval(refresh,10000);const es=new EventSource('/api/v1/events/stream');es.onopen=()=>setHealth(x=>x?{...x,connected:true}:x);es.onmessage=e=>{try{const x=JSON.parse(e.data);if(x.type!=="STREAM_CONNECTED"){setEvents(v=>[x,...v].slice(0,80));}}catch{}};es.onerror=()=>setHealth(x=>x?{...x,connected:false}:x);return()=>{clearInterval(poll);es.close()}},[]);
- useEffect(()=>{const f=e=>{if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='k'){e.preventDefault();setPalette(v=>!v)}if(e.key==='Escape'){setPalette(false);setAuth(false)}};addEventListener('keydown',f);return()=>removeEventListener('keydown',f)},[]);
+ const refresh=useCallback(async()=>{
+  const j=async(u)=>{try{return await fetch(u).then(r=>r.json()).catch(()=>null)}catch(e){return null}};
+const [a,b,c,d,e,f,g,s,h2,i,m,n]=await Promise.all([j('/api/v1/health'),j('/api/v1/capabilities'),j('/api/v1/runtime'),j('/api/v1/edition'),j('/api/v1/demo/scenarios'),j('/api/v1/media/providers'),j('/api/v1/media/registry/stats'),j('/api/v1/procarta/status'),j('/api/v1/products'),j('/ade-experience/media-manifest.json'),j('/api/v1/metrics'),j('/api/v1/announcements')]);
+   setHealth(a);setCaps((b&&b.capabilities)||[]);setRuntime(c);setEdition(d);setScenarios((e&&e.scenarios)||[]);setProviders((f&&f.providers)||[]);setMediaStats((g&&g.stats)||null);setProcarta(h2);if(h2&&h2.success)setProcarta(h2);i&&setMediaManifest(i);setAnnouncements((n&&n.announcements)||[]);
+  setProducts((s&&s.success&&Array.isArray(s.products))?s.products:[]);setMetrics(m);
+ },[]);
+ useEffect(()=>{refresh();const poll=setInterval(refresh,15000);const es=new EventSource('/api/v1/events/stream');es.onopen=()=>{setSse('live')};es.onmessage=e=>{try{const x=JSON.parse(e.data);if(x.type==='STREAM_CONNECTED'){}else{setEvents(v=>[x,...v].slice(0,80));setSse('live')}}catch{}};es.onerror=()=>{setSse('retry')};return()=>{clearInterval(poll);es.close()}},[refresh]);
+ useEffect(()=>{const f=e=>{if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='k'){e.preventDefault();if(!token){setAuth(true);notify('Authorize to unlock the command palette.')}else{setPalette(v=>!v)}}if(e.key==='Escape'){setPalette(false);setAuth(false);setMenuOpen(false)}};addEventListener('keydown',f);return()=>removeEventListener('keydown',f)},[token]);
  const filtered=useMemo(()=>caps.filter(c=>!query||[c.intent,c.name,c.description,c.sourceModule].join(' ').toLowerCase().includes(query.toLowerCase())),[caps,query]);
- const execute=async cap=>{try{if(cap.rbacLevel>0&&!token){setAuth(true);return}const r=await api('/api/v1/dispatch',{method:'POST',body:JSON.stringify({action:cap.intent,payload:{}})});notify(r.success?'Command accepted by kernel':'Kernel rejected command')}catch(e){notify(e.message)}};
- const login=async()=>{try{const r=await api('/api/v1/auth/pin',{method:'POST',body:JSON.stringify({pin})});setToken(r.token);setAuth(false);setPin('');notify('Server-authoritative session established')}catch(e){notify(e.message)}};
- const logout=async()=>{try{if(token)await api('/api/v1/auth/revoke',{method:'POST'});}catch{}setToken(null);notify('Session ended')};
- const metric=(label,value,sub)=>h('div',{className:'card metric',key:label},h('div',{className:'label'},label),h('div',{className:'value'},value),h('div',{className:'trend'},sub||''));
- return h('div',{className:'app'},h('div',{className:'shell'},
-   h('aside',{className:'side'},h('div',{className:'brand'},h('img',{src:'/ADE-LOGO.png',alt:'ADE'}),h('div',null,h('strong',null,'ADE APEX'),h('span',null,'OPERATIONS OS'))),h('div',{className:'nav'},h('small',null,'OPERATIONS'),['Command Center','Event Stream','Capabilities','ICX','Security','Release'].map(x=>h('button',{key:x,className:section===x?'active':'',onClick:()=>setSection(x)},x))),h('div',{className:'sideFooter'},'Kernel-first • event-driven • server authoritative',h('br'),token?'Authenticated session active':'Public observation mode')),
-   h('main',{className:'main'},h('div',{className:'topbar'},h('div',{className:'title'},h('h1',null,'ADE APEX COMMAND CENTER'),h('p',null,'Autonomous enterprise operations surface • live kernel telemetry • capability authority')),h('div',{className:'topActions'},h('span',{className:'pill'},h('i',{className:'statusDot'}),health?.runtime?.kernel?.status||'CONNECTING'),token?h('button',{className:'btn',onClick:logout},'End Session'):h('button',{className:'btn primary',onClick:()=>setAuth(true)},'Authorize'),h('button',{className:'btn',onClick:()=>setPalette(true)},'⌘ K'))),
-   h('section',{className:'hero'},h('div',{className:'card heroMain'},h('div',null,h('div',{className:'eyebrow'},'AUTONOMOUS EVENT-DRIVEN CONTROL PLANE'),h('h2',null,'One runtime. One authority. Every signal connected.'),h('p',null,'The interface observes the canonical ADE kernel, renders server-owned capabilities, listens to the EventBus through SSE, and sends authorized commands back through the same runtime boundary.')) ,h('div',{className:'heroStats'},h('div',{className:'stat'},h('b',null,health?.runtime?.subsystems?.total??'—'),h('span',null,'CORE SUBSYSTEMS')),h('div',{className:'stat'},h('b',null,caps.length),h('span',null,'CAPABILITIES')),h('div',{className:'stat'},h('b',null,events.length),h('span',null,'LIVE EVENTS')),h('div',{className:'stat'},h('b',null,token?'AUTH':'PUBLIC'),h('span',null,'AUTHORITY')))),h('div',{className:'card orb'},h('div',{className:'orbCore'})),
-   h('div',{className:'grid'},metric('KERNEL STATUS',health?.runtime?.kernel?.status||'—','canonical runtime'),metric('EVENTS PUBLISHED',runtime?.eventBus?.metrics?.published??'—','EventBus'),metric('INTENTS',runtime?.runtime?.metrics?.intentsDispatched??'—','dispatch count'),metric('UPTIME',runtime?.observatory?.uptimeSeconds!=null?runtime.observatory.uptimeSeconds+'s':'—','runtime observatory')),
-   h('section',{className:'sectionGrid'},h('div',{className:'card'},h('div',{className:'panelTitle'},h('h3',null,'LIVE EVENT FABRIC'),h('span',null,'SSE / EventBus')),h('div',{className:'stream'},events.length?events.map((e,i)=>h('div',{className:'event',key:e.eventId||e.id||i},h('time',null,e.meta?.timestamp||e.timestamp||''),h('b',null,e.topic||e.type||'EVENT'),h('span',null,JSON.stringify(e.payload||e).slice(0,220)))):h('div',{className:'muted'},'Waiting for kernel events…'))),h('div',{className:'card'},h('div',{className:'panelTitle'},h('h3',null,'CAPABILITY MATRIX'),h('span',null,'SERVER AUTHORITY')),h('input',{className:'search',placeholder:'Search capability, subsystem or intent…',value:query,onChange:e=>setQuery(e.target.value),onFocus:()=>setPalette(true)}),h('div',{className:'capGrid'},filtered.slice(0,40).map(c=>h('div',{className:'cap',key:c.intent,onClick:()=>execute(c)},h('b',null,c.name||c.intent),h('span',null,c.intent+' • RBAC '+c.rbacLevel),h('em',null,c.revoked?'REVOKED':c.tier||'FREE'))))),
-   section==='Capabilities'&&h('div',{className:'card',style:{marginTop:16}},h('h3',null,'All Authoritative Capabilities'),h('p',{className:'muted'},'No UI-local command catalogue is used. This list is sourced from the runtime registry.')),section==='Security'&&h('div',{className:'card',style:{marginTop:16}},h('h3',null,'Security Authority'),h('p',{className:'muted'},token?'Cryptographically signed server session in memory. Privileges are evaluated server-side.':'Public observation only. No privileged session exists.')),section==='ICX'&&h('div',{className:'card',style:{marginTop:16}},h('h3',null,'ADE Internal Communications Exchange'),h('p',{className:'muted'},token?'ICX endpoints are available to authorized roles.':'Authorize to inspect ICX organizational data.')),section==='Release'&&h('div',{className:'card',style:{marginTop:16}},h('h3',null,'Release Ladder'),h('p',{className:'muted'},'Community MVP → Business → Enterprise → Evolution. The runtime exposes only capabilities actually implemented and entitled.')),
-   ),
-   palette&&h('div',{className:'palette',onMouseDown:e=>{if(e.target===e.currentTarget)setPalette(false)}},h('div',{className:'paletteBox'},h('div',{className:'paletteHead'},h('input',{className:'search',autoFocus:true,placeholder:'Search the ADE command surface…',value:query,onChange:e=>setQuery(e.target.value)})),h('div',{className:'commandList'},filtered.map(c=>h('div',{className:'command',key:c.intent,onClick:()=>{setPalette(false);execute(c)}},h('div',null,h('b',null,c.name||c.intent),h('small',null,' '+c.intent)),h('small',null,'RBAC '+c.rbacLevel)))))),
-   auth&&h('div',{className:'auth'},h('div',{className:'card authBox'},h('div',{className:'eyebrow'},'SERVER-AUTHORITATIVE SESSION'),h('h2',null,'Authorize ADE APEX'),h('p',{className:'muted'},'The credential is submitted only to the server. The resulting session is kept in memory; browser storage is not an authority.'),h('input',{type:'password',inputMode:'numeric',value:pin,onChange:e=>setPin(e.target.value),placeholder:'ADMIN PIN',onKeyDown:e=>{if(e.key==='Enter')login()}}),h('div',{style:{display:'flex',gap:8}},h('button',{className:'btn primary',onClick:login},'Establish Session'),h('button',{className:'btn',onClick:()=>setAuth(false)},'Cancel')))),toast&&h('div',{className:'toast'},toast)
-  ));
+ const execute=async cap=>{try{if(cap.rbacLevel>0&&!token){setAuth(true);return}const r=await api('/api/command/execute',{method:'POST',body:JSON.stringify({action:cap.intent,payload:{}})});notify(r.success?'Command accepted by kernel':'Kernel rejected command')}catch(e){notify(e.message)}};
+ const loadAccount=async(tok)=>{try{const r=await api('/api/v1/account/session',{method:'GET',headers:{Authorization:'Bearer '+(tok||token)}});setAccount(r);return r}catch(e){setAccount(null);return null}};
+  const signIn=async()=>{try{const r=await api('/api/v1/account/login',{method:'POST',body:JSON.stringify({username:signUser,password:signPass})});setToken(r.token);await loadAccount(r.token);setAuth(false);setAcctMode('signin');setMenuOpen(false);notify('Welcome, '+r.person.username);setSection(prev=>prev)}catch(e){notify(e.message)}};
+  const pinLogin=async()=>{try{const r=await api('/api/v1/auth/pin',{method:'POST',body:JSON.stringify({pin})});setToken(r.token);await loadAccount(r.token);setAuth(false);setPin('');setMenuOpen(false);notify('Admin session established')}catch(e){notify(e.message)}};
+  const elevate=async()=>{try{const r=await api('/api/v1/account/pin',{method:'POST',body:JSON.stringify({pin})});setToken(r.token);setPin('');await loadAccount(r.token);setAuth(false);notify('Step-up PIN accepted — elevated session active')}catch(e){notify(e.message)}};
+  const changePasswordUI=async()=>{try{await api('/api/v1/account/change-password',{method:'POST',body:JSON.stringify({currentPassword:curPass,newPassword:newPass})});setCurPass('');setNewPass('');notify('Password updated')}catch(e){notify(e.message)}};
+  const changePinUI=async()=>{try{await api('/api/v1/account/change-pin',{method:'POST',body:JSON.stringify({currentPassword:curPassPin,newPin})});setCurPassPin('');setNewPin('');notify('Authorization PIN updated')}catch(e){notify(e.message)}};
+  const rotateCodes=async()=>{try{const r=await api('/api/v1/account/recovery-codes/rotate',{method:'POST',body:'{}'});setRecoveryCodes(r.codes||[]);notify('New recovery codes generated — store them safely')}catch(e){notify(e.message)}};
+ const logout=async()=>{try{if(token)await api('/api/v1/account/logout',{method:'POST'});}catch{}setToken(null);setAccount(null);setRecoveryCodes([]);notify('Session ended');setMenuOpen(false);setSection(s=>((s==='Command Center'||s==='Account')?'Home':s))};
+ const runDemo=async(scenarioId)=>{setDemoRunning(true);setDemoResult(null);try{const r=await api('/api/v1/demo/run',{method:'POST',body:JSON.stringify({scenarioId,input:{prompt:scenarioId,source:'UI_DEMO',type:'DEMO'}})});setDemoResult(r.demo);notify('Demo completed')}catch(e){notify(e.message)}finally{setDemoRunning(false)}};
+ const submitFeedback=async()=>{try{await api('/api/v1/feedback',{method:'POST',body:JSON.stringify({category:feedbackCat,message:feedbackMsg,feature:feedbackFeat,version:'1.0.0'})});notify('Feedback captured');setFeedbackMsg('');setFeedbackFeat('');setFeedbackCat('OTHER')}catch(e){notify(e.message)}};
+ const submitIntake=async()=>{try{await api('/api/v1/community/intake',{method:'POST',body:JSON.stringify({type:intakeKind,organization:intakeOrg,useCaseDescription:intakeDesc})});notify('Interest recorded');setIntakeOrg('');setIntakeDesc('')}catch(e){notify(e.message)}};
+ const submitProcarta=async()=>{if(!pDesc)return;setPBusy(true);setPResult(null);try{const r=await api('/api/v1/intake/API',{method:'POST',body:JSON.stringify({kind:'BUSINESS_PROCESS',organization:pOrg,description:pDesc})});setPResult(r.case||r);notify('Procarta intake accepted')}catch(e){notify(e.message)}finally{setPBusy(false)}};
+ const go=name=>{setSection(name);setMenuOpen(false);setPalette(false);window.scrollTo({top:0,behavior:'smooth'})};
+ const editionBadge=edition?.badge||'ADE COMMUNITY EDITION · PUBLIC MVP';
+ const kernStatus=(health&&health.kernel&&health.kernel.status)||(health?.runtime?.kernel?.status)||(health?.status)||'CONNECTING';
+ const kernLive=kernStatus==='ONLINE'||kernStatus==='HEALTHY';
+ const evState=sse==='live'?'LIVE':sse==='retry'?'RECONNECTING':'CONNECTING';
+ const sourceMedia=(mediaManifest&&mediaManifest.source_videos)||[];
+ const totalAssets=(mediaStats&&mediaStats.totalAssets)||0;
+ const Sec=(name,body)=>section===name?body:null;
+ /* ── Public curated surfaces ─────────────────── */
+ const HOME=()=>h('div',{className:'stack'},
+  h('section',{className:'hero'},
+   h('div',{className:'card heroMain'},
+    h('div',{className:'eyebrow'},'ADE · Autonomous Event-Driven Operations Platform'),
+    h('h1',null,'One runtime. One authority. Every signal connected.'),
+    h('p',null,'ADE is a single canonical kernel that observes, structures, validates, decides, executes, evaluates, learns and reports across your operations — surfaced through public products like PROCARTA and AWBULI, and governed by server-authoritative security.'),
+    h('div',{className:'heroActions'},h('button',{className:'btn primary',onClick:()=>go('Products')},'Explore ADE'),h('button',{className:'btn',onClick:()=>go('Product Theater')},'Open Product Theater')),
+    h('div',{className:'suggestion-carousel'},SUGGESTIONS.map((s,i)=>h('div',{key:i,className:'suggestion-text',style:{animationDelay:i*3+'s'}},'"',s,'"'))),
+    h('div',{className:'heroStatus'},
+     h('span',{className:'pill '+(kernLive?'live':kernStatus==='OFFLINE'?'off':'')},h('i',{className:'dot'}),'Kernel '+(kernLive?'online':kernStatus.toLowerCase())),
+     h('span',{className:'badge community'},'COMMUNITY EDITION'),
+     h('span',{className:'badge muted'},'SERVER-AUTHORITATIVE'))),
+h('div',{className:'card orb'},h('div',{className:'orbCore'},'ADE'))),
+   h('section',{className:'sectionHead'},h('h2',null,'The ADE value'),h('p',null,'One canonical runtime, product-ready surfaces, and honest boundaries — nothing on this site is fabricated.')),
+   h('div',{className:'card'},h('div',{className:'panelTitle'},h('h3',null,'LIVE COMMUNICATIONS'),h('span',{className:'badge community'},'SERVER-PUBLISHED')),h('div',{className:'cardBody'},announcements.length?h('div',{className:'newsRow'},announcements.map(a=>h('div',{key:a.id,className:'newsItem'},h('span',{className:'kind '+(a.kind||'NEWS')},a.kind||'NEWS'),h('div',null,h('div',{className:'newsTitle'},a.title,a.link?h('a',{href:a.link,target:'_blank',rel:'noopener',style:{marginLeft:8,fontSize:11}},'open ↗'):null),a.body&&h('div',{className:'newsBody'},a.body),h('div',{className:'newsDate'},new Date(a.createdAt).toLocaleDateString(undefined,{year:'numeric',month:'short',day:'numeric'})))))):h('div',{className:'emptyState'},'No active announcements.'))),
+  h('div',{className:'pillars'},
+   h('div',{className:'card pillar'},h('div',{className:'n'},'01 · Observe'),h('h4',null,'Understand every signal'),h('p',null,'Events, workflows, entities, systems and channels converge on one canonical kernel. Everything the runtime reports is a real, server-owned fact.')),
+   h('div',{className:'card pillar'},h('div',{className:'n'},'02 · Decide'),h('h4',null,'Determine the best action'),h('p',null,'The decision engine classifies intent, measures confidence, and selects execution paths with evidence. Analysis is deterministic — AI only when a provider is genuinely configured.')),
+   h('div',{className:'card pillar'},h('div',{className:'n'},'03 · Evolve'),h('h4',null,'Execute, evaluate, learn'),h('p',null,'Executions are recorded, outcomes are evaluated, and the platform evolves within bounded policy. LIVE and SIMULATED activity are always labelled separately.'))),
+  h('section',{className:'sectionHead'},h('h2',null,'ADE products'),h('p',null,'Server-registered ADE products with clear public entry points.')),
+  h('div',{className:'featureGrid'},
+   h('div',{className:'card feature'},h('div',{className:'mark'},'APE'),h('div',{className:'n'},'ADE APEX'),h('div',{className:'d'},'The autonomous event-driven operations platform. A canonical kernel orchestrating Decision · Workflow · Knowledge · Quality · Confidence across the whole surface.'),h('div',{className:'accent'},h('span',{className:'badge community'},'OPERATING NOW'),h('button',{className:'btn sm primary',onClick:()=>go('Architecture')},'See the architecture'))),
+   h('div',{className:'card feature'},h('div',{className:'mark m2'},'PRO'),h('div',{className:'n'},'PROCARTA'),h('div',{className:'d'},'Business process intelligence & automation. Analyse business processes through the live universal intake and see deterministic findings, evidence, and recommended next actions.'),h('div',{className:'accent'},h('span',{className:'badge good'},'ENGINE ONLINE'),h('button',{className:'btn sm primary',onClick:()=>go('PROCARTA')},'Open PROCARTA'))),
+   h('div',{className:'card feature'},h('div',{className:'mark m3'},'AWB'),h('div',{className:'n'},'AWBULI'),h('div',{className:'d'},'Messaging automation for customer conversations and operational channels. Presented honestly within its edition boundaries while product plugins are activated.'),h('div',{className:'accent'},h('span',{className:'badge muted'},'INTEGRATED PATHWAY'),h('button',{className:'btn sm',onClick:()=>go('Product Theater')},'Explore via Theater'))),
+   h('div',{className:'card feature'},h('div',{className:'mark'},'✦'),h('div',{className:'n'},'Product Theatre'),h('div',{className:'d'},'Published ADE media, source material and Product Theater — media is classified LIVE, SIMULATED, PROMOTIONAL or FUTURE. Real content only, never fabricated.'),h('div',{className:'accent'},h('button',{className:'btn sm azure',onClick:()=>go('Product Theater')},'Open Theater')))),
+  h('section',{className:'sectionHead'},h('h2',null,'Architecture at a glance'),h('p',null,'A single ADE abstraction from users to the kernel.')),
+  h('div',{className:'card'},h('div',{className:'cardBody'},h('div',{className:'archRow'},h('div',{className:'archLayer'},h('b',null,'ADE USERS'),' — operators, community and product surfaces'),h('div',{style:{textAlign:'center',color:'var(--faint)',fontSize:20}},'↓'),h('div',{className:'archLayer'},h('b',null,'ADE EXPERIENCE LAYER'),' — public site, Product Theater, media studio'),h('div',{style:{textAlign:'center',color:'var(--faint)',fontSize:20}},'↓'),h('div',{className:'archLayer'},h('b',null,'OPERATIONS LAYER'),h('div',{className:'ops',style:{marginTop:8}},['Decision','Workflow','Knowledge','Quality','Confidence','Media Engine'].map(o=>h('span',{key:o},o)))),h('div',{style:{textAlign:'center',color:'var(--faint)',fontSize:20}},'↓'),h('div',{className:'archLayer'},h('b',null,'ADE CORE / KERNEL'),h('div',{style:{marginTop:6,fontSize:11.5}},((health?.kernel?.subsystemCount)??(health?.runtime?.subsystems?.total)??9)+' subsystems active · EventBus · CapabilityRegistry · Identity · Security'))))),
+  h('section',{className:'sectionHead'},h('h2',null,'Community · Pilot · Partner'),h('p',null,'Community provides guided self-exploration. Register your interest to progress to Pilot or Enterprise.')),
+  h('div',{className:'card'},h('div',{className:'panelTitle'},h('h3',null,'COMMUNITY EDITION — PUBLIC MVP'),h('span',{className:'badge community'},editionBadge)),h('div',{className:'cardBody'},h('div',{className:'progression-form'},h('select',{value:intakeKind,onChange:e=>setIntakeKind(e.target.value)},h('option',{value:'USE_CASE'},'New Use Case'),h('option',{value:'PILOT_INTEREST'},'Pilot Interest'),h('option',{value:'ENTERPRISE_INTEREST'},'Enterprise Interest'),h('option',{value:'PARTNER_INTEREST'},'Partner Interest'),h('option',{value:'IMPLEMENTATION_NEED'},'Implementation Need')),h('input',{placeholder:'Organization name',value:intakeOrg,onChange:e=>setIntakeOrg(e.target.value)}),h('textarea',{placeholder:'Describe your use case or interest...',value:intakeDesc,onChange:e=>setIntakeDesc(e.target.value)}),h('div',{style:{display:'flex',gap:8}},h('button',{className:'btn primary',onClick:submitIntake},'Submit Interest'))))),
+  h('section',{className:'sectionHead'},h('h2',null,'Feedback'),h('p',null,'Tell us what to fix next. Feedback is never used to modify source automatically.')),
+  h('div',{className:'card'},h('div',{className:'panelTitle'},h('h3',null,'FEEDBACK'),h('span',null,'HELP IMPROVE ADE')),h('div',{className:'cardBody'},h('div',{className:'feedback-form'},h('select',{value:feedbackCat,onChange:e=>setFeedbackCat(e.target.value)},h('option',{value:'SOMETHING_FAILED'},'Something failed'),h('option',{value:'SOMETHING_CONFUSED_ME'},'Something confused me'),h('option',{value:'RESULT_LOOKED_WRONG'},'Result looked wrong'),h('option',{value:'FEATURE_DID_NOT_WORK'},'Feature did not work'),h('option',{value:'I_EXPECTED_SOMETHING_ELSE'},'I expected something else'),h('option',{value:'I_FOUND_A_BUG'},'I found a bug'),h('option',{value:'IMPROVEMENT_IDEA'},'Improvement idea'),h('option',{value:'NEW_USE_CASE'},'New use case'),h('option',{value:'POSITIVE_FEEDBACK'},'Positive feedback'),h('option',{value:'OTHER'},'Other')),h('input',{placeholder:'Feature or module (optional)',value:feedbackFeat,onChange:e=>setFeedbackFeat(e.target.value)}),h('textarea',{placeholder:'Your feedback...',value:feedbackMsg,onChange:e=>setFeedbackMsg(e.target.value)}),h('button',{className:'btn primary',onClick:submitFeedback},'Submit Feedback')))));
+ /* ── Products ──────────────────────────────── */
+ const PRODUCTS=()=>h('div',{className:'stack'},
+  h('section',{className:'sectionHead'},h('h2',null,'ADE PRODUCT SUITES'),h('p',null,'Server-registered ADE products. Availability is reported by the runtime — nothing here is invented.')),
+  h('div',{className:'card'},h('div',{className:'cardBody'},products.length?h('div',{className:'productGrid'},products.map(p=>h('div',{key:p.id||p.name,className:'product'},h('div',{className:'n'},p.name),h('div',{className:'d'},p.description||'No description provided by the registry.'),h('div',{className:'tags'},B(p.status||'REGISTERED',p.status==='ACTIVE'?'good':p.status==='INTEGRATED'?'community':'muted'),p.edition&&B(p.edition,tierClass(p.edition)),p.pluginRequired?B('PLUGIN REQUIRED','community'):null)))):h('div',{className:'emptyState'},'Product registry reports no public products in this runtime slice.'))),
+  h('div',{className:'card'},h('div',{className:'panelTitle'},h('h3',null,'PRODUCT BOUNDARY'),h('span',null,'ONE CORE · MULTIPLE PRODUCTS')),h('div',{className:'cardBody'},h('p',{className:'muted',style:{margin:0,lineHeight:1.6}},'AWBULI (messaging automation) and PROCARTA (business process automation) report INTEGRATED status and require their product plugins to activate in an edition. Until a plugin is live in Community, their surfaces remain available as demonstration pathways — never as claimed production activity. Order and descriptions follow the server registry exactly.'))));
+ /* ── PROCARTA ──────────────────────────────── */
+ const PROCARTA=()=>h('div',{className:'stack'},
+  h('section',{className:'sectionHead'},h('h2',null,'PROCARTA'),h('p',null,'Business Process Intelligence & Automation — the ADE engine for analysing and automating business processes.')),
+  h('div',{className:'card'},h('div',{className:'cardBody'},
+   h('div',{style:{display:'flex',alignItems:'center',gap:14,flexWrap:'wrap',marginBottom:12}},h('span',{className:'enginePill '+(procarta&&procarta.engine&&procarta.engine.status==='ONLINE'?'':'off')},h('i',{className:'dot'}),procarta&&procarta.engine?(procarta.engine.status+' · '+procarta.engine.executionMode):'QUERYING'),B('DETERMINISTIC ANALYSIS','community'),B('COMMUNITY EDITION',tierClass('FREE'))),
+   h('h3',{style:{margin:'0 0 6px',fontSize:13,color:'var(--ocean)'}},'What PROCARTA does'),h('p',{className:'muted',style:{margin:0,lineHeight:1.6}},'PROCARTA ingests business inputs, identifies systems and workflows, classifies intent through the canonical decision engine, and returns findings, evidence and recommended next actions. Analysis is deterministic and AI-augmented only when a provider is actually configured.'),
+   h('h3',{style:{marginTop:16,marginBottom:6,fontSize:13,color:'var(--ocean)'}},'Start a business process intake'),h('p',{className:'muted',style:{margin:'0 0 8px'}},'Describe a process. PROCARTA will classify it through the live universal intake (channel: API).'),
+   h('div',{className:'intakeForm'},h('input',{value:pOrg,onChange:e=>setPOrg(e.target.value),placeholder:'Organization (optional)'}),h('textarea',{value:pDesc,onChange:e=>setPDesc(e.target.value),placeholder:'e.g. Procurement and inventory workflows across our ERP…'}),h('div',{style:{display:'flex',gap:8,flexWrap:'wrap'}},h('button',{className:'btn primary',onClick:submitProcarta,disabled:pBusy},pBusy?'Submitting…':'Submit to PROCARTA'))),
+   pResult&&h('div',{className:'demo-result'},h('h4',null,'INTAKE ACCEPTED'),h('p',{className:'muted'},'Case created: '+pResult.id),h('p',{className:'muted',style:{margin:0}},'Discovery, processing and pilot progression require a server-established operator session. Community Edition observes the pathway honestly.')))),
+  h('div',{className:'card'},h('div',{className:'panelTitle'},h('h3',null,'AUTHENTICATION BOUNDARY'),h('span',null,'SERVER-AUTHORITATIVE')),h('div',{className:'cardBody'},h('p',{className:'muted',style:{margin:0,lineHeight:1.6}},'Public intake is available. Operator actions — case processing, execution, pilot promotion — are gated by the ADE security layer and require an authorized session (ADE Admin PIN). Unauthorized command execution is rejected by design.'))));
+ /* ── Product Theater / Media ───────────────── */
+ const THEATER=()=>h('div',{className:'stack'},
+  h('section',{className:'sectionHead'},h('h2',null,'PRODUCT THEATER & MEDIA STUDIO'),h('p',null,'Real ADE media surfaces. The media engine registry currently reports '+totalAssets+' published assets — until media is generated through a configured provider, the gallery presents an honest bound.')),
+  h('div',{className:'card'},h('div',{className:'panelTitle'},h('h3',null,'TRUTH CLASSIFICATION'),h('span',null,'NEVER LABELLED WRONG')),h('div',{className:'cardBody'},h('p',{className:'muted',style:{margin:0}},'Every media item is classified so public visitors can distinguish real production activity from bounded demonstrations. The boundary below is enforced on every surface.'),h('div',{className:'truthRow'},h('span',{className:'truthChip live'},'● LIVE'),h('span',{className:'truthChip sim'},'● SIMULATED'),h('span',{className:'truthChip promo'},'● PROMOTIONAL / FOUNDER'),h('span',{className:'truthChip future'},'● FUTURE / GENERATED'))),
+   h('div',{style:{padding:'6px 18px 18px',display:'flex',gap:10,flexWrap:'wrap'}},h('a',{className:'btn primary',href:'/ade-experience/',style:{textDecoration:'none'}},'Open Live Product Theater'))),
+  h('div',{className:'card'},h('div',{className:'panelTitle'},h('h3',null,'REAL MEDIA'),h('span',{className:'badge community'},'COMING SOON')),h('div',{className:'emptyState'},h('div',{className:'big'},'REAL MEDIA COMING SOON'),h('p',{style:{maxWidth:520,margin:'0 auto'}},'Published ADE media will appear here once generated through a configured provider. Nothing in this space is fabricated — SIMULATED and CONCEPT content is always labelled.'))),
+  h('div',{className:'card'},h('div',{className:'panelTitle'},h('h3',null,'SOURCE MEDIA LIBRARY'),h('span',null,'AVAILABLE_FOR_MEDIA_STUDIO')),sourceMedia.length?h('div',{className:'mediaGrid',style:{padding:'16px'}},sourceMedia.map(m=>{const fn=(m.file||'').replace(/_/g,' ').replace(/\(\d\)/g,'').replace(/\.mp4$/i,'').trim();return h('div',{key:m.file,className:'mediaCard'},h('div',{className:'mediaThumb'},'▶'),h('div',{className:'meta'},h('div',{className:'n'},fn),h('div',{className:'d'},'Source input · '+(m.duration_seconds!=null?Math.round(m.duration_seconds)+'s':'—')),h('div',{className:'d',style:{color:'var(--royal)'}},'STATUS: '+m.status),h('a',{className:'btn sm',href:'/ade-experience/media/'+encodeURIComponent(m.file),target:'_blank',rel:'noopener',style:{textDecoration:'none'}},'Play in Theater')))})):h('div',{className:'emptyState'},'Source media manifest is not present or empty.')),
+  h('div',{className:'card'},h('div',{className:'panelTitle'},h('h3',null,'PROVIDER REGISTRY'),h('span',null,'SERVER-OWNED STATUS')),h('div',{className:'cardBody'},providers.length?h('div',{className:'mediaGrid',style:{padding:0}},providers.map(p=>h('div',{key:p.id||p.name,className:'mediaCard'},h('div',{className:'meta'},h('div',{className:'n'},p.name||p.id),h('div',{className:'d'},h('span',{className:'badge '+(p.available?'good':'muted')},p.available?'AVAILABLE':'UNCONFIGURED')),p.kind&&h('div',{className:'d'},'Kind: '+p.kind))))):h('div',{className:'emptyState'},'Provider registry reports no providers configured in Community Edition.'))));
+ /* ── Try ADE ───────────────────────────────── */
+ const TRYADE=()=>h('div',{className:'stack'},
+  h('section',{className:'sectionHead'},h('h2',null,'TRY ADE — GUIDED DEMONSTRATIONS'),h('p',null,'Each scenario executes real ADE pathways. External integrations are simulated where unavailable — never presented as live.')),
+  h('div',{className:'card'},h('div',{className:'cardBody'},scenarios.length>0?h('div',null,scenarios.map(s=>h('div',{key:s.id,className:'scenario-card',onClick:()=>runDemo(s.id)},h('h4',null,s.label),h('p',null,s.description),h('div',{className:'meta'},s.category&&h('span',null,s.category),h('span',{className:s.truthClassification==='LIVE'?'truth-live':s.truthClassification==='SIMULATED'?'truth-simulated':'truth-placeholder'},s.truthClassification),h('span',null,s.stages?String(s.stages.length)+' stages':'—'))))):h('div',{className:'emptyState'},'Loading scenarios…')),demoRunning&&h('div',{className:'demo-result'},h('h4',null,'⏳ Running demonstration…'),h('p',{className:'muted'},'ADE is executing the demonstration stages.')),demoResult&&h('div',{className:'demo-result'},h('h4',null,'DEMO RESULT — '+demoResult.status),h('p',{className:'muted'},'Demo ID: '+demoResult.demoId),h('div',{style:{marginTop:8}},(demoResult.stages||[]).map((s,i)=>h('div',{key:i,className:'demo-stage'},h('span',{className:'stage-name'},s.label||s.stageId),h('span',{className:'stage-class stage-'+(s.classification||'SIMULATED')},s.classification||'—'),h('span',{className:'stage-dur'},s.durationMs+'ms')))),h('div',{style:{marginTop:12,display:'flex',flexWrap:'wrap',gap:8}},h('span',{className:'badge'},'Confidence: '+(demoResult.confidence!=null?(demoResult.confidence*100).toFixed(0):'—')+'%'),demoResult.outcome&&h('span',{className:'badge community'},'Outcome: '+(demoResult.outcome.type||'—'))))),
+  h('div',{className:'card'},h('div',{className:'panelTitle'},h('h3',null,'DEMO BOUNDARY'),h('span',null,'HONEST CLASSIFICATION')),h('div',{className:'cardBody'},h('p',{className:'muted',style:{margin:0}},'Demonstrations run the real kernel pathway and are labelled LIVE or SIMULATED per scenario. Simulations are clearly marked — the UI never presents simulated content as live activity.'))));
+ /* ── Architecture ──────────────────────────── */
+ const ARCH=()=>h('div',{className:'card'},h('div',{className:'panelTitle'},h('h3',null,'PUBLIC ARCHITECTURE'),h('span',null,'THE ADE ABSTRACTION')),h('div',{className:'cardBody'},h('div',{className:'archRow'},h('div',{className:'archLayer'},h('b',null,'ADE USERS'),' — operators, community and product surfaces'),h('div',{style:{textAlign:'center',color:'var(--faint)',fontSize:20}},'↓'),h('div',{className:'archLayer'},h('b',null,'ADE EXPERIENCE LAYER'),' — public site, Product Theater, media'),h('div',{style:{textAlign:'center',color:'var(--faint)',fontSize:20}},'↓'),h('div',{className:'archLayer'},h('b',null,'OPERATIONS LAYER'),h('div',{className:'ops',style:{marginTop:8}},['Decision','Workflow','Knowledge','Quality','Confidence','Media Engine'].map(o=>h('span',{key:o},o)))),h('div',{style:{textAlign:'center',color:'var(--faint)',fontSize:20}},'↓'),h('div',{className:'archLayer'},h('b',null,'ADE CORE / KERNEL'),h('div',{style:{marginTop:6,fontSize:11.5}},((health?.kernel?.subsystemCount)??(health?.runtime?.subsystems?.total)??9)+' subsystems active · EventBus · CapabilityRegistry · Identity · Security')))));
+ /* ── Community / Feedback standalone ───────── */
+ const COMMUNITY=()=>h('div',{className:'stack'},
+  h('div',{className:'card'},h('div',{className:'panelTitle'},h('h3',null,'COMMUNITY EDITION — PUBLIC MVP'),h('span',{className:'badge community'},editionBadge)),h('div',{className:'cardBody'},h('p',{className:'muted'},'ADE Community provides self-guided exploration of ADE capabilities. Register your interest to progress to Pilot or Enterprise.'),h('div',{className:'progression-form'},h('select',{value:intakeKind,onChange:e=>setIntakeKind(e.target.value)},h('option',{value:'USE_CASE'},'New Use Case'),h('option',{value:'PILOT_INTEREST'},'Pilot Interest'),h('option',{value:'ENTERPRISE_INTEREST'},'Enterprise Interest'),h('option',{value:'PARTNER_INTEREST'},'Partner Interest'),h('option',{value:'IMPLEMENTATION_NEED'},'Implementation Need')),h('input',{placeholder:'Organization name',value:intakeOrg,onChange:e=>setIntakeOrg(e.target.value)}),h('textarea',{placeholder:'Describe your use case or interest...',value:intakeDesc,onChange:e=>setIntakeDesc(e.target.value)}),h('div',{style:{display:'flex',gap:8}},h('button',{className:'btn primary',onClick:submitIntake},'Submit Interest'))))),
+  h('div',{className:'card'},h('div',{className:'panelTitle'},h('h3',null,'COMMUNITY BOUNDARY'),h('span',null,'EDITION-AWARE')),h('div',{className:'cardBody'},h('p',{className:'muted',style:{margin:0,lineHeight:1.6}},'Pilot and partner pathways exist in the backend and are operator-gated. The capability matrix reports the exact edition boundaries — Community, Pro and Enterprise privileges are never conflated.'))));
+ const FEEDBACK=()=>h('div',{className:'card'},h('div',{className:'panelTitle'},h('h3',null,'TEST ADE — FEEDBACK'),h('span',null,'HELP IMPROVE ADE')),h('div',{className:'cardBody'},h('p',{className:'muted'},'Your feedback helps improve ADE. It is never used to automatically modify source code.'),h('div',{className:'feedback-form'},h('select',{value:feedbackCat,onChange:e=>setFeedbackCat(e.target.value)},h('option',{value:'SOMETHING_FAILED'},'Something failed'),h('option',{value:'SOMETHING_CONFUSED_ME'},'Something confused me'),h('option',{value:'RESULT_LOOKED_WRONG'},'Result looked wrong'),h('option',{value:'FEATURE_DID_NOT_WORK'},'Feature did not work'),h('option',{value:'I_EXPECTED_SOMETHING_ELSE'},'I expected something else'),h('option',{value:'I_FOUND_A_BUG'},'I found a bug'),h('option',{value:'IMPROVEMENT_IDEA'},'Improvement idea'),h('option',{value:'NEW_USE_CASE'},'New use case'),h('option',{value:'POSITIVE_FEEDBACK'},'Positive feedback'),h('option',{value:'OTHER'},'Other')),h('input',{placeholder:'Feature or module (optional)',value:feedbackFeat,onChange:e=>setFeedbackFeat(e.target.value)}),h('textarea',{placeholder:'Your feedback...',value:feedbackMsg,onChange:e=>setFeedbackMsg(e.target.value)}),h('button',{className:'btn primary',onClick:submitFeedback},'Submit Feedback'))));
+  /* ── Account (workforce identity) ──────────── */
+  const ACCOUNT=()=>token?h('div',{className:'stack'},
+   h('section',{className:'sectionHead'},h('h2',null,'ACCOUNT & SECURITY'),h('p',null,'Workforce identity, authorization PIN and recovery options. Credentials only ever touch the server.')),
+   h('div',{className:'accountGrid'},
+    h('div',{className:'card pad'},
+     h('div',{className:'eyebrow'},'IDENTITY'),
+     h('div',{className:'acctName'},(account&&account.person)?account.person.fullName:'Operator'),
+     h('div',{className:'acctMeta'},'@'+((account&&account.person&&account.person.username)||'—')),
+     h('div',{className:'acctRoles'},
+      h('span',{className:'badge community'},(account&&account.person)?account.person.role:'WORKFORCE'),
+      h('span',{className:'badge muted'},'L'+((account&&account.claims)?account.claims.level:'—')),
+      ((account&&account.claims&&account.claims.pinVerified)?h('span',{className:'badge good'},'STEP-UP ACTIVE'):h('span',{className:'badge muted'},'BASE SESSION'))),
+     h('div',{className:'heroStatus',style:{marginTop:18}},h('button',{className:'btn coral',onClick:logout},'Sign Out'))),
+    h('div',{className:'card pad'},
+     h('div',{className:'eyebrow'},'CREDENTIALS'),
+     h('div',{className:'acctForm'},
+      h('label',{className:'fieldLabel'},'Current password'),
+      h('input',{className:'authInput',type:'password',autoComplete:'current-password',value:curPass,onChange:e=>setCurPass(e.target.value),placeholder:'••••••••'}),
+      h('label',{className:'fieldLabel'},'New password (min 8 characters)'),
+      h('input',{className:'authInput',type:'password',autoComplete:'new-password',value:newPass,onChange:e=>setNewPass(e.target.value),placeholder:'••••••••'}),
+      h('button',{className:'btn primary',onClick:changePasswordUI},'Update Password'),
+      h('div',{style:{borderTop:'1px solid var(--lineSoft)',margin:'6px 0 2px'}}),
+      h('label',{className:'fieldLabel'},'Password again (to change PIN)'),
+      h('input',{className:'authInput',type:'password',autoComplete:'current-password',value:curPassPin,onChange:e=>setCurPassPin(e.target.value),placeholder:'••••••••'}),
+      h('label',{className:'fieldLabel'},'New authorization PIN (6 digits)'),
+      h('input',{className:'authInput',type:'password',inputMode:'numeric',autoComplete:'new-password',value:newPin,onChange:e=>setNewPin(e.target.value),placeholder:'••••••'}),
+      h('button',{className:'btn',onClick:changePinUI},'Update Authorization PIN'))),
+    h('div',{className:'card pad'},
+     h('div',{className:'eyebrow'},'RECOVERY & STEP-UP'),
+     ((account&&account.claims&&account.claims.pinVerified)?null:h('div',null,
+      h('label',{className:'fieldLabel'},'Step-up authorization PIN'),
+      h('input',{className:'authInput',type:'password',inputMode:'numeric',value:pin,onChange:e=>setPin(e.target.value),onKeyDown:e=>{if(e.key==='Enter')elevate()},placeholder:'••••••'}),
+      h('button',{className:'btn azure',onClick:elevate,style:{marginTop:10}},'Elevate Session by PIN'),
+      h('p',{className:'muted',style:{fontSize:11,marginTop:8,lineHeight:1.5}},'Elevated (PIN-verified) sessions can manage the workforce, post announcements and read the audit ledger.'))),
+     (recoveryCodes.length?h('div',{className:'notice'},'New recovery codes. Store them safely; each is single-use for password recovery:',h('div',{className:'codes'},recoveryCodes.map((c,i)=>h('div',{key:i,className:'code'},c)))):h('p',{className:'muted',style:{fontSize:11,lineHeight:1.5}},'If you lose your password, a recovery code restores access. Generate a fresh set below.')),
+     h('button',{className:'btn',onClick:rotateCodes,style:{marginTop:10}},'Generate Recovery Codes'))),
+   h('div',{className:'card'},
+    h('div',{className:'panelTitle'},h('h3',null,'WORKFORCE & CONTENT ADMIN'),h('span',null,'ELEVATED ONLY')),
+    h('div',{className:'cardBody'},h('p',{className:'muted',style:{margin:0,lineHeight:1.6}},'Workforce management (invite, promote, demote, suspend, revoke, expiry), AI-agent identities, announcements and the security audit ledger live in the ADE Admin Console.',h('br'),h('a',{className:'btn sm',href:'/admin',style:{textDecoration:'none',marginTop:12}},'Open Admin Console'))))
+  ):h('div',{className:'card gate'},
+   h('div',{className:'orbMini'},'ID'),
+   h('div',{className:'eyebrow'},'WORKFORCE ACCOUNT'),
+   h('h1',{style:{margin:'10px 0 8px',color:'var(--ocean)',fontSize:'clamp(1.5rem,3vw,2.2rem)',lineHeight:1.1}},'Sign in to your ADE account'),
+   h('p',{className:'muted',style:{lineHeight:1.7,margin:'0 0 20px'}},'Workforce members authenticate with a username and password. Operators and admins use a second, step-up authorization PIN for elevated operations. Public surfaces remain fully open.'),
+   h('div',{style:{display:'flex',gap:10,flexWrap:'wrap'}},h('button',{className:'btn primary',onClick:()=>{setAcctMode('signin');setAuth(true)}},'Sign In'),h('button',{className:'btn',onClick:()=>go('Home')},'Back to Home')));
+
+  /* ── Command Center (auth-gated ops) ───────── */
+ const CM=()=>token?h('div',{className:'stack'},
+  h('section',{className:'hero'},
+   h('div',{className:'card heroMain'},h('div',{className:'eyebrow'},'ADE · OPERATIONS SURFACE — AUTHENTICATED'),h('h1',null,'Command Center'),h('p',null,'The living APEX surface. Kernel status, live EventBus telemetry, capability execution and runtime metrics — every value below is server-owned truth, streamed live from the ADE runtime.'),h('div',{className:'heroStats'},h('div',{className:'stat'},h('b',null,health?.kernel?.subsystemCount??health?.runtime?.subsystems?.total??'—'),h('span',null,'Core Subsystems')),h('div',{className:'stat'},h('b',null,caps.length||'—'),h('span',null,'Capabilities')),h('div',{className:'stat'},h('b',null,events.length),h('span',null,'Live Events')))),
+   h('div',{className:'card orb'},h('div',{className:'orbCore'},'ADE'))),
+  h('div',{className:'metricRow'},Metric('Kernel Status',kernLive?'ONLINE':kernStatus,kernLive?'canonical runtime responding':'live telemetry surface',kernLive?'good':''),Metric('Events Published',metrics?.eventBus?.published??'—',(metrics?.eventBus?.delivered!=null)?(metrics.eventBus.delivered+' delivered'):'EventBus aggregate',''),Metric('Intents Dispatched',metrics?.kernel?.intentsDispatched??'—','dispatch counter',''),Metric('Runtime Uptime',fmtUptime(metrics?.observatory?.uptimeSeconds??runtime?.process?.uptimeSeconds),'continuous operating time','')),
+  h('div',{className:'sectionGrid'},
+   h('div',{className:'card'},h('div',{className:'panelTitle'},h('h3',null,'LIVE EVENT FABRIC'),h('span',{className:'badge '+(sse==='live'?'good':'muted')},evState)),h('div',{className:'cardBody',style:{paddingBottom:0}},events.length?h('div',{className:'stream'},events.map((e,i)=>h('div',{className:'event',key:e.eventId||e.id||i},h('time',null,fmtTime(e.meta?.timestamp||e.timestamp)),h('b',null,e.topic||e.type||'EVENT'),h('pre',null,JSON.stringify(e.payload||e).slice(0,240))))):h('div',{className:'emptyState'},h('div',{className:'big'},'NO EVENTS YET'),h('p',{style:{margin:0}},'Kernel activities will appear here as they happen. The fabric is connected and listening.',h('br'),'Boundary: heartbeats are kept separate from real kernel events.')))),
+   h('div',{className:'card'},h('div',{className:'panelTitle'},h('h3',null,'CAPABILITY MATRIX'),h('span',null,'SERVER AUTHORITY')),h('div',{className:'cardBody',style:{paddingBottom:0}},h('input',{className:'search',placeholder:'Search capability, subsystem or intent…',value:query,onChange:e=>setQuery(e.target.value)}),h('div',{className:'capGrid'},filtered.slice(0,40).map(c=>h(CapCard,{key:c.intent,c,onRun:execute}))),filtered.length===0&&h('div',{className:'emptyState'},'No capabilities match your search.')))),
+  h('section',{className:'sectionHead'},h('h2',null,'WHERE TO GO NEXT'),h('p',null,'Explore the surfaces available in the ADE Community Edition.')),
+  h('div',{className:'nextRow'},h('div',{className:'nextCard',onClick:()=>go('Products')},h('b',null,'Products'),h('span',null,'ADE Platform · PROCARTA · AWBULI')),h('div',{className:'nextCard',onClick:()=>go('PROCARTA')},h('b',null,'PROCARTA'),h('span',null,'Business process intelligence & automation')),h('div',{className:'nextCard',onClick:()=>go('Product Theater')},h('b',null,'Product Theater'),h('span',null,'Gallery, source media and media studio')),h('div',{className:'nextCard',onClick:()=>go('Try ADE')},h('b',null,'Try ADE'),h('span',null,'Guided demonstrations of the kernel')))):
+  h('div',{className:'card gate'},
+   h('div',{className:'orbMini'},'OP'),
+   h('div',{className:'eyebrow'},'OPERATIONS SURFACE'),
+   h('h1',{style:{margin:'10px 0 8px',color:'var(--ocean)',fontSize:'clamp(1.5rem,3vw,2.2rem)',lineHeight:1.1}},'Command Center requires an operator session'),
+   h('p',{className:'muted',style:{lineHeight:1.7,margin:'0 0 8px'}},'This is the authenticated ADE operations experience — live kernel telemetry, the EventBus event fabric, the server-authoritative capability matrix, the command palette and runtime metrics. Anonymous public visitors are intentionally kept away from operational internals; nothing is exposed here without an established server-authorized session.'),
+   h('p',{className:'muted',style:{lineHeight:1.7,margin:'0 0 20px',color:'#44567a'}},'The public surface — products, PROCARTA, Product Theater, architecture, community and feedback — remains fully open and self-guided.'),
+   h('div',{style:{display:'flex',gap:10,flexWrap:'wrap'}},h('button',{className:'btn primary',onClick:()=>setAuth(true)},'Establish Operator Session'),h('button',{className:'btn',onClick:()=>go('Home')},'Back to Home')),
+   h('div',{className:'heroStatus',style:{marginTop:22}},h('span',{className:'pill '+(kernLive?'live':kernStatus==='OFFLINE'?'off':'')},h('i',{className:'dot'}),'Kernel '+(kernLive?'online':kernStatus.toLowerCase())),h('span',{className:'badge community'},editionBadge)));
+ return h('div',{className:'app'},
+  h('header',{className:'top'},
+   h('div',{className:'topInner'},
+    h('div',{className:'brand'},h('img',{src:'/ADE-LOGO.png',alt:'ADE logo'}),h('div',{className:'brandName'},h('strong',null,'ADE APEX'),h('span',null,'Autonomous Enterprise Operations'))),
+    h('nav',{className:'topNav','aria-label':'Primary'},NAV.map(n=>h('button',{key:n[0],className:(section===n[0]?'active ':'')+(n[0]==='Command Center'?'ops':''),'aria-current':section===n[0]?'page':null,title:n[1],onClick:()=>go(n[0])},n[0]))),
+    h('div',{className:'topRight'},
+     h('span',{className:'pill kern '+(kernLive?'live':kernStatus==='OFFLINE'?'off':'')},h('i',{className:'dot'}),'KERNEL '+(kernLive?'ONLINE':kernStatus)),
+     h('span',{className:'pill badgeWrap'},editionBadge),
+     token?h('button',{className:'btn sm primary',onClick:()=>go('Account'),title:'Account & security'},"@"+((account&&account.person&&account.person.username)||'session')):h('button',{className:'btn sm',onClick:()=>{setAcctMode('signin');setAuth(true)}},h('span',{className:'hideS'},'Sign In'),h('span',{className:'hideL'},'→')),
+     h('button',{className:'iconBtn',onClick:()=>{if(!token){setAuth(true);notify('Authorize to unlock the command palette.')}else setPalette(true)},title:'Command palette (Ctrl+K)','aria-label':'Open command palette'},'⌘'),
+     h('button',{className:'iconBtn hamburger',onClick:()=>setMenuOpen(v=>!v),'aria-expanded':menuOpen?'true':'false','aria-label':'Toggle navigation',title:'Menu'},menuOpen?'✕':'☰'))),
+menuOpen&&h('nav',{className:'mobileMenu open','aria-label':'Mobile'},NAV.map(n=>h('button',{key:n[0],className:(section===n[0]?'active ':'')+(n[0]==='Command Center'?'ops':''),onClick:()=>go(n[0])},n[0])),h('div',{className:'sub'},'EXTERNAL SURFACES'),h('a',{href:'/ade-experience/',onClick:()=>setMenuOpen(false)},'Product Theater & Media Studio'),h('a',{href:'/admin',onClick:()=>setMenuOpen(false)},'Admin Console'))),
+   announcements.length>0&&h('div',{className:'ticker'},h('span',{className:'tickerLabel'},'LATEST'),announcements.map(a=>h('span',{key:a.id,className:'tickerItem'},h('b',null,a.kind||'NEWS'),a.title))),
+   h('main',{className:'shell'},
+   Sec('Home',HOME()),
+   Sec('Products',PRODUCTS()),
+   Sec('PROCARTA',PROCARTA()),
+   Sec('Product Theater',THEATER()),
+   Sec('Try ADE',TRYADE()),
+   Sec('Architecture',ARCH()),
+   Sec('Community',COMMUNITY()),
+   Sec('Feedback',FEEDBACK()),
+   Sec('Account',ACCOUNT()),
+   Sec('Command Center',CM())),
+  h('footer',{className:'footer'},
+   h('div',{className:'footerInner'},
+    h('div',null,h('div',{className:'fbrand'},h('img',{src:'/ADE-LOGO.png',alt:'ADE logo'}),h('div',null,h('strong',{style:{letterSpacing:'.12em',color:'var(--ocean)'}},'ADE APEX'),h('div',{className:'muted',style:{fontSize:11,marginTop:2}},'Autonomous Event-Driven Operations'))),h('p',{className:'motto'},'We ',h('em',null,'Listened'),' · We ',h('em',null,'Observed'),' · We ',h('em',null,'Learnt'),' · We ',h('em',null,'Evolved')),h('span',{className:'badge community'},editionBadge)),
+    h('div',null,h('h5',null,'PRODUCTS'),h('a',{href:'#',onClick:e=>{e.preventDefault();go('Products')}},'Product Suites'),h('a',{href:'#',onClick:e=>{e.preventDefault();go('PROCARTA')}},'PROCARTA'),h('a',{href:'#',onClick:e=>{e.preventDefault();go('Product Theater')}},'Product Theater & Media'),h('a',{href:'/ade-experience/',onClick:()=>setMenuOpen(false)},'Legacy Experience Layer')),
+    h('div',null,h('h5',null,'PLATFORM'),h('a',{href:'#',onClick:e=>{e.preventDefault();go('Architecture')}},'Public Architecture'),h('a',{href:'#',onClick:e=>{e.preventDefault();go('Community')}},'Community · Pilot · Partner'),h('a',{href:'#',onClick:e=>{e.preventDefault();go('Feedback')}},'Feedback'),h('a',{href:'#',onClick:e=>{e.preventDefault();go('Try ADE')}},'Try ADE')),
+    h('div',null,h('h5',null,'OPERATIONS'),h('a',{href:'#',onClick:e=>{e.preventDefault();go('Command Center')}},'Command Center (operator)'),h('a',{href:'/admin'},'Admin Console'),h('span',{className:'flink',onClick:()=>go('Account')},'Account & Security'))),
+   h('div',{className:'footerLegal'},'© '+new Date().getFullYear()+' ADE APEX — Community Edition · Autonomous Enterprise Operations · v1.0.0 Community',h('br'),'Server-authoritative kernel. Physical telematics and external provider integrations are never fabricated — LIVE and SIMULATED are always labelled.')),
+  palette&&token&&h('div',{className:'palette',onMouseDown:e=>{if(e.target===e.currentTarget)setPalette(false)}},h('div',{className:'paletteBox'},h('div',{className:'paletteHead'},h('input',{className:'search',autoFocus:true,placeholder:'Search the ADE command surface…',value:query,onChange:e=>setQuery(e.target.value)})),h('div',{className:'commandList'},filtered.map(c=>h('div',{className:'command',key:c.intent,onClick:()=>{setPalette(false);execute(c)}},h('div',null,h('b',null,c.name||c.intent),h('small',null,' '+c.intent)),h('small',null,'RBAC '+(c.rbacLevel!=null?c.rbacLevel:'—'))))),filtered.length===0&&h('div',{className:'emptyState'},'No commands matched.'))),
+  auth&&h('div',{className:'auth',onMouseDown:e=>{if(e.target===e.currentTarget)setAuth(false)}},h('div',{className:'card authBox'},h('div',{className:'eyebrow'},'SERVER-AUTHORITATIVE SESSION'),h('h2',null,acctMode==='signin'?'Sign in to ADE':'Admin PIN'),h('p',null,acctMode==='signin'?'Workforce accounts authenticate with username and password. Step-up PIN is requested only for elevated operations.':'Legacy single-admin authentication using the configured runtime PIN.'),acctMode==='signin'?h('div',{className:'accountForm'},
+   h('label',{className:'fieldLabel'},'Username'),
+   h('input',{className:'authInput',type:'text',autoComplete:'username',value:signUser,onChange:e=>setSignUser(e.target.value),placeholder:'username'}),
+   h('label',{className:'fieldLabel'},'Password'),
+   h('input',{className:'authInput',type:'password',autoComplete:'current-password',value:signPass,onChange:e=>setSignPass(e.target.value),onKeyDown:e=>{if(e.key==='Enter')signIn()},placeholder:'••••••••'}),
+   h('div',{className:'authActions'},h('button',{className:'btn primary',onClick:signIn},'Sign In'),h('button',{className:'btn',onClick:()=>setAuth(false)},'Cancel')),
+   h('div',{className:'authAlt'},h('button',{className:'btn ghost sm',onClick:()=>setAcctMode('pin')},'Use admin PIN instead')))
+   :h('div',{className:'accountForm'},
+   h('label',{className:'fieldLabel'},'Admin PIN'),
+   h('input',{className:'authInput',type:'password',inputMode:'numeric',autoComplete:'off',value:pin,onChange:e=>setPin(e.target.value),onKeyDown:e=>{if(e.key==='Enter')pinLogin()},placeholder:'ADMIN PIN'}),
+   h('div',{className:'authActions'},h('button',{className:'btn primary',onClick:pinLogin},'Establish Session'),h('button',{className:'btn',onClick:()=>setAcctMode('signin')},'Back to Sign In'))))),
+  toast&&h('div',{className:'toast'},toast));
 }
 ReactDOM.createRoot(document.getElementById('root')).render(h(App));
 })();

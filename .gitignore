@@ -1,5 +1,13 @@
-﻿node_modules/
+node_modules/
 .env
 ade_audit_persistence.json
 ade_audit_persistence.ndjson
 .keys/
+data/admin-credential.json
+.ade_session_revocations.json
+data/snapshots/
+.ade_feedback_queue.json
+.ade_feedback_queue.json.*.tmp
+.ade_capability_store.json.*.tmp
+.vercel
+.env*
