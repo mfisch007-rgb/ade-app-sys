@@ -1,1 +1,15 @@
-* text=auto`n*.js text eol=lf`n*.json text eol=lf`n*.md text eol=lf`n*.html text eol=lf`n*.css text eol=lf
+* text=auto
+*.js text eol=lf
+*.json text eol=lf
+*.md text eol=lf
+*.html text eol=lf
+*.css text eol=lf
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.ico binary
+*.zip binary
+*.woff binary
+*.woff2 binary
