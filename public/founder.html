@@ -17,8 +17,9 @@
  --good:#00c853;--warn:#ffb300;--bad:#ff5252;
  --shadow:0 24px 64px rgba(0,0,0,.45);--shadowSm:0 12px 32px rgba(0,0,0,.3);
  --radius:16px;--radiusSm:12px;
- --page-gutter:16px;--content-max:1320px;
- --touch:44px;
+--page-gutter:16px;--content-max:1320px;
+  --section-gap:26px;--card-gap:16px;--panel-padding:20px;
+  --touch:44px;
 }
 *{box-sizing:border-box;min-width:0}html,body,#root{margin:0;width:100%;max-width:100%}
 html{scroll-behavior:smooth}
@@ -115,6 +116,20 @@ tr:hover td{background:rgba(212,168,67,.03)}
 td .actions{display:flex;gap:4px;flex-wrap:wrap}
 
 .toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);z-index:70;min-height:42px;padding:10px 18px;border-radius:var(--radiusSm);background:var(--gold);color:#0a0e16;font-size:12px;font-weight:600;box-shadow:var(--shadow);max-width:90vw;display:flex;align-items:center}
+.toast.ok{background:linear-gradient(135deg,#0c513f,#12906a);color:#fff}
+.toast.err{background:linear-gradient(135deg,#7c1830,#d93a4e);color:#fff}
+.authStatus{margin-top:12px;padding:11px 14px;border-radius:12px;font-size:12.5px;line-height:1.55;display:flex;align-items:flex-start;gap:8px}
+.authStatus.ok{background:rgba(0,200,83,.1);border:1px solid rgba(0,200,83,.4);color:var(--good)}
+.authStatus.err{background:rgba(255,82,82,.08);border:1px solid rgba(255,82,82,.38);color:var(--bad)}
+.authLoading{display:inline-flex;align-items:center;gap:8px;color:var(--muted);font-size:12px;margin-top:10px}
+.spinner{width:15px;height:15px;border-radius:50%;border:2.5px solid var(--line);border-top-color:var(--gold);animation:spin .7s linear infinite}@keyframes spin{to{transform:rotate(360deg)}}
+.formOk{color:var(--good);font-size:11.5px;margin-top:2px;font-weight:600;line-height:1.5}
+.fieldErr{color:var(--bad);font-size:11.5px;margin-top:2px;font-weight:600}
+.formHint{color:var(--muted);font-size:11px;line-height:1.5;margin:0}
+.passWrap{position:relative;display:flex;align-items:center}
+.passWrap input{width:100%;padding-right:64px}
+.passWrap .showToggle{position:absolute;right:6px;background:none;border:none;color:var(--gold);font-size:11.5px;font-weight:700;cursor:pointer;min-height:36px;padding:0 10px;letter-spacing:.04em}
+.passWrap .showToggle:hover{text-decoration:underline}
 
 .auth{position:fixed;inset:0;z-index:60;background:rgba(0,0,0,.7);backdrop-filter:blur(10px);display:flex;align-items:center;justify-content:center;padding:18px}
 .authBox{width:100%;max-width:400px;padding:28px}
@@ -198,7 +213,9 @@ function App(){
  const [inviteForm,setInviteForm]=useState({fullName:'',email:'',username:'',role:'OPERATOR',organization:'',supervisor:'',permissionProfile:'',expiry:'',message:''});
  const [inviteResult,setInviteResult]=useState(null);
  const [agents,setAgents]=useState([]);
- const [agentForm,setAgentForm]=useState({name:'',type:'AI',status:'ACTIVE',description:''});
+  const [agentForm,setAgentForm]=useState({name:'',type:'AI',status:'ACTIVE',description:''});
+  const [loginBusy,setLoginBusy]=useState(false);
+  const [loginMsg,setLoginMsg]=useState(null);
 
  const [pilotCandidates,setPilotCandidates]=useState([]);
  const [pilotRegistry,setPilotRegistry]=useState([]);
@@ -280,15 +297,18 @@ function App(){
   loadTab();
  },[tab,token,api,auditLimit]);
 
- const pinLogin=async(pin)=>{
-  try{
-   const r=await fetch('/api/v1/auth/pin',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({pin})});
-   const d=await r.json();
-   if(!r.ok)throw new Error(d.error||'Invalid PIN');
-   setToken(d.token);sessionStorage.setItem('ade_founder_token',d.token);
-   notify('FOUNDER SESSION AUTHENTICATED');
-  }catch(e){notify(e.message)}
- };
+  const pinLogin=async(pin)=>{
+   if(loginBusy)return;
+   setLoginMsg(null);setLoginBusy(true);
+   try{
+    const r=await fetch('/api/v1/auth/pin',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({pin})});
+    const d=await r.json();
+    if(!r.ok)throw new Error(d.error||'Invalid PIN');
+    setToken(d.token);sessionStorage.setItem('ade_founder_token',d.token);
+    setLoginBusy(false);setLoginMsg({type:'ok',text:'✓ FOUNDER SESSION AUTHENTICATED'});
+    notify('FOUNDER SESSION AUTHENTICATED');
+   }catch(e){setLoginBusy(false);setLoginMsg({type:'err',text:'✕ '+e.message});notify(e.message)}
+  };
 
  const logout=async()=>{
   try{if(token)await api('/api/v1/auth/revoke',{method:'POST'})}catch{}
@@ -341,12 +361,14 @@ function App(){
    h('div',{className:'eyebrow'},'AUTOMATED ALPHA ALIPH DIGITAL ECOSYSTEMS'),
    h('h2',{style:{margin:'14px 0 6px'}},'ADE FOUNDER COMMAND CENTER'),
    h('p',null,'Enter your founder/admin PIN to access the command center. All sessions are server-authoritative.'),
-   h('form',{onSubmit:e=>{e.preventDefault();const pin=e.target.elements[0].value;if(pin)pinLogin(pin)}},
-    h('input',{className:'authInput',name:'pin',type:'password',inputMode:'numeric',autoComplete:'off',placeholder:'••••••',maxLength:12}),
-    h('div',{className:'authActions'},h('button',{className:'btn primary',type:'submit',style:{width:'100%'}},'AUTHENTICATE'))
-   ),
+   h('form',{onSubmit:e=>{e.preventDefault();if(loginBusy)return;const pin=e.target.elements[0].value;if(pin)pinLogin(pin)}},
+     h('input',{className:'authInput',name:'pin',type:'password',inputMode:'numeric',autoComplete:'off',placeholder:'••••••',maxLength:12,disabled:loginBusy}),
+     h('div',{className:'authActions'},h('button',{className:'btn primary',type:'submit',style:{width:'100%'},disabled:loginBusy},loginBusy?'AUTHENTICATING…':'AUTHENTICATE')),
+     loginBusy&&h('div',{className:'authLoading'},h('span',{className:'spinner'}),'Authenticating against the ADE security boundary…'),
+     loginMsg&&h('div',{className:'authStatus '+(loginMsg.type==='ok'?'ok':'err')},loginMsg.text)
+    ),
     h('div',{style:{marginTop:20,paddingTop:16,borderTop:'1px solid var(--line)'}},
-     h('div',{className:'muted',style:{fontSize:10,letterSpacing:.14em,fontWeight:700}},'BUILDING AFRICAN DIGITAL BUSINESS OPERATIONAL SYSTEMS'),
+     h('div',{className:'muted',style:{fontSize:10,letterSpacing:0.14,fontWeight:700}},'BUILDING AFRICAN DIGITAL BUSINESS OPERATIONAL SYSTEMS'),
      h('div',{style:{fontSize:10,color:'var(--faint)',marginTop:6}},h('a',{href:'mailto:Automated_alpha_aliph@yahoo.com'},'Automated_alpha_aliph@yahoo.com')),
      h('div',{style:{fontSize:10,color:'var(--faint)',marginTop:3}},'WhatsApp + Calls: ',h('a',{href:'tel:+2347038272792'},'+234 (0) 7038272792'),' · Calls Only: ',h('a',{href:'tel:+2347058769114'},'+234 (0) 7058769114'))
     )
@@ -383,7 +405,7 @@ function App(){
       B('PLATFORM '+(runtime?.process?.platform||'—'),'muted')
      ),
      runtime?.kernel?.activeSubsystems?.length?h('div',{style:{marginTop:8}},
-      h('div',{style:{fontSize:10,fontWeight:800,letterSpacing:.12em,color:'var(--gold)',marginBottom:6}},'ACTIVE SUBSYSTEMS'),
+      h('div',{style:{fontSize:10,fontWeight:800,letterSpacing:0.12,color:'var(--gold)',marginBottom:6}},'ACTIVE SUBSYSTEMS'),
       h('div',{style:{display:'flex',flexWrap:'wrap',gap:6}},runtime.kernel.activeSubsystems.map(s=>B(typeof s==='string'?s:s.name||s.id||'—','blue')))
      ):null
     ):h('div',{className:'emptyState'},'Loading runtime data...')
@@ -427,7 +449,7 @@ function App(){
     ),
     inviteResult&&h('div',{className:'inviteResult'},
      h('div',{style:{fontWeight:700,color:'var(--good)',marginBottom:8}},'INVITATION CREATED'),
-     h('div',{style:{marginBottom:8,padding:'6px 10px',borderRadius:8,background:'rgba(255,179,0,.1)',border:'1px solid rgba(255,179,0,.3)',fontSize:10.5,color:'var(--warn)',fontWeight:700,letterSpacing:.06em}},'EMAIL DELIVERY NOT CONFIGURED — deliver the invitation link/code manually'),
+     h('div',{style:{marginBottom:8,padding:'6px 10px',borderRadius:8,background:'rgba(255,179,0,.1)',border:'1px solid rgba(255,179,0,.3)',fontSize:10.5,color:'var(--warn)',fontWeight:700,letterSpacing:0.06}},'EMAIL DELIVERY NOT CONFIGURED — deliver the invitation link/code manually'),
      inviteResult.invitationCode&&h('div',null,h('div',{className:'fieldLabel'},'INVITATION CODE'),h('div',{className:'code'},inviteResult.invitationCode)),
      inviteResult.invitationLink&&h('div',null,h('div',{className:'fieldLabel'},'INVITATION LINK'),h('div',{className:'code',style:{fontSize:11,wordBreak:'break-all'}},inviteResult.invitationLink)),
      inviteResult.person?.pin&&h('div',null,h('div',{className:'fieldLabel'},'ASSIGNED PIN'),h('div',{className:'code'},inviteResult.person.pin)),
@@ -511,10 +533,10 @@ function App(){
        h('td',null,B(c.status||c.stage||'PROSPECT','blue')),
        h('td',null,fmtDate(c.createdAt)),
        h('td',null,h('button',{className:'btn sm primary',onClick:()=>doApprovePilot(c.id||c.intakeId)},'✓ Approve'))
-      )))
-    ):h('div',{className:'emptyState'},'No pilot candidates at this time.')
-   )
-  ),
+)))
+     )):h('div',{className:'emptyState'},'No pilot candidates at this time.')
+    )
+   ),
   h('div',{className:'card'},h('div',{className:'panelTitle'},h('h3',null,'PILOT REGISTRY'),h('span',null,(pilotRegistry.length)+' RECORDS')),
    h('div',{className:'cardBody'},
     pilotRegistry.length?h('div',{className:'tableWrap'},
@@ -529,8 +551,8 @@ function App(){
         (!r.verdict||r.verdict==='PENDING')&&h('button',{className:'btn sm',onClick:()=>doVerdict(r.id||r.recordId,'PROMOTED')},'↑ Promote'),
         (!r.verdict||r.verdict==='PENDING')&&h('button',{className:'btn sm danger',onClick:()=>doVerdict(r.id||r.recordId,'ARCHIVED')},'↓ Archive')
        ))
-      )))
-    ):h('div',{className:'emptyState'},'No pilot records in the registry.')
+)))
+     )):h('div',{className:'emptyState'},'No pilot records in the registry.')
    )
   )
  );
@@ -575,11 +597,11 @@ function App(){
        h('td',null,p.country||'—'),
        h('td',null,p.contactPerson||p.contact||'—'),
        h('td',null,p.email||'—')
-      )))
-    ):h('div',{className:'emptyState'},'No partners registered.')
+)))
+     )):h('div',{className:'emptyState'},'No partners registered.')
+    )
    )
-  )
- );
+  );
 
  /* ── INTEGRATIONS ── */
  const TAB_INTEGRATIONS=()=>h('div',{className:'stack'},
@@ -611,8 +633,8 @@ function App(){
        h('td',{style:{maxWidth:200,overflow:'hidden',textOverflow:'ellipsis'}},c.baseUrl||'—'),
        h('td',null,B(c.status||'CONFIGURED',c.status==='CONNECTED'?'good':'muted')),
        h('td',null,h('button',{className:'btn sm',onClick:()=>doTestConn(c.id)},connTest?.id===c.id&&connTest?.testing?'Testing...':'⚡ Test'))
-      )))
-    ):h('div',{className:'emptyState'},'No connections configured.'),
+)))
+     )):h('div',{className:'emptyState'},'No connections configured.'),
     connTest?.result&&!connTest?.testing?h('div',{className:'card',style:{marginTop:12}},
      h('div',{className:'panelTitle'},h('h3',null,'TEST RESULT')),
      h('div',{className:'cardBody'},
@@ -691,8 +713,8 @@ function App(){
        h('td',null,B(m.truthClassification||m.classification||'—',m.truthClassification==='LIVE'?'good':'warn')),
        h('td',null,B(m.status||'PENDING','muted')),
        h('td',null,fmtDate(m.createdAt))
-      )))
-    ):h('div',{className:'emptyState'},'No media requests.')
+)))
+     )):h('div',{className:'emptyState'},'No media requests.')
    )
   )
  );
@@ -745,8 +767,8 @@ function App(){
        h('td',null,B(e.payload?.type||e.type||e.topic||'—','blue')),
        h('td',{style:{color:'var(--ink)',fontWeight:600}},e.topic||e.type||'—'),
        h('td',{style:{fontSize:11,color:'var(--faint)',maxWidth:300,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}},e.message||e.payload?.message||JSON.stringify(e.payload||{}).slice(0,120))
-      )))
-    ):h('div',{className:'emptyState'},'No audit entries found.')
+)))
+     )):h('div',{className:'emptyState'},'No audit entries found.')
    )
   )
  );
@@ -774,12 +796,12 @@ function App(){
    (tabContent[tab]||TAB_OVERVIEW)()
   ),
    h('footer',{style:{marginTop:'auto',borderTop:'1px solid var(--line)',padding:'24px 0 20px',textAlign:'center'}},
-    h('div',{style:{fontSize:10,color:'var(--faint)',letterSpacing:.12em,fontWeight:700}},'AUTOMATED ALPHA ALIPH DIGITAL ECOSYSTEMS'),
+    h('div',{style:{fontSize:10,color:'var(--faint)',letterSpacing:0.12,fontWeight:700}},'AUTOMATED ALPHA ALIPH DIGITAL ECOSYSTEMS'),
     h('div',{style:{fontSize:10,color:'var(--faint)',marginTop:4}},h('a',{href:'mailto:Automated_alpha_aliph@yahoo.com',style:{color:'var(--muted)'}},'Automated_alpha_aliph@yahoo.com')),
     h('div',{style:{fontSize:10,color:'var(--faint)',marginTop:3}},'WhatsApp + Calls: ',h('a',{href:'tel:+2347038272792',style:{color:'var(--muted)'}},'+234 (0) 7038272792'),' · Calls Only: ',h('a',{href:'tel:+2347058769114',style:{color:'var(--muted)'}},'+234 (0) 7058769114')),
-    h('div',{style:{fontSize:9,color:'var(--faint)',marginTop:4,letterSpacing:.08em}},'© '+new Date().getFullYear()+' ADE FOUNDER COMMAND CENTER · ALL RIGHTS RESERVED')
+    h('div',{style:{fontSize:9,color:'var(--faint)',marginTop:4,letterSpacing:0.08}},'© '+new Date().getFullYear()+' ADE FOUNDER COMMAND CENTER · ALL RIGHTS RESERVED')
    ),
-  toast&&h('div',{className:'toast'},toast)
+  toast&&h('div',{className:'toast'+(toast.indexOf('✓')===0?' ok':toast.indexOf('✕')===0?' err':'')},toast)
  );
 }
 ReactDOM.createRoot(document.getElementById('root')).render(h(App));

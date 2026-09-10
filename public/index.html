@@ -16,7 +16,10 @@
  --good:#12906a;--warn:#c58a16;--bad:#d93a4e;
  --shadow:0 22px 60px rgba(6,26,64,.12);--shadowSm:0 10px 30px rgba(6,26,64,.08);
  --radius:18px;--radiusSm:12px;
- --page-gutter:16px;--content-max:1240px;
+ --gold1:#b8860b;--gold2:#daa520;--gold3:#ffd700;
+ --page-gutter:32px;--content-max:1240px;
+ --header-height:92px;--nav-height:48px;
+ --section-gap:26px;--card-gap:16px;--panel-padding:20px;
  --touch:44px;
 }
 *{box-sizing:border-box;min-width:0}html,body,#root{margin:0;width:100%;max-width:100%}
@@ -39,21 +42,36 @@ a{color:var(--royal)}
 .iconBtn{all:unset;box-sizing:border-box;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;min-height:var(--touch);min-width:44px;padding:8px 12px;border-radius:12px;border:1px solid var(--line);background:var(--surface);color:var(--muted);font-size:15px;transition:.18s}
 .iconBtn:hover{border-color:var(--cyan);color:var(--royal)}
 /* ── Header ────────────────────────────────── */
-.top{position:sticky;top:0;z-index:30;width:100%;background:rgba(245,242,235,.88);backdrop-filter:blur(18px);border-bottom:1px solid var(--lineSoft);transition:box-shadow .2s}
-.top.scrolled{box-shadow:0 4px 20px rgba(6,26,64,.08)}
-.topInner{width:min(calc(100% - 2*var(--page-gutter)),var(--content-max));margin:0 auto;display:flex;align-items:center;gap:14px;padding:10px 0;flex-wrap:nowrap}
-.brand{display:flex;align-items:center;gap:10px;flex:0 0 auto}
-.brand img{width:40px;height:40px;object-fit:contain}
-.brandName strong{display:block;font-size:14.5px;letter-spacing:.11em;color:var(--ocean);line-height:1.15}
-.brandName span{display:block;font-size:9.5px;color:var(--muted);letter-spacing:.12em;margin-top:2px;text-transform:uppercase}
-.topNav{display:flex;align-items:center;gap:2px;flex:1 1 auto;justify-content:flex-end;flex-wrap:nowrap;overflow-x:auto;-ms-overflow-style:none;scrollbar-width:none}
+.top{position:sticky;top:0;z-index:30;width:100%;background:rgba(245,242,235,.9);backdrop-filter:blur(18px);border-bottom:1px solid var(--lineSoft);transition:box-shadow .2s;box-shadow:0 10px 34px rgba(6,26,64,.06)}
+.top.scrolled{box-shadow:0 6px 26px rgba(6,26,64,.10)}
+.topInner{width:min(calc(100% - 2*var(--page-gutter)),var(--content-max));margin:0 auto;display:flex;align-items:center;gap:16px;padding:12px 0 8px;flex-wrap:nowrap;min-width:0}
+.brand{display:flex;align-items:center;gap:12px;flex:0 0 auto;min-width:0}
+.brand img{width:clamp(50px,6.4vw,80px);height:clamp(50px,6.4vw,80px);object-fit:contain;transition:.22s}
+.top.scrolled .brand img{width:clamp(46px,5vw,60px);height:clamp(46px,5vw,60px)}
+.brandName strong{display:block;font-size:clamp(13px,1.4vw,15.5px);letter-spacing:.11em;color:var(--ocean);line-height:1.15;white-space:nowrap}
+.brandName span{display:block;font-size:9.5px;color:var(--muted);letter-spacing:.12em;margin-top:3px;text-transform:uppercase;white-space:nowrap}
+.brand-name{display:block;font-size:8.5px;color:var(--faint);letter-spacing:.1em;margin-top:2px;text-transform:uppercase;white-space:nowrap}
+.brandName strong{display:block}
+.topIdentity{display:flex;flex-direction:column;gap:3px;flex:0 1 auto;min-width:0;padding:0 4px;border-left:1px solid var(--lineSoft);padding-left:16px}
+.topIdentity .idMain{font-size:clamp(8.5px,1vw,10.5px);font-weight:900;letter-spacing:.22em;text-transform:uppercase;background:linear-gradient(135deg,#b8860b 0%,#daa520 18%,#ffd700 36%,#daa520 54%,#b8860b 72%,#8b6914 88%,#b8860b 100%);background-size:200% 100%;-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;line-height:1.4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.topIdentity .idSub{font-size:clamp(7.5px,.86vw,9px);font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);line-height:1.4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.topMotto{display:flex;justify-content:center;align-items:center;padding:7px 0;width:100%;border-top:1px solid var(--lineSoft);background:linear-gradient(180deg,rgba(255,255,255,.5),rgba(249,247,242,.9));min-height:var(--nav-height)}
+.topMottoInner{width:min(calc(100% - 2*var(--page-gutter)),var(--content-max));margin:0 auto;display:flex;align-items:center;gap:12px;flex-wrap:nowrap;min-width:0}
+.topMottoLine{font-size:clamp(10px,1.1vw,13px);font-weight:750;letter-spacing:.14em;color:var(--ocean);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:0 0 auto}
+.topMottoLine em{color:var(--coral);font-style:normal}
+.topNav{display:flex;align-items:center;gap:2px;flex:1 1 auto;justify-content:flex-end;flex-wrap:nowrap;overflow-x:auto;-ms-overflow-style:none;scrollbar-width:none;min-width:0}
 .topNav::-webkit-scrollbar{display:none}
-.topNav button{all:unset;cursor:pointer;min-height:38px;padding:7px 10px;border-radius:11px;color:#3c4d68;font-size:12.5px;font-weight:600;border:1px solid transparent;transition:.16s;white-space:nowrap;flex:none}
+.topNav button{all:unset;cursor:pointer;min-height:44px;padding:7px 10px;border-radius:11px;color:#3c4d68;font-size:12.5px;font-weight:600;border:1px solid transparent;transition:.16s;white-space:nowrap;flex:none}
 .topNav button:hover{color:var(--ocean);background:rgba(255,255,255,.7)}
 .topNav button.active{color:var(--royal);background:#fff;border-color:var(--lineSoft);box-shadow:var(--shadowSm)}
 .topNav button.ops{color:var(--coral)}
 .topNav button.ops.active{color:#fff;background:linear-gradient(135deg,var(--coral),#f07a8c);border-color:transparent}
 .topRight{display:flex;align-items:center;gap:8px;flex:0 0 auto;margin-left:auto}
+.headerContact{display:flex;flex-direction:column;gap:4px;flex:0 0 auto;padding:2px 8px;border-left:1px solid var(--lineSoft);min-width:0}
+.headerContact a,.headerContact span{font-size:11px;color:var(--muted);text-decoration:none;white-space:nowrap;line-height:1.4}
+.headerContact a:hover{color:var(--royal)}
+.headerContact .contact-label{color:var(--faint);font-size:8.5px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;margin-right:2px}
+.headerContact .contact-row{display:flex;align-items:center;gap:6px;min-height:22px}
 .pill{display:inline-flex;align-items:center;gap:6px;min-height:30px;padding:5px 10px;border-radius:99px;border:1px solid var(--line);background:var(--surface);font-size:10px;font-weight:750;letter-spacing:.06em;color:var(--muted);white-space:nowrap}
 .pill .dot{width:7px;height:7px;border-radius:50%;background:var(--warn);box-shadow:0 0 10px var(--warn);flex:none}
 .pill.live .dot{background:var(--good);box-shadow:0 0 10px var(--good)}
@@ -74,18 +92,47 @@ a{color:var(--royal)}
 .mobileMenu button:hover,.mobileMenu button.active{color:var(--royal);background:rgba(27,95,220,.07);border-color:var(--lineSoft)}
 .mobileMenu button.ops{color:var(--coral)}
 .mobileMenu .sub{font-size:11px;color:var(--faint);padding:12px 12px 4px;letter-spacing:.16em;font-weight:800}
+.mobileMenu .identity-line{font-size:10.5px;color:var(--muted);padding:10px 12px;letter-spacing:.14em;font-weight:800;text-transform:uppercase;background:linear-gradient(135deg,#b8860b,#daa520 40%,#ffd700 55%,#b8860b);background-size:200% 100%;-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;line-height:1.4}
+.mobileMenu .contact-line{padding:10px 12px 2px;font-size:12px;color:var(--muted);display:grid;gap:4px}
+.mobileMenu .contact-line a{color:var(--royal)}
 .mobileMenu a{color:var(--royal);text-decoration:none;min-height:48px;padding:13px 12px;font-size:14.5px;border-radius:12px;font-weight:600}
 /* ── Shared ────────────────────────────────── */
-.shell{width:min(calc(100% - 2*var(--page-gutter)),var(--content-max));margin:0 auto;padding:26px 0 60px;flex:1}
-.card{border:1px solid var(--line);border-radius:var(--radius);background:linear-gradient(150deg,rgba(255,255,255,.94),rgba(255,255,255,.72));box-shadow:var(--shadowSm);backdrop-filter:blur(10px)}
-.card.pad{padding:20px}
+.shell{width:min(calc(100% - 2*var(--page-gutter)),var(--content-max));margin:0 auto;padding:var(--section-gap) 0 60px;flex:1}
+.card{border:1px solid var(--line);border-radius:var(--radius);background:linear-gradient(150deg,rgba(255,255,255,.94),rgba(255,255,255,.72));box-shadow:var(--shadowSm);backdrop-filter:blur(10px);min-width:0;max-width:100%}
+.card.pad{padding:var(--panel-padding)}
 .panelTitle{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:15px 18px;border-bottom:1px solid var(--lineSoft);flex-wrap:wrap}
 .panelTitle h3{margin:0;font-size:12.5px;letter-spacing:.15em;color:var(--ocean)}
 .panelTitle span{font-size:10px;color:var(--muted);letter-spacing:.12em}
 .muted{color:var(--muted)}
 .eyebrow{color:var(--royal);font-size:11px;font-weight:800;letter-spacing:.26em;text-transform:uppercase}
 .cardBody{padding:18px}
-.stack{display:grid;gap:22px}
+.stack{display:grid;gap:var(--section-gap)}
+.tableWrap{overflow-x:auto;max-width:100%;padding:0 18px 14px;margin-bottom:2px}
+.tableWrap table{min-width:640px;width:100%;border-collapse:collapse;font-size:12.5px}
+.tableWrap th{text-align:left;padding:9px 10px;color:var(--muted);font-size:10px;letter-spacing:.1em;text-transform:uppercase;border-bottom:1px solid var(--line)}
+.tableWrap td{padding:10px;border-bottom:1px solid var(--lineSoft);color:#3c4d68;white-space:nowrap}
+/* community + feedback: two distinct cards, side by side (1 col <=720px) */
+.interactGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--card-gap);align-items:stretch}
+.interactGrid .card{min-width:0;max-width:100%}
+/* auth + credential feedback */
+.authStatus{margin-top:12px;padding:11px 14px;border-radius:12px;font-size:12.5px;line-height:1.55;display:flex;align-items:flex-start;gap:8px}
+.authStatus.ok{background:rgba(18,144,106,.1);border:1px solid rgba(18,144,106,.4);color:var(--good)}
+.authStatus.err{background:rgba(217,58,78,.08);border:1px solid rgba(217,58,78,.38);color:var(--bad)}
+.authLoading{display:inline-flex;align-items:center;gap:8px;color:var(--muted);font-size:12px;margin-top:10px}
+.spinner{width:15px;height:15px;border-radius:50%;border:2.5px solid var(--line);border-top-color:var(--royal);animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.toast.ok{background:linear-gradient(135deg,#0c513f,#12906a);color:#fff}
+.toast.err{background:linear-gradient(135deg,#7c1830,#d93a4e);color:#fff}
+/* credential form groups */
+.formGroup{display:grid;gap:10px;padding-bottom:14px;border-bottom:1px solid var(--lineSoft)}
+.formGroup:last-child{padding-bottom:0;border-bottom:none}
+.passWrap{position:relative;display:flex;align-items:center}
+.passWrap input{width:100%;padding-right:64px}
+.passWrap .showToggle{position:absolute;right:6px;background:none;border:none;color:var(--royal);font-size:11.5px;font-weight:700;cursor:pointer;min-height:36px;padding:0 10px;letter-spacing:.04em}
+.passWrap .showToggle:hover{text-decoration:underline}
+.fieldErr{color:var(--bad);font-size:11.5px;margin-top:2px;font-weight:600}
+.formHint{color:var(--muted);font-size:11px;line-height:1.5;margin:0}
+.formOk{color:var(--good);font-size:11.5px;margin-top:2px;font-weight:600;line-height:1.5}
 /* ── Home hero ──────────────────────────────── */
 .hero{display:grid;grid-template-columns:minmax(0,1.45fr) minmax(0,.55fr);gap:20px}
 .heroMain{padding:clamp(22px,4vw,44px);position:relative;overflow:hidden}
@@ -218,13 +265,17 @@ a{color:var(--royal)}
 .gate .orbMini{width:64px;height:64px;border-radius:20px;display:grid;place-items:center;color:#fff;font-weight:900;font-size:16px;background:linear-gradient(135deg,var(--royal),var(--blue));box-shadow:0 10px 30px rgba(10,61,145,.3);margin-bottom:16px}
 /* footer */
 .footer{margin-top:auto;border-top:1px solid var(--lineSoft);background:linear-gradient(180deg,rgba(255,255,255,.55),rgba(249,247,242,.95))}
-.footerInner{width:min(calc(100% - 2*var(--page-gutter)),var(--content-max));margin:0 auto;display:grid;grid-template-columns:1.3fr repeat(3,minmax(0,1fr));gap:24px;padding:30px 0 10px}
+.footerInner{width:min(calc(100% - 2*var(--page-gutter)),var(--content-max));margin:0 auto;display:grid;grid-template-columns:1.3fr repeat(3,minmax(0,1fr));gap:26px;padding:34px 0 14px}
 .footer .fbrand{display:flex;align-items:center;gap:10px;margin-bottom:10px}
-.footer .fbrand img{width:36px;height:36px;object-fit:contain}
+.footer .fbrand img{width:40px;height:40px;object-fit:contain}
 .footer h5{margin:0 0 8px;font-size:10px;letter-spacing:.16em;color:var(--ocean);text-transform:uppercase}
 .footer a,.footer .flink{color:var(--muted);display:block;min-height:30px;padding:5px 0;font-size:12.5px;cursor:pointer;text-decoration:none;background:none;border:none;line-height:1.4}
 .footer a:hover,.footer .flink:hover{color:var(--royal)}
-.footerLegal{width:min(calc(100% - 2*var(--page-gutter)),var(--content-max));margin:18px auto 0;padding:14px 0 20px;border-top:1px solid var(--lineSoft);color:var(--faint);font-size:11px;line-height:1.7}
+.footerLegal{width:min(calc(100% - 2*var(--page-gutter)),var(--content-max));margin:16px auto 0;padding:14px 0 18px;border-top:1px solid var(--lineSoft);color:var(--faint);font-size:11px;line-height:1.7}
+.footerIdentity{width:min(calc(100% - 2*var(--page-gutter)),var(--content-max));margin:0 auto;padding:16px 0 26px;text-align:center;border-top:1px solid var(--lineSoft)}
+.footerIdentity .fi-main{font-size:clamp(10px,1.4vw,13px);font-weight:900;letter-spacing:.28em;text-transform:uppercase;background:linear-gradient(135deg,#b8860b 0%,#daa520 18%,#ffd700 36%,#daa520 54%,#b8860b 72%,#8b6914 88%,#b8860b 100%);background-size:200% 100%;-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;line-height:1.5}
+.footerIdentity .fi-sub{font-size:clamp(8.5px,1vw,10.5px);font-weight:700;letter-spacing:.22em;text-transform:uppercase;background:linear-gradient(135deg,#8b6914,#b8860b 30%,#daa520 50%,#b8860b 70%,#8b6914);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;line-height:1.5;margin-top:6px}
+.footerIdentity .fi-ade{font-size:clamp(18px,2.6vw,26px);font-weight:900;letter-spacing:.35em;background:linear-gradient(135deg,#8b6914 0%,#b8860b 15%,#daa520 30%,#ffd700 45%,#daa520 60%,#b8860b 75%,#8b6914 90%,#6b5210 100%);background-size:200% 100%;-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;margin-top:8px;text-align:center;animation:goldShine 6s ease-in-out infinite}
 .motto{color:var(--ocean);font-weight:750;font-size:13px;margin:0}
 .motto em{color:var(--coral);font-style:normal}
 /* overlays */
@@ -275,9 +326,12 @@ a{color:var(--royal)}
 .newsItem .newsDate{font-size:10px;color:var(--faint);margin-top:6px;letter-spacing:.06em}
 .toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);z-index:70;min-height:44px;padding:11px 18px;border-radius:13px;background:var(--ocean);color:#fff;font-size:13px;box-shadow:var(--shadow);max-width:92vw;display:flex;align-items:center}
 /* responsive math */
-@media(max-width:1023px){
- :root{--page-gutter:24px}
- .topNav{justify-content:flex-start}
+@media(max-width:1180px){
+ .headerContact{display:none}
+}
+@media(max-width:1024px){
+ :root{--page-gutter:24px;--section-gap:22px}
+ .topIdentity .idSub{display:none}
  .hero{grid-template-columns:1fr}
  .orb{min-height:160px}
  .footerInner{grid-template-columns:1.2fr repeat(3,minmax(0,1fr));gap:20px}
@@ -287,14 +341,18 @@ a{color:var(--royal)}
  .topNav{display:none}
  .hamburger{display:inline-flex}
  .topRight .pill.kern{display:none}
- .footerInner{grid-template-columns:1fr 1fr;gap:20px}
+ .topMottoLine{flex:1 1 auto;text-align:center}
+ .footerInner{grid-template-columns:1fr 1fr;gap:18px}
 }
-@media(max-width:719px){
+@media(max-width:720px){
+ .topIdentity{display:none}
  .heroStats{grid-template-columns:repeat(2,minmax(0,1fr))}
  .metricRow{margin-top:0}
  .topRight .btn span.hideS{display:none}
  .topRight .btn span.hideL{display:inline;font-size:15px;line-height:1}
  .topInner{gap:8px}
+ .interactGrid{grid-template-columns:minmax(0,1fr)}
+ .topMottoLine{white-space:normal;text-align:center;letter-spacing:.1em;font-size:11px;line-height:1.5;overflow:visible}
  .footerInner{grid-template-columns:1fr;gap:18px}
 }
 @media(max-width:520px){
@@ -303,27 +361,16 @@ a{color:var(--royal)}
  .brandName span{display:none}
  .topRight .pill.badgeWrap{display:none!important}
  .footerInner{padding:24px 0 8px}
- .ade-motto .brand-ade{letter-spacing:.2em}
+ .brandName strong{white-space:normal;letter-spacing:.08em}
 }
-@media(prefers-reduced-motion:reduce){.suggestion-text{animation:none!important;opacity:.7}.orbCore{animation:none}.html{scroll-behavior:auto}}
-/* ── Premium ADE Brand Identity ────────────── */
-.motto-bar{border-top:1px solid var(--lineSoft);background:linear-gradient(180deg,rgba(245,242,235,.5),rgba(249,247,242,.95));padding:22px 0}
-.motto-bar-inner{width:min(calc(100% - 2*var(--page-gutter)),var(--content-max));margin:0 auto;display:flex;flex-direction:column;align-items:center;gap:10px}
-.ade-motto{display:flex;flex-direction:column;align-items:center;gap:6px;padding:10px 0;text-align:center;width:100%}
-.ade-motto .main-text{font-size:clamp(10px,1.5vw,14px);font-weight:900;letter-spacing:.28em;text-transform:uppercase;background:linear-gradient(135deg,#b8860b 0%,#daa520 18%,#ffd700 36%,#daa520 54%,#b8860b 72%,#8b6914 88%,#b8860b 100%);background-size:200% 100%;-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;filter:drop-shadow(0 1px 2px rgba(139,105,20,.25));line-height:1.5;text-align:center}
-.ade-motto .sub-text{font-size:clamp(9px,1.2vw,12px);font-weight:700;letter-spacing:.22em;text-transform:uppercase;background:linear-gradient(135deg,#8b6914,#b8860b 30%,#daa520 50%,#b8860b 70%,#8b6914);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;line-height:1.5;text-align:center}
-.ade-motto .brand-ade{font-size:clamp(20px,3.2vw,30px);font-weight:900;letter-spacing:.35em;background:linear-gradient(135deg,#8b6914 0%,#b8860b 15%,#daa520 30%,#ffd700 45%,#daa520 60%,#b8860b 75%,#8b6914 90%,#6b5210 100%);background-size:200% 100%;-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;filter:drop-shadow(0 2px 4px rgba(139,105,20,.3));text-align:center;animation:goldShine 6s ease-in-out infinite}
-@keyframes goldShine{0%,100%{background-position:0% 50%}50%{background-position:100% 50%}}
-.motto-contact{display:flex;align-items:center;gap:12px;flex-wrap:wrap;justify-content:center;padding:6px 0}
-.motto-contact a,.motto-contact span{font-size:11px;color:var(--muted);text-decoration:none;letter-spacing:.03em;white-space:nowrap}
-.motto-contact a:hover{color:var(--royal)}
-.motto-contact .contact-label{font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--faint);margin-right:2px}
+@media(prefers-reduced-motion:reduce){.suggestion-text{animation:none!important;opacity:.7}.orbCore{animation:none}.html{scroll-behavior:auto}@keyframes goldShine{none}}
+/* ── Contact + footer blocks ───────────────── */
 .header-contact{display:none}
 .footer-contact{display:flex;flex-direction:column;gap:6px;margin-top:8px;padding-top:8px;border-top:1px solid var(--lineSoft)}
 .footer-contact a,.footer-contact span{font-size:12px;color:var(--muted);text-decoration:none}
 .footer-contact a:hover{color:var(--royal)}
 .footer-contact .contact-label{font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--faint);margin-right:2px}
-@media(max-width:719px){.ade-motto .main-text{letter-spacing:.14em}.ade-motto .sub-text{letter-spacing:.12em}.ade-motto .brand-ade{letter-spacing:.2em}.motto-contact{flex-direction:column;gap:6px}.footer-contact{padding-top:6px}}
+@media(max-width:720px){.footer-contact{padding-top:6px}}
 </style></head>
 <body><div id="root"></div>
 <script>
@@ -354,7 +401,11 @@ function Metric({label,value,sub,cls}){
 function App(){
  const [health,setHealth]=useState(null),[caps,setCaps]=useState([]),[events,setEvents]=useState([]),[runtime,setRuntime]=useState(null),[metrics,setMetrics]=useState(null),[products,setProducts]=useState([]),[providers,setProviders]=useState([]),[mediaStats,setMediaStats]=useState(null),[mediaManifest,setMediaManifest]=useState(null),[procarta,setProcarta]=useState(null),[query,setQuery]=useState(""),[palette,setPalette]=useState(false),[auth,setAuth]=useState(false),[pin,setPin]=useState(""),[token,setToken]=useState(null),[toast,setToast]=useState(""),[section,setSection]=useState("Home"),[menuOpen,setMenuOpen]=useState(false),[sse,setSse]=useState('connecting');
  const [edition,setEdition]=useState(null),[scenarios,setScenarios]=useState([]),[demoResult,setDemoResult]=useState(null),[demoRunning,setDemoRunning]=useState(false),[feedbackCat,setFeedbackCat]=useState("OTHER"),[feedbackMsg,setFeedbackMsg]=useState(""),[feedbackFeat,setFeedbackFeat]=useState(""),[intakeKind,setIntakeKind]=useState("USE_CASE"),[intakeOrg,setIntakeOrg]=useState(""),[intakeDesc,setIntakeDesc]=useState(""),[pOrg,setPOrg]=useState(""),[pDesc,setPDesc]=useState(""),[pBusy,setPBusy]=useState(false),[pResult,setPResult]=useState(null);
- const [account,setAccount]=useState(null),[announcements,setAnnouncements]=useState([]),[acctMode,setAcctMode]=useState("signin"),[signUser,setSignUser]=useState(""),[signPass,setSignPass]=useState(""),[curPass,setCurPass]=useState(""),[newPass,setNewPass]=useState(""),[curPassPin,setCurPassPin]=useState(""),[newPin,setNewPin]=useState(""),[recoveryCodes,setRecoveryCodes]=useState([]);
+ const [account,setAccount]=useState(null),[announcements,setAnnouncements]=useState([]),[acctMode,setAcctMode]=useState("signin"),[signUser,setSignUser]=useState(""),[signPass,setSignPass]=useState(""),[curPass,setCurPass]=useState(""),[newPass,setNewPass]=useState(""),[newPassConfirm,setNewPassConfirm]=useState(""),[curPassPin,setCurPassPin]=useState(""),[newPin,setNewPin]=useState(""),[newPinConfirm,setNewPinConfirm]=useState(""),[recoveryCodes,setRecoveryCodes]=useState([]);
+  const [authBusy,setAuthBusy]=useState(false),[authMsg,setAuthMsg]=useState(null),[pwErr,setPwErr]=useState(""),[pwMsg,setPwMsg]=useState(""),[pinErr,setPinErr]=useState(""),[pinMsg,setPinMsg]=useState(""),[recMsg,setRecMsg]=useState(""),[elevMsg,setElevMsg]=useState("");
+  const [showPw,setShowPw]=useState({});
+  const tog=k=>setShowPw(s=>({...s,[k]:!s[k]}));
+  const pwInput=(k,val,on,ph,ac)=>{const text=showPw[k];return h('div',{className:'passWrap'},h('input',{className:'authInput',type:text?'text':'password',autoComplete:ac||'new-password',value:val,onChange:e=>on(e.target.value),placeholder:ph||'••••••••'}),h('button',{className:'showToggle',type:'button',onClick:()=>tog(k),'aria-label':text?'Hide':'Show'},text?'HIDE':'SHOW'))};
   const headerRef=React.useRef(null);
   useEffect(()=>{const onScroll=()=>{if(headerRef.current){headerRef.current.classList.toggle('scrolled',window.scrollY>8)}};window.addEventListener('scroll',onScroll,{passive:true});return()=>window.removeEventListener('scroll',onScroll)},[]);
  const notify=m=>{setToast(m);setTimeout(()=>setToast(""),2800)};
@@ -369,14 +420,33 @@ const [a,b,c,d,e,f,g,s,h2,i,m,n]=await Promise.all([j('/api/v1/health'),j('/api/
  useEffect(()=>{const f=e=>{if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='k'){e.preventDefault();if(!token){setAuth(true);notify('Authorize to unlock the command palette.')}else{setPalette(v=>!v)}}if(e.key==='Escape'){setPalette(false);setAuth(false);setMenuOpen(false)}};addEventListener('keydown',f);return()=>removeEventListener('keydown',f)},[token]);
  const filtered=useMemo(()=>caps.filter(c=>!query||[c.intent,c.name,c.description,c.sourceModule].join(' ').toLowerCase().includes(query.toLowerCase())),[caps,query]);
  const execute=async cap=>{try{if(cap.rbacLevel>0&&!token){setAuth(true);return}const r=await api('/api/command/execute',{method:'POST',body:JSON.stringify({action:cap.intent,payload:{}})});notify(r.success?'Command accepted by kernel':'Kernel rejected command')}catch(e){notify(e.message)}};
- const loadAccount=async(tok)=>{try{const r=await api('/api/v1/account/session',{method:'GET',headers:{Authorization:'Bearer '+(tok||token)}});setAccount(r);return r}catch(e){setAccount(null);return null}};
-  const signIn=async()=>{try{const r=await api('/api/v1/account/login',{method:'POST',body:JSON.stringify({username:signUser,password:signPass})});setToken(r.token);await loadAccount(r.token);setAuth(false);setAcctMode('signin');setMenuOpen(false);notify('Welcome, '+r.person.username);setSection(prev=>prev)}catch(e){notify(e.message)}};
-  const pinLogin=async()=>{try{const r=await api('/api/v1/auth/pin',{method:'POST',body:JSON.stringify({pin})});setToken(r.token);await loadAccount(r.token);setAuth(false);setPin('');setMenuOpen(false);notify('Admin session established')}catch(e){notify(e.message)}};
-  const elevate=async()=>{try{const r=await api('/api/v1/account/pin',{method:'POST',body:JSON.stringify({pin})});setToken(r.token);setPin('');await loadAccount(r.token);setAuth(false);notify('Step-up PIN accepted — elevated session active')}catch(e){notify(e.message)}};
-  const changePasswordUI=async()=>{try{await api('/api/v1/account/change-password',{method:'POST',body:JSON.stringify({currentPassword:curPass,newPassword:newPass})});setCurPass('');setNewPass('');notify('Password updated')}catch(e){notify(e.message)}};
-  const changePinUI=async()=>{try{await api('/api/v1/account/change-pin',{method:'POST',body:JSON.stringify({currentPassword:curPassPin,newPin})});setCurPassPin('');setNewPin('');notify('Authorization PIN updated')}catch(e){notify(e.message)}};
-  const rotateCodes=async()=>{try{const r=await api('/api/v1/account/recovery-codes/rotate',{method:'POST',body:'{}'});setRecoveryCodes(r.codes||[]);notify('New recovery codes generated — store them safely')}catch(e){notify(e.message)}};
- const logout=async()=>{try{if(token)await api('/api/v1/account/logout',{method:'POST'});}catch{}setToken(null);setAccount(null);setRecoveryCodes([]);notify('Session ended');setMenuOpen(false);setSection(s=>((s==='Command Center'||s==='Account')?'Home':s))};
+const loadAccount=async(tok)=>{try{const r=await api('/api/v1/account/session',{method:'GET',headers:{Authorization:'Bearer '+(tok||token)}});setAccount(r);return r}catch(e){setAccount(null);return null}};
+  const flashAuth=(type,text)=>{
+   const m={type:text||''};
+   setAuthMsg({type,text});
+   setAuthBusy(false);
+   notify(text);
+   if(type==='ok')setTimeout(()=>setAuthMsg(null),3400);
+  };
+   const signIn=async()=>{if(authBusy)return;setAuthMsg(null);setAuthBusy(true);try{const r=await api('/api/v1/account/login',{method:'POST',body:JSON.stringify({username:signUser,password:signPass})});setToken(r.token);await loadAccount(r.token);setAuth(false);setAcctMode('signin');setMenuOpen(false);setAuthBusy(false);flashAuth('ok','✓ Authentication successful')}catch(e){setAuthBusy(false);setAuthMsg({type:'err',text:'✕ Invalid credentials — check and retry.'});notify(e.message)}};
+   const pinLogin=async()=>{if(authBusy)return;setAuthMsg(null);setAuthBusy(true);try{const r=await api('/api/v1/auth/pin',{method:'POST',body:JSON.stringify({pin})});setToken(r.token);await loadAccount(r.token);setAuth(false);setPin('');setMenuOpen(false);setAuthBusy(false);flashAuth('ok','✓ Authentication successful / Founder session authorized.')}catch(e){setAuthBusy(false);const bad=e.message&&/invalid|incorrect|not provisioned|unauthorized/i.test(e.message);setAuthMsg({type:'err',text:bad?'✕ Invalid PIN — check credentials and retry.':'✕ '+e.message});notify(e.message)}};
+   const elevate=async()=>{if(authBusy)return;setElevMsg("");setAuthBusy(true);try{const r=await api('/api/v1/account/pin',{method:'POST',body:JSON.stringify({pin})});setToken(r.token);setPin('');await loadAccount(r.token);setAuthBusy(false);setElevMsg('✓ Session elevated — PIN verified successfully.');notify('Step-up PIN accepted — elevated session active')}catch(e){setAuthBusy(false);setElevMsg('✕ Invalid PIN — check credentials and retry.');notify(e.message)}};
+   const changePasswordUI=async()=>{
+    setPwMsg("");setPwErr("");
+    if(!curPass){setPwErr('Enter your current password.');return}
+    if(!newPass||newPass.length<8){setPwErr('New password must contain at least 8 characters.');return}
+    if(newPass!==newPassConfirm){setPwErr('Passwords do not match.');return}
+    if(authBusy)return;setAuthBusy(true);
+    try{await api('/api/v1/account/change-password',{method:'POST',body:JSON.stringify({currentPassword:curPass,newPassword:newPass})});setCurPass('');setNewPass('');setNewPassConfirm('');setAuthBusy(false);setPwMsg('✓ Password updated successfully.');notify('Password updated')}catch(e){setAuthBusy(false);setPwErr('✕ '+e.message)} };
+   const changePinUI=async()=>{
+    setPinMsg("");setPinErr("");
+    if(!curPassPin){setPinErr('Enter your password again to authorize the PIN change.');return}
+    if(!/^\d{6}$/.test(newPin)){setPinErr('Authorization PIN must contain exactly 6 digits.');return}
+    if(newPin!==newPinConfirm){setPinErr('Authorization PINs do not match.');return}
+    if(authBusy)return;setAuthBusy(true);
+    try{await api('/api/v1/account/change-pin',{method:'POST',body:JSON.stringify({currentPassword:curPassPin,newPin})});setCurPassPin('');setNewPin('');setNewPinConfirm('');setAuthBusy(false);setPinMsg('✓ Authorization PIN updated successfully.');notify('Authorization PIN updated')}catch(e){setAuthBusy(false);setPinErr('✕ '+e.message)} };
+   const rotateCodes=async()=>{if(authBusy)return;setRecMsg('');setAuthBusy(true);try{const r=await api('/api/v1/account/recovery-codes/rotate',{method:'POST',body:'{}'});setRecoveryCodes(r.codes||[]);setAuthBusy(false);setRecMsg('✓ New recovery codes generated. They are shown once, never logged, and rotation invalidates all previously issued codes.');notify('New recovery codes generated — store them safely')}catch(e){setAuthBusy(false);setRecMsg('✕ '+e.message);notify(e.message)}};
+  const logout=async()=>{try{if(token)await api('/api/v1/account/logout',{method:'POST'});}catch{}setToken(null);setAccount(null);setRecoveryCodes([]);setPwMsg('');setPinMsg('');setElevMsg('');setRecMsg('');notify('Session ended');setMenuOpen(false);setSection(s=>((s==='Command Center'||s==='Account')?'Home':s))};
  const runDemo=async(scenarioId)=>{setDemoRunning(true);setDemoResult(null);try{const r=await api('/api/v1/demo/run',{method:'POST',body:JSON.stringify({scenarioId,input:{prompt:scenarioId,source:'UI_DEMO',type:'DEMO'}})});setDemoResult(r.demo);notify('Demo completed')}catch(e){notify(e.message)}finally{setDemoRunning(false)}};
  const submitFeedback=async()=>{try{await api('/api/v1/feedback',{method:'POST',body:JSON.stringify({category:feedbackCat,message:feedbackMsg,feature:feedbackFeat,version:'1.0.0'})});notify('Feedback captured');setFeedbackMsg('');setFeedbackFeat('');setFeedbackCat('OTHER')}catch(e){notify(e.message)}};
  const submitIntake=async()=>{try{await api('/api/v1/community/intake',{method:'POST',body:JSON.stringify({type:intakeKind,organization:intakeOrg,useCaseDescription:intakeDesc})});notify('Interest recorded');setIntakeOrg('');setIntakeDesc('')}catch(e){notify(e.message)}};
@@ -390,7 +460,9 @@ const [a,b,c,d,e,f,g,s,h2,i,m,n]=await Promise.all([j('/api/v1/health'),j('/api/
  const totalAssets=(mediaStats&&mediaStats.totalAssets)||0;
  const Sec=(name,body)=>section===name?body:null;
  /* ── Public curated surfaces ─────────────────── */
- const HOME=()=>h('div',{className:'stack'},
+ const COMMUNITY_CARD=()=>h('div',{className:'card'},h('div',{className:'panelTitle'},h('h3',null,'COMMUNITY EDITION — PUBLIC MVP'),h('span',{className:'badge community'},editionBadge)),h('div',{className:'cardBody'},h('div',{className:'progression-form'},h('select',{value:intakeKind,onChange:e=>setIntakeKind(e.target.value)},h('option',{value:'USE_CASE'},'New Use Case'),h('option',{value:'PILOT_INTEREST'},'Pilot Interest'),h('option',{value:'ENTERPRISE_INTEREST'},'Enterprise Interest'),h('option',{value:'PARTNER_INTEREST'},'Partner Interest'),h('option',{value:'IMPLEMENTATION_NEED'},'Implementation Need')),h('input',{placeholder:'Organization name',value:intakeOrg,onChange:e=>setIntakeOrg(e.target.value)}),h('textarea',{placeholder:'Describe your use case or interest...',value:intakeDesc,onChange:e=>setIntakeDesc(e.target.value)}),h('div',{style:{display:'flex',gap:8}},h('button',{className:'btn primary',onClick:submitIntake},'Submit Interest')))));
+  const FEEDBACK_CARD=()=>h('div',{className:'card'},h('div',{className:'panelTitle'},h('h3',null,'FEEDBACK'),h('span',null,'HELP IMPROVE ADE')),h('div',{className:'cardBody'},h('div',{className:'feedback-form'},h('select',{value:feedbackCat,onChange:e=>setFeedbackCat(e.target.value)},h('option',{value:'SOMETHING_FAILED'},'Something failed'),h('option',{value:'SOMETHING_CONFUSED_ME'},'Something confused me'),h('option',{value:'RESULT_LOOKED_WRONG'},'Result looked wrong'),h('option',{value:'FEATURE_DID_NOT_WORK'},'Feature did not work'),h('option',{value:'I_EXPECTED_SOMETHING_ELSE'},'I expected something else'),h('option',{value:'I_FOUND_A_BUG'},'I found a bug'),h('option',{value:'IMPROVEMENT_IDEA'},'Improvement idea'),h('option',{value:'NEW_USE_CASE'},'New use case'),h('option',{value:'POSITIVE_FEEDBACK'},'Positive feedback'),h('option',{value:'OTHER'},'Other')),h('input',{placeholder:'Feature or module (optional)',value:feedbackFeat,onChange:e=>setFeedbackFeat(e.target.value)}),h('textarea',{placeholder:'Your feedback...',value:feedbackMsg,onChange:e=>setFeedbackMsg(e.target.value)}),h('p',{className:'formHint'},'Feedback is never used to modify source automatically.'),h('button',{className:'btn primary',onClick:submitFeedback},'Submit Feedback'))));
+  const HOME=()=>h('div',{className:'stack'},
   h('section',{className:'hero'},
    h('div',{className:'card heroMain'},
     h('div',{className:'eyebrow'},'ADE · Autonomous Event-Driven Operations Platform'),
@@ -417,11 +489,11 @@ h('div',{className:'card orb'},h('div',{className:'orbCore'},'ADE'))),
    h('div',{className:'card feature'},h('div',{className:'mark'},'✦'),h('div',{className:'n'},'Product Theatre'),h('div',{className:'d'},'Published ADE media, source material and Product Theater — media is classified LIVE, SIMULATED, PROMOTIONAL or FUTURE. Real content only, never fabricated.'),h('div',{className:'accent'},h('button',{className:'btn sm azure',onClick:()=>go('Product Theater')},'Open Theater')))),
   h('section',{className:'sectionHead'},h('h2',null,'Architecture at a glance'),h('p',null,'A single ADE abstraction from users to the kernel.')),
   h('div',{className:'card'},h('div',{className:'cardBody'},h('div',{className:'archRow'},h('div',{className:'archLayer'},h('b',null,'ADE USERS'),' — operators, community and product surfaces'),h('div',{style:{textAlign:'center',color:'var(--faint)',fontSize:20}},'↓'),h('div',{className:'archLayer'},h('b',null,'ADE EXPERIENCE LAYER'),' — public site, Product Theater, media studio'),h('div',{style:{textAlign:'center',color:'var(--faint)',fontSize:20}},'↓'),h('div',{className:'archLayer'},h('b',null,'OPERATIONS LAYER'),h('div',{className:'ops',style:{marginTop:8}},['Decision','Workflow','Knowledge','Quality','Confidence','Media Engine'].map(o=>h('span',{key:o},o)))),h('div',{style:{textAlign:'center',color:'var(--faint)',fontSize:20}},'↓'),h('div',{className:'archLayer'},h('b',null,'ADE CORE / KERNEL'),h('div',{style:{marginTop:6,fontSize:11.5}},((health?.kernel?.subsystemCount)??(health?.runtime?.subsystems?.total)??9)+' subsystems active · EventBus · CapabilityRegistry · Identity · Security'))))),
-  h('section',{className:'sectionHead'},h('h2',null,'Community · Pilot · Partner'),h('p',null,'Community provides guided self-exploration. Register your interest to progress to Pilot or Enterprise.')),
-  h('div',{className:'card'},h('div',{className:'panelTitle'},h('h3',null,'COMMUNITY EDITION — PUBLIC MVP'),h('span',{className:'badge community'},editionBadge)),h('div',{className:'cardBody'},h('div',{className:'progression-form'},h('select',{value:intakeKind,onChange:e=>setIntakeKind(e.target.value)},h('option',{value:'USE_CASE'},'New Use Case'),h('option',{value:'PILOT_INTEREST'},'Pilot Interest'),h('option',{value:'ENTERPRISE_INTEREST'},'Enterprise Interest'),h('option',{value:'PARTNER_INTEREST'},'Partner Interest'),h('option',{value:'IMPLEMENTATION_NEED'},'Implementation Need')),h('input',{placeholder:'Organization name',value:intakeOrg,onChange:e=>setIntakeOrg(e.target.value)}),h('textarea',{placeholder:'Describe your use case or interest...',value:intakeDesc,onChange:e=>setIntakeDesc(e.target.value)}),h('div',{style:{display:'flex',gap:8}},h('button',{className:'btn primary',onClick:submitIntake},'Submit Interest'))))),
-  h('section',{className:'sectionHead'},h('h2',null,'Feedback'),h('p',null,'Tell us what to fix next. Feedback is never used to modify source automatically.')),
-  h('div',{className:'card'},h('div',{className:'panelTitle'},h('h3',null,'FEEDBACK'),h('span',null,'HELP IMPROVE ADE')),h('div',{className:'cardBody'},h('div',{className:'feedback-form'},h('select',{value:feedbackCat,onChange:e=>setFeedbackCat(e.target.value)},h('option',{value:'SOMETHING_FAILED'},'Something failed'),h('option',{value:'SOMETHING_CONFUSED_ME'},'Something confused me'),h('option',{value:'RESULT_LOOKED_WRONG'},'Result looked wrong'),h('option',{value:'FEATURE_DID_NOT_WORK'},'Feature did not work'),h('option',{value:'I_EXPECTED_SOMETHING_ELSE'},'I expected something else'),h('option',{value:'I_FOUND_A_BUG'},'I found a bug'),h('option',{value:'IMPROVEMENT_IDEA'},'Improvement idea'),h('option',{value:'NEW_USE_CASE'},'New use case'),h('option',{value:'POSITIVE_FEEDBACK'},'Positive feedback'),h('option',{value:'OTHER'},'Other')),h('input',{placeholder:'Feature or module (optional)',value:feedbackFeat,onChange:e=>setFeedbackFeat(e.target.value)}),h('textarea',{placeholder:'Your feedback...',value:feedbackMsg,onChange:e=>setFeedbackMsg(e.target.value)}),h('button',{className:'btn primary',onClick:submitFeedback},'Submit Feedback')))));
- /* ── Products ──────────────────────────────── */
+  h('section',{className:'sectionHead'},h('h2',null,'Community · Pilot · Partner'),h('p',null,'Register your interest to progress to Pilot or Enterprise.')),
+   h('div',{className:'interactGrid'},
+    h('div',null,h('div',{className:'sectionHead'},h('h2',null,'Community · Pilot · Partner'),h('p',null,'Community provides guided self-exploration. Register your interest to progress to Pilot or Enterprise.')),COMMUNITY_CARD()),
+h('div',null,h('div',{className:'sectionHead'},h('h2',null,'Feedback'),h('p',null,'Tell us what to fix next — never applied to source automatically.')),FEEDBACK_CARD())));
+  /* ── Products ──────────────────────────────── */
  const PRODUCTS=()=>h('div',{className:'stack'},
   h('section',{className:'sectionHead'},h('h2',null,'ADE PRODUCT SUITES'),h('p',null,'Server-registered ADE products. Availability is reported by the runtime — nothing here is invented.')),
   h('div',{className:'card'},h('div',{className:'cardBody'},products.length?h('div',{className:'productGrid'},products.map(p=>h('div',{key:p.id||p.name,className:'product'},h('div',{className:'n'},p.name),h('div',{className:'d'},p.description||'No description provided by the registry.'),h('div',{className:'tags'},B(p.status||'REGISTERED',p.status==='ACTIVE'?'good':p.status==='INTEGRATED'?'community':'muted'),p.edition&&B(p.edition,tierClass(p.edition)),p.pluginRequired?B('PLUGIN REQUIRED','community'):null)))):h('div',{className:'emptyState'},'Product registry reports no public products in this runtime slice.'))),
@@ -452,46 +524,71 @@ h('div',{className:'card orb'},h('div',{className:'orbCore'},'ADE'))),
  /* ── Architecture ──────────────────────────── */
  const ARCH=()=>h('div',{className:'card'},h('div',{className:'panelTitle'},h('h3',null,'PUBLIC ARCHITECTURE'),h('span',null,'THE ADE ABSTRACTION')),h('div',{className:'cardBody'},h('div',{className:'archRow'},h('div',{className:'archLayer'},h('b',null,'ADE USERS'),' — operators, community and product surfaces'),h('div',{style:{textAlign:'center',color:'var(--faint)',fontSize:20}},'↓'),h('div',{className:'archLayer'},h('b',null,'ADE EXPERIENCE LAYER'),' — public site, Product Theater, media'),h('div',{style:{textAlign:'center',color:'var(--faint)',fontSize:20}},'↓'),h('div',{className:'archLayer'},h('b',null,'OPERATIONS LAYER'),h('div',{className:'ops',style:{marginTop:8}},['Decision','Workflow','Knowledge','Quality','Confidence','Media Engine'].map(o=>h('span',{key:o},o)))),h('div',{style:{textAlign:'center',color:'var(--faint)',fontSize:20}},'↓'),h('div',{className:'archLayer'},h('b',null,'ADE CORE / KERNEL'),h('div',{style:{marginTop:6,fontSize:11.5}},((health?.kernel?.subsystemCount)??(health?.runtime?.subsystems?.total)??9)+' subsystems active · EventBus · CapabilityRegistry · Identity · Security')))));
  /* ── Community / Feedback standalone ───────── */
- const COMMUNITY=()=>h('div',{className:'stack'},
-  h('div',{className:'card'},h('div',{className:'panelTitle'},h('h3',null,'COMMUNITY EDITION — PUBLIC MVP'),h('span',{className:'badge community'},editionBadge)),h('div',{className:'cardBody'},h('p',{className:'muted'},'ADE Community provides self-guided exploration of ADE capabilities. Register your interest to progress to Pilot or Enterprise.'),h('div',{className:'progression-form'},h('select',{value:intakeKind,onChange:e=>setIntakeKind(e.target.value)},h('option',{value:'USE_CASE'},'New Use Case'),h('option',{value:'PILOT_INTEREST'},'Pilot Interest'),h('option',{value:'ENTERPRISE_INTEREST'},'Enterprise Interest'),h('option',{value:'PARTNER_INTEREST'},'Partner Interest'),h('option',{value:'IMPLEMENTATION_NEED'},'Implementation Need')),h('input',{placeholder:'Organization name',value:intakeOrg,onChange:e=>setIntakeOrg(e.target.value)}),h('textarea',{placeholder:'Describe your use case or interest...',value:intakeDesc,onChange:e=>setIntakeDesc(e.target.value)}),h('div',{style:{display:'flex',gap:8}},h('button',{className:'btn primary',onClick:submitIntake},'Submit Interest'))))),
-  h('div',{className:'card'},h('div',{className:'panelTitle'},h('h3',null,'COMMUNITY BOUNDARY'),h('span',null,'EDITION-AWARE')),h('div',{className:'cardBody'},h('p',{className:'muted',style:{margin:0,lineHeight:1.6}},'Pilot and partner pathways exist in the backend and are operator-gated. The capability matrix reports the exact edition boundaries — Community, Pro and Enterprise privileges are never conflated.'))));
- const FEEDBACK=()=>h('div',{className:'card'},h('div',{className:'panelTitle'},h('h3',null,'TEST ADE — FEEDBACK'),h('span',null,'HELP IMPROVE ADE')),h('div',{className:'cardBody'},h('p',{className:'muted'},'Your feedback helps improve ADE. It is never used to automatically modify source code.'),h('div',{className:'feedback-form'},h('select',{value:feedbackCat,onChange:e=>setFeedbackCat(e.target.value)},h('option',{value:'SOMETHING_FAILED'},'Something failed'),h('option',{value:'SOMETHING_CONFUSED_ME'},'Something confused me'),h('option',{value:'RESULT_LOOKED_WRONG'},'Result looked wrong'),h('option',{value:'FEATURE_DID_NOT_WORK'},'Feature did not work'),h('option',{value:'I_EXPECTED_SOMETHING_ELSE'},'I expected something else'),h('option',{value:'I_FOUND_A_BUG'},'I found a bug'),h('option',{value:'IMPROVEMENT_IDEA'},'Improvement idea'),h('option',{value:'NEW_USE_CASE'},'New use case'),h('option',{value:'POSITIVE_FEEDBACK'},'Positive feedback'),h('option',{value:'OTHER'},'Other')),h('input',{placeholder:'Feature or module (optional)',value:feedbackFeat,onChange:e=>setFeedbackFeat(e.target.value)}),h('textarea',{placeholder:'Your feedback...',value:feedbackMsg,onChange:e=>setFeedbackMsg(e.target.value)}),h('button',{className:'btn primary',onClick:submitFeedback},'Submit Feedback'))));
+const COMMUNITY=()=>h('div',{className:'stack'},
+   h('section',{className:'sectionHead'},h('h2',null,'Community · Pilot · Partner'),h('p',null,'ADE Community provides self-guided exploration of ADE capabilities. Register your interest to progress to Pilot or Enterprise.')),
+   h('div',{className:'interactGrid'},h('div',null,COMMUNITY_CARD()),h('div',null,FEEDBACK_CARD())),
+   h('div',{className:'card'},h('div',{className:'panelTitle'},h('h3',null,'COMMUNITY BOUNDARY'),h('span',null,'EDITION-AWARE')),h('div',{className:'cardBody'},h('p',{className:'muted',style:{margin:0,lineHeight:1.6}},'Pilot and partner pathways exist in the backend and are operator-gated. The capability matrix reports the exact edition boundaries — Community, Pro and Enterprise privileges are never conflated.'))));
+  const FEEDBACK=()=>h('div',{className:'stack'},
+   h('section',{className:'sectionHead'},h('h2',null,'Feedback'),h('p',null,'Tell us what to fix next. Feedback is never used to modify source automatically.')),
+   h('div',{className:'interactGrid'},h('div',null,FEEDBACK_CARD()),h('div',null,COMMUNITY_CARD())));
   /* ── Account (workforce identity) ──────────── */
   const ACCOUNT=()=>token?h('div',{className:'stack'},
    h('section',{className:'sectionHead'},h('h2',null,'ACCOUNT & SECURITY'),h('p',null,'Workforce identity, authorization PIN and recovery options. Credentials only ever touch the server.')),
-   h('div',{className:'accountGrid'},
-    h('div',{className:'card pad'},
-     h('div',{className:'eyebrow'},'IDENTITY'),
-     h('div',{className:'acctName'},(account&&account.person)?account.person.fullName:'Operator'),
-     h('div',{className:'acctMeta'},'@'+((account&&account.person&&account.person.username)||'—')),
-     h('div',{className:'acctRoles'},
-      h('span',{className:'badge community'},(account&&account.person)?account.person.role:'WORKFORCE'),
-      h('span',{className:'badge muted'},'L'+((account&&account.claims)?account.claims.level:'—')),
-      ((account&&account.claims&&account.claims.pinVerified)?h('span',{className:'badge good'},'STEP-UP ACTIVE'):h('span',{className:'badge muted'},'BASE SESSION'))),
-     h('div',{className:'heroStatus',style:{marginTop:18}},h('button',{className:'btn coral',onClick:logout},'Sign Out'))),
-    h('div',{className:'card pad'},
-     h('div',{className:'eyebrow'},'CREDENTIALS'),
-     h('div',{className:'acctForm'},
-      h('label',{className:'fieldLabel'},'Current password'),
-      h('input',{className:'authInput',type:'password',autoComplete:'current-password',value:curPass,onChange:e=>setCurPass(e.target.value),placeholder:'••••••••'}),
-      h('label',{className:'fieldLabel'},'New password (min 8 characters)'),
-      h('input',{className:'authInput',type:'password',autoComplete:'new-password',value:newPass,onChange:e=>setNewPass(e.target.value),placeholder:'••••••••'}),
-      h('button',{className:'btn primary',onClick:changePasswordUI},'Update Password'),
-      h('div',{style:{borderTop:'1px solid var(--lineSoft)',margin:'6px 0 2px'}}),
-      h('label',{className:'fieldLabel'},'Password again (to change PIN)'),
-      h('input',{className:'authInput',type:'password',autoComplete:'current-password',value:curPassPin,onChange:e=>setCurPassPin(e.target.value),placeholder:'••••••••'}),
-      h('label',{className:'fieldLabel'},'New authorization PIN (6 digits)'),
-      h('input',{className:'authInput',type:'password',inputMode:'numeric',autoComplete:'new-password',value:newPin,onChange:e=>setNewPin(e.target.value),placeholder:'••••••'}),
-      h('button',{className:'btn',onClick:changePinUI},'Update Authorization PIN'))),
-    h('div',{className:'card pad'},
-     h('div',{className:'eyebrow'},'RECOVERY & STEP-UP'),
-     ((account&&account.claims&&account.claims.pinVerified)?null:h('div',null,
-      h('label',{className:'fieldLabel'},'Step-up authorization PIN'),
-      h('input',{className:'authInput',type:'password',inputMode:'numeric',value:pin,onChange:e=>setPin(e.target.value),onKeyDown:e=>{if(e.key==='Enter')elevate()},placeholder:'••••••'}),
-      h('button',{className:'btn azure',onClick:elevate,style:{marginTop:10}},'Elevate Session by PIN'),
-      h('p',{className:'muted',style:{fontSize:11,marginTop:8,lineHeight:1.5}},'Elevated (PIN-verified) sessions can manage the workforce, post announcements and read the audit ledger.'))),
-     (recoveryCodes.length?h('div',{className:'notice'},'New recovery codes. Store them safely; each is single-use for password recovery:',h('div',{className:'codes'},recoveryCodes.map((c,i)=>h('div',{key:i,className:'code'},c)))):h('p',{className:'muted',style:{fontSize:11,lineHeight:1.5}},'If you lose your password, a recovery code restores access. Generate a fresh set below.')),
-     h('button',{className:'btn',onClick:rotateCodes,style:{marginTop:10}},'Generate Recovery Codes'))),
+h('div',{className:'accountGrid'},
+     h('div',{className:'card pad'},
+      h('div',{className:'eyebrow'},'IDENTITY'),
+      h('div',{className:'acctName'},(account&&account.person&&account.person.fullName)?account.person.fullName:'No active workforce record'),
+      h('div',{className:'acctMeta'},(account&&account.person&&account.person.username)?'@'+account.person.username:'Not provisioned'),
+      h('div',{className:'acctRoles'},
+       h('span',{className:'badge community'},(account&&account.person&&account.person.role)?account.person.role:'Not assigned'),
+       h('span',{className:'badge muted'},(account&&account.claims&&account.claims.level!=null)?'L'+account.claims.level:'Not assigned'),
+       ((account&&account.claims&&account.claims.pinVerified)?h('span',{className:'badge good'},'STEP-UP ACTIVE'):h('span',{className:'badge muted'},'BASE SESSION'))),
+      h('div',{className:'heroStatus',style:{marginTop:18}},h('button',{className:'btn coral',onClick:logout},'Sign Out'))),
+     h('div',{className:'card pad'},
+      h('div',{className:'eyebrow'},'SESSION'),
+      h('div',{className:'acctRoles',style:{marginTop:14}},
+       h('span',{className:'badge good'},'AUTHENTICATION SUCCESSFUL'),
+       ((account&&account.claims&&account.claims.pinVerified)?h('span',{className:'badge good'},'ELEVATED'):h('span',{className:'badge muted'},'BASE SESSION'))),
+      ((account&&account.claims&&account.claims.pinVerified)?h('div',{className:'formOk',style:{marginTop:12}},'✓ Session elevated — PIN verified successfully.'):h('p',{className:'formHint',style:{marginTop:12}},'Not elevated. Use the step-up authorization PIN to unlock elevated operations.')),
+      (!account||!account.person)?h('div',{className:'authStatus err',style:{marginTop:14}},'✕ WORKFORCE PERSON RECORD NOT PROVISIONED') : h('p',{className:'formHint',style:{marginTop:10}},'Workforce person record provisioned and connected to this session identity.')),
+     h('div',{className:'card pad'},
+      h('div',{className:'eyebrow'},'CREDENTIALS · PASSWORD'),
+      h('div',{className:'acctForm'},
+       h('label',{className:'fieldLabel'},'Current password'),
+       pwInput('curPass',curPass,setCurPass,null,'current-password'),
+       h('label',{className:'fieldLabel'},'New password (min 8 characters)'),
+       pwInput('newPass',newPass,setNewPass),
+       h('label',{className:'fieldLabel'},'Confirm new password'),
+       pwInput('newPassConfirm',newPassConfirm,setNewPassConfirm),
+       h('button',{className:'btn primary',onClick:changePasswordUI,disabled:authBusy},authBusy?'Updating…':'Update Password'),
+       pwErr&&h('div',{className:'fieldErr'},pwErr),
+       pwMsg&&h('div',{className:'formOk'},pwMsg))),
+     h('div',{className:'card pad'},
+      h('div',{className:'eyebrow'},'CREDENTIALS · AUTHORIZATION PIN'),
+      h('div',{className:'acctForm'},
+       h('p',{className:'formHint',style:{margin:0}},'Your password confirms the PIN change. Authorization PINs must contain exactly 6 digits'),
+       h('label',{className:'fieldLabel'},'Password (to authorize the PIN change)'),
+       pwInput('curPassPin',curPassPin,setCurPassPin,null,'current-password'),
+       h('label',{className:'fieldLabel'},'New authorization PIN (6 digits)'),
+       pwInput('newPin',newPin,setNewPin),
+       h('label',{className:'fieldLabel'},'Confirm new authorization PIN'),
+       pwInput('newPinConfirm',newPinConfirm,setNewPinConfirm),
+       h('button',{className:'btn',onClick:changePinUI,disabled:authBusy},authBusy?'Updating…':'Update Authorization PIN'),
+       pinErr&&h('div',{className:'fieldErr'},pinErr),
+       pinMsg&&h('div',{className:'formOk'},pinMsg))),
+     h('div',{className:'card pad'},
+      h('div',{className:'eyebrow'},'RECOVERY & STEP-UP'),
+      h('div',{className:'acctForm',style:{marginTop:14}},
+       (account&&account.claims&&account.claims.pinVerified)?h('div',{className:'formOk'},'✓ Session elevated — PIN verified successfully.'):h('div',null,
+        h('label',{className:'fieldLabel'},'Step-up authorization PIN'),
+        h('div',{className:'passWrap'},h('input',{className:'authInput',type:showPw.elev?'text':'password',inputMode:'numeric',value:pin,onChange:e=>setPin(e.target.value),onKeyDown:e=>{if(e.key==='Enter')elevate()},placeholder:'••••••'}),h('button',{className:'showToggle',type:'button',onClick:()=>tog('elev')},showPw.elev?'HIDE':'SHOW')),
+        h('button',{className:'btn azure',onClick:elevate,disabled:authBusy,style:{marginTop:10,width:'100%'}},authBusy?'Verifying…':'Elevate Session by PIN'),
+        elevMsg&&(elevMsg.startsWith('✓')?h('div',{className:'formOk',style:{marginTop:10}},elevMsg):h('div',{className:'fieldErr',style:{marginTop:10}},elevMsg)),
+        h('p',{className:'formHint',style:{marginTop:12}},'Elevated (PIN-verified) sessions can manage the workforce, post announcements and read the audit ledger.')),
+       h('div',{style:{borderTop:'1px solid var(--lineSoft)',margin:'6px 0 12px'}}),
+       (recoveryCodes.length?h('div',{className:'notice'},'New recovery codes. Shown once — never logged. Each code is single-use for password recovery, and rotation invalidates all previously issued codes:',h('div',{className:'codes'},recoveryCodes.map((c,i)=>h('div',{key:i,className:'code'},c)))):h('p',{className:'formHint'},'Recovery codes restore account access if you lose your password. Generate a fresh set below; old sets are invalidated.')),
+       h('button',{className:'btn',onClick:rotateCodes,disabled:authBusy,style:{marginTop:10,width:'100%'}},authBusy?'Generating…':'Generate Recovery Codes'),
+       recMsg&&(recMsg.startsWith('✓')?h('div',{className:'formOk',style:{marginTop:10}},recMsg):h('div',{className:'fieldErr',style:{marginTop:10}},recMsg))))),
    h('div',{className:'card'},
     h('div',{className:'panelTitle'},h('h3',null,'WORKFORCE & CONTENT ADMIN'),h('span',null,'ELEVATED ONLY')),
     h('div',{className:'cardBody'},h('p',{className:'muted',style:{margin:0,lineHeight:1.6}},'Workforce management (invite, promote, demote, suspend, revoke, expiry), AI-agent identities, announcements and the security audit ledger live in the ADE Admin Console.',h('br'),h('a',{className:'btn sm',href:'/admin',style:{textDecoration:'none',marginTop:12}},'Open Admin Console'))))
@@ -521,18 +618,29 @@ h('div',{className:'card orb'},h('div',{className:'orbCore'},'ADE'))),
    h('p',{className:'muted',style:{lineHeight:1.7,margin:'0 0 20px',color:'#44567a'}},'The public surface — products, PROCARTA, Product Theater, architecture, community and feedback — remains fully open and self-guided.'),
    h('div',{style:{display:'flex',gap:10,flexWrap:'wrap'}},h('button',{className:'btn primary',onClick:()=>setAuth(true)},'Establish Operator Session'),h('button',{className:'btn',onClick:()=>go('Home')},'Back to Home')),
    h('div',{className:'heroStatus',style:{marginTop:22}},h('span',{className:'pill '+(kernLive?'live':kernStatus==='OFFLINE'?'off':'')},h('i',{className:'dot'}),'Kernel '+(kernLive?'online':kernStatus.toLowerCase())),h('span',{className:'badge community'},editionBadge)));
- return h('div',{className:'app'},
+return h('div',{className:'app'},
   h('header',{className:'top',ref:headerRef},
    h('div',{className:'topInner'},
-     h('div',{className:'brand'},h('img',{src:'/ADE-LOGO.png',alt:'ADE logo'}),h('div',{className:'brandName'},h('strong',null,'ADE APEX'),h('span',null,'Autonomous Enterprise Operations'))),
-     h('nav',{className:'topNav','aria-label':'Primary'},NAV.map(n=>h('button',{key:n[0],className:(section===n[0]?'active ':'')+(n[0]==='Command Center'?'ops':''),'aria-current':section===n[0]?'page':null,title:n[1],onClick:()=>go(n[0])},n[0]))),
+     h('div',{className:'brand'},h('img',{src:'/ADE-LOGO.png',alt:'ADE logo'}),h('div',{className:'brandName'},h('strong',null,'ADE APEX'),h('span',null,'Autonomous Event-Driven Operations'))),
+     h('div',{className:'topIdentity'},h('div',{className:'idMain'},'AUTOMATED ALPHA ALIPH DIGITAL ECOSYSTEMS — ADE'),h('div',{className:'idSub'},'BUILDING AFRICAN DIGITAL BUSINESS OPERATIONAL SYSTEMS & AFRICAN BUSINESSES\u2019 BACKBONE')),
+     h('div',{className:'headerContact'},
+      h('div',{className:'contact-row'},h('a',{href:'mailto:Automated_alpha_aliph@yahoo.com'},'Automated_alpha_aliph@yahoo.com')),
+      h('div',{className:'contact-row'},h('span',{className:'contact-label'},'WhatsApp + Calls'),h('a',{href:'tel:+2347038272792'},'+234 (0) 7038272792')),
+      h('div',{className:'contact-row'},h('span',{className:'contact-label'},'Calls Only'),h('a',{href:'tel:+2347058769114'},'+234 (0) 7058769114'))),
     h('div',{className:'topRight'},
      h('span',{className:'pill kern '+(kernLive?'live':kernStatus==='OFFLINE'?'off':'')},h('i',{className:'dot'}),'KERNEL '+(kernLive?'ONLINE':kernStatus)),
      h('span',{className:'pill badgeWrap'},editionBadge),
-     token?h('button',{className:'btn sm primary',onClick:()=>go('Account'),title:'Account & security'},"@"+((account&&account.person&&account.person.username)||'session')):h('button',{className:'btn sm',onClick:()=>{setAcctMode('signin');setAuth(true)}},h('span',{className:'hideS'},'Sign In'),h('span',{className:'hideL'},'→')),
+     token?h('button',{className:'btn sm primary',onClick:()=>go('Account'),title:'Account & security'},(account&&account.person&&account.person.username)?'@'+account.person.username:'Session'):h('button',{className:'btn sm',onClick:()=>{setAcctMode('signin');setAuth(true)}},h('span',{className:'hideS'},'Sign In'),h('span',{className:'hideL'},'→')),
      h('button',{className:'iconBtn',onClick:()=>{if(!token){setAuth(true);notify('Authorize to unlock the command palette.')}else setPalette(true)},title:'Command palette (Ctrl+K)','aria-label':'Open command palette'},'⌘'),
      h('button',{className:'iconBtn hamburger',onClick:()=>setMenuOpen(v=>!v),'aria-expanded':menuOpen?'true':'false','aria-label':'Toggle navigation',title:'Menu'},menuOpen?'✕':'☰'))),
-menuOpen&&h('nav',{className:'mobileMenu open','aria-label':'Mobile'},NAV.map(n=>h('button',{key:n[0],className:(section===n[0]?'active ':'')+(n[0]==='Command Center'?'ops':''),onClick:()=>go(n[0])},n[0])),h('div',{className:'sub'},'EXTERNAL SURFACES'),h('a',{href:'/ade-experience/',onClick:()=>setMenuOpen(false)},'Product Theater & Media Studio'),h('a',{href:'/admin',onClick:()=>setMenuOpen(false)},'Admin Console'))),
+   h('div',{className:'topMotto'},
+    h('div',{className:'topMottoInner'},
+     h('div',{className:'topMottoLine'},'We ',h('em',null,'Listened'),' · We ',h('em',null,'Observed'),' · We ',h('em',null,'Learnt'),' · We ',h('em',null,'Evolved')),
+h('nav',{className:'topNav','aria-label':'Primary'},NAV.map(n=>h('button',{key:n[0],className:(section===n[0]?'active ':'')+(n[0]==='Command Center'?'ops':''),'aria-current':section===n[0]?'page':null,title:n[1],onClick:()=>go(n[0])},n[0])))))),
+   menuOpen&&h('nav',{className:'mobileMenu open','aria-label':'Mobile'},
+   h('div',{className:'identity-line'},'AUTOMATED ALPHA ALIPH DIGITAL ECOSYSTEMS — ADE · BUILDING AFRICAN DIGITAL BUSINESS OPERATIONAL SYSTEMS'),
+   h('div',{className:'contact-line'},h('a',{href:'mailto:Automated_alpha_aliph@yahoo.com'},'Automated_alpha_aliph@yahoo.com'),h('span',null,'WhatsApp + Calls: ',h('a',{href:'tel:+2347038272792'},'+234 (0) 7038272792')),h('span',null,'Calls Only: ',h('a',{href:'tel:+2347058769114'},'+234 (0) 7058769114'))),
+   NAV.map(n=>h('button',{key:n[0],className:(section===n[0]?'active ':'')+(n[0]==='Command Center'?'ops':''),onClick:()=>go(n[0])},n[0])),h('div',{className:'sub'},'EXTERNAL SURFACES'),h('a',{href:'/ade-experience/',onClick:()=>setMenuOpen(false)},'Product Theater & Media Studio'),h('a',{href:'/admin',onClick:()=>setMenuOpen(false)},'Admin Console')),
    announcements.length>0&&h('div',{className:'ticker'},h('span',{className:'tickerLabel'},'LATEST'),announcements.map(a=>h('span',{key:a.id,className:'tickerItem'},h('b',null,a.kind||'NEWS'),a.title))),
    h('main',{className:'shell'},
    Sec('Home',HOME()),
@@ -545,30 +653,34 @@ menuOpen&&h('nav',{className:'mobileMenu open','aria-label':'Mobile'},NAV.map(n=
    Sec('Feedback',FEEDBACK()),
    Sec('Account',ACCOUNT()),
    Sec('Command Center',CM())),
-  h('div',{className:'motto-bar'},
-   h('div',{className:'motto-bar-inner'},
-    h('div',{className:'ade-motto'},h('div',{className:'main-text'},'AUTOMATED ALPHA ALIPH DIGITAL ECOSYSTEMS'),h('div',{className:'sub-text'},'BUILDING AFRICAN DIGITAL BUSINESS OPERATIONAL SYSTEMS & AFRICAN BUSINESSES\u2019 BACKBONE'),h('div',{className:'brand-ade'},'ADE')),
-    h('div',{className:'motto-contact'},h('a',{href:'mailto:Automated_alpha_aliph@yahoo.com'},'Automated_alpha_aliph@yahoo.com'),h('span',null,h('span',{className:'contact-label'},'WhatsApp + Calls '),h('a',{href:'tel:+2347038272792'},'+234 (0) 7038272792')),h('span',null,h('span',{className:'contact-label'},'Calls Only '),h('a',{href:'tel:+2347058769114'},'+234 (0) 7058769114'))))),
-   h('footer',{className:'footer'},
+h('footer',{className:'footer'},
     h('div',{className:'footerInner'},
       h('div',null,h('div',{className:'fbrand'},h('img',{src:'/ADE-LOGO.png',alt:'ADE logo'}),h('img',{src:'/brand-mark.png',alt:'ADE brand mark',style:{width:28,height:28,objectFit:'contain',opacity:.85}}),h('div',null,h('strong',{style:{letterSpacing:'.12em',color:'var(--ocean)',fontSize:13}},'ADE APEX'),h('div',{className:'muted',style:{fontSize:10,marginTop:2}},'Autonomous Event-Driven Operations'))),h('p',{className:'motto'},'We ',h('em',null,'Listened'),' · We ',h('em',null,'Observed'),' · We ',h('em',null,'Learnt'),' · We ',h('em',null,'Evolved')),h('span',{className:'badge community'},editionBadge),h('div',{className:'footer-contact'},h('a',{href:'mailto:Automated_alpha_aliph@yahoo.com'},'Automated_alpha_aliph@yahoo.com'),h('span',null,h('span',{className:'contact-label'},'WhatsApp + Calls: '),h('a',{href:'tel:+2347038272792'},'+234 (0) 7038272792')),h('span',null,h('span',{className:'contact-label'},'Calls Only: '),h('a',{href:'tel:+2347058769114'},'+234 (0) 7058769114')))),
     h('div',null,h('h5',null,'PRODUCTS'),h('a',{href:'#',onClick:e=>{e.preventDefault();go('Products')}},'Product Suites'),h('a',{href:'#',onClick:e=>{e.preventDefault();go('PROCARTA')}},'PROCARTA'),h('a',{href:'#',onClick:e=>{e.preventDefault();go('Product Theater')}},'Product Theater & Media'),h('a',{href:'/ade-experience/',onClick:()=>setMenuOpen(false)},'Legacy Experience Layer')),
     h('div',null,h('h5',null,'PLATFORM'),h('a',{href:'#',onClick:e=>{e.preventDefault();go('Architecture')}},'Public Architecture'),h('a',{href:'#',onClick:e=>{e.preventDefault();go('Community')}},'Community · Pilot · Partner'),h('a',{href:'#',onClick:e=>{e.preventDefault();go('Feedback')}},'Feedback'),h('a',{href:'#',onClick:e=>{e.preventDefault();go('Try ADE')}},'Try ADE')),
     h('div',null,h('h5',null,'OPERATIONS'),h('a',{href:'#',onClick:e=>{e.preventDefault();go('Command Center')}},'Command Center (operator)'),h('a',{href:'/admin'},'Admin Console'),h('span',{className:'flink',onClick:()=>go('Account')},'Account & Security'))),
-   h('div',{className:'footerLegal'},'© '+new Date().getFullYear()+' AUTOMATED ALPHA ALIPH DIGITAL ECOSYSTEMS (ADE) — ADE APEX Community Edition · Building African Digital Business Operational Systems · v1.0.0 Community',h('br'),'Server-authoritative kernel. Physical telematics and external provider integrations are never fabricated — LIVE and SIMULATED are always labelled.')),
+   h('div',{className:'footerLegal'},'© '+new Date().getFullYear()+' AUTOMATED ALPHA ALIPH DIGITAL ECOSYSTEMS (ADE) — ADE APEX Community Edition · Building African Digital Business Operational Systems · v1.0.0 Community',h('br'),'Server-authoritative kernel. Physical telematics and external provider integrations are never fabricated — LIVE and SIMULATED are always labelled.'),
+   h('div',{className:'footerIdentity'},
+    h('div',{className:'fi-main'},'AUTOMATED ALPHA ALIPH DIGITAL ECOSYSTEMS'),
+    h('div',{className:'fi-sub'},'BUILDING AFRICAN DIGITAL BUSINESS OPERATIONAL SYSTEMS & AFRICAN BUSINESSES\u2019 BACKBONE'),
+    h('div',{className:'fi-ade'},'ADE'))),
   palette&&token&&h('div',{className:'palette',onMouseDown:e=>{if(e.target===e.currentTarget)setPalette(false)}},h('div',{className:'paletteBox'},h('div',{className:'paletteHead'},h('input',{className:'search',autoFocus:true,placeholder:'Search the ADE command surface…',value:query,onChange:e=>setQuery(e.target.value)})),h('div',{className:'commandList'},filtered.map(c=>h('div',{className:'command',key:c.intent,onClick:()=>{setPalette(false);execute(c)}},h('div',null,h('b',null,c.name||c.intent),h('small',null,' '+c.intent)),h('small',null,'RBAC '+(c.rbacLevel!=null?c.rbacLevel:'—'))))),filtered.length===0&&h('div',{className:'emptyState'},'No commands matched.'))),
   auth&&h('div',{className:'auth',onMouseDown:e=>{if(e.target===e.currentTarget)setAuth(false)}},h('div',{className:'card authBox'},h('div',{className:'eyebrow'},'SERVER-AUTHORITATIVE SESSION'),h('h2',null,acctMode==='signin'?'Sign in to ADE':'Admin PIN'),h('p',null,acctMode==='signin'?'Workforce accounts authenticate with username and password. Step-up PIN is requested only for elevated operations.':'Legacy single-admin authentication using the configured runtime PIN.'),acctMode==='signin'?h('div',{className:'accountForm'},
    h('label',{className:'fieldLabel'},'Username'),
-   h('input',{className:'authInput',type:'text',autoComplete:'username',value:signUser,onChange:e=>setSignUser(e.target.value),placeholder:'username'}),
+   h('input',{className:'authInput',type:'text',autoComplete:'username',value:signUser,onChange:e=>setSignUser(e.target.value),placeholder:'username',disabled:authBusy}),
    h('label',{className:'fieldLabel'},'Password'),
-   h('input',{className:'authInput',type:'password',autoComplete:'current-password',value:signPass,onChange:e=>setSignPass(e.target.value),onKeyDown:e=>{if(e.key==='Enter')signIn()},placeholder:'••••••••'}),
-   h('div',{className:'authActions'},h('button',{className:'btn primary',onClick:signIn},'Sign In'),h('button',{className:'btn',onClick:()=>setAuth(false)},'Cancel')),
-   h('div',{className:'authAlt'},h('button',{className:'btn ghost sm',onClick:()=>setAcctMode('pin')},'Use admin PIN instead')))
+   h('input',{className:'authInput',type:'password',autoComplete:'current-password',value:signPass,onChange:e=>setSignPass(e.target.value),onKeyDown:e=>{if(e.key==='Enter')signIn()},placeholder:'••••••••',disabled:authBusy}),
+   h('div',{className:'authActions'},h('button',{className:'btn primary',onClick:signIn,disabled:authBusy},authBusy?'Signing In…':'Sign In'),h('button',{className:'btn',onClick:()=>setAuth(false),disabled:authBusy},'Cancel')),
+   h('div',{className:'authAlt'},h('button',{className:'btn ghost sm',onClick:()=>setAcctMode('pin'),disabled:authBusy},'Use admin PIN instead')),
+   authBusy&&h('div',{className:'authLoading'},h('span',{className:'spinner'}),'Authenticating against the ADE security boundary…'),
+   authMsg&&h('div',{className:'authStatus '+(authMsg.type==='ok'?'ok':'err')},authMsg.text))
    :h('div',{className:'accountForm'},
    h('label',{className:'fieldLabel'},'Admin PIN'),
-   h('input',{className:'authInput',type:'password',inputMode:'numeric',autoComplete:'off',value:pin,onChange:e=>setPin(e.target.value),onKeyDown:e=>{if(e.key==='Enter')pinLogin()},placeholder:'ADMIN PIN'}),
-   h('div',{className:'authActions'},h('button',{className:'btn primary',onClick:pinLogin},'Establish Session'),h('button',{className:'btn',onClick:()=>setAcctMode('signin')},'Back to Sign In'))))),
-  toast&&h('div',{className:'toast'},toast));
+   h('input',{className:'authInput',type:'password',inputMode:'numeric',autoComplete:'off',value:pin,onChange:e=>setPin(e.target.value),onKeyDown:e=>{if(e.key==='Enter')pinLogin()},placeholder:'ADMIN PIN',disabled:authBusy}),
+   h('div',{className:'authActions'},h('button',{className:'btn primary',onClick:pinLogin,disabled:authBusy},authBusy?'Authenticating…':'Establish Session'),h('button',{className:'btn',onClick:()=>setAcctMode('signin'),disabled:authBusy},'Back to Sign In')),
+   authBusy&&h('div',{className:'authLoading'},h('span',{className:'spinner'}),'Authenticating against the ADE security boundary…'),
+   authMsg&&h('div',{className:'authStatus '+(authMsg.type==='ok'?'ok':'err')},authMsg.text)))),
+  toast&&h('div',{className:'toast'+(toast.indexOf('✓')===0?' ok':toast.indexOf('✕')===0?' err':'')},toast));
 }
 ReactDOM.createRoot(document.getElementById('root')).render(h(App));
 })();
