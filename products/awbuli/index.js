@@ -1,1 +1,1 @@
-module.exports = require("./adapter");
+export { AwbuliAdapter } from "./adapter.js";

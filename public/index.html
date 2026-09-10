@@ -299,6 +299,20 @@ a{color:var(--royal)}
  .topRight .pill.badgeWrap{display:none!important}
 }
 @media(prefers-reduced-motion:reduce){.suggestion-text{animation:none!important;opacity:.7}.orbCore{animation:none}.html{scroll-behavior:auto}}
+/* ── Premium ADE Brand Identity ────────────── */
+.ade-motto{display:flex;flex-direction:column;align-items:center;gap:6px;padding:18px 0;text-align:center;width:100%}
+.ade-motto .main-text{font-size:clamp(11px,1.6vw,15px);font-weight:900;letter-spacing:.28em;text-transform:uppercase;background:linear-gradient(135deg,#b8860b 0%,#daa520 18%,#ffd700 36%,#daa520 54%,#b8860b 72%,#8b6914 88%,#b8860b 100%);background-size:200% 100%;-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;filter:drop-shadow(0 1px 2px rgba(139,105,20,.25));line-height:1.5;text-align:center}
+.ade-motto .sub-text{font-size:clamp(10px,1.3vw,12.5px);font-weight:700;letter-spacing:.22em;text-transform:uppercase;background:linear-gradient(135deg,#8b6914,#b8860b 30%,#daa520 50%,#b8860b 70%,#8b6914);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;line-height:1.5;text-align:center}
+.ade-motto .brand-ade{font-size:clamp(22px,3.5vw,32px);font-weight:900;letter-spacing:.35em;background:linear-gradient(135deg,#8b6914 0%,#b8860b 15%,#daa520 30%,#ffd700 45%,#daa520 60%,#b8860b 75%,#8b6914 90%,#6b5210 100%);background-size:200% 100%;-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;filter:drop-shadow(0 2px 4px rgba(139,105,20,.3));text-align:center;animation:goldShine 6s ease-in-out infinite}
+@keyframes goldShine{0%,100%{background-position:0% 50%}50%{background-position:100% 50%}}
+.header-contact{display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:center;padding:4px 0}
+.header-contact a,.header-contact span{font-size:10px;color:var(--muted);text-decoration:none;letter-spacing:.03em;white-space:nowrap}
+.header-contact a:hover{color:var(--royal)}
+.footer-contact{display:flex;flex-direction:column;gap:5px;margin-top:10px}
+.footer-contact a,.footer-contact span{font-size:11.5px;color:var(--muted);text-decoration:none}
+.footer-contact a:hover{color:var(--royal)}
+.footer-contact .contact-label{font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--faint)}
+@media(max-width:719px){.ade-motto .main-text{letter-spacing:.16em}.ade-motto .sub-text{letter-spacing:.14em}.ade-motto .brand-ade{letter-spacing:.22em}}
 </style></head>
 <body><div id="root"></div>
 <script>
@@ -497,8 +511,9 @@ h('div',{className:'card orb'},h('div',{className:'orbCore'},'ADE'))),
  return h('div',{className:'app'},
   h('header',{className:'top'},
    h('div',{className:'topInner'},
-    h('div',{className:'brand'},h('img',{src:'/ADE-LOGO.png',alt:'ADE logo'}),h('div',{className:'brandName'},h('strong',null,'ADE APEX'),h('span',null,'Autonomous Enterprise Operations'))),
-    h('nav',{className:'topNav','aria-label':'Primary'},NAV.map(n=>h('button',{key:n[0],className:(section===n[0]?'active ':'')+(n[0]==='Command Center'?'ops':''),'aria-current':section===n[0]?'page':null,title:n[1],onClick:()=>go(n[0])},n[0]))),
+     h('div',{className:'brand'},h('img',{src:'/ADE-LOGO.png',alt:'ADE logo'}),h('div',{className:'brandName'},h('strong',null,'ADE APEX'),h('span',null,'Autonomous Enterprise Operations'))),
+     h('div',{className:'ade-motto'},h('div',{className:'main-text'},'AUTOMATED ALPHA ALIPH DIGITAL ECOSYSTEMS'),h('div',{className:'sub-text'},'BUILDING AFRICAN DIGITAL BUSINESS OPERATIONAL SYSTEMS & AFRICAN BUSINESSES\u2019 BACKBONE'),h('div',{className:'brand-ade'},'ADE'),h('div',{className:'header-contact'},h('a',{href:'mailto:Automated_alpha_aliph@yahoo.com'},'Automated_alpha_aliph@yahoo.com'),h('span',null,h('span',{className:'contact-label'},'WhatsApp/Call '),h('a',{href:'tel:+2347038272792',style:{marginLeft:2}},'+234 (0) 7038272792')),h('span',null,h('span',{className:'contact-label'},'Call Only '),h('a',{href:'tel:+2347058769114',style:{marginLeft:2}},'+234 (0) 7058769114')))),
+     h('nav',{className:'topNav','aria-label':'Primary'},NAV.map(n=>h('button',{key:n[0],className:(section===n[0]?'active ':'')+(n[0]==='Command Center'?'ops':''),'aria-current':section===n[0]?'page':null,title:n[1],onClick:()=>go(n[0])},n[0]))),
     h('div',{className:'topRight'},
      h('span',{className:'pill kern '+(kernLive?'live':kernStatus==='OFFLINE'?'off':'')},h('i',{className:'dot'}),'KERNEL '+(kernLive?'ONLINE':kernStatus)),
      h('span',{className:'pill badgeWrap'},editionBadge),
@@ -520,11 +535,11 @@ menuOpen&&h('nav',{className:'mobileMenu open','aria-label':'Mobile'},NAV.map(n=
    Sec('Command Center',CM())),
   h('footer',{className:'footer'},
    h('div',{className:'footerInner'},
-    h('div',null,h('div',{className:'fbrand'},h('img',{src:'/ADE-LOGO.png',alt:'ADE logo'}),h('div',null,h('strong',{style:{letterSpacing:'.12em',color:'var(--ocean)'}},'ADE APEX'),h('div',{className:'muted',style:{fontSize:11,marginTop:2}},'Autonomous Event-Driven Operations'))),h('p',{className:'motto'},'We ',h('em',null,'Listened'),' · We ',h('em',null,'Observed'),' · We ',h('em',null,'Learnt'),' · We ',h('em',null,'Evolved')),h('span',{className:'badge community'},editionBadge)),
+     h('div',null,h('div',{className:'fbrand'},h('img',{src:'/ADE-LOGO.png',alt:'ADE logo'}),h('div',null,h('strong',{style:{letterSpacing:'.12em',color:'var(--ocean)'}},'ADE APEX'),h('div',{className:'muted',style:{fontSize:11,marginTop:2}},'Autonomous Event-Driven Operations'))),h('p',{className:'motto'},'We ',h('em',null,'Listened'),' · We ',h('em',null,'Observed'),' · We ',h('em',null,'Learnt'),' · We ',h('em',null,'Evolved')),h('span',{className:'badge community'},editionBadge),h('div',{className:'footer-contact'},h('a',{href:'mailto:Automated_alpha_aliph@yahoo.com'},'Automated_alpha_aliph@yahoo.com'),h('span',null,h('span',{className:'contact-label'},'WhatsApp + Calls: '),h('a',{href:'tel:+2347038272792'},'+234 (0) 7038272792')),h('span',null,h('span',{className:'contact-label'},'Calls Only: '),h('a',{href:'tel:+2347058769114'},'+234 (0) 7058769114')))),
     h('div',null,h('h5',null,'PRODUCTS'),h('a',{href:'#',onClick:e=>{e.preventDefault();go('Products')}},'Product Suites'),h('a',{href:'#',onClick:e=>{e.preventDefault();go('PROCARTA')}},'PROCARTA'),h('a',{href:'#',onClick:e=>{e.preventDefault();go('Product Theater')}},'Product Theater & Media'),h('a',{href:'/ade-experience/',onClick:()=>setMenuOpen(false)},'Legacy Experience Layer')),
     h('div',null,h('h5',null,'PLATFORM'),h('a',{href:'#',onClick:e=>{e.preventDefault();go('Architecture')}},'Public Architecture'),h('a',{href:'#',onClick:e=>{e.preventDefault();go('Community')}},'Community · Pilot · Partner'),h('a',{href:'#',onClick:e=>{e.preventDefault();go('Feedback')}},'Feedback'),h('a',{href:'#',onClick:e=>{e.preventDefault();go('Try ADE')}},'Try ADE')),
     h('div',null,h('h5',null,'OPERATIONS'),h('a',{href:'#',onClick:e=>{e.preventDefault();go('Command Center')}},'Command Center (operator)'),h('a',{href:'/admin'},'Admin Console'),h('span',{className:'flink',onClick:()=>go('Account')},'Account & Security'))),
-   h('div',{className:'footerLegal'},'© '+new Date().getFullYear()+' ADE APEX — Community Edition · Autonomous Enterprise Operations · v1.0.0 Community',h('br'),'Server-authoritative kernel. Physical telematics and external provider integrations are never fabricated — LIVE and SIMULATED are always labelled.')),
+   h('div',{className:'footerLegal'},'© '+new Date().getFullYear()+' AUTOMATED ALPHA ALIPH DIGITAL ECOSYSTEMS (ADE) — ADE APEX Community Edition · Building African Digital Business Operational Systems · v1.0.0 Community',h('br'),'Server-authoritative kernel. Physical telematics and external provider integrations are never fabricated — LIVE and SIMULATED are always labelled.')),
   palette&&token&&h('div',{className:'palette',onMouseDown:e=>{if(e.target===e.currentTarget)setPalette(false)}},h('div',{className:'paletteBox'},h('div',{className:'paletteHead'},h('input',{className:'search',autoFocus:true,placeholder:'Search the ADE command surface…',value:query,onChange:e=>setQuery(e.target.value)})),h('div',{className:'commandList'},filtered.map(c=>h('div',{className:'command',key:c.intent,onClick:()=>{setPalette(false);execute(c)}},h('div',null,h('b',null,c.name||c.intent),h('small',null,' '+c.intent)),h('small',null,'RBAC '+(c.rbacLevel!=null?c.rbacLevel:'—'))))),filtered.length===0&&h('div',{className:'emptyState'},'No commands matched.'))),
   auth&&h('div',{className:'auth',onMouseDown:e=>{if(e.target===e.currentTarget)setAuth(false)}},h('div',{className:'card authBox'},h('div',{className:'eyebrow'},'SERVER-AUTHORITATIVE SESSION'),h('h2',null,acctMode==='signin'?'Sign in to ADE':'Admin PIN'),h('p',null,acctMode==='signin'?'Workforce accounts authenticate with username and password. Step-up PIN is requested only for elevated operations.':'Legacy single-admin authentication using the configured runtime PIN.'),acctMode==='signin'?h('div',{className:'accountForm'},
    h('label',{className:'fieldLabel'},'Username'),

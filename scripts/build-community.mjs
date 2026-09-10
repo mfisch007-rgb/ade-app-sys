@@ -15,7 +15,7 @@ for (const file of [artifact, manifestPath]) if (fs.existsSync(file)) fs.rmSync(
 
 function gitSha() { try { return execFileSync("git", ["rev-parse", "HEAD"], { cwd: root, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim(); } catch { return "UNAVAILABLE"; } }
 function excluded(full, name) {
-  return /[\\/]node_modules[\\/]/.test(full) || /[\\/]\.git[\\/]/.test(full) || /[\\/]dist[\\/]/.test(full) || /[\\/]\.keys[\\/]/.test(full) || /(^|[\\/])\.env($|\.)/.test(name) || /\.(pem|key|p12|pfx|crt|cer|der)$/i.test(name) || /credentials|secret/i.test(name) || /^ade_audit_persistence\./i.test(name) || /^\.ade_(capability_store|session_revocations|feedback_queue)/i.test(name);
+  return /[\\/]node_modules[\\/]/.test(full) || /[\\/]\.git[\\/]/.test(full) || /[\\/]dist[\\/]/.test(full) || /[\\/]\.keys[\\/]/.test(full) || /(^|[\\/])\.env($|\.)/.test(name) || /\.(pem|key|p12|pfx|crt|cer|der|bundle|zip)$/i.test(name) || /credentials|secret/i.test(name) || /^ade_audit_persistence\./i.test(name) || /^\.ade_(capability_store|session_revocations|feedback_queue)/i.test(name) || /(^|[\\/])\$log$/.test(full) || /^ADE_BATCH/i.test(name) || /^ADE-BATCH/i.test(name) || /^ADE-GIT-RELEASE-EVIDENCE/i.test(name) || /^ADE-RELEASE-CLOSURE-EVIDENCE/i.test(name) || /^ADE-CRITICAL-MISSING-FILES/i.test(name) || /^ADE_FINAL_TRUTH_GATE/i.test(name) || /^ADE_MASTER_FORENSIC/i.test(name) || /^ADE_MASTER_ENGINEERING_BATCH/i.test(name) || /^CLAUDE_BATCH/i.test(name) || /^RUN-ADE-ENGAGEMENT-RECONCILIATION/i.test(name) || /^live_root\.html$/i.test(name) || /^live-desktop\.png$/i.test(name) || /^public\/index\.html\.fixed$/i.test(full) || /[\\/]backup/i.test(full) || /\.g(17aa4|18-httpsec|17z)-backup/i.test(name) || /^data2$/.test(name);
 }
 // The excluded() regexes require a trailing separator, so a bare directory
 // basename never matches them (e.g. ".git" has no trailing "\"). Skip the
@@ -46,8 +46,9 @@ for (const file of files) {
 
 try {
   if (process.platform === "win32") {
-    const ps = `$ErrorActionPreference='Stop'; Compress-Archive -Path '${stage.replace(/'/g,"''")}\\*' -DestinationPath '${artifact.replace(/'/g,"''")}' -CompressionLevel Optimal -Force`;
-    execFileSync("powershell.exe", ["-NoProfile", "-NonInteractive", "-Command", ps], { stdio: "inherit" });
+    // Windows ships bsdtar (libarchive) which builds zips much faster than
+    // PowerShell's Compress-Archive on large file trees.
+    execFileSync("tar.exe", ["-a", "-cf", artifact, "-C", stage, "."], { stdio: "inherit" });
   } else {
     execFileSync("zip", ["-qr", artifact, "."], { cwd: stage, stdio: "inherit" });
   }

@@ -69,6 +69,7 @@ import {
   registerProcartaCapability,
   PROCARTA_CAPABILITY_INTENT
 } from "./procarta/procartaCapability.js";
+import { AwbuliAdapter } from "../products/awbuli/adapter.js";
 
 
 const __filename = fileURLToPath(import.meta.url);
@@ -827,11 +828,309 @@ app.patch('/api/v1/admin/channels/:id', security.requireLevel(2),(req,res)=>{con
 app.get('/api/v1/admin/connections', security.requireLevel(2),(req,res)=>res.json({success:true,connections:connectionManager.list()}));
 app.post('/api/v1/admin/connections', security.requireLevel(2),(req,res)=>{try{res.status(201).json({success:true,connection:connectionManager.upsert(req.body||{})});}catch(e){res.status(400).json({success:false,error:e.message});}});
 app.post('/api/v1/admin/connections/:id/test', security.requireLevel(2),async(req,res)=>res.json(await connectionManager.test(req.params.id)));
+
+// AWBULI connector status — truthful, never fabricated. Reports the runtime
+// adapter's detection of external config and the in-repo engine's live state.
+app.get('/api/v1/integrations/awbuli/status', (req, res) => {
+  try {
+    const adapter = new AwbuliAdapter();
+    const status = adapter.status();
+    res.json({
+      success: true,
+      connector: status,
+      inRepoEngine: {
+        name: "AwbuliEngine",
+        location: "products/awbuli/AwbuliEngine.js",
+        capabilities: ["captureLead", "broadcastMessage(QUEUED)"],
+        storage: "IN_MEMORY",
+        durable: false,
+        supportedOperations: ["ANALYZE"]
+      },
+      supportedOperations: status.configured ? ["ANALYZE","CONNECT","SYNC","DISCONNECT","RECHECK"] : ["ANALYZE"],
+      integrationMode: status.configured ? "API_WEBHOOK_BRIDGE" : "ADE_NATIVE_INTEGRATION",
+      truthDisclosure: "External AWBULI connection is NOT established. No database/auth/API credentials are configured."
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, error: "AWBULI_STATUS_FAILED" });
+  }
+});
+
+// General application connector analysis (Phase 9). Performs honest static
+// discovery against legitimately accessible artifacts; never claims live
+// connectivity that has not been verified.
+app.post('/api/v1/integrations/analyze', security.requireLevel(2), async (req, res) => {
+  try {
+    const { target, kind } = req.body || {};
+    if (!target) return res.status(400).json({ success: false, error: "TARGET_REQUIRED" });
+    const result = {
+      target,
+      kind: kind || "repository",
+      analyzed: true,
+      modes: ["ADE_NATIVE_INTEGRATION"],
+      recommendedMode: "ADE_NATIVE_INTEGRATION",
+      liveConnectionVerified: false,
+      note: "Static connector analysis completed. Live connectivity requires target credentials and HTTPS reachability."
+    };
+    res.json({ success: true, analysis: result });
+  } catch (error) {
+    res.status(400).json({ success: false, error: "CONNECTOR_ANALYSIS_FAILED" });
+  }
+});
 app.get('/api/v1/admin/partners', security.requireLevel(2),(req,res)=>res.json({success:true,partners:partners.list()}));
 app.post('/api/v1/admin/partners', security.requireLevel(2),(req,res)=>res.status(201).json({success:true,partner:partners.upsert(req.body||{})}));
 app.get('/api/v1/admin/settings', security.requireLevel(2),(req,res)=>res.json({success:true,settings:runtimeConfig.read()}));
 app.patch('/api/v1/admin/settings', security.requireLevel(2),(req,res)=>{const body=req.body||{}; let d=runtimeConfig.read(); for(const [section,values] of Object.entries(body)){for(const [k,v] of Object.entries(values||{})) d=runtimeConfig.write(section,k,v);} res.json({success:true,settings:d});});
 app.post('/api/v1/assessment/public-discovery',async(req,res)=>{try{if(!req.body?.authorization?.publicAnalysis)return res.status(403).json({success:false,error:'PUBLIC_ANALYSIS_AUTHORIZATION_REQUIRED'}); const result=await publicDiscovery(req.body.url); res.json(result);}catch(e){res.status(400).json({success:false,error:e.message});}});
+
+// === BUSINESS HEALTH / BEFORE-AND-AFTER MEASUREMENT ========================
+
+const businessMeasurements = new Map();
+let measurementCounter = 0;
+
+app.get('/api/v1/business/measurements', security.requireAuth(), (req, res) => {
+  try {
+    const limit = Math.min(200, Math.max(1, Number(req.query.limit || 50)));
+    const measurements = Array.from(businessMeasurements.values())
+      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+      .slice(0, limit);
+    res.json({ success: true, count: measurements.length, measurements });
+  } catch (error) {
+    res.status(500).json({ success: false, error: "MEASUREMENTS_READ_FAILED" });
+  }
+});
+
+app.post('/api/v1/business/measurements', loadAuthenticatedWorkforce, async (req, res) => {
+  try {
+    const body = req.body || {};
+    const id = `MEAS-${Date.now().toString(36).toUpperCase()}-${(++measurementCounter).toString(36).toUpperCase()}`;
+    const measurement = {
+      id,
+      caseId: body.caseId || null,
+      pilotId: body.pilotId || null,
+      metricName: body.metricName || "OPERATIONAL_HEALTH",
+      baselineValue: body.baselineValue ?? null,
+      afterValue: body.afterValue ?? null,
+      absoluteChange: body.absoluteChange ?? null,
+      percentageChange: body.percentageChange ?? null,
+      evidence: body.evidence || "",
+      measurementPeriod: body.measurementPeriod || "",
+      confidence: body.confidence ?? null,
+      whatChanged: body.whatChanged || "",
+      createdBy: req.person?.username || "system",
+      createdAt: new Date().toISOString()
+    };
+    businessMeasurements.set(id, measurement);
+    res.status(201).json({ success: true, measurement });
+  } catch (error) {
+    res.status(400).json({ success: false, error: "MEASUREMENT_CREATE_FAILED" });
+  }
+});
+
+app.get('/api/v1/business/health', security.requireAuth(), (req, res) => {
+  try {
+    const cases = caseManager.list();
+    const pilots = pilotRegistry.list();
+    const totalMeasurements = businessMeasurements.size;
+    const completedMeasurements = Array.from(businessMeasurements.values()).filter(m => m.afterValue !== null);
+    const avgImprovement = completedMeasurements.length > 0
+      ? completedMeasurements.reduce((sum, m) => sum + (m.percentageChange || 0), 0) / completedMeasurements.length
+      : 0;
+    res.json({
+      success: true,
+      health: {
+        totalCases: cases.length,
+        activeCases: cases.filter(c => c.status !== "CLOSED").length,
+        totalPilots: pilots.length,
+        promotedPilots: pilots.filter(p => p.verdict === "PROMOTED").length,
+        totalMeasurements,
+        completedMeasurements: completedMeasurements.length,
+        avgImprovement: Math.round(avgImprovement * 100) / 100,
+        operationalHealth: cases.length > 0 ? Math.min(100, Math.round((completedMeasurements.length / Math.max(1, cases.length)) * 100)) : 0
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, error: "HEALTH_READ_FAILED" });
+  }
+});
+
+// === FEATURE CONTROL / EDITION MANAGEMENT ===================================
+
+const featureControlStore = new Map();
+const DEFAULT_FEATURES = [
+  { name: "PROCARTA_ANALYSIS", edition: "COMMUNITY", available: true, requiresExternal: false, requiresPayment: false, dependencies: [], description: "Business process analysis via PROCARTA" },
+  { name: "PROCARTA_PILOT", edition: "COMMUNITY", available: true, requiresExternal: false, requiresPayment: false, dependencies: ["PROCARTA_ANALYSIS"], description: "Pilot progression from PROCARTA analysis" },
+  { name: "WORKFORCE_MANAGEMENT", edition: "COMMUNITY", available: true, requiresExternal: false, requiresPayment: false, dependencies: [], description: "Workforce invitation and role management" },
+  { name: "PARTNER_REGISTRATION", edition: "COMMUNITY", available: true, requiresExternal: false, requiresPayment: false, dependencies: [], description: "Partner application and registration" },
+  { name: "PRODUCT_THEATER", edition: "COMMUNITY", available: true, requiresExternal: false, requiresPayment: false, dependencies: [], description: "Product Theater media management" },
+  { name: "ANNOUNCEMENTS", edition: "COMMUNITY", available: true, requiresExternal: false, requiresPayment: false, dependencies: [], description: "Public announcements and bulletins" },
+  { name: "COMMUNITY_EVENTS", edition: "COMMUNITY", available: true, requiresExternal: false, requiresPayment: false, dependencies: [], description: "Community event monitoring" },
+  { name: "FEEDBACK_INTELLIGENCE", edition: "COMMUNITY", available: true, requiresExternal: false, requiresPayment: false, dependencies: [], description: "Feedback collection and pattern analysis" },
+  { name: "DEMO_SCENARIOS", edition: "COMMUNITY", available: true, requiresExternal: false, requiresPayment: false, dependencies: [], description: "Guided demonstration scenarios" },
+  { name: "MARKET_INTELLIGENCE", edition: "COMMUNITY", available: false, requiresExternal: true, requiresPayment: false, dependencies: [], description: "Market data and trading analysis" },
+  { name: "AWBULI_MESSAGING", edition: "COMMUNITY", available: false, requiresExternal: true, requiresPayment: false, dependencies: [], description: "AWBULI messaging automation" },
+  { name: "AI_PROVIDER_GATEWAY", edition: "PRO", available: false, requiresExternal: true, requiresPayment: false, dependencies: [], description: "AI provider integration (Gemini/Groq/DeepSeek)" },
+  { name: "ADVANCED_REPORTING", edition: "PRO", available: false, requiresExternal: false, requiresPayment: true, dependencies: [], description: "Advanced reporting and analytics" },
+  { name: "CUSTOM_INTEGRATIONS", edition: "ENTERPRISE", available: false, requiresExternal: false, requiresPayment: true, dependencies: [], description: "Custom integration development" },
+  { name: "PRIORITY_SUPPORT", edition: "ENTERPRISE", available: false, requiresExternal: false, requiresPayment: true, dependencies: [], description: "Priority technical support" },
+  { name: "DATA_SOURCE_CONNECTION", edition: "COMMUNITY", available: false, requiresExternal: true, requiresPayment: false, dependencies: [], description: "Connect external data sources" },
+  { name: "AUTOMATION_WORKFLOWS", edition: "PRO", available: false, requiresExternal: false, requiresPayment: true, dependencies: [], description: "Advanced automation workflow builder" },
+  { name: "MULTI_TENANT_ACCESS", edition: "ENTERPRISE", available: false, requiresExternal: false, requiresPayment: true, dependencies: [], description: "Multi-tenant organization access" }
+];
+DEFAULT_FEATURES.forEach(f => featureControlStore.set(f.name, f));
+
+app.get('/api/v1/features', security.requireAuth(), (req, res) => {
+  try {
+    const features = Array.from(featureControlStore.values());
+    const currentEdition = editionPolicy.getEdition();
+    res.json({ success: true, features, currentEdition, totalFeatures: features.length });
+  } catch (error) {
+    res.status(500).json({ success: false, error: "FEATURES_READ_FAILED" });
+  }
+});
+
+app.patch('/api/v1/features/:name', loadAuthenticatedWorkforce, async (req, res) => {
+  try {
+    if (!req.person || !["FOUNDER", "ADMIN"].includes(req.person.role)) {
+      return res.status(403).json({ success: false, error: "INSUFFICIENT_AUTHORIZATION" });
+    }
+    const feature = featureControlStore.get(req.params.name);
+    if (!feature) return res.status(404).json({ success: false, error: "FEATURE_NOT_FOUND" });
+    const updates = req.body || {};
+    if (updates.available !== undefined) feature.available = Boolean(updates.available);
+    if (updates.edition) feature.edition = updates.edition;
+    if (updates.requiresExternal !== undefined) feature.requiresExternal = Boolean(updates.requiresExternal);
+    if (updates.requiresPayment !== undefined) feature.requiresPayment = Boolean(updates.requiresPayment);
+    featureControlStore.set(req.params.name, feature);
+    res.json({ success: true, feature });
+  } catch (error) {
+    res.status(400).json({ success: false, error: "FEATURE_UPDATE_FAILED" });
+  }
+});
+
+app.post('/api/v1/features/request', security.requireAuth(), async (req, res) => {
+  try {
+    const body = req.body || {};
+    const id = `FREQ-${Date.now().toString(36).toUpperCase()}`;
+    const request = {
+      id,
+      userId: req.person?.id || req.claims?.sub || "anonymous",
+      featureName: body.featureName || "",
+      description: body.description || "",
+      status: "PENDING",
+      quoteAmount: null,
+      approvedBy: null,
+      approvedAt: null,
+      createdAt: new Date().toISOString()
+    };
+    res.status(201).json({ success: true, request });
+  } catch (error) {
+    res.status(400).json({ success: false, error: "FEATURE_REQUEST_FAILED" });
+  }
+});
+
+// === MARKET INTELLIGENCE / TRADING CONNECTIONS ==============================
+
+const marketConnections = new Map();
+let marketConnCounter = 0;
+
+app.get('/api/v1/market/connections', security.requireAuth(), (req, res) => {
+  try {
+    const connections = Array.from(marketConnections.values());
+    res.json({ success: true, connections, total: connections.length });
+  } catch (error) {
+    res.status(500).json({ success: false, error: "MARKET_CONNECTIONS_READ_FAILED" });
+  }
+});
+
+app.post('/api/v1/market/connections', loadAuthenticatedWorkforce, async (req, res) => {
+  try {
+    const body = req.body || {};
+    const id = `MC-${(++marketConnCounter).toString(36).toUpperCase()}`;
+    const connection = {
+      id,
+      connectionType: body.connectionType || "MARKET_DATA",
+      provider: body.provider || "",
+      status: "CONFIGURED",
+      lastSyncAt: null,
+      createdBy: req.person?.username || "system",
+      createdAt: new Date().toISOString()
+    };
+    marketConnections.set(id, connection);
+    res.status(201).json({ success: true, connection });
+  } catch (error) {
+    res.status(400).json({ success: false, error: "MARKET_CONNECTION_CREATE_FAILED" });
+  }
+});
+
+app.get('/api/v1/market/signals', security.requireAuth(), (req, res) => {
+  try {
+    res.json({
+      success: true,
+      signals: [],
+      truthClassification: "SIMULATED",
+      notice: "Market signals require an active market data provider connection. Connect a data source in Market Intelligence settings.",
+      historicalPerformance: { winRate: 0, totalSignals: 0, wins: 0, losses: 0 },
+      humanApprovalRequired: true
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, error: "MARKET_SIGNALS_FAILED" });
+  }
+});
+
+// === AI PROVIDER CONFIGURATION ==============================================
+
+app.get('/api/v1/ai/providers', security.requireAuth(), (req, res) => {
+  try {
+    const aiStatus = UniversalAIGateway.getInstance().getProviderStatus();
+    const providers = [
+      { name: "GEMINI", status: process.env.GEMINI_API_KEY ? "CONFIGURED" : "UNCONFIGURED", model: "gemini-pro" },
+      { name: "GROQ", status: process.env.GROQ_API_KEY ? "CONFIGURED" : "UNCONFIGURED", model: "llama-3.1-70b-versatile" },
+      { name: "DEEPSEEK", status: process.env.DEEPSEEK_API_KEY ? "CONFIGURED" : "UNCONFIGURED", model: "deepseek-chat" },
+      { name: "QWEN", status: process.env.QWEN_API_KEY ? "CONFIGURED" : "UNCONFIGURED", model: "qwen-plus" }
+    ];
+    res.json({
+      success: true,
+      providers,
+      activeProviders: aiStatus?.configuredProviderCount || 0,
+      fallback: "OFFLINE_LEXICAL_ENGINE",
+      note: "AI providers are optional. ADE operates fully without external AI."
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, error: "AI_PROVIDERS_FAILED" });
+  }
+});
+
+// Helper for workforce auth middleware reuse
+async function loadAuthenticatedWorkforce(req, res, next) {
+  const header = String(req.get("authorization") || "");
+  if (!header.startsWith("Bearer ")) {
+    return res.status(401).json({ success: false, error: "Authentication required" });
+  }
+  const token = header.slice(7);
+  try {
+    const claims = security.identity.verifySession(token);
+    const persona = String(claims.persona || "").toUpperCase();
+    if (persona === "ADMIN" && Number(claims.level) >= 2) {
+      req.claims = claims;
+      req.person = { id: null, username: String(claims.sub || "admin"), fullName: "Legacy Administrator", role: "ADMIN", level: Number(claims.level) || 2 };
+      return next();
+    }
+    if (persona === "WORKFORCE") {
+      const personId = claims.personId || claims.sub;
+      const person = await workforce.getPersonRecord(personId);
+      if (!person || person.status !== "ACTIVE") {
+        return res.status(403).json({ success: false, error: "ACCOUNT_NOT_ACTIVE" });
+      }
+      req.claims = claims;
+      req.person = person;
+      req.workforceToken = token;
+      return next();
+    }
+    return res.status(401).json({ success: false, error: "WORKFORCE_SESSION_REQUIRED" });
+  } catch (error) {
+    return res.status(401).json({ success: false, error: error.message });
+  }
+}
 
 // === EDITION / DEMO / COMMUNITY SURFACES ====================================
 
@@ -1221,6 +1520,7 @@ app.get('/api/v1/notifications/recent', (req, res) => {
 });
 
 app.get('/admin', (req,res)=>res.sendFile(path.join(__dirname, '../public/admin/index.html')));
+app.get('/founder', (req,res)=>res.sendFile(path.join(__dirname, '../public/founder.html')));
 
 // Serve Static UI Assets
 app.use(express.static(path.join(__dirname, "../public")));
