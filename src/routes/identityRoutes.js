@@ -208,7 +208,21 @@ export function registerIdentityRoutes({
   });
 
   app.get("/api/v1/account/session", loadAuthenticated, async (req, res) => {
-    const person = await workforce.getPerson(req.person.id);
+    const persona = String(req.claims?.persona || "").toUpperCase();
+    const person =
+      req.person?.id === null &&
+      persona === "ADMIN" &&
+      Number(req.claims?.level) >= 2
+        ? {
+            id: null,
+            username: String(req.claims.sub || "admin"),
+            fullName: "Legacy Administrator",
+            role: "ADMIN",
+            level: Number(req.claims.level) || 2,
+            status: "ACTIVE",
+            accessExpiryAt: null
+          }
+        : await workforce.getPerson(req.person.id);
     return res.json({
       success: true,
       person,

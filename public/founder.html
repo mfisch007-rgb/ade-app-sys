@@ -195,9 +195,15 @@ const shareLinkedIn=url=>window.open('https://www.linkedin.com/sharing/share-off
 const shareFacebook=url=>window.open('https://www.facebook.com/sharer/sharer.php?u='+encodeURIComponent(url),'_blank');
 const shareNative=(title,text,url)=>{if(navigator.share)return navigator.share({title,text,url}).catch(()=>{});};
 const copyText=text=>navigator.clipboard.writeText(text).then(()=>true).catch(()=>false);
+const decodeB64u=s=>{s=String(s||'').replace(/-/g,'+').replace(/_/g,'/');while(s.length%4)s+='=';return decodeURIComponent(Array.prototype.map.call(window.atob(s),c=>'%'+('00'+c.charCodeAt(0).toString(16)).slice(-2)).join(''))};
+const decodeClaims=t=>{try{const p=String(t||'').split('.');if(p.length!==3)return null;return JSON.parse(decodeB64u(p[1]))}catch{return null}};
 
 function App(){
  const [token,setToken]=useState(()=>sessionStorage.getItem('ade_founder_token'));
+ const [identity,setIdentity]=useState(()=>{try{return sessionStorage.getItem('ade_founder_identity')?JSON.parse(sessionStorage.getItem('ade_founder_identity')):null}catch{return null}});
+ const [sessionMeta,setSessionMeta]=useState(()=>{try{return sessionStorage.getItem('ade_founder_session_meta')?JSON.parse(sessionStorage.getItem('ade_founder_session_meta')):null}catch{return null}});
+ const [liveEvents,setLiveEvents]=useState([]);
+ const [streamState,setStreamState]=useState('DISCONNECTED');
  const [tab,setTab]=useState('OVERVIEW');
  const [toast,setToast]=useState('');
  const [menuOpen,setMenuOpen]=useState(false);
@@ -210,10 +216,10 @@ function App(){
  const [caps,setCaps]=useState([]);
 
  const [workforce,setWorkforce]=useState(null);
- const [inviteForm,setInviteForm]=useState({fullName:'',email:'',username:'',role:'OPERATOR',organization:'',supervisor:'',permissionProfile:'',expiry:'',message:''});
+ const [inviteForm,setInviteForm]=useState({fullName:'',email:'',username:'',role:'OPERATOR',organization:'',supervisor:'',permissionProfile:'',expiryDays:'30',message:''});
  const [inviteResult,setInviteResult]=useState(null);
  const [agents,setAgents]=useState([]);
-  const [agentForm,setAgentForm]=useState({name:'',type:'AI',status:'ACTIVE',description:''});
+  const [agentForm,setAgentForm]=useState({name:'',description:''});
   const [loginBusy,setLoginBusy]=useState(false);
   const [loginMsg,setLoginMsg]=useState(null);
 
@@ -244,13 +250,20 @@ function App(){
 
  const notify=m=>{setToast(m);setTimeout(()=>setToast(''),3000)};
 
+ const clearSession=()=>{
+  setToken(null);setIdentity(null);setSessionMeta(null);
+  sessionStorage.removeItem('ade_founder_token');
+  sessionStorage.removeItem('ade_founder_identity');
+  sessionStorage.removeItem('ade_founder_session_meta');
+ };
+
  const api=useCallback(async(url,opt={})=>{
   const headers={"Content-Type":"application/json",...(opt.headers||{})};
   if(token)headers.Authorization="Bearer "+token;
   const r=await fetch(url,{...opt,headers});
   if(r.status===401||r.status===403){
    if(url!=='/api/v1/auth/pin'){
-    setToken(null);sessionStorage.removeItem('ade_founder_token');
+    clearSession();
     notify('Session expired — re-authentication required');
     return null;
    }
@@ -260,19 +273,42 @@ function App(){
   return d;
  },[token]);
 
+ useEffect(()=>{
+  if(!token)return;
+  if(!identity){
+   const cl=decodeClaims(token);
+   if(cl)setIdentity({subject:cl.sub,tier:cl.tier||'COMMUNITY',level:cl.level,persona:cl.persona||'ADMIN',edition:cl.edition||'COMMUNITY'});
+  }
+  if(!sessionMeta&&decodeClaims(token)?.exp)setSessionMeta({expiresAt:Number(decodeClaims(token).exp)*1000,expiresIn:null});
+  const iv=setInterval(()=>{
+   if(sessionMeta?.expiresAt&&Date.now()>=Number(sessionMeta.expiresAt)){clearSession();notify('Session expired — re-authentication required')}
+  },10000);
+  return()=>clearInterval(iv);
+ },[token,identity,sessionMeta]);
+
+ useEffect(()=>{
+  if(!token)return;
+  const es=new EventSource('/api/v1/events/stream');
+  es.onopen=()=>setStreamState('CONNECTED');
+  es.onerror=()=>setStreamState('RECONNECTING');
+  es.onmessage=(m)=>{let ev;try{ev=JSON.parse(m.data)}catch{return}
+   setLiveEvents(prev=>[{topic:ev.topic||ev.type||'EVENT',eventId:ev.eventId,payload:ev.payload,at:ev.meta?.timestamp||ev.timestamp||new Date().toISOString()},...prev].slice(0,20));
+  };
+  return()=>{es.close();setStreamState('DISCONNECTED')};
+ },[token]);
+
  const refreshAll=useCallback(async()=>{
   if(!token)return;
   const j=async(u)=>{try{return await api(u)}catch(e){return null}};
-  const [a,b,c,d,e,f,g,ov,m,capArr]=await Promise.all([
+  const [a,b,c,d,e,f,g,ov,m]=await Promise.all([
    j('/api/v1/health'),j('/api/v1/runtime'),j('/api/v1/metrics'),
    j('/api/v1/edition'),j('/api/v1/media/providers'),j('/api/v1/media/requests'),
-   j('/api/v1/capabilities'),j('/api/v1/admin/overview'),j('/api/v1/announcements/admin'),
-   j('/api/v1/capability-map')
+   j('/api/v1/capabilities'),j('/api/v1/admin/overview'),j('/api/v1/announcements/admin')
   ]);
   if(a)setHealth(a);if(b)setRuntime(b);if(c)setMetrics(c);if(d)setEdition(d);
   if(e)setProviders(e?.providers||[]);if(f)setMediaRequests(f?.requests||[]);
   if(g)setCaps(g?.capabilities||[]);if(ov)setOverview(ov);
-  if(m)setAnnouncements(m?.announcements||[]);if(capArr)setFeatures(capArr?.capabilities||[]);
+  if(m)setAnnouncements(m?.announcements||[]);
  },[token,api]);
 
  useEffect(()=>{refreshAll();const p=setInterval(refreshAll,20000);return()=>clearInterval(p)},[refreshAll]);
@@ -289,7 +325,7 @@ function App(){
    }else if(tab==='INTEGRATIONS'){
     const r=await api('/api/v1/admin/connections');if(r)setConnections(r.connections||[]);
    }else if(tab==='FEATURE CONTROL'){
-    const r=await api('/api/v1/admin/settings');if(r)setSettings(r.settings||{});
+    const r=await api('/api/v1/features');if(r)setFeatures(r.features||[]);
    }else if(tab==='AUDIT'){
     const u=auditLimit?'?limit='+auditLimit:'';const r=await api('/api/v1/audit'+u);if(r)setAuditEntries(r.entries||[]);
    }
@@ -305,6 +341,8 @@ function App(){
     const d=await r.json();
     if(!r.ok)throw new Error(d.error||'Invalid PIN');
     setToken(d.token);sessionStorage.setItem('ade_founder_token',d.token);
+    if(d.identity){setIdentity(d.identity);sessionStorage.setItem('ade_founder_identity',JSON.stringify(d.identity))}
+    if(d.expiresAt){const meta={expiresAt:d.expiresAt,expiresIn:d.expiresIn||null};setSessionMeta(meta);sessionStorage.setItem('ade_founder_session_meta',JSON.stringify(meta))}
     setLoginBusy(false);setLoginMsg({type:'ok',text:'✓ FOUNDER SESSION AUTHENTICATED'});
     notify('FOUNDER SESSION AUTHENTICATED');
    }catch(e){setLoginBusy(false);setLoginMsg({type:'err',text:'✕ '+e.message});notify(e.message)}
@@ -312,13 +350,23 @@ function App(){
 
  const logout=async()=>{
   try{if(token)await api('/api/v1/auth/revoke',{method:'POST'})}catch{}
-  setToken(null);sessionStorage.removeItem('ade_founder_token');
+  clearSession();
   notify('Session ended');
  };
 
  const doInvite=async()=>{
   try{
-   const body={...inviteForm};if(body.expiry)body.expiry=new Date(body.expiry).getTime();
+   const body={
+    fullName:inviteForm.fullName,
+    role:inviteForm.role,
+    expiresInDays:Math.max(1,Math.min(90,Number(inviteForm.expiryDays)||30)),
+    username:inviteForm.username,
+    email:inviteForm.email,
+    organization:inviteForm.organization,
+    supervisor:inviteForm.supervisor,
+    permissionProfile:inviteForm.permissionProfile,
+    message:inviteForm.message
+   };
    const r=await api('/api/v1/workforce/invite',{method:'POST',body:JSON.stringify(body)});
    if(r){setInviteResult(r);notify('Invitation created')}
   }catch(e){notify(e.message)}
@@ -329,14 +377,31 @@ function App(){
  const doActivate=async(id)=>{try{await api('/api/v1/workforce/'+id+'/activate',{method:'POST'});notify('Activated');const r=await api('/api/v1/workforce');if(r)setWorkforce(r)}catch(e){notify(e.message)}};
  const doResetPw=async(id)=>{try{await api('/api/v1/workforce/'+id+'/reset-password',{method:'POST',body:JSON.stringify({})});notify('Password reset')}catch(e){notify(e.message)}};
  const doResetPin=async(id)=>{try{await api('/api/v1/workforce/'+id+'/reset-pin',{method:'POST',body:JSON.stringify({})});notify('PIN reset')}catch(e){notify(e.message)}};
- const doCreateAgent=async()=>{try{const r=await api('/api/v1/workforce/agents',{method:'POST',body:JSON.stringify(agentForm)});if(r){notify('Agent created');setAgentForm({name:'',type:'AI',status:'ACTIVE',description:''});const w=await api('/api/v1/workforce');if(w){setWorkforce(w);setAgents(w.agents||[])}}}catch(e){notify(e.message)}};
+ const doCreateAgent=async()=>{try{const r=await api('/api/v1/workforce/agents',{method:'POST',body:JSON.stringify({name:agentForm.name,purpose:agentForm.description})});if(r){notify('Agent created');setAgentForm({name:'',description:''});const w=await api('/api/v1/workforce');if(w){setWorkforce(w);setAgents(w.agents||[])}}}catch(e){notify(e.message)}};
 
- const doApprovePilot=async(intakeId)=>{try{await api('/api/v1/procarta/pilot/approve',{method:'POST',body:JSON.stringify({intakeId,reason:'Founder approval'})});notify('Pilot approved');const c=await api('/api/v1/procarta/pilot-candidates');if(c)setPilotCandidates(c.candidates||[]);const reg=await api('/api/v1/procarta/pilot/registry');if(reg){setPilotRegistry(reg.records||[]);setPilotStats(reg.stats||[])}}catch(e){notify(e.message)}};
- const doVerdict=async(recordId,verdict)=>{try{await api('/api/v1/procarta/pilot/verdict',{method:'POST',body:JSON.stringify({recordId,verdict,reason:'Founder verdict'})});notify('Verdict recorded');const reg=await api('/api/v1/procarta/pilot/registry');if(reg){setPilotRegistry(reg.records||[]);setPilotStats(reg.stats||[])}}catch(e){notify(e.message)}};
+ const doApprovePilot=async(intakeId)=>{try{await api('/api/v1/procarta/pilot/approve',{method:'POST',body:JSON.stringify({intakeId,reason:'Founder approval'})});notify('Pilot approved');const c=await api('/api/v1/procarta/pilot-candidates');if(c)setPilotCandidates(c.candidates||[]);const reg=await api('/api/v1/procarta/pilot/registry');if(reg){setPilotRegistry(reg.records||[]);setPilotStats(reg.stats||null)}}catch(e){notify(e.message)}};
+ const doVerdict=async(recordId,verdict)=>{try{await api('/api/v1/procarta/pilot/verdict',{method:'POST',body:JSON.stringify({recordId,verdict,reason:'Founder verdict'})});notify('Verdict recorded');const reg=await api('/api/v1/procarta/pilot/registry');if(reg){setPilotRegistry(reg.records||[]);setPilotStats(reg.stats||null)}}catch(e){notify(e.message)}};
 
- const doCreatePartner=async()=>{try{const r=await api('/api/v1/admin/partners',{method:'POST',body:JSON.stringify(partnerForm)});if(r){notify('Partner created');setPartnerForm({orgName:'',website:'',country:'',contactPerson:'',email:'',partnerType:'TECHNOLOGY',capabilities:'',industries:'',countriesServed:''});const p=await api('/api/v1/admin/partners');if(p)setPartners(p.partners||[])}}catch(e){notify(e.message)}};
+ const doCreatePartner=async()=>{try{
+   const splitCsv=v=>String(v||'').split(/[,\n]/).map(s=>s.trim()).filter(Boolean);
+   const r=await api('/api/v1/admin/partners',{method:'POST',body:JSON.stringify({
+    name:partnerForm.orgName,
+    status:'EVALUATION',
+    capabilities:splitCsv(partnerForm.capabilities),
+    contact:{
+     person:partnerForm.contactPerson,
+     email:partnerForm.email,
+     website:partnerForm.website,
+     country:partnerForm.country,
+     organization:partnerForm.orgName,
+     partnerType:partnerForm.partnerType,
+     industries:splitCsv(partnerForm.industries),
+     countriesServed:splitCsv(partnerForm.countriesServed)
+    },
+    priority:'STANDARD'
+   })});if(r){notify('Partner created');setPartnerForm({orgName:'',website:'',country:'',contactPerson:'',email:'',partnerType:'TECHNOLOGY',capabilities:'',industries:'',countriesServed:''});const p=await api('/api/v1/admin/partners');if(p)setPartners(p.partners||[])}}catch(e){notify(e.message)}};
 
- const doCreateConn=async()=>{try{const r=await api('/api/v1/admin/connections',{method:'POST',body:JSON.stringify(connForm)});if(r){notify('Connection created');setConnForm({name:'',provider:'',type:'REST',baseUrl:'',authType:'NONE',credentials:{}});const c=await api('/api/v1/admin/connections');if(c)setConnections(c.connections||[])}}catch(e){notify(e.message)}};
+ const doCreateConn=async()=>{try{const r=await api('/api/v1/admin/connections',{method:'POST',body:JSON.stringify({...connForm,provider:connForm.provider||connForm.name||''})});if(r){notify('Connection created');setConnForm({name:'',provider:'',type:'REST',baseUrl:'',authType:'NONE',credentials:{}});const c=await api('/api/v1/admin/connections');if(c)setConnections(c.connections||[])}}catch(e){notify(e.message)}};
  const doTestConn=async(id)=>{try{setConnTest({id,testing:true});const r=await api('/api/v1/admin/connections/'+id+'/test',{method:'POST'});setConnTest({id,result:r});notify(r?.success?'Connection OK':'Test failed')}catch(e){setConnTest({id,result:{success:false,error:e.message}});notify(e.message)}};
 
  const doToggleFeature=async(name,currentAvail)=>{
@@ -344,12 +409,12 @@ function App(){
   const idx=capsCopy.findIndex(c=>c.name===name||c.intent===name);
   if(idx>=0){capsCopy[idx]={...capsCopy[idx],available:!currentAvail};setFeatures(capsCopy)}
   try{
-   await api('/api/v1/admin/settings',{method:'PATCH',body:JSON.stringify({features:{[name]:!currentAvail}})});
-   const r=await api('/api/v1/admin/settings');if(r)setSettings(r.settings||{});
+   await api('/api/v1/features/'+encodeURIComponent(name),{method:'PATCH',body:JSON.stringify({available:!currentAvail})});
+   notify((!currentAvail?'Enabled':'Disabled')+' feature '+(name||''));
   }catch(e){notify(e.message);if(idx>=0){const rc=[...features];if(idx<rc.length)rc[idx]={...rc[idx],available:currentAvail};setFeatures(rc)}}
  };
 
- const doCreateMediaReq=async()=>{try{const r=await api('/api/v1/media/request',{method:'POST',body:JSON.stringify(mediaForm)});if(r){notify('Media request created');setMediaForm({type:'VIDEO',title:'',description:'',product:'',language:'en',category:'PROMOTIONAL',truthClassification:'SIMULATED',audience:'PUBLIC'});const m=await api('/api/v1/media/requests');if(m)setMediaRequests(m.requests||[])}}catch(e){notify(e.message)}};
+ const doCreateMediaReq=async()=>{try{const r=await api('/api/v1/media/request',{method:'POST',body:JSON.stringify({...mediaForm,campaignObjective:mediaForm.category,targetAudience:mediaForm.audience})});if(r){notify('Media request created');setMediaForm({type:'VIDEO',title:'',description:'',product:'',language:'en',category:'PROMOTIONAL',truthClassification:'SIMULATED',audience:'PUBLIC'});const m=await api('/api/v1/media/requests');if(m)setMediaRequests(m.requests||[])}}catch(e){notify(e.message)}};
 
  const doCreateAnnouncement=async()=>{try{const r=await api('/api/v1/announcements',{method:'POST',body:JSON.stringify(annForm)});if(r){notify('Announcement published');setAnnForm({title:'',body:'',kind:'ANNOUNCEMENT',link:''});const a=await api('/api/v1/announcements/admin');if(a)setAnnouncements(a.announcements||[])}}catch(e){notify(e.message)}};
 
@@ -420,6 +485,21 @@ function App(){
      h('div',{className:'stat'},h('b',null,overview.cases?.length??'—'),h('span',null,'Cases'))
     ):h('div',{className:'emptyState'},'Loading overview...')
    )
+  ),
+  h('div',{className:'card'},h('div',{className:'panelTitle'},h('h3',null,'LIVE EVENT STREAM'),h('span',null,'EVENTBUS · SSE')),
+   h('div',{className:'cardBody'},
+    h('div',{style:{display:'flex',gap:8,alignItems:'center',marginBottom:10}},
+     B(streamState==='CONNECTED'?'CONNECTED':streamState==='RECONNECTING'?'RECONNECTING':'DISCONNECTED',streamState==='CONNECTED'?'good':streamState==='RECONNECTING'?'warn':'bad'),
+     h('span',{style:{fontSize:10,color:'var(--faint)'}},'Canonical ADE Enterprise Event Bus via /api/v1/events/stream')
+    ),
+    liveEvents.length?h('div',{style:{display:'grid',gap:6,maxHeight:220,overflowY:'auto'}},liveEvents.map((ev,i)=>h('div',{key:i,style:{padding:'8px 10px',border:'1px solid var(--lineSoft)',borderRadius:10,background:'var(--ocean)'}},
+     h('div',{style:{display:'flex',gap:8,alignItems:'center',flexWrap:'wrap'}},
+      B(String(ev.topic||'EVENT').slice(0,26),'blue'),
+      h('span',{style:{fontSize:9.5,color:'var(--faint)'}},fmtTime(ev.at))
+     ),
+     ev.payload&&typeof ev.payload==='object'?h('div',{style:{fontSize:10.5,color:'var(--muted)',marginTop:4,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',maxWidth:'100%'}},Object.keys(ev.payload).slice(0,5).map(k=>k+':'+(typeof ev.payload[k]==='object'?JSON.stringify(ev.payload[k]).slice(0,40):String(ev.payload[k]).slice(0,40))).join(' · ')):null
+    ))):h('div',{className:'emptyState'},'Waiting for live events…')
+   )
   )
  );
 
@@ -442,24 +522,21 @@ function App(){
      ),
      h('div',{className:'formRow'},
       h('div',null,h('label',{className:'fieldLabel'},'PERMISSION PROFILE'),h('input',{className:'formInput',value:inviteForm.permissionProfile,onChange:e=>setInviteForm({...inviteForm,permissionProfile:e.target.value}),placeholder:'Permission profile'})),
-      h('div',null,h('label',{className:'fieldLabel'},'EXPIRY'),h('input',{className:'formInput',type:'datetime-local',value:inviteForm.expiry,onChange:e=>setInviteForm({...inviteForm,expiry:e.target.value})}))
+      h('div',null,h('label',{className:'fieldLabel'},'EXPIRY (DAYS)'),h('input',{className:'formInput',type:'number',min:'1',max:'90',value:inviteForm.expiryDays,onChange:e=>setInviteForm({...inviteForm,expiryDays:e.target.value})}))
      ),
      h('div',null,h('label',{className:'fieldLabel'},'MESSAGE'),h('textarea',{className:'formInput',value:inviteForm.message,onChange:e=>setInviteForm({...inviteForm,message:e.target.value}),placeholder:'Welcome message (optional)'})),
      h('div',{style:{display:'flex',gap:8}},h('button',{className:'btn primary',onClick:doInvite},'SEND INVITATION'))
     ),
     inviteResult&&h('div',{className:'inviteResult'},
      h('div',{style:{fontWeight:700,color:'var(--good)',marginBottom:8}},'INVITATION CREATED'),
-     h('div',{style:{marginBottom:8,padding:'6px 10px',borderRadius:8,background:'rgba(255,179,0,.1)',border:'1px solid rgba(255,179,0,.3)',fontSize:10.5,color:'var(--warn)',fontWeight:700,letterSpacing:0.06}},'EMAIL DELIVERY NOT CONFIGURED — deliver the invitation link/code manually'),
-     inviteResult.invitationCode&&h('div',null,h('div',{className:'fieldLabel'},'INVITATION CODE'),h('div',{className:'code'},inviteResult.invitationCode)),
-     inviteResult.invitationLink&&h('div',null,h('div',{className:'fieldLabel'},'INVITATION LINK'),h('div',{className:'code',style:{fontSize:11,wordBreak:'break-all'}},inviteResult.invitationLink)),
-     inviteResult.person?.pin&&h('div',null,h('div',{className:'fieldLabel'},'ASSIGNED PIN'),h('div',{className:'code'},inviteResult.person.pin)),
+     h('div',{style:{marginBottom:8,padding:'6px 10px',borderRadius:8,background:'rgba(255,179,0,.1)',border:'1px solid rgba(255,179,0,.3)',fontSize:10.5,color:'var(--warn)',fontWeight:700,letterSpacing:0.06}},'EMAIL DELIVERY NOT CONFIGURED — deliver the invitation code manually'),
+     inviteResult.inviteCode&&h('div',null,h('div',{className:'fieldLabel'},'INVITATION CODE'),h('div',{className:'code'},inviteResult.inviteCode)),
+     inviteResult.person?.id&&h('div',null,h('div',{className:'fieldLabel'},'PERSON ID'),h('div',{className:'code'},inviteResult.person.id)),
      (()=>{
-      const link=inviteResult.invitationLink||'';
-      const code=inviteResult.invitationCode||'';
-      const text=`You've been invited to join ADE! Code: ${code}`;
-      const url=link||window.location.origin;
+      const code=inviteResult.inviteCode||'';
+      const text=`You've been invited to join ADE. Invitation code: ${code}`;
+      const url=window.location.origin;
       return h('div',{className:'shareRow'},
-       h('button',{className:'btn share',onClick:()=>copyText(link||code)},'📋 COPY LINK'),
        h('button',{className:'btn share',onClick:()=>copyText(code)},'📋 COPY CODE'),
        h('button',{className:'btn share',onClick:()=>shareWhatsApp(text)},'📱 WHATSAPP'),
        h('button',{className:'btn share',onClick:()=>shareTelegram(url,text)},'✈ TELEGRAM'),
@@ -499,16 +576,14 @@ function App(){
   h('div',{className:'card'},h('div',{className:'panelTitle'},h('h3',null,'AGENT IDENTITIES'),h('span',null,(agents.length)+' AGENTS')),
    h('div',{className:'cardBody'},
     h('div',{className:'formRow',style:{marginBottom:14}},
-     h('div',null,h('label',{className:'fieldLabel'},'AGENT NAME'),h('input',{className:'formInput',value:agentForm.name,onChange:e=>setAgentForm({...agentForm,name:e.target.value}),placeholder:'Agent name'})),
-     h('div',null,h('label',{className:'fieldLabel'},'TYPE'),h('select',{className:'formInput',value:agentForm.type,onChange:e=>setAgentForm({...agentForm,type:e.target.value})},h('option',{value:'AI'},'AI'),h('option',{value:'AUTOMATION'},'AUTOMATION'),h('option',{value:'SERVICE'},'SERVICE'))),
-     h('div',null,h('label',{className:'fieldLabel'},'STATUS'),h('select',{className:'formInput',value:agentForm.status,onChange:e=>setAgentForm({...agentForm,status:e.target.value})},h('option',{value:'ACTIVE'},'ACTIVE'),h('option',{value:'INACTIVE'},'INACTIVE'))),
-     h('div',null,h('label',{className:'fieldLabel'},'DESCRIPTION'),h('input',{className:'formInput',value:agentForm.description,onChange:e=>setAgentForm({...agentForm,description:e.target.value}),placeholder:'Description'})),
-     h('div',null,h('button',{className:'btn primary',onClick:doCreateAgent,style:{marginTop:20}},'CREATE AGENT'))
-    ),
-    agents.length?h('div',{className:'tableWrap'},
-     h('table',null,h('thead',null,h('tr',null,h('th',null,'NAME'),h('th',null,'TYPE'),h('th',null,'STATUS'),h('th',null,'DESCRIPTION'))),
-      h('tbody',null,agents.map(a=>h('tr',{key:a.id},h('td',{style:{color:'var(--ink)',fontWeight:600}},a.name),h('td',null,B(a.type,'blue')),h('td',null,B(a.status,a.status==='ACTIVE'?'good':'muted')),h('td',{style:{color:'var(--muted)',whiteSpace:'normal'}},a.description||'—')))))
-    ):h('div',{className:'emptyState'},'No agents registered.')
+      h('div',null,h('label',{className:'fieldLabel'},'AGENT NAME'),h('input',{className:'formInput',value:agentForm.name,onChange:e=>setAgentForm({...agentForm,name:e.target.value}),placeholder:'Agent name'})),
+      h('div',null,h('label',{className:'fieldLabel'},'PURPOSE'),h('input',{className:'formInput',value:agentForm.description,onChange:e=>setAgentForm({...agentForm,description:e.target.value}),placeholder:'Purpose'})),
+      h('div',null,h('button',{className:'btn primary',onClick:doCreateAgent,style:{marginTop:20}},'CREATE AGENT'))
+     ),
+     agents.length?h('div',{className:'tableWrap'},
+      h('table',null,h('thead',null,h('tr',null,h('th',null,'NAME'),h('th',null,'STATUS'),h('th',null,'PURPOSE'),h('th',null,'CREATED'))),
+      h('tbody',null,agents.map(a=>h('tr',{key:a.id},h('td',{style:{color:'var(--ink)',fontWeight:600}},a.name),h('td',null,B(a.status||'ACTIVE',a.status==='ACTIVE'?'good':'muted')),h('td',{style:{color:'var(--muted)',whiteSpace:'normal'}},a.purpose||'—'),h('td',null,fmtDate(a.createdAt))))))
+     ):h('div',{className:'emptyState'},'No agents registered.')
    )
   )
  );
@@ -518,41 +593,44 @@ function App(){
   h('div',{className:'sectionHead'},h('h2',null,'PILOT PIPELINE'),h('p',null,'PROCARTA pilot progression from prospect to success.')),
   h('div',{className:'pipeline'},PILOT_STAGES.map((s,i)=>h('div',{key:s,className:'stage'},s))),
   pilotStats?h('div',{style:{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(120px,1fr))',gap:10}},
-   h('div',{className:'stat'},h('b',null,pilotStats.total??pilotRegistry.length??'—'),h('span',null,'Total Pilots')),
-   h('div',{className:'stat'},h('b',null,pilotStats.approved??'—'),h('span',null,'Approved')),
-   h('div',{className:'stat'},h('b',null,pilotStats.promoted??'—'),h('span',null,'Promoted')),
-   h('div',{className:'stat'},h('b',null,pilotStats.archived??'—'),h('span',null,'Archived'))
+   h('div',{className:'stat'},h('b',null,pilotStats.records??pilotRegistry.length??'—'),h('span',null,'Total Records')),
+   h('div',{className:'stat'},h('b',null,pilotStats.byState?.EVALUATION??'—'),h('span',null,'In Evaluation')),
+   h('div',{className:'stat'},h('b',null,pilotStats.byState?.PROMOTED??'—'),h('span',null,'Promoted')),
+   h('div',{className:'stat'},h('b',null,pilotStats.byState?.ARCHIVED??'—'),h('span',null,'Archived'))
   ):null,
   h('div',{className:'card'},h('div',{className:'panelTitle'},h('h3',null,'PILOT CANDIDATES'),h('span',null,(pilotCandidates.length)+' CANDIDATES')),
    h('div',{className:'cardBody'},
     pilotCandidates.length?h('div',{className:'tableWrap'},
-     h('table',null,h('thead',null,h('tr',null,h('th',null,'INTAKE ID'),h('th',null,'ORGANIZATION'),h('th',null,'STATUS'),h('th',null,'CREATED'),h('th',null,'ACTIONS'))),
-      h('tbody',null,pilotCandidates.map(c=>h('tr',{key:c.id||c.intakeId},
-       h('td',{style:{fontFamily:'ui-monospace,Consolas,monospace',fontSize:11,color:'var(--gold)'}},c.id||c.intakeId||'—'),
-       h('td',{style:{color:'var(--ink)',fontWeight:600}},c.organization||c.data?.organization||'—'),
-       h('td',null,B(c.status||c.stage||'PROSPECT','blue')),
-       h('td',null,fmtDate(c.createdAt)),
-       h('td',null,h('button',{className:'btn sm primary',onClick:()=>doApprovePilot(c.id||c.intakeId)},'✓ Approve'))
-)))
-     )):h('div',{className:'emptyState'},'No pilot candidates at this time.')
+     h('table',null,h('thead',null,h('tr',null,h('th',null,'INTAKE ID'),h('th',null,'ORGANIZATION'),h('th',null,'INTENT'),h('th',null,'QUALIFICATION'),h('th',null,'RECEIVED'),h('th',null,'ACTIONS'))),
+     h('tbody',null,pilotCandidates.map(c=>h('tr',{key:c.intakeId||c.id},
+      h('td',{style:{fontFamily:'ui-monospace,Consolas,monospace',fontSize:11,color:'var(--gold)'}},c.intakeId||c.id||'—'),
+      h('td',{style:{color:'var(--ink)',fontWeight:600}},c.organization||'—'),
+      h('td',{style:{whiteSpace:'normal'}},c.intent||c.useCaseDescription||'—'),
+      h('td',null,B('PROCARTA','blue')),
+      h('td',null,fmtDate(c.receivedAt)),
+      h('td',null,h('button',{className:'btn sm primary',onClick:()=>doApprovePilot(c.intakeId||c.id)},'✓ Approve'))
+     )))
+    )):h('div',{className:'emptyState'},'No pilot candidates at this time.')
     )
    ),
   h('div',{className:'card'},h('div',{className:'panelTitle'},h('h3',null,'PILOT REGISTRY'),h('span',null,(pilotRegistry.length)+' RECORDS')),
    h('div',{className:'cardBody'},
     pilotRegistry.length?h('div',{className:'tableWrap'},
-     h('table',null,h('thead',null,h('tr',null,h('th',null,'RECORD ID'),h('th',null,'INTAKE'),h('th',null,'STATUS'),h('th',null,'VERDICT'),h('th',null,'CREATED'),h('th',null,'ACTIONS'))),
-      h('tbody',null,pilotRegistry.map(r=>h('tr',{key:r.id||r.recordId},
-       h('td',{style:{fontFamily:'ui-monospace,Consolas,monospace',fontSize:11,color:'var(--gold)'}},r.id||r.recordId||'—'),
-       h('td',null,r.intakeId||'—'),
-       h('td',null,B(r.status||'ACTIVE','blue')),
-       h('td',null,B(r.verdict||'PENDING',r.verdict==='PROMOTED'?'good':r.verdict==='ARCHIVED'?'bad':'warn')),
-       h('td',null,fmtDate(r.createdAt)),
-       h('td',null,h('div',{className:'actions'},
-        (!r.verdict||r.verdict==='PENDING')&&h('button',{className:'btn sm',onClick:()=>doVerdict(r.id||r.recordId,'PROMOTED')},'↑ Promote'),
-        (!r.verdict||r.verdict==='PENDING')&&h('button',{className:'btn sm danger',onClick:()=>doVerdict(r.id||r.recordId,'ARCHIVED')},'↓ Archive')
-       ))
-)))
-     )):h('div',{className:'emptyState'},'No pilot records in the registry.')
+     h('table',null,h('thead',null,h('tr',null,h('th',null,'RECORD ID'),h('th',null,'INTAKE'),h('th',null,'CASE'),h('th',null,'STATUS'),h('th',null,'VERDICT REASON'),h('th',null,'APPROVED'),h('th',null,'RECEIVED'),h('th',null,'ACTIONS'))),
+     h('tbody',null,pilotRegistry.map(r=>h('tr',{key:r.id||r.recordId},
+      h('td',{style:{fontFamily:'ui-monospace,Consolas,monospace',fontSize:11,color:'var(--gold)'}},r.id||r.recordId||'—'),
+      h('td',null,r.intakeId||'—'),
+      h('td',{style:{whiteSpace:'normal'}},r.caseId||'—'),
+      h('td',null,B(r.state||'EVALUATION',r.state==='PROMOTED'?'good':r.state==='ARCHIVED'?'bad':'warn')),
+      h('td',{style:{whiteSpace:'normal'}},r.verdictReason||'—'),
+      h('td',null,r.approvedBy||'—'),
+      h('td',null,fmtDate(r.decidedAt)),
+      h('td',null,h('div',{className:'actions'},
+       r.state==='EVALUATION'&&h('button',{className:'btn sm',onClick:()=>doVerdict(r.id||r.recordId,'PROMOTED')},'↑ Promote'),
+       r.state==='EVALUATION'&&h('button',{className:'btn sm danger',onClick:()=>doVerdict(r.id||r.recordId,'ARCHIVED')},'↓ Archive')
+      ))
+     )))
+    )):h('div',{className:'emptyState'},'No pilot records in the registry.')
    )
   )
  );
@@ -591,12 +669,12 @@ function App(){
     partners.length?h('div',{className:'tableWrap'},
      h('table',null,h('thead',null,h('tr',null,h('th',null,'ORGANIZATION'),h('th',null,'TYPE'),h('th',null,'STATUS'),h('th',null,'COUNTRY'),h('th',null,'CONTACT'),h('th',null,'EMAIL'))),
       h('tbody',null,partners.map(p=>h('tr',{key:p.id},
-       h('td',{style:{color:'var(--ink)',fontWeight:600}},p.orgName||p.name||'—'),
-       h('td',null,B(p.partnerType||p.type||'—','blue')),
-       h('td',null,B(p.status||'SUBMITTED',p.status==='ACTIVE'?'good':p.status==='APPROVED'?'gold':'muted')),
-       h('td',null,p.country||'—'),
-       h('td',null,p.contactPerson||p.contact||'—'),
-       h('td',null,p.email||'—')
+       h('td',{style:{color:'var(--ink)',fontWeight:600}},p.name||p.contact?.organization||'—'),
+       h('td',null,B(p.contact?.partnerType||p.type||'—','blue')),
+       h('td',null,B(p.status||'EVALUATION',p.status==='ACTIVE'?'good':p.status==='APPROVED'?'gold':'muted')),
+       h('td',null,p.contact?.country||'—'),
+       h('td',null,p.contact?.person||'—'),
+       h('td',null,p.contact?.email||'—')
 )))
      )):h('div',{className:'emptyState'},'No partners registered.')
     )
@@ -617,6 +695,7 @@ function App(){
       h('div',null,h('label',{className:'fieldLabel'},'AUTH TYPE'),h('select',{className:'formInput',value:connForm.authType,onChange:e=>setConnForm({...connForm,authType:e.target.value})},AUTH_TYPES.map(t=>h('option',{key:t,value:t},t))))
      ),
      h('div',null,h('label',{className:'fieldLabel'},'BASE URL'),h('input',{className:'formInput',value:connForm.baseUrl,onChange:e=>setConnForm({...connForm,baseUrl:e.target.value}),placeholder:'https://api.example.com'})),
+     h('p',{className:'formHint'},'PROVIDER is required and identifies the connection; the NAME field is a local label only.'),
      h('button',{className:'btn primary',onClick:doCreateConn},'CREATE CONNECTION')
     )
    )
@@ -626,7 +705,7 @@ function App(){
     connections.length?h('div',{className:'tableWrap'},
      h('table',null,h('thead',null,h('tr',null,h('th',null,'NAME'),h('th',null,'PROVIDER'),h('th',null,'TYPE'),h('th',null,'AUTH'),h('th',null,'BASE URL'),h('th',null,'STATUS'),h('th',null,'ACTIONS'))),
       h('tbody',null,connections.map(c=>h('tr',{key:c.id},
-       h('td',{style:{color:'var(--ink)',fontWeight:600}},c.name||'—'),
+       h('td',{style:{color:'var(--ink)',fontWeight:600}},c.name||c.provider||'—'),
        h('td',null,c.provider||'—'),
        h('td',null,B(c.type||'REST','blue')),
        h('td',null,B(c.authType||'NONE','muted')),
@@ -661,11 +740,11 @@ function App(){
     features.length?features.map((f,i)=>h('div',{key:f.intent||f.name||i,className:'featureRow'},
      h('div',{className:'toggle',class:f.available?'toggle on':'toggle',onClick:()=>doToggleFeature(f.name||f.intent,f.available),style:f.available?{background:'var(--gold)',borderColor:'var(--gold)'}:{}}),
      h('div',{className:'fname'},f.name||f.intent),
-     h('div',{className:'fedition'},B(f.tier||f.edition||'COMMUNITY',f.tier==='PRO'?'warn':f.tier==='ENTERPRISE'?'bad':'muted')),
+     h('div',{className:'fedition'},B(f.edition||f.tier||'COMMUNITY',f.edition==='PRO'?'warn':f.edition==='ENTERPRISE'?'bad':'muted')),
      B(f.available?'AVAILABLE':'DISABLED',f.available?'good':'bad'),
-     f.pluginRequired?B('PLUGIN REQUIRED','muted'):null,
-     f.revoked?B('REVOKED','bad'):null
-    )):h('div',{className:'emptyState'},'No features in the capability map.')
+     f.requiresExternal?B('EXTERNAL DEPENDENCY','warn'):null,
+     f.requiresPayment?B('PAID','bad'):null
+    )):h('div',{className:'emptyState'},'No features in the feature control store.')
    )
   )
  );
@@ -696,9 +775,9 @@ function App(){
   h('div',{className:'card'},h('div',{className:'panelTitle'},h('h3',null,'PROVIDER STATUS'),h('span',null,'MEDIA ENGINE')),
    h('div',{className:'cardBody'},
     providers.length?h('div',{style:{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(200px,1fr))',gap:10}},providers.map(p=>h('div',{key:p.id||p.name,className:'stat'},
-     h('div',{style:{fontSize:13,fontWeight:700,color:'var(--ink)'}},p.name||p.id),
-     h('div',{style:{marginTop:4}},B(p.available?'AVAILABLE':'UNCONFIGURED',p.available?'good':'muted')),
-     p.kind?h('div',{style:{marginTop:4,fontSize:10,color:'var(--muted)'}},p.kind):null
+     h('div',{style:{fontSize:13,fontWeight:700,color:'var(--ink)'}},p.id||p.name),
+     h('div',{style:{marginTop:4}},B(p.configured?'CONFIGURED':'UNCONFIGURED',p.configured?'good':'muted')),
+     p.type?h('div',{style:{marginTop:4,fontSize:10,color:'var(--muted)'}},(p.type||'')+(p.status?' · '+p.status:'')):null
     ))):h('div',{className:'emptyState'},'No media providers configured.')
    )
   ),
@@ -710,8 +789,8 @@ function App(){
        h('td',{style:{color:'var(--ink)',fontWeight:600}},m.title||'—'),
        h('td',null,B(m.type||'—','blue')),
        h('td',null,B(m.category||'—','muted')),
-       h('td',null,B(m.truthClassification||m.classification||'—',m.truthClassification==='LIVE'?'good':'warn')),
-       h('td',null,B(m.status||'PENDING','muted')),
+       h('td',null,B(m.truthClassification||'PLACEHOLDER',m.truthClassification==='LIVE'?'good':m.truthClassification==='SIMULATED'?'blue':'warn')),
+       h('td',null,B(m.status||'CREATED','muted')),
        h('td',null,fmtDate(m.createdAt))
 )))
      )):h('div',{className:'emptyState'},'No media requests.')
@@ -784,6 +863,7 @@ function App(){
     ),
     h('nav',{className:'topNav'},TABS.map(t=>h('button',{key:t,className:tab===t?'active':'',onClick:()=>{setTab(t);setMenuOpen(false)}},t))),
     h('div',{className:'topRight'},
+     identity?h('span',{className:'pill'},'@'+identity.subject+' · '+identity.persona+' · L'+identity.level):null,
      h('span',{className:'pill '+(kernLive?'live':kernStatus==='OFFLINE'?'off':'')},h('i',{className:'dot'}),kernLive?'ONLINE':kernStatus),
      h('button',{className:'btn sm danger',onClick:logout},'⊘ LOGOUT'),
      h('button',{className:'iconBtn hamburger',onClick:()=>setMenuOpen(v=>!v)},menuOpen?'✕':'☰')

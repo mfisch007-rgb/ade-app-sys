@@ -85,9 +85,13 @@ export class MediaEngine {
     const request = {
       requestId,
       createdAt: new Date().toISOString(),
+      type: params.type || null,
+      title: params.title || null,
+      description: params.description || null,
+      category: params.category || null,
       product: params.product || "ADE",
-      campaignObjective: params.campaignObjective || "DEMO",
-      targetAudience: params.targetAudience || "general",
+      campaignObjective: params.campaignObjective || params.category || "DEMO",
+      targetAudience: params.targetAudience || params.audience || "general",
       targetMarket: params.targetMarket || "global",
       duration: params.duration || 30,
       brandRules: params.brandRules || {},
@@ -98,7 +102,7 @@ export class MediaEngine {
       budget: params.budget || "standard",
       scenes: [],
       status: "CREATED",
-      truthClassification: "PLACEHOLDER"
+      truthClassification: params.truthClassification || "PLACEHOLDER"
     };
     this.registry.set(requestId, request);
     this.#boundRegistry();
@@ -166,7 +170,13 @@ export class MediaEngine {
   listMediaRequests() {
     return [...this.registry.values()].map(r => ({
       requestId: r.requestId,
+      type: r.type,
+      title: r.title,
+      description: r.description,
+      category: r.category,
       product: r.product,
+      language: r.language,
+      targetAudience: r.targetAudience,
       status: r.status,
       duration: r.duration,
       sceneCount: r.scenes?.length || 0,
