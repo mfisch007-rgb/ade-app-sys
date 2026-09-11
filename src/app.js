@@ -1418,7 +1418,7 @@ app.get('/api/v1/procarta/pilot-candidates', security.requireLevel(2), (req, res
 
 app.post('/api/v1/procarta/pilot/approve', security.requireLevel(2), (req, res) => {
   try {
-    const approvedBy = req.identity?.subject || req.user?.subject || "LEVEL_2_OPERATOR";
+    const approvedBy = req.identity?.sub || req.identity?.subject || req.user?.sub || req.user?.subject || "LEVEL_2_OPERATOR";
     const decision = pilotGate.approveCandidate({
       intakeId: req.body?.intakeId,
       approvedBy,
@@ -1453,7 +1453,7 @@ app.get('/api/v1/procarta/pilot/registry', security.requireLevel(2), (req, res) 
 
 app.post('/api/v1/procarta/pilot/verdict', security.requireLevel(2), (req, res) => {
   try {
-    const decidedBy = req.identity?.subject || req.user?.subject || "LEVEL_2_OPERATOR";
+    const decidedBy = req.identity?.sub || req.identity?.subject || req.user?.sub || req.user?.subject || "LEVEL_2_OPERATOR";
     const record = pilotRegistry.recordVerdict({
       recordId: req.body?.recordId,
       verdict: req.body?.verdict,

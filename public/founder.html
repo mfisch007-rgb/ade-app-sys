@@ -384,9 +384,10 @@ function App(){
  const doVerdict=async(recordId,verdict)=>{try{await api('/api/v1/procarta/pilot/verdict',{method:'POST',body:JSON.stringify({recordId,verdict,reason:'Founder verdict'})});notify('Verdict recorded');const reg=await api('/api/v1/procarta/pilot/registry');if(reg){setPilotRegistry(reg.records||[]);setPilotStats(reg.stats||null)}}catch(e){notify(e.message)}};
 
  const doCreatePartner=async()=>{try{
+   if(!partnerForm.orgName||partnerForm.orgName.trim().length<2) throw new Error('ORGANIZATION_REQUIRED — organization name must be at least 2 characters');
    const splitCsv=v=>String(v||'').split(/[,\n]/).map(s=>s.trim()).filter(Boolean);
    const r=await api('/api/v1/admin/partners',{method:'POST',body:JSON.stringify({
-    name:partnerForm.orgName,
+    name:partnerForm.orgName.trim(),
     status:'EVALUATION',
     capabilities:splitCsv(partnerForm.capabilities),
     contact:{
