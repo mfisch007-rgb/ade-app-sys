@@ -174,6 +174,21 @@ const runtimeConfig = new RuntimeConfigStore(
     : null
 );
 
+// Central storage-readiness gate — distinguishes durable configured vs ephemeral.
+// Flat error envelope {success, error: CODE-string, message} matches existing
+// Pilot/route conventions so founder UI `new Error(d.error)` stays readable.
+function isDurableOperational(){ return durableStorageEnabled === true; }
+function isProductionEphemeral(){
+  const isProd = Boolean(process.env.VERCEL || process.env.VERCEL_ENV === 'production' || process.env.NODE_ENV === 'production');
+  return isProd && !isDurableOperational();
+}
+function requireDurableStorage(req,res,next){
+  if(isProductionEphemeral()){
+    return res.status(503).json({success:false, error:'STORAGE_NOT_CONFIGURED', message:'Durable production storage is not configured. Operation halted to prevent state loss.'});
+  }
+  return next();
+}
+
 const secrets = { _m:new Map(), setSecret(k,v){this._m.set(k,v)}, getSecret(k){return this._m.get(k)||process.env[k]} };
 const connectionManager = new ConnectionManager({ secrets, store: runtimeConfig });
 const caseManager = new CaseManager({ eventBus: kernel?.eventBus, store: runtimeConfig });
@@ -290,7 +305,8 @@ registerIdentityRoutes({
   workforce,
   announcements,
   auditStore,
-  runtimeMode: ADE_RUNTIME_MODE
+  runtimeMode: ADE_RUNTIME_MODE,
+  requireDurableStorage
 });
 
 // G17 — durable boot hydration. In durable mode the authoritative document
@@ -532,8 +548,8 @@ app.get('/api/v1/search', (req, res) => {
   res.redirect(307, `/api/command/search?q=${encodeURIComponent(String(req.query.q || ""))}`);
 });
 
-// GATE 4 (Exec): Dispatcher
-app.post("/api/command/execute", security.requireAuth(), async (req, res) => {
+// GATE 4 (Exec): Dispatcher — gated: execution may create durable case/intake state
+app.post("/api/command/execute", security.requireAuth(), requireDurableStorage, async (req, res) => {
   const { action, payload = {} } = req.body || {};
 
   if (!action || typeof action !== "string") {
@@ -824,7 +840,7 @@ app.get('/api/v1/system/diagnostics', security.requireLevel(2), (req,res)=>{
         mode: isDurable ? 'SUPABASE/DURABLE' : 'LOCAL/EPHEMERAL',
         status: isDurable ? 'DURABLE' : 'EPHEMERAL - CONFIGURATION REQUIRED',
         durable: Boolean(isDurable),
-        requiredEnv: ['ADE_STORAGE_PROVIDER=supabase','SUPABASE_URL','SUPABASE_STORAGE_KEY','SUPABASE_STORAGE_TABLE'],
+        requiredEnv: ['ADE_STORAGE_PROVIDER=supabase','SUPABASE_URL','SUPABASE_SERVICE_ROLE_KEY','SUPABASE_STORAGE_TABLE'],
         note: isDurable ? 'Production persistence is durable via Supabase.' : 'Local adapter is ephemeral on Vercel serverless. Configure Supabase for durable partner/pilot/connection persistence.',
         configured: Boolean(isDurable)
       },
@@ -874,20 +890,20 @@ app.get('/api/v1/attention', security.requireLevel(2), (req,res)=>{
     res.json({success:true, attention:{intakes,candidates,pilots,partners:parts,connections:conns,cases,notifications:notifs,stats}, time:new Date().toISOString()});
   }catch(e){ res.status(500).json({success:false, error:'ATTENTION_FAILED', message:e.message}); }
 });
-app.post('/api/v1/intake/:channel',(req,res)=>{ try { const result=intake.ingest(req.params.channel,req.body||{},{source:req.body?.source||req.params.channel,authenticated:Boolean(req.headers.authorization)}); logEvent('INTAKE',`Created ${result.case.id} from ${req.params.channel}`); res.status(201).json(result); } catch(e){res.status(400).json({success:false,error:e.message});} });
+app.post('/api/v1/intake/:channel',requireDurableStorage,(req,res)=>{ try { const result=intake.ingest(req.params.channel,req.body||{},{source:req.body?.source||req.params.channel,authenticated:Boolean(req.headers.authorization)}); logEvent('INTAKE',`Created ${result.case.id} from ${req.params.channel}`); res.status(201).json(result); } catch(e){res.status(400).json({success:false,error:e.message});} });
 app.get('/api/v1/cases', security.requireAuth(),(req,res)=>res.json({success:true,count:caseManager.list().length,cases:caseManager.list()}));
-app.post('/api/v1/cases/:id/process', security.requireAuth(),async(req,res)=>{try{const result=await engagementOrchestrator.process(req.params.id,req.body||{});res.json({success:true,case:result});}catch(e){res.status(e.message==='CASE_NOT_FOUND'?404:400).json({success:false,error:e.message});}});
-app.post('/api/v1/cases/:id/execute', security.requireAuth(),async(req,res)=>{try{const result=await engagementOrchestrator.executeCase(req.params.id);res.json({success:true,case:result});}catch(e){res.status(e.message==='CASE_NOT_FOUND'?404:400).json({success:false,error:e.message});}});
-app.post('/api/v1/cases/:id/feedback', security.requireAuth(),async(req,res)=>{try{const result=await engagementOrchestrator.ingestFeedback(req.params.id,req.body||{});res.json({success:true,case:result});}catch(e){res.status(e.message==='CASE_NOT_FOUND'?404:400).json({success:false,error:e.message});}});
+app.post('/api/v1/cases/:id/process', security.requireAuth(),requireDurableStorage,async(req,res)=>{try{const result=await engagementOrchestrator.process(req.params.id,req.body||{});res.json({success:true,case:result});}catch(e){res.status(e.message==='CASE_NOT_FOUND'?404:400).json({success:false,error:e.message});}});
+app.post('/api/v1/cases/:id/execute', security.requireAuth(),requireDurableStorage,async(req,res)=>{try{const result=await engagementOrchestrator.executeCase(req.params.id);res.json({success:true,case:result});}catch(e){res.status(e.message==='CASE_NOT_FOUND'?404:400).json({success:false,error:e.message});}});
+app.post('/api/v1/cases/:id/feedback', security.requireAuth(),requireDurableStorage,async(req,res)=>{try{const result=await engagementOrchestrator.ingestFeedback(req.params.id,req.body||{});res.json({success:true,case:result});}catch(e){res.status(e.message==='CASE_NOT_FOUND'?404:400).json({success:false,error:e.message});}});
 app.get('/api/v1/cases/:id/transitions', security.requireAuth(),(req,res)=>{const c=caseManager.get(req.params.id);if(!c)return res.status(404).json({success:false,error:'CASE_NOT_FOUND'});res.json({success:true,status:c.status,allowedTransitions:caseManager.getAllowedTransitions(req.params.id)});});
 app.get('/api/v1/cases/:id', security.requireAuth(),(req,res)=>{const c=caseManager.get(req.params.id); if(!c)return res.status(404).json({success:false,error:'CASE_NOT_FOUND'}); res.json({success:true,case:c});});
-app.patch('/api/v1/cases/:id', security.requireAuth(),(req,res)=>{const c=caseManager.update(req.params.id,req.body||{}); if(!c)return res.status(404).json({success:false,error:'CASE_NOT_FOUND'}); res.json({success:true,case:c});});
+app.patch('/api/v1/cases/:id', security.requireAuth(),requireDurableStorage,(req,res)=>{const c=caseManager.update(req.params.id,req.body||{}); if(!c)return res.status(404).json({success:false,error:'CASE_NOT_FOUND'}); res.json({success:true,case:c});});
 
 app.get('/api/v1/admin/overview', security.requireLevel(2),(req,res)=>res.json({success:true,channels:channels.list(),connections:connectionManager.list(),partners:partners.list(),cases:caseManager.list(),settings:runtimeConfig.read()}));
 app.get('/api/v1/admin/channels', security.requireLevel(2),(req,res)=>res.json({success:true,channels:channels.list()}));
-app.patch('/api/v1/admin/channels/:id', security.requireLevel(2),(req,res)=>{const c=channels.set(req.params.id,req.body||{}); runtimeConfig.write('channels',req.params.id,c); res.json({success:true,channel:c});});
+app.patch('/api/v1/admin/channels/:id', security.requireLevel(2),requireDurableStorage,(req,res)=>{const c=channels.set(req.params.id,req.body||{}); runtimeConfig.write('channels',req.params.id,c); res.json({success:true,channel:c});});
 app.get('/api/v1/admin/connections', security.requireLevel(2),(req,res)=>res.json({success:true,connections:connectionManager.list()}));
-app.post('/api/v1/admin/connections', security.requireLevel(2),(req,res)=>{try{res.status(201).json({success:true,connection:connectionManager.upsert(req.body||{})});}catch(e){res.status(400).json({success:false,error:e.message});}});
+app.post('/api/v1/admin/connections', security.requireLevel(2),requireDurableStorage,(req,res)=>{try{res.status(201).json({success:true,connection:connectionManager.upsert(req.body||{})});}catch(e){res.status(400).json({success:false,error:e.message});}});
 app.post('/api/v1/admin/connections/:id/test', security.requireLevel(2),async(req,res)=>res.json(await connectionManager.test(req.params.id)));
 
 // AWBULI connector status — truthful, never fabricated. Reports the runtime
@@ -938,9 +954,9 @@ app.post('/api/v1/integrations/analyze', security.requireLevel(2), async (req, r
   }
 });
 app.get('/api/v1/admin/partners', security.requireLevel(2),(req,res)=>res.json({success:true,partners:partners.list()}));
-app.post('/api/v1/admin/partners', security.requireLevel(2),(req,res)=>res.status(201).json({success:true,partner:partners.upsert(req.body||{})}));
+app.post('/api/v1/admin/partners', security.requireLevel(2),requireDurableStorage,(req,res)=>res.status(201).json({success:true,partner:partners.upsert(req.body||{})}));
 app.get('/api/v1/admin/settings', security.requireLevel(2),(req,res)=>res.json({success:true,settings:runtimeConfig.read()}));
-app.patch('/api/v1/admin/settings', security.requireLevel(2),(req,res)=>{const body=req.body||{}; let d=runtimeConfig.read(); for(const [section,values] of Object.entries(body)){for(const [k,v] of Object.entries(values||{})) d=runtimeConfig.write(section,k,v);} res.json({success:true,settings:d});});
+app.patch('/api/v1/admin/settings', security.requireLevel(2),requireDurableStorage,(req,res)=>{const body=req.body||{}; let d=runtimeConfig.read(); for(const [section,values] of Object.entries(body)){for(const [k,v] of Object.entries(values||{})) d=runtimeConfig.write(section,k,v);} res.json({success:true,settings:d});});
 app.post('/api/v1/assessment/public-discovery',async(req,res)=>{try{if(!req.body?.authorization?.publicAnalysis)return res.status(403).json({success:false,error:'PUBLIC_ANALYSIS_AUTHORIZATION_REQUIRED'}); const result=await publicDiscovery(req.body.url); res.json(result);}catch(e){res.status(400).json({success:false,error:e.message});}});
 
 // === BUSINESS HEALTH / BEFORE-AND-AFTER MEASUREMENT ========================
@@ -960,7 +976,7 @@ app.get('/api/v1/business/measurements', security.requireAuth(), (req, res) => {
   }
 });
 
-app.post('/api/v1/business/measurements', loadAuthenticatedWorkforce, async (req, res) => {
+app.post('/api/v1/business/measurements', loadAuthenticatedWorkforce, requireDurableStorage, async (req, res) => {
   try {
     const body = req.body || {};
     const id = `MEAS-${Date.now().toString(36).toUpperCase()}-${(++measurementCounter).toString(36).toUpperCase()}`;
@@ -1049,7 +1065,7 @@ app.get('/api/v1/features', security.requireAuth(), (req, res) => {
   }
 });
 
-app.patch('/api/v1/features/:name', loadAuthenticatedWorkforce, async (req, res) => {
+app.patch('/api/v1/features/:name', loadAuthenticatedWorkforce, requireDurableStorage, async (req, res) => {
   try {
     if (!req.person || !["FOUNDER", "ADMIN"].includes(req.person.role)) {
       return res.status(403).json({ success: false, error: "INSUFFICIENT_AUTHORIZATION" });
@@ -1068,7 +1084,7 @@ app.patch('/api/v1/features/:name', loadAuthenticatedWorkforce, async (req, res)
   }
 });
 
-app.post('/api/v1/features/request', security.requireAuth(), async (req, res) => {
+app.post('/api/v1/features/request', security.requireAuth(), requireDurableStorage, async (req, res) => {
   try {
     const body = req.body || {};
     const id = `FREQ-${Date.now().toString(36).toUpperCase()}`;
@@ -1103,7 +1119,7 @@ app.get('/api/v1/market/connections', security.requireAuth(), (req, res) => {
   }
 });
 
-app.post('/api/v1/market/connections', loadAuthenticatedWorkforce, async (req, res) => {
+app.post('/api/v1/market/connections', loadAuthenticatedWorkforce, requireDurableStorage, async (req, res) => {
   try {
     const body = req.body || {};
     const id = `MC-${(++marketConnCounter).toString(36).toUpperCase()}`;
@@ -1345,7 +1361,7 @@ app.get('/api/v1/runtime', (req, res) => {
 
 // === FEEDBACK INTELLIGENCE ==================================================
 
-app.post('/api/v1/feedback', async (req, res) => {
+app.post('/api/v1/feedback', requireDurableStorage, async (req, res) => {
   try {
     const result = await feedbackIntelligence.captureFeedback({
       ...req.body,
@@ -1385,7 +1401,7 @@ app.get('/api/v1/media/providers', (req, res) => {
   }
 });
 
-app.post('/api/v1/media/request', (req, res) => {
+app.post('/api/v1/media/request', requireDurableStorage, (req, res) => {
   try {
     const request = mediaEngine.createMediaRequest(req.body || {});
     res.status(201).json({ success: true, request });
@@ -1394,7 +1410,7 @@ app.post('/api/v1/media/request', (req, res) => {
   }
 });
 
-app.post('/api/v1/media/request/:requestId/concept', (req, res) => {
+app.post('/api/v1/media/request/:requestId/concept', requireDurableStorage, (req, res) => {
   try {
     const concept = mediaEngine.createCreativeConcept(req.params.requestId, req.body || {});
     res.status(201).json({ success: true, concept });
@@ -1421,7 +1437,7 @@ app.get('/api/v1/media/registry/stats', (req, res) => {
 
 // === COMMUNITY PROGRESSION ==================================================
 
-app.post('/api/v1/community/intake', (req, res) => {
+app.post('/api/v1/community/intake', requireDurableStorage, (req, res) => {
   try {
     const result = communityProgression.captureIntake({
       ...req.body,
@@ -1477,7 +1493,7 @@ app.get('/api/v1/procarta/pilot-candidates', security.requireLevel(2), (req, res
   }
 });
 
-app.post('/api/v1/procarta/pilot/approve', security.requireLevel(2), (req, res) => {
+app.post('/api/v1/procarta/pilot/approve', security.requireLevel(2), requireDurableStorage, (req, res) => {
   try {
     const approvedBy = req.identity?.sub || req.identity?.subject || req.user?.sub || req.user?.subject || "LEVEL_2_OPERATOR";
     const decision = pilotGate.approveCandidate({
@@ -1512,7 +1528,7 @@ app.get('/api/v1/procarta/pilot/registry', security.requireLevel(2), (req, res) 
   }
 });
 
-app.post('/api/v1/procarta/pilot/verdict', security.requireLevel(2), (req, res) => {
+app.post('/api/v1/procarta/pilot/verdict', security.requireLevel(2), requireDurableStorage, (req, res) => {
   try {
     const decidedBy = req.identity?.sub || req.identity?.subject || req.user?.sub || req.user?.subject || "LEVEL_2_OPERATOR";
     const record = pilotRegistry.recordVerdict({

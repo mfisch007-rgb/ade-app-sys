@@ -27,9 +27,11 @@ import LocalStorageAdapter from "./LocalStorageAdapter.js";
 export class SupabaseStorageAdapter extends StorageProvider {
   constructor(config = {}) {
     super();
+    // Canonical contract: SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY + SUPABASE_STORAGE_TABLE.
+    // SUPABASE_STORAGE_KEY is accepted as a legacy alias for the service-role key.
     this.config = {
       url: config.url ?? process.env.SUPABASE_URL,
-      key: config.key ?? process.env.SUPABASE_STORAGE_KEY,
+      key: config.key ?? process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.SUPABASE_STORAGE_KEY,
       table: config.table ?? process.env.SUPABASE_STORAGE_TABLE
     };
     this._client = null;
@@ -53,7 +55,7 @@ export class SupabaseStorageAdapter extends StorageProvider {
     if (this.isConfigured()) return null;
     const missing = [];
     if (!this.config.url) missing.push("SUPABASE_URL");
-    if (!this.config.key) missing.push("SUPABASE_STORAGE_KEY");
+    if (!this.config.key) missing.push("SUPABASE_SERVICE_ROLE_KEY (alias: SUPABASE_STORAGE_KEY)");
     if (!this.config.table) missing.push("SUPABASE_STORAGE_TABLE");
     return new Error(
       `STORAGE_NOT_CONFIGURED: missing ${missing.join(", ")}`

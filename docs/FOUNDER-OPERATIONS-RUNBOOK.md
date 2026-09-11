@@ -18,7 +18,7 @@ All visible from **Founder Command Center** (authenticated):
 
 | What | Where in Command Center | Source |
 |------|------------------------|--------|
-| New leads / intakes (USE_CASE, PILOT_INTEREST, etc.) | **INBOX → Community Intakes** + **OVERVIEW → Production Readiness** counts | `CommunityProgression` via `POST /api/v1/community/intake` (public) |
+| New leads / intakes (USE_CASE, PILOT_INTEREST, etc.) | **INBOX → Community Intakes** + **OVERVIEW → Production Readiness** counts | `CommunityProgression` via `POST /api/v1/community/intake` (public; returns 503 in production until durable storage is configured — see section 10) |
 | Pilot requests → candidates | **INBOX → Pilot Candidates** and **PILOTS → Candidates** (`GET /procarta/pilot-candidates`) | PROCARTA-qualified intakes |
 | Partners / partner interests | **INBOX → Partner Interests** and **PARTNERS** (`GET /admin/partners`) | `PartnerRegistry` |
 | Feedback | **COMMUNITY → Feedback** (public) and audit/attention | `FeedbackIntelligence` |
@@ -68,7 +68,7 @@ Check **OVERVIEW → Production Readiness** (or `GET /api/v1/system/diagnostics`
 
 | Component | Required Env (exact) | Current in prod (2026-09-11) |
 |-----------|---------------------|------------------------------|
-| Storage (durable) | `ADE_STORAGE_PROVIDER=supabase` + `SUPABASE_URL` + `SUPABASE_STORAGE_KEY` + `SUPABASE_STORAGE_TABLE` | **NOT CONFIGURED** — `Local/EPHEMERAL`, partners/intakes/connections survive only within one serverless instance. Configure Supabase to make them survive cold start. No secrets invented. |
+| Storage (durable) | `ADE_STORAGE_PROVIDER=supabase` + `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY` (legacy alias `SUPABASE_STORAGE_KEY` also accepted) + `SUPABASE_STORAGE_TABLE` | **NOT CONFIGURED** — `Local/EPHEMERAL`, partners/intakes/connections survive only within one serverless instance. Configure Supabase to make them survive cold start. No secrets invented. |
 | Email | `RESEND_API_KEY` or `SMTP_HOST/SMTP_USER/SMTP_PASS` + `EMAIL_SENDER` | **NOT CONFIGURED** — invitations shown as codes in Command Center, no fake email sent. |
 | AI providers | `GEMINI_API_KEY` / `GROQ_API_KEY` / `DEEPSEEK_API_KEY` / `QWEN_API_KEY` (any one) | **NOT CONFIGURED** — fallback `OFFLINE LEXICAL ENGINE` active. Shows `PROVIDER NOT CONFIGURED` honest status, never `CONNECTED`. |
 | Integrations | per provider `baseUrl` + `secret/apiKey` via `POST /admin/connections` | **NOT CONFIGURED** until you add one. Status `NOT CONFIGURED / READY FOR CONNECTION` honest. |
@@ -93,7 +93,11 @@ Diagnostics never expose key values, only `configured: true/false` and required 
 4. Watch **Live Event Stream** for `STREAM_CONNECTED` + recent `PROGRESSION_INTAKE_CAPTURED` / `PILOT` events.
 5. No action needed if empty states say `No candidates` / `No partner interests` — that is honest.
 
-## 10. Troubleshooting
+## 10. What a 503 STORAGE_NOT_CONFIGURED Means
+
+If a create/update/approve action returns `503 STORAGE_NOT_CONFIGURED` with the message “Durable production storage is not configured. Operation halted to prevent state loss.”, the system is protecting you: accepting the write would lose it on the next serverless cold start. Reads, login, health and diagnostics keep working. Fix: configure the Supabase variables in section 7, redeploy, and retry. The UI surfaces this message in the toast — it is never a silent success.
+
+## 11. Troubleshooting
 
 - **Session expired** → re-enter PIN. If `Session has been revoked` → same.
 - **Storage not configured** → see OVERVIEW diagnostics `EPHEMERAL - CONFIGURATION REQUIRED` — add Supabase vars then redeploy. Local file (`data/runtime-config/admin.json`) is durable only on laptop, not on Vercel serverless.
@@ -104,4 +108,10 @@ Diagnostics never expose key values, only `configured: true/false` and required 
 
 ---
 
-Generated: 2026-09-11 from canonical source `src/app.js`, `RuntimeConfigStore`, `CommunityProgression`, `PartnerRegistry`, `PilotGate/Registry`, `ConnectionManager`, `UniversalAIGateway`, `ProductNotificationEngine`. No secrets, no fabrications, no new G-phase.
+## 12. Security Rule
+
+NEVER put secrets, PINs, API keys, tokens or credentials in chat, email, screenshots or shared docs. Enter the 6-digit PIN only in the Command Center login field. Secrets live only in environment configuration, never in source.
+
+---
+
+Generated: 2026-09-11 from canonical source `src/app.js`, `RuntimeConfigStore`, `CommunityProgression`, `PartnerRegistry`, `PilotGate/Registry`, `ConnectionManager`, `UniversalAIGateway`, `ProductNotificationEngine`. No secrets, no fabrications, no new G-phase. ADE is engineering-ready for controlled pilot use when the software reports its real dependencies honestly; external dependencies remain external.

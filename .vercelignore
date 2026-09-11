@@ -45,3 +45,5 @@ src/app.js.g17aa4-backup
 src/app.js.g18-httpsec-backup
 src/server.js.g17aa4-backup
 src/kernel/EnterpriseKernelMaster.js.g17z-backup
+.ade_storage.json
+.ade_capability_store.json

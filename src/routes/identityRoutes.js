@@ -14,11 +14,13 @@ export function registerIdentityRoutes({
   workforce,
   announcements,
   auditStore,
-  runtimeMode = "COMMUNITY"
+  runtimeMode = "COMMUNITY",
+  requireDurableStorage = null
 } = {}) {
   if (!app || !workforce) {
     throw new Error("registerIdentityRoutes requires app and workforce.");
   }
+  const gate = typeof requireDurableStorage === "function" ? requireDurableStorage : (req, res, next) => next();
 
   const elevatedRoles = ["FOUNDER", "ADMIN", "OPERATOR"];
 
@@ -244,7 +246,7 @@ export function registerIdentityRoutes({
     return res.json({ success: true, status: "SESSION_REVOKED" });
   });
 
-  app.post("/api/v1/account/change-password", loadAuthenticated, async (req, res) => {
+  app.post("/api/v1/account/change-password", loadAuthenticated, gate, async (req, res) => {
     try {
       const { currentPassword, newPassword } = req.body || {};
       await workforce.changePassword(req.person.id, currentPassword, newPassword);
@@ -254,7 +256,7 @@ export function registerIdentityRoutes({
     }
   });
 
-  app.post("/api/v1/account/change-pin", loadAuthenticated, async (req, res) => {
+  app.post("/api/v1/account/change-pin", loadAuthenticated, gate, async (req, res) => {
     try {
       const { currentPassword, newPin } = req.body || {};
       await workforce.changePin(req.person.id, currentPassword, newPin);
@@ -264,7 +266,7 @@ export function registerIdentityRoutes({
     }
   });
 
-  app.post("/api/v1/account/recovery-codes/rotate", loadAuthenticated, requireElevatedPin, async (req, res) => {
+  app.post("/api/v1/account/recovery-codes/rotate", loadAuthenticated, requireElevatedPin, gate, async (req, res) => {
     try {
       const result = await workforce.rotateRecoveryCodes(req.person.id, req.person.id);
       return res.json({ success: true, status: "RECOVERY_CODES_ROTATED", ...result });
@@ -273,7 +275,7 @@ export function registerIdentityRoutes({
     }
   });
 
-  app.post("/api/v1/account/forgot-password", authRateLimit(), async (req, res) => {
+  app.post("/api/v1/account/forgot-password", authRateLimit(), gate, async (req, res) => {
     try {
       const { username, recoveryCode, newPassword } = req.body || {};
       await workforce.recoverPassword(username, recoveryCode, newPassword);
@@ -283,7 +285,7 @@ export function registerIdentityRoutes({
     }
   });
 
-  app.post("/api/v1/account/accept-invitation", authRateLimit(), async (req, res) => {
+  app.post("/api/v1/account/accept-invitation", authRateLimit(), gate, async (req, res) => {
     try {
       const result = await workforce.acceptInvitation(req.body || {});
       return res.status(201).json({ success: true, person: result, status: "INVITATION_ACCEPTED" });
@@ -300,7 +302,7 @@ export function registerIdentityRoutes({
     return res.json({ success: true, persons, agents, stats: workforce.stats() });
   });
 
-  app.post("/api/v1/workforce/provision-founder", async (req, res) => {
+  app.post("/api/v1/workforce/provision-founder", gate, async (req, res) => {
     try {
       const count = await workforce.personCount();
       if (count > 0) {
@@ -315,7 +317,7 @@ export function registerIdentityRoutes({
     }
   });
 
-  app.post("/api/v1/workforce/invite", loadAuthenticated, requireElevatedPin, async (req, res) => {
+  app.post("/api/v1/workforce/invite", loadAuthenticated, requireElevatedPin, gate, async (req, res) => {
     try {
       const result = await workforce.invite({
         ...(req.body || {}),
@@ -340,49 +342,49 @@ export function registerIdentityRoutes({
   const withActor = (fn) => (req, person, extra = {}) =>
     fn(person, req.body || {}, req.person?.id ?? null, extra);
 
-  app.post("/api/v1/workforce/:id/promote", loadAuthenticated, requireElevatedPin,
+  app.post("/api/v1/workforce/:id/promote", loadAuthenticated, requireElevatedPin, gate,
     personAction(
       withActor((person, body, actorId) => workforce.changeRole(person.id, body.role, actorId)),
       "PROMOTE_FAILED"
     ));
 
-  app.post("/api/v1/workforce/:id/demote", loadAuthenticated, requireElevatedPin,
+  app.post("/api/v1/workforce/:id/demote", loadAuthenticated, requireElevatedPin, gate,
     personAction(
       withActor((person, body, actorId) => workforce.changeRole(person.id, body.role, actorId)),
       "DEMOTE_FAILED"
     ));
 
-  app.post("/api/v1/workforce/:id/suspend", loadAuthenticated, requireElevatedPin,
+  app.post("/api/v1/workforce/:id/suspend", loadAuthenticated, requireElevatedPin, gate,
     personAction(
       withActor((person, _body, actorId) => workforce.setStatus(person.id, "SUSPENDED", actorId)),
       "SUSPEND_FAILED"
     ));
 
-  app.post("/api/v1/workforce/:id/revoke", loadAuthenticated, requireElevatedPin,
+  app.post("/api/v1/workforce/:id/revoke", loadAuthenticated, requireElevatedPin, gate,
     personAction(
       withActor((person, _body, actorId) => workforce.setStatus(person.id, "REVOKED", actorId)),
       "REVOKE_FAILED"
     ));
 
-  app.post("/api/v1/workforce/:id/activate", loadAuthenticated, requireElevatedPin,
+  app.post("/api/v1/workforce/:id/activate", loadAuthenticated, requireElevatedPin, gate,
     personAction(
       withActor((person, _body, actorId) => workforce.setStatus(person.id, "ACTIVE", actorId)),
       "ACTIVATE_FAILED"
     ));
 
-  app.patch("/api/v1/workforce/:id/expiry", loadAuthenticated, requireElevatedPin,
+  app.patch("/api/v1/workforce/:id/expiry", loadAuthenticated, requireElevatedPin, gate,
     personAction(
       withActor((person, body, actorId) => workforce.setExpiry(person.id, body.accessExpiryAt ?? null, actorId)),
       "EXPIRY_FAILED"
     ));
 
-  app.post("/api/v1/workforce/:id/reset-password", loadAuthenticated, requireElevatedPin,
+  app.post("/api/v1/workforce/:id/reset-password", loadAuthenticated, requireElevatedPin, gate,
     personAction(
       withActor((person, body, actorId) => workforce.resetPassword(person.id, actorId, body.newPassword)),
       "PASSWORD_RESET_FAILED"
     ));
 
-  app.post("/api/v1/workforce/:id/reset-pin", loadAuthenticated, requireElevatedPin,
+  app.post("/api/v1/workforce/:id/reset-pin", loadAuthenticated, requireElevatedPin, gate,
     personAction(
       withActor((person, body, actorId) => workforce.imposePin(person.id, actorId, body.newPin)),
       "PIN_RESET_FAILED"
@@ -392,7 +394,7 @@ export function registerIdentityRoutes({
     return res.json({ success: true, agents: await workforce.listAgents() });
   });
 
-  app.post("/api/v1/workforce/agents", loadAuthenticated, requireElevatedPin, async (req, res) => {
+  app.post("/api/v1/workforce/agents", loadAuthenticated, requireElevatedPin, gate, async (req, res) => {
     try {
       const agent = await workforce.createAgent({
         ...(req.body || {}),
@@ -404,7 +406,7 @@ export function registerIdentityRoutes({
     }
   });
 
-  app.patch("/api/v1/workforce/agents/:id", loadAuthenticated, requireElevatedPin, async (req, res) => {
+  app.patch("/api/v1/workforce/agents/:id", loadAuthenticated, requireElevatedPin, gate, async (req, res) => {
     try {
       const agent = await workforce.updateAgent(req.params.id, req.body || {}, req.person.id);
       return res.json({ success: true, agent });
@@ -448,7 +450,7 @@ export function registerIdentityRoutes({
     }
   });
 
-  app.post("/api/v1/announcements", loadAuthenticated, requireElevatedPin, async (req, res) => {
+  app.post("/api/v1/announcements", loadAuthenticated, requireElevatedPin, gate, async (req, res) => {
     try {
       const entry = await announcements.create({
         ...(req.body || {}),
@@ -460,7 +462,7 @@ export function registerIdentityRoutes({
     }
   });
 
-  app.patch("/api/v1/announcements/:id", loadAuthenticated, requireElevatedPin, async (req, res) => {
+  app.patch("/api/v1/announcements/:id", loadAuthenticated, requireElevatedPin, gate, async (req, res) => {
     try {
       const entry = await announcements.update(req.params.id, req.body || {}, req.person.id);
       return res.json({ success: true, announcement: entry });
@@ -469,7 +471,7 @@ export function registerIdentityRoutes({
     }
   });
 
-  app.delete("/api/v1/announcements/:id", loadAuthenticated, requireElevatedPin, async (req, res) => {
+  app.delete("/api/v1/announcements/:id", loadAuthenticated, requireElevatedPin, gate, async (req, res) => {
     try {
       const result = await announcements.remove(req.params.id, req.person.id);
       return res.json({ success: true, ...result });
