@@ -23,10 +23,22 @@ const INTAKE_TYPES = Object.freeze({
 });
 
 export class CommunityProgression {
-  constructor({ eventBus = EnterpriseEventBus.getInstance() } = {}) {
+  constructor({ eventBus = EnterpriseEventBus.getInstance(), store = null } = {}) {
     this.eventBus = eventBus;
+    this.store = store;
     this.intakes = [];
     this.maxIntakes = 2000;
+    this._hydrate();
+  }
+
+  _hydrate(){
+    try{
+      const rows=this.store?.readSection?.('communityIntakes');
+      if(Array.isArray(rows)) this.intakes = rows.slice(-this.maxIntakes);
+    }catch{}
+  }
+  _persist(){
+    try{ this.store?.writeSection?.('communityIntakes', this.intakes.slice(-this.maxIntakes)); }catch(e){ console.warn(`[CommunityProgression] persist failed: ${e.message}`); }
   }
 
   captureIntake(payload = {}) {
@@ -46,6 +58,7 @@ export class CommunityProgression {
 
     this.intakes.push(intake);
     this._trimIntakes();
+    this._persist();
 
     this.eventBus.publish("PROGRESSION_INTAKE_CAPTURED", {
       intakeId: intake.id,

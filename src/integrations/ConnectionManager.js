@@ -1,15 +1,17 @@
 import crypto from 'crypto';
 
 export class ConnectionManager {
-  constructor({ secrets } = {}) { this.secrets = secrets; this.connections = new Map(); }
-  sanitize(c) { const { secret, apiKey, accessToken, clientSecret, password, ...safe } = c; return { ...safe, secretConfigured: Boolean(secret || apiKey || accessToken || clientSecret || password) }; }
+  constructor({ secrets, store = null } = {}) { this.secrets = secrets; this.store = store; this.connections = new Map(); this._hydrate(); }
+  _hydrate(){ try{ const rows=this.store?.readSection?.('connections'); if(Array.isArray(rows)) for(const r of rows) if(r?.id) this.connections.set(r.id, r);}catch{} }
+  _persist(){ try{ this.store?.writeSection?.('connections', Array.from(this.connections.values())); }catch(e){ console.warn(`[ConnectionManager] persist failed: ${e.message}`);} }
+  sanitize(c) { const { secret, apiKey, accessToken, clientSecret, password, ...safe } = c; return { ...safe, secretConfigured: Boolean(secret || apiKey || accessToken || clientSecret || password || c.secretConfigured) }; }
   upsert(input = {}) {
     if (!input.provider) throw new Error('provider is required');
     const id = input.id || `conn_${crypto.randomBytes(6).toString('hex')}`;
     const secret = input.secret || input.apiKey || input.accessToken || input.clientSecret || input.password;
     if (secret && this.secrets?.setSecret) this.secrets.setSecret(`ADE_CONN_${id}`, secret);
     const record = { id, provider: input.provider, type: input.type || 'REST_API', baseUrl: input.baseUrl || '', authType: input.authType || 'API_KEY', scopes: input.scopes || [], status: 'CONFIGURED', secretConfigured: Boolean(secret), updatedAt: new Date().toISOString() };
-    this.connections.set(id, record); return this.sanitize(record);
+    this.connections.set(id, record); this._persist(); return this.sanitize(record);
   }
   list() { return Array.from(this.connections.values()).map(c => this.sanitize(c)); }
   get(id) { const c = this.connections.get(id); return c ? this.sanitize(c) : null; }

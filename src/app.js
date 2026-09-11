@@ -175,12 +175,12 @@ const runtimeConfig = new RuntimeConfigStore(
 );
 
 const secrets = { _m:new Map(), setSecret(k,v){this._m.set(k,v)}, getSecret(k){return this._m.get(k)||process.env[k]} };
-const connectionManager = new ConnectionManager({ secrets });
+const connectionManager = new ConnectionManager({ secrets, store: runtimeConfig });
 const caseManager = new CaseManager({ eventBus: kernel?.eventBus, store: runtimeConfig });
 const intake = new UnifiedIntakeEngine({ caseManager, eventBus: kernel?.eventBus, connectionManager });
 const channels = new ChannelRegistry();
 for (const [id,label] of [['WEB','ADE Portal'],['EMAIL','Email'],['WHATSAPP','WhatsApp / AWBULI'],['TELEGRAM','Telegram'],['API','API'],['WEBHOOK','Webhook'],['PARTNER','Partner / A2MPro'],['CRM','CRM'],['MARKETPLACE','Marketplace'],['PROCUREMENT','Enterprise Procurement'],['HUMAN','Human-assisted Intake']]) { const saved=runtimeConfig.read().channels?.[id] || {}; channels.register(id,{label,inbound:true,...saved}); }
-const partners = new PartnerRegistry();
+const partners = new PartnerRegistry({ store: runtimeConfig });
 const feedbackPipeline = new FeedbackPipeline({ eventBus: kernel?.eventBus });
 const editionPolicy = new EditionPolicy();
 const demoSafety = new DemoSafetyBoundary({ eventBus: kernel?.eventBus });
@@ -193,7 +193,7 @@ const demoOrchestrator = new DemoOrchestrator({
 const feedbackIntelligence = new FeedbackIntelligence({ eventBus: kernel?.eventBus });
 const mediaRegistry = new MediaRegistry();
 const mediaEngine = new MediaEngine({ eventBus: kernel?.eventBus, mediaRegistry });
-const communityProgression = new CommunityProgression({ eventBus: kernel?.eventBus });
+const communityProgression = new CommunityProgression({ eventBus: kernel?.eventBus, store: runtimeConfig });
 const pilotGate = new PilotGate({ eventBus: kernel?.eventBus, progression: communityProgression });
 const pilotRegistry = new PilotRegistry({ store: runtimeConfig, eventBus: kernel?.eventBus });
 kernel?.eventBus?.subscribe?.("pilot.candidate.approved", (decision) => {
