@@ -378,6 +378,33 @@ a{color:var(--royal)}
 const {useEffect,useMemo,useState,useCallback}=React; const h=React.createElement;
 const SUGGESTIONS=["Find the bottleneck in our customer operations.","Simulate a customer complaint workflow.","Why has operational performance declined?","Assess this business process.","Recommend an automation opportunity."];
 const NAV=[['Home','Curated ADE platform overview'],['Products','ADE APEX · PROCARTA · AWBULI'],['PROCARTA','Business process intelligence'],['Product Theater','Gallery and product media'],['Try ADE','Guided demonstrations'],['Architecture','Public architecture'],['Community','Pilot and partners'],['Feedback','Help improve ADE'],['Account','Workforce account & security'],['Command Center','Operator surface · session required']];
+const ADE_PILLARS=[
+ {k:'DIAGNOSE',title:'DIAGNOSE',desc:'Business process and operational diagnostics via PROCARTA — deterministic findings, evidence and next actions.',status:'LIVE',badge:'good',cta:'Run a Business Diagnostic',go:'PROCARTA'},
+ {k:'CONNECT',title:'CONNECT',desc:'Integrations and external systems via ConnectionManager — provider-aware, credential-safe.',status:'PARTNER DEPENDENT',badge:'community',cta:'Explore Integrations',go:'Community'},
+ {k:'DEPLOY',title:'DEPLOY',desc:'AI Workers and Workforce — scoped human and agent identities operated through the kernel.',status:'LIVE',badge:'good',cta:'Explore AI Workers',go:'Community'},
+ {k:'MONITOR',title:'MONITOR',desc:'Live operations and event visibility — kernel telemetry and EventBus fabric streamed truthfully.',status:'LIVE',badge:'good',cta:'View Live Operations',go:'Command Center'},
+ {k:'DECIDE',title:'DECIDE',desc:'Oracle and Decision Intelligence — confidence-scored intent classification and execution routing.',status:'LIVE',badge:'good',cta:'Explore Decision Intelligence',go:'PROCARTA'},
+ {k:'PROTECT',title:'PROTECT',desc:'Guardian — RBAC, capability gating, policy enforcement and audit-ready boundaries.',status:'LIVE',badge:'good',cta:'Explore Operational Protection',go:'Architecture'},
+ {k:'AUTOMATE',title:'AUTOMATE',desc:'Workflow orchestration — bounded execution with human escalation where required.',status:'LIVE',badge:'good',cta:'Explore Workflow Automation',go:'Products'},
+ {k:'KNOW',title:'KNOW',desc:'Knowledge and organizational intelligence — lexical, auditable, without fabricated claims.',status:'LIVE',badge:'good',cta:'Explore Knowledge Operations',go:'Products'},
+ {k:'PARTNER',title:'PARTNER',desc:'Partner and implementation ecosystem — evaluated registry, not fabricated logos.',status:'COMMUNITY',badge:'community',cta:'Become a Partner',go:'Community'}
+];
+const THEATER_LOOP=[
+ {step:'OBSERVE',desc:'Events, operational data and inputs',cap:'Events · Intake'},
+ {step:'UNDERSTAND',desc:'PROCARTA + Knowledge',cap:'PROCARTA · Knowledge'},
+ {step:'DECIDE',desc:'Oracle · Decision',cap:'Oracle · Decision'},
+ {step:'EXECUTE',desc:'Workers · Workflow',cap:'Workers · Workflow'},
+ {step:'MONITOR',desc:'Operations · Guardian · Notifications',cap:'Monitor · Protect'},
+ {step:'IMPROVE',desc:'Memory, evidence and reuse where implemented',cap:'Evidence · Learning'}
+];
+const REVENUE_PATH=[
+ {n:'COMMUNITY',t:'Explore ADE',d:'Self-guided exploration of the operating layer — no credential required.'},
+ {n:'DIAGNOSTIC',t:'Request an Assessment',d:'Partner-delivered or scoped diagnostic. Request a quote.'},
+ {n:'PILOT',t:'Request a Pilot',d:'Apply ADE to a real operational problem. Measured evidence.'},
+ {n:'EVIDENCE',t:'Measure the Result',d:'Before/after measurement and pilot evidence.'},
+ {n:'IMPLEMENTATION',t:'Discuss Implementation',d:'Integration, workflow, ERP and deployment work.'},
+ {n:'ENTERPRISE',t:'Scale with ADE',d:'Partner network and custom commercial engagement.'}
+];
 const fmtTime=t=>{if(!t)return'';const d=new Date(t);if(isNaN(d))return String(t);return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0')+':'+String(d.getSeconds()).padStart(2,'0')};
 const fmtUptime=u=>{if(u==null||isNaN(u))return'—';if(u<60)return Math.round(u)+'s';if(u<3600){const m=Math.floor(u/60);return m+'m '+(Math.round(u%60))+'s'}const hh=Math.floor(u/3600);const mm=Math.round((u%3600)/60);return hh+'h'+(mm?' '+mm+'m':'')};
 const tierLabel=t=>t==='FREE'?'COMMUNITY':(t||'COMMUNITY');
@@ -463,12 +490,16 @@ const loadAccount=async(tok)=>{try{const r=await api('/api/v1/account/session',{
  const COMMUNITY_CARD=()=>h('div',{className:'card'},h('div',{className:'panelTitle'},h('h3',null,'COMMUNITY EDITION — PUBLIC MVP'),h('span',{className:'badge community'},editionBadge)),h('div',{className:'cardBody'},h('div',{className:'progression-form'},h('select',{value:intakeKind,onChange:e=>setIntakeKind(e.target.value)},h('option',{value:'USE_CASE'},'New Use Case'),h('option',{value:'PILOT_INTEREST'},'Pilot Interest'),h('option',{value:'ENTERPRISE_INTEREST'},'Enterprise Interest'),h('option',{value:'PARTNER_INTEREST'},'Partner Interest'),h('option',{value:'IMPLEMENTATION_NEED'},'Implementation Need')),h('input',{placeholder:'Organization name',value:intakeOrg,onChange:e=>setIntakeOrg(e.target.value)}),h('textarea',{placeholder:'Describe your use case or interest...',value:intakeDesc,onChange:e=>setIntakeDesc(e.target.value)}),h('div',{style:{display:'flex',gap:8}},h('button',{className:'btn primary',onClick:submitIntake},'Submit Interest')))));
   const FEEDBACK_CARD=()=>h('div',{className:'card'},h('div',{className:'panelTitle'},h('h3',null,'FEEDBACK'),h('span',null,'HELP IMPROVE ADE')),h('div',{className:'cardBody'},h('div',{className:'feedback-form'},h('select',{value:feedbackCat,onChange:e=>setFeedbackCat(e.target.value)},h('option',{value:'SOMETHING_FAILED'},'Something failed'),h('option',{value:'SOMETHING_CONFUSED_ME'},'Something confused me'),h('option',{value:'RESULT_LOOKED_WRONG'},'Result looked wrong'),h('option',{value:'FEATURE_DID_NOT_WORK'},'Feature did not work'),h('option',{value:'I_EXPECTED_SOMETHING_ELSE'},'I expected something else'),h('option',{value:'I_FOUND_A_BUG'},'I found a bug'),h('option',{value:'IMPROVEMENT_IDEA'},'Improvement idea'),h('option',{value:'NEW_USE_CASE'},'New use case'),h('option',{value:'POSITIVE_FEEDBACK'},'Positive feedback'),h('option',{value:'OTHER'},'Other')),h('input',{placeholder:'Feature or module (optional)',value:feedbackFeat,onChange:e=>setFeedbackFeat(e.target.value)}),h('textarea',{placeholder:'Your feedback...',value:feedbackMsg,onChange:e=>setFeedbackMsg(e.target.value)}),h('p',{className:'formHint'},'Feedback is never used to modify source automatically.'),h('button',{className:'btn primary',onClick:submitFeedback},'Submit Feedback'))));
   const HOME=()=>h('div',{className:'stack'},
-  h('section',{className:'hero'},
-   h('div',{className:'card heroMain'},
-    h('div',{className:'eyebrow'},'ADE · Autonomous Event-Driven Operations Platform'),
-    h('h1',null,'One runtime. One authority. Every signal connected.'),
-    h('p',null,'ADE is a single canonical kernel that observes, structures, validates, decides, executes, evaluates, learns and reports across your operations — surfaced through public products like PROCARTA and AWBULI, and governed by server-authoritative security.'),
-    h('div',{className:'heroActions'},h('button',{className:'btn primary',onClick:()=>go('Products')},'Explore ADE'),h('button',{className:'btn',onClick:()=>go('Product Theater')},'Open Product Theater')),
+   h('section',{className:'hero'},
+    h('div',{className:'card heroMain'},
+     h('div',{className:'eyebrow'},'AI Business Operating System (AIBOS\u2122) \u2014 for Africa\u2019s next generation of enterprises'),
+     h('h1',null,'RUN YOUR BUSINESS THROUGH ADE'),
+     h('p',null,'ADE connects operational information, intelligence, workflows and people into one digital operating layer — built for African businesses and emerging-market realities, globally applicable. PROCARTA is one capability inside the operating system, not the entire platform.'),
+     h('div',{className:'heroActions'},
+       h('button',{className:'btn primary',onClick:()=>{const el=document.querySelector("[data-theater='capabilities']"); if(el) el.scrollIntoView({behavior:'smooth'}); else go('Products')}},'EXPLORE ADE'),
+       h('button',{className:'btn primary',onClick:()=>{setIntakeKind('PILOT_INTEREST');go('Community')}},'REQUEST A PILOT'),
+       h('button',{className:'btn coral',onClick:()=>{setIntakeKind('PARTNER_INTEREST');go('Community')}},'PARTNER WITH ADE'),
+       h('button',{className:'btn',onClick:()=>go('Community')},'TRY COMMUNITY')),
     h('div',{className:'suggestion-carousel'},SUGGESTIONS.map((s,i)=>h('div',{key:i,className:'suggestion-text',style:{animationDelay:i*3+'s'}},'"',s,'"'))),
     h('div',{className:'heroStatus'},
      h('span',{className:'pill '+(kernLive?'live':kernStatus==='OFFLINE'?'off':'')},h('i',{className:'dot'}),'Kernel '+(kernLive?'online':kernStatus.toLowerCase())),
@@ -477,10 +508,34 @@ const loadAccount=async(tok)=>{try{const r=await api('/api/v1/account/session',{
 h('div',{className:'card orb'},h('div',{className:'orbCore'},'ADE'))),
    h('section',{className:'sectionHead'},h('h2',null,'The ADE value'),h('p',null,'One canonical runtime, product-ready surfaces, and honest boundaries — nothing on this site is fabricated.')),
    h('div',{className:'card'},h('div',{className:'panelTitle'},h('h3',null,'LIVE COMMUNICATIONS'),h('span',{className:'badge community'},'SERVER-PUBLISHED')),h('div',{className:'cardBody'},announcements.length?h('div',{className:'newsRow'},announcements.map(a=>h('div',{key:a.id,className:'newsItem'},h('span',{className:'kind '+(a.kind||'NEWS')},a.kind||'NEWS'),h('div',null,h('div',{className:'newsTitle'},a.title,a.link?h('a',{href:a.link,target:'_blank',rel:'noopener',style:{marginLeft:8,fontSize:11}},'open ↗'):null),a.body&&h('div',{className:'newsBody'},a.body),h('div',{className:'newsDate'},new Date(a.createdAt).toLocaleDateString(undefined,{year:'numeric',month:'short',day:'numeric'})))))):h('div',{className:'emptyState'},'No active announcements.'))),
-  h('div',{className:'pillars'},
-   h('div',{className:'card pillar'},h('div',{className:'n'},'01 · Observe'),h('h4',null,'Understand every signal'),h('p',null,'Events, workflows, entities, systems and channels converge on one canonical kernel. Everything the runtime reports is a real, server-owned fact.')),
-   h('div',{className:'card pillar'},h('div',{className:'n'},'02 · Decide'),h('h4',null,'Determine the best action'),h('p',null,'The decision engine classifies intent, measures confidence, and selects execution paths with evidence. Analysis is deterministic — AI only when a provider is genuinely configured.')),
-   h('div',{className:'card pillar'},h('div',{className:'n'},'03 · Evolve'),h('h4',null,'Execute, evaluate, learn'),h('p',null,'Executions are recorded, outcomes are evaluated, and the platform evolves within bounded policy. LIVE and SIMULATED activity are always labelled separately.'))),
+   h('section',{className:'sectionHead', 'data-theater':'capabilities'},h('h2',null,'ADE CAPABILITY THEATER'),h('p',null,'An operating layer, not a single tool. PROCARTA is one capability inside the ADE ecosystem — every capability below is honestly classified.')),
+   h('div',{className:'featureGrid'},ADE_PILLARS.map(p=>h('div',{key:p.k,className:'card feature',style:{minHeight:190}},
+     h('div',{className:'n',style:{fontSize:11,letterSpacing:.14, color:'var(--royal)',fontWeight:800}},p.title),
+     h('div',{style:{fontSize:13,lineHeight:1.55,color:'var(--muted)',marginTop:6,flex:1}},p.desc),
+     h('div',{className:'accent',style:{marginTop:12}},B(p.status, p.badge==='good'?'good':p.badge==='community'?'community':'muted'), h('button',{className:'btn sm primary',onClick:()=>go(p.go)},p.cta))))),
+   h('div',{className:'card',style:{marginTop:4}},h('div',{className:'cardBody',style:{display:'grid',gap:14}},
+     h('div',{style:{display:'flex',gap:8,flexWrap:'wrap',alignItems:'center'}},B('LIVE','good'),h('span',{style:{fontSize:11,color:'var(--muted)'}},'usable now'),B('COMMUNITY','community'),h('span',{style:{fontSize:11,color:'var(--muted)'}},'limited but real'),B('PREVIEW','muted'),h('span',{style:{fontSize:11,color:'var(--muted)'}},'demonstrable'),B('PARTNER DEPENDENT','community'),h('span',{style:{fontSize:11,color:'var(--muted)'}},'requires external credential')),
+     h('div',{style:{display:'flex',flexWrap:'wrap',gap:8}},
+       THEATER_LOOP.map((s,i)=>h('div',{key:s.step,style:{flex:'1 1 160px',minWidth:0,padding:'10px 12px',border:'1px solid var(--lineSoft)',borderRadius:12,background:'rgba(255,255,255,.7)',display:'flex',flexDirection:'column',gap:4}},
+         h('div',{style:{fontSize:10,letterSpacing:.12,fontWeight:800,color:'var(--ocean)'}},String(i+1).padStart(2,'0')+' · '+s.step),
+         h('div',{style:{fontSize:11,color:'var(--muted)',lineHeight:1.4}},s.desc),
+         h('div',{style:{fontSize:10,color:'var(--faint)'}},s.cap)))
+     ))),
+   h('section',{className:'sectionHead'},h('h2',null,'Commercial path'),h('p',null,'Community → Pilot → Evidence → Implementation → Scale. No fabricated pricing — request a quote.')),
+   h('div',{className:'card'},h('div',{className:'cardBody'},
+     h('div',{style:{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(180px,1fr))',gap:10}},
+       REVENUE_PATH.map(r=>h('div',{key:r.n,style:{padding:'14px 12px',border:'1px solid var(--lineSoft)',borderRadius:12,background:'rgba(255,255,255,.75)' }},h('div',{style:{fontSize:10,letterSpacing:.14,fontWeight:800,color:'var(--royal)'}},r.n),h('div',{style:{fontSize:13,fontWeight:700,color:'var(--ocean)',marginTop:4}},r.t),h('div',{style:{fontSize:11,color:'var(--muted)',marginTop:4,lineHeight:1.5}},r.d)))),
+     h('div',{style:{display:'flex',gap:8,flexWrap:'wrap',marginTop:14}},
+       h('button',{className:'btn primary',onClick:()=>go('Community')},'TRY ADE COMMUNITY'),
+       h('button',{className:'btn',onClick:()=>go('PROCARTA')},'REQUEST A BUSINESS DIAGNOSTIC'),
+       h('button',{className:'btn coral',onClick:()=>{setIntakeKind('PILOT_INTEREST');go('Community')}},'REQUEST A PILOT'),
+       h('button',{className:'btn',onClick:()=>{setIntakeKind('PARTNER_INTEREST');go('Community')}},'BECOME A PARTNER'),
+       h('button',{className:'btn azure',onClick:()=>go('Community')},'REQUEST AN INTEGRATION'),
+       h('a',{href:'mailto:Automated_alpha_aliph@yahoo.com',style:{textDecoration:'none'},className:'btn'},'CONTACT ADE')))),
+   h('div',{className:'pillars'},
+    h('div',{className:'card pillar'},h('div',{className:'n'},'01 · Observe'),h('h4',null,'Understand every signal'),h('p',null,'Events, workflows, entities, systems and channels converge on one canonical kernel. Everything the runtime reports is a real, server-owned fact.')),
+    h('div',{className:'card pillar'},h('div',{className:'n'},'02 · Decide'),h('h4',null,'Determine the best action'),h('p',null,'The decision engine classifies intent, measures confidence, and selects execution paths with evidence. Analysis is deterministic — AI only when a provider is genuinely configured.')),
+    h('div',{className:'card pillar'},h('div',{className:'n'},'03 · Evolve'),h('h4',null,'Execute, evaluate, learn'),h('p',null,'Executions are recorded, outcomes are evaluated, and the platform evolves within bounded policy. LIVE and SIMULATED activity are always labelled separately.'))),
   h('section',{className:'sectionHead'},h('h2',null,'ADE products'),h('p',null,'Server-registered ADE products with clear public entry points.')),
   h('div',{className:'featureGrid'},
    h('div',{className:'card feature'},h('div',{className:'mark'},'APE'),h('div',{className:'n'},'ADE APEX'),h('div',{className:'d'},'The autonomous event-driven operations platform. A canonical kernel orchestrating Decision · Workflow · Knowledge · Quality · Confidence across the whole surface.'),h('div',{className:'accent'},h('span',{className:'badge community'},'OPERATING NOW'),h('button',{className:'btn sm primary',onClick:()=>go('Architecture')},'See the architecture'))),
@@ -622,7 +677,7 @@ return h('div',{className:'app'},
   h('header',{className:'top',ref:headerRef},
    h('div',{className:'topInner'},
      h('div',{className:'brand'},h('img',{src:'/ADE-LOGO.png',alt:'ADE logo'}),h('div',{className:'brandName'},h('strong',null,'ADE APEX'),h('span',null,'Autonomous Event-Driven Operations'))),
-     h('div',{className:'topIdentity'},h('div',{className:'idMain'},'AUTOMATED ALPHA ALIPH DIGITAL ECOSYSTEMS — ADE'),h('div',{className:'idSub'},'BUILDING AFRICAN DIGITAL BUSINESS OPERATIONAL SYSTEMS & AFRICAN BUSINESSES\u2019 BACKBONE')),
+     h('div',{className:'topIdentity'},h('div',{className:'idMain'},'Automated Alpha Aliph Digital Ecosystems--ADE'),h('div',{className:'idSub'},'building African Digital Business Operational Systems & African Businesses Backbone')),
      h('div',{className:'headerContact'},
       h('div',{className:'contact-row'},h('a',{href:'mailto:Automated_alpha_aliph@yahoo.com'},'Automated_alpha_aliph@yahoo.com')),
       h('div',{className:'contact-row'},h('span',{className:'contact-label'},'WhatsApp + Calls'),h('a',{href:'tel:+2347038272792'},'+234 (0) 7038272792')),
