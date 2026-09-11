@@ -813,6 +813,67 @@ app.get('/api/v1/events/recent', (req, res) => {
   }
 });
 
+app.get('/api/v1/system/diagnostics', security.requireLevel(2), (req,res)=>{
+  try{
+    const isDurable = durableStorageEnabled;
+    const providerName = storageProvider?.constructor?.name || 'Unknown';
+    const aiStatus = (()=>{ try{ return UniversalAIGateway.getInstance().getProviderStatus(); }catch{ return {configuredProviderCount:0, totalProviderCount:0}; }})();
+    const checklist = {
+      storage: {
+        provider: providerName,
+        mode: isDurable ? 'SUPABASE/DURABLE' : 'LOCAL/EPHEMERAL',
+        status: isDurable ? 'DURABLE' : 'EPHEMERAL - CONFIGURATION REQUIRED',
+        durable: Boolean(isDurable),
+        requiredEnv: ['ADE_STORAGE_PROVIDER=supabase','SUPABASE_URL','SUPABASE_STORAGE_KEY','SUPABASE_STORAGE_TABLE'],
+        note: isDurable ? 'Production persistence is durable via Supabase.' : 'Local adapter is ephemeral on Vercel serverless. Configure Supabase for durable partner/pilot/connection persistence.',
+        configured: Boolean(isDurable)
+      },
+      email: {
+        provider: 'NONE',
+        status: 'NOT CONFIGURED',
+        configured: false,
+        requiredEnv: ['RESEND_API_KEY or SMTP_HOST/SMTP_USER/SMTP_PASS','EMAIL_SENDER (e.g. noreply@yourdomain.com)'],
+        note: 'Email delivery requires external provider. Invitations and notifications are delivered as codes/links in the Command Center until email is configured. No fake email is sent.'
+      },
+      ai: {
+        status: (aiStatus?.configuredProviderCount||0) > 0 ? 'PROVIDER CONNECTED' : 'OFFLINE LEXICAL FALLBACK',
+        fallback: 'OFFLINE_LEXICAL_ENGINE',
+        configuredCount: aiStatus?.configuredProviderCount||0,
+        totalProviders: aiStatus?.totalProviderCount||0,
+        note: (aiStatus?.configuredProviderCount||0) > 0 ? 'External AI provider is connected.' : 'No external AI provider configured. Deterministic lexical engine is active. This is honest fallback, not live provider connectivity.'
+      },
+      integrations: {
+        connectionCount: connectionManager.list().length,
+        status: connectionManager.list().length>0 ? 'CONFIGURED' : 'NOT CONFIGURED / READY FOR CONNECTION',
+        note: connectionManager.list().length>0 ? 'Connection metadata is durable via configured storage.' : 'No provider credential supplied. Connection remains honest pending state.'
+      },
+      runtime: { version: '1.0.0', edition: editionPolicy.getEdition(), isDurable }
+    };
+    res.json({success:true, diagnostics: checklist, time: new Date().toISOString()});
+  }catch(e){ res.status(500).json({success:false, error:'DIAGNOSTICS_FAILED', message:e.message}); }
+});
+app.get('/api/v1/attention', security.requireLevel(2), (req,res)=>{
+  try{
+    const intakes = communityProgression.listIntakes().slice(-50).reverse();
+    const candidates = pilotGate.listCandidates();
+    const pilots = pilotRegistry.list().slice(-50).reverse();
+    const parts = partners.list().slice(-50).reverse();
+    const conns = connectionManager.list().slice(-50).reverse();
+    const cases = caseManager.list().slice(-20);
+    const notifs = (()=>{ try{ return notificationEngine.getRecentEvents(50); }catch{ return []; }})();
+    const stats = {
+      intakes: intakes.length,
+      candidates: candidates.length,
+      pilots: pilots.length,
+      partners: parts.length,
+      connections: conns.length,
+      cases: cases.length,
+      notifications: notifs.length,
+      pendingPilots: pilots.filter(p=>p.state==='EVALUATION').length
+    };
+    res.json({success:true, attention:{intakes,candidates,pilots,partners:parts,connections:conns,cases,notifications:notifs,stats}, time:new Date().toISOString()});
+  }catch(e){ res.status(500).json({success:false, error:'ATTENTION_FAILED', message:e.message}); }
+});
 app.post('/api/v1/intake/:channel',(req,res)=>{ try { const result=intake.ingest(req.params.channel,req.body||{},{source:req.body?.source||req.params.channel,authenticated:Boolean(req.headers.authorization)}); logEvent('INTAKE',`Created ${result.case.id} from ${req.params.channel}`); res.status(201).json(result); } catch(e){res.status(400).json({success:false,error:e.message});} });
 app.get('/api/v1/cases', security.requireAuth(),(req,res)=>res.json({success:true,count:caseManager.list().length,cases:caseManager.list()}));
 app.post('/api/v1/cases/:id/process', security.requireAuth(),async(req,res)=>{try{const result=await engagementOrchestrator.process(req.params.id,req.body||{});res.json({success:true,case:result});}catch(e){res.status(e.message==='CASE_NOT_FOUND'?404:400).json({success:false,error:e.message});}});

@@ -174,7 +174,7 @@ td .actions{display:flex;gap:4px;flex-wrap:wrap}
 const {useEffect,useMemo,useState,useCallback}=React;
 const h=React.createElement;
 
-const TABS=['OVERVIEW','WORKFORCE','PILOTS','PARTNERS','INTEGRATIONS','FEATURE CONTROL','PRODUCT THEATER','ANNOUNCEMENTS','AUDIT'];
+const TABS=['OVERVIEW','INBOX','WORKFORCE','PILOTS','PARTNERS','INTEGRATIONS','FEATURE CONTROL','PRODUCT THEATER','ANNOUNCEMENTS','AUDIT'];
 const PILOT_STAGES=['PROSPECT','QUALIFIED','ASSESSMENT','BASELINE','PILOT','HUMAN REVIEW','IMPLEMENTATION','RE-MEASUREMENT','EVIDENCE','SUCCESS'];
 const ROLES=['FOUNDER','ADMIN','OPERATOR','ANALYST','PARTNER','VIEWER'];
 const PARTNER_TYPES=['TECHNOLOGY','CONSULTING','CHANNEL','STRATEGIC','RESELLER','IMPLEMENTATION'];
@@ -247,6 +247,8 @@ function App(){
  const [auditEntries,setAuditEntries]=useState([]);
  const [auditFilter,setAuditFilter]=useState('');
  const [auditLimit,setAuditLimit]=useState(100);
+ const [diagnostics,setDiagnostics]=useState(null);
+ const [attention,setAttention]=useState(null);
 
  const notify=m=>{setToast(m);setTimeout(()=>setToast(''),3000)};
 
@@ -300,22 +302,27 @@ function App(){
  const refreshAll=useCallback(async()=>{
   if(!token)return;
   const j=async(u)=>{try{return await api(u)}catch(e){return null}};
-  const [a,b,c,d,e,f,g,ov,m]=await Promise.all([
+  const [a,b,c,d,e,f,g,ov,m,diag,att]=await Promise.all([
    j('/api/v1/health'),j('/api/v1/runtime'),j('/api/v1/metrics'),
    j('/api/v1/edition'),j('/api/v1/media/providers'),j('/api/v1/media/requests'),
-   j('/api/v1/capabilities'),j('/api/v1/admin/overview'),j('/api/v1/announcements/admin')
+   j('/api/v1/capabilities'),j('/api/v1/admin/overview'),j('/api/v1/announcements/admin'),
+   j('/api/v1/system/diagnostics'), j('/api/v1/attention')
   ]);
   if(a)setHealth(a);if(b)setRuntime(b);if(c)setMetrics(c);if(d)setEdition(d);
   if(e)setProviders(e?.providers||[]);if(f)setMediaRequests(f?.requests||[]);
   if(g)setCaps(g?.capabilities||[]);if(ov)setOverview(ov);
   if(m)setAnnouncements(m?.announcements||[]);
+  if(diag)setDiagnostics(diag);
+  if(att&&att.attention)setAttention(att.attention);
  },[token,api]);
 
  useEffect(()=>{refreshAll();const p=setInterval(refreshAll,20000);return()=>clearInterval(p)},[refreshAll]);
 
  useEffect(()=>{if(!token)return;
   const loadTab=async()=>{
-   if(tab==='WORKFORCE'){
+   if(tab==='INBOX'){
+    const r=await api('/api/v1/attention');if(r)setAttention(r.attention||null);
+   }else if(tab==='WORKFORCE'){
     const r=await api('/api/v1/workforce');if(r){setWorkforce(r);setAgents(r.agents||[])}
    }else if(tab==='PILOTS'){
     const [cand,reg]=await Promise.all([api('/api/v1/procarta/pilot-candidates'),api('/api/v1/procarta/pilot/registry')]);
@@ -487,8 +494,75 @@ function App(){
      h('div',{className:'stat'},h('b',null,overview.cases?.length??'—'),h('span',null,'Cases'))
     ):h('div',{className:'emptyState'},'Loading overview...')
    )
-  ),
-  h('div',{className:'card'},h('div',{className:'panelTitle'},h('h3',null,'LIVE EVENT STREAM'),h('span',null,'EVENTBUS · SSE')),
+   ),
+   h('div',{className:'card'},h('div',{className:'panelTitle'},h('h3',null,'PRODUCTION READINESS'),h('span',null,'DIAGNOSTICS')),
+    h('div',{className:'cardBody'},
+     diagnostics?h('div',{style:{display:'grid',gap:10}},
+      h('div',{style:{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(240px,1fr))',gap:10}},
+       h('div',{style:{padding:'12px',border:'1px solid var(--lineSoft)',borderRadius:12,background:'var(--ocean)'}},
+        h('div',{style:{fontSize:10,fontWeight:800,letterSpacing:.12,color:'var(--gold)'}},'STORAGE'),
+        h('div',{style:{marginTop:6}},B(diagnostics.diagnostics.storage.status, diagnostics.diagnostics.storage.durable?'good':'warn')),
+        h('div',{style:{fontSize:11,color:'var(--muted)',marginTop:6}},'Provider: '+(diagnostics.diagnostics.storage.provider||'—')),
+        h('div',{style:{fontSize:10,color:'var(--faint)',marginTop:4,wordBreak:'break-word'}},'Required: '+(diagnostics.diagnostics.storage.requiredEnv||[]).join(', ')),
+        h('div',{style:{fontSize:10,color:'var(--muted)',marginTop:6,lineHeight:1.5}},diagnostics.diagnostics.storage.note)
+       ),
+       h('div',{style:{padding:'12px',border:'1px solid var(--lineSoft)',borderRadius:12,background:'var(--ocean)'}},
+        h('div',{style:{fontSize:10,fontWeight:800,letterSpacing:.12,color:'var(--gold)'}},'EMAIL'),
+        h('div',{style:{marginTop:6}},B(diagnostics.diagnostics.email.status, diagnostics.diagnostics.email.configured?'good':'warn')),
+        h('div',{style:{fontSize:10,color:'var(--faint)',marginTop:4,wordBreak:'break-word'}},'Required: '+(diagnostics.diagnostics.email.requiredEnv||[]).join(', ')),
+        h('div',{style:{fontSize:10,color:'var(--muted)',marginTop:6,lineHeight:1.5}},diagnostics.diagnostics.email.note)
+       ),
+       h('div',{style:{padding:'12px',border:'1px solid var(--lineSoft)',borderRadius:12,background:'var(--ocean)'}},
+        h('div',{style:{fontSize:10,fontWeight:800,letterSpacing:.12,color:'var(--gold)'}},'AI'),
+        h('div',{style:{marginTop:6}},B(diagnostics.diagnostics.ai.status, diagnostics.diagnostics.ai.configuredCount>0?'good':'warn')),
+        h('div',{style:{fontSize:11,color:'var(--muted)',marginTop:6}},'Providers: '+(diagnostics.diagnostics.ai.configuredCount||0)+'/'+(diagnostics.diagnostics.ai.totalProviders||0)),
+        h('div',{style:{fontSize:10,color:'var(--muted)',marginTop:6,lineHeight:1.5}},diagnostics.diagnostics.ai.note)
+       ),
+       h('div',{style:{padding:'12px',border:'1px solid var(--lineSoft)',borderRadius:12,background:'var(--ocean)'}},
+        h('div',{style:{fontSize:10,fontWeight:800,letterSpacing:.12,color:'var(--gold)'}},'INTEGRATIONS'),
+        h('div',{style:{marginTop:6}},B(diagnostics.diagnostics.integrations.status, diagnostics.diagnostics.integrations.connectionCount>0?'good':'warn')),
+        h('div',{style:{fontSize:11,color:'var(--muted)',marginTop:6}},'Connections: '+(diagnostics.diagnostics.integrations.connectionCount??'—')),
+        h('div',{style:{fontSize:10,color:'var(--muted)',marginTop:6,lineHeight:1.5}},diagnostics.diagnostics.integrations.note)
+       )
+      ),
+      h('div',{style:{display:'flex',gap:6,flexWrap:'wrap',marginTop:4}},
+       h('span',{style:{fontSize:10,color:'var(--faint)'}},'CORE RUNTIME'),
+       B(kernLive?'READY':'NOT READY',kernLive?'good':'bad'),
+       h('span',{style:{fontSize:10,color:'var(--faint)',marginLeft:8}},'AUTH'),
+       B(identity?'READY':'—',identity?'good':'muted'),
+       h('span',{style:{fontSize:10,color:'var(--faint)',marginLeft:8}},'WORKFORCE'),
+       B(workforce?'READY':'—',workforce?'good':'muted')
+      )
+     ):h('div',{className:'emptyState'},'Loading diagnostics...')
+    )
+   ),
+   h('div',{className:'card'},h('div',{className:'panelTitle'},h('h3',null,'ATTENTION PREVIEW'),h('span',null,h('button',{className:'btn sm',onClick:()=>setTab('INBOX')},'OPEN INBOX →'))),
+    h('div',{className:'cardBody'},
+     attention?h('div',{style:{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(120px,1fr))',gap:8}},
+      h('div',{style:{padding:'10px',border:'1px solid var(--lineSoft)',borderRadius:10,background: attention.stats?.candidates>0 ? 'rgba(255,179,0,.08)' : 'var(--ocean)'}},
+       h('div',{style:{fontSize:10,fontWeight:800,letterSpacing:.1,color:'var(--gold)'}},'CANDIDATES'),
+       h('div',{style:{fontSize:18,fontWeight:800,color: attention.stats?.candidates>0 ? 'var(--warn)' : 'var(--muted)'}},String(attention.stats?.candidates??'—')),
+       h('div',{style:{fontSize:10,color:'var(--faint)'}},attention.stats?.candidates>0 ? 'ACTION REQUIRED' : 'all clear')
+      ),
+      h('div',{style:{padding:'10px',border:'1px solid var(--lineSoft)',borderRadius:10,background:'var(--ocean)'}},
+       h('div',{style:{fontSize:10,fontWeight:800,letterSpacing:.1,color:'var(--gold)'}},'PENDING PILOTS'),
+       h('div',{style:{fontSize:18,fontWeight:800,color:'var(--ink)'}},String(attention.stats?.pendingPilots??'—')),
+       h('div',{style:{fontSize:10,color:'var(--faint)'}},'EVALUATION')
+      ),
+      h('div',{style:{padding:'10px',border:'1px solid var(--lineSoft)',borderRadius:10,background:'var(--ocean)'}},
+       h('div',{style:{fontSize:10,fontWeight:800,letterSpacing:.1,color:'var(--gold)'}},'INTAKES'),
+       h('div',{style:{fontSize:18,fontWeight:800,color:'var(--ink)'}},String(attention.stats?.intakes??'—')),
+       h('div',{style:{fontSize:10,color:'var(--faint)'}},'community')
+      ),
+      h('div',{style:{padding:'10px',border:'1px solid var(--lineSoft)',borderRadius:10,background:'var(--ocean)'}},
+       h('div',{style:{fontSize:10,fontWeight:800,letterSpacing:.1,color:'var(--gold)'}},'PARTNERS'),
+       h('div',{style:{fontSize:18,fontWeight:800,color:'var(--ink)'}},String(attention.stats?.partners??'—')),
+       h('div',{style:{fontSize:10,color:'var(--faint)'}},'interests')
+      )
+     ):h('div',{className:'emptyState'},'Loading attention...')
+    )
+   ),
+   h('div',{className:'card'},h('div',{className:'panelTitle'},h('h3',null,'LIVE EVENT STREAM'),h('span',null,'EVENTBUS · SSE')),
    h('div',{className:'cardBody'},
     h('div',{style:{display:'flex',gap:8,alignItems:'center',marginBottom:10}},
      B(streamState==='CONNECTED'?'CONNECTED':streamState==='RECONNECTING'?'RECONNECTING':'DISCONNECTED',streamState==='CONNECTED'?'good':streamState==='RECONNECTING'?'warn':'bad'),
@@ -503,10 +577,31 @@ function App(){
     ))):h('div',{className:'emptyState'},'Waiting for live events…')
    )
   )
- );
+  );
 
- /* ── WORKFORCE ── */
- const TAB_WORKFORCE=()=>h('div',{className:'stack'},
+  const TAB_INBOX=()=>h('div',{className:'stack'},
+   h('div',{className:'sectionHead'},h('h2',null,'FOUNDER ATTENTION'),h('p',null,'What happened, what needs attention, what can wait — aggregated from durable records.')),
+   attention?h('div',{className:'card'},h('div',{className:'panelTitle'},h('h3',null,'ATTENTION SUMMARY'),h('span',null,'LIVE COUNTS')),h('div',{className:'cardBody'},h('div',{style:{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(130px,1fr))',gap:10}},
+    h('div',{className:'stat'},h('b',null,attention.stats?.intakes??'—'),h('span',null,'Intakes')),
+    h('div',{className:'stat'},h('b',null,attention.stats?.candidates??'—'),h('span',null,'Candidates')),
+    h('div',{className:'stat'},h('b',null,attention.stats?.pendingPilots??'—'),h('span',null,'Pending Pilots')),
+    h('div',{className:'stat'},h('b',null,attention.stats?.partners??'—'),h('span',null,'Partners')),
+    h('div',{className:'stat'},h('b',null,attention.stats?.connections??'—'),h('span',null,'Connections')),
+    h('div',{className:'stat'},h('b',null,attention.stats?.cases??'—'),h('span',null,'Cases'))
+   ))):h('div',{className:'card'},h('div',{className:'cardBody'},h('div',{className:'emptyState'},'Loading attention...'))),
+   h('div',{className:'card'},h('div',{className:'panelTitle'},h('h3',null,'RECENT INTAKES'),h('span',null,String(attention?.intakes?.length||0)+' RECORDS')),h('div',{className:'cardBody'},attention?.intakes?.length?h('div',null,attention.intakes.slice(0,12).map(i=>h('div',{key:i.id,style:{padding:'8px 10px',borderBottom:'1px solid var(--lineSoft)',display:'flex',justifyContent:'space-between',gap:8}},
+     h('div',null,h('div',{style:{fontWeight:700,color:'var(--ink)'}},i.organization||'—'),h('div',{style:{fontSize:11,color:'var(--muted)'}},i.type||'—')),
+     h('div',{style:{fontSize:11,color:'var(--faint)'}},fmtDate(i.receivedAt))
+    ))):h('div',{className:'emptyState'},'No community intakes.'))),
+   h('div',{className:'card'},h('div',{className:'panelTitle'},h('h3',null,'CANDIDATES — ACTION REQUIRED'),h('span',null,String(attention?.candidates?.length||0)+' CANDIDATES')),h('div',{className:'cardBody'},attention?.candidates?.length?h('div',null,attention.candidates.slice(0,12).map(c=>h('div',{key:c.intakeId,style:{padding:'8px 10px',borderBottom:'1px solid var(--lineSoft)',display:'flex',justifyContent:'space-between',alignItems:'center',gap:8}},
+    h('div',null,h('div',{style:{fontWeight:700}},c.organization||'—'),h('div',{style:{fontSize:11,color:'var(--muted)'}},c.intent||'—')),
+    h('button',{className:'btn sm primary',onClick:()=>doApprovePilot(c.intakeId)},'Approve')
+   ))):h('div',{className:'emptyState'},'No candidates.'))),
+   h('div',{className:'card'},h('div',{className:'panelTitle'},h('h3',null,'PARTNERS'),h('span',null,String(attention?.partners?.length||0)+' PARTNERS')),h('div',{className:'cardBody'},attention?.partners?.length?h('div',null,attention.partners.slice(0,12).map(p=>h('div',{key:p.id,style:{padding:'8px 10px',borderBottom:'1px solid var(--lineSoft)'}},h('div',{style:{fontWeight:700}},p.name||'—'),h('div',{style:{fontSize:11,color:'var(--muted)'}},p.contact?.partnerType||'—')+' · '+B(p.status||'—','muted')))):h('div',{className:'emptyState'},'No partners.')))
+  );
+
+  /* ── WORKFORCE ── */
+  const TAB_WORKFORCE=()=>h('div',{className:'stack'},
   h('div',{className:'card'},h('div',{className:'panelTitle'},h('h3',null,'INVITE PERSON'),h('span',null,'CREATE INVITATION')),
    h('div',{className:'cardBody'},
     h('div',{className:'formGrid'},
@@ -854,7 +949,7 @@ function App(){
   )
  );
 
- const tabContent={OVERVIEW:TAB_OVERVIEW,WORKFORCE:TAB_WORKFORCE,PILOTS:TAB_PILOTS,PARTNERS:TAB_PARTNERS,INTEGRATIONS:TAB_INTEGRATIONS,'FEATURE CONTROL':TAB_FEATURES,'PRODUCT THEATER':TAB_THEATER,ANNOUNCEMENTS:TAB_ANNOUNCEMENTS,AUDIT:TAB_AUDIT};
+ const tabContent={OVERVIEW:TAB_OVERVIEW,INBOX:TAB_INBOX,WORKFORCE:TAB_WORKFORCE,PILOTS:TAB_PILOTS,PARTNERS:TAB_PARTNERS,INTEGRATIONS:TAB_INTEGRATIONS,'FEATURE CONTROL':TAB_FEATURES,'PRODUCT THEATER':TAB_THEATER,ANNOUNCEMENTS:TAB_ANNOUNCEMENTS,AUDIT:TAB_AUDIT};
 
  return h('div',{className:'app'},
   h('header',{className:'top'},
