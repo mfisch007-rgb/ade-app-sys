@@ -108,7 +108,11 @@ If a create/update/approve action returns `503 STORAGE_NOT_CONFIGURED` with the 
 
 ---
 
-## 12. Security Rule
+## 12. Market Intelligence (Paper Mode)
+
+**TRADING** tab (Founder only): status shows `PAPER` mode and `BROKER_NOT_CONFIGURED` for live. Paste a JSON array of at least 20 `{t,o,h,l,c}` candles you obtained yourself — ADE never invents prices — then `ANALYZE`. States: `WATCH`, `PRE-ALERT`, `SETUP`, `CONFIRMED`, `NO_TRADE` (stale data, low RR and weak edges all resolve to NO TRADE honestly). Only `CONFIRMED` signals can `EXECUTE PAPER`; risk controls enforce max risk/trade, daily loss, exposure, consecutive-loss cooldown and emergency stop. Live execution always returns `BROKER_NOT_CONFIGURED` until an authorized broker is connected. Paper ledger persists via configured storage.
+
+## 13. Security Rule
 
 NEVER put secrets, PINs, API keys, tokens or credentials in chat, email, screenshots or shared docs. Enter the 6-digit PIN only in the Command Center login field. Secrets live only in environment configuration, never in source.
 

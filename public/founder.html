@@ -174,7 +174,7 @@ td .actions{display:flex;gap:4px;flex-wrap:wrap}
 const {useEffect,useMemo,useState,useCallback}=React;
 const h=React.createElement;
 
-const TABS=['OVERVIEW','INBOX','WORKFORCE','PILOTS','PARTNERS','INTEGRATIONS','FEATURE CONTROL','PRODUCT THEATER','ANNOUNCEMENTS','AUDIT'];
+const TABS=['OVERVIEW','INBOX','WORKFORCE','PILOTS','PARTNERS','INTEGRATIONS','TRADING','FEATURE CONTROL','PRODUCT THEATER','ANNOUNCEMENTS','AUDIT'];
 const PILOT_STAGES=['PROSPECT','QUALIFIED','ASSESSMENT','BASELINE','PILOT','HUMAN REVIEW','IMPLEMENTATION','RE-MEASUREMENT','EVIDENCE','SUCCESS'];
 const ROLES=['FOUNDER','ADMIN','OPERATOR','ANALYST','PARTNER','VIEWER'];
 const PARTNER_TYPES=['TECHNOLOGY','CONSULTING','CHANNEL','STRATEGIC','RESELLER','IMPLEMENTATION'];
@@ -249,6 +249,10 @@ function App(){
  const [auditLimit,setAuditLimit]=useState(100);
  const [diagnostics,setDiagnostics]=useState(null);
  const [attention,setAttention]=useState(null);
+ const [tradeStatus,setTradeStatus]=useState(null);
+ const [tradeForm,setTradeForm]=useState({kind:'FOREX',instrument:'EURUSD',marketType:'REGULAR',timeframe:'M5',candles:''});
+ const [tradeResult,setTradeResult]=useState(null);
+ const [tradeLedger,setTradeLedger]=useState([]);
 
  const notify=m=>{setToast(m);setTimeout(()=>setToast(''),3000)};
 
@@ -335,6 +339,9 @@ function App(){
     const r=await api('/api/v1/admin/partners');if(r)setPartners(r.partners||[]);
    }else if(tab==='INTEGRATIONS'){
     const r=await api('/api/v1/admin/connections');if(r)setConnections(r.connections||[]);
+   }else if(tab==='TRADING'){
+    const [st,lg]=await Promise.all([api('/api/v1/trading/status'),api('/api/v1/trading/ledger')]);
+    if(st)setTradeStatus(st.trading||null);if(lg)setTradeLedger(lg.positions||[]);
    }else if(tab==='FEATURE CONTROL'){
     const r=await api('/api/v1/features');if(r)setFeatures(r.features||[]);
    }else if(tab==='AUDIT'){
@@ -390,6 +397,19 @@ function App(){
  const doResetPin=async(id)=>{try{await api('/api/v1/workforce/'+id+'/reset-pin',{method:'POST',body:JSON.stringify({})});notify('PIN reset')}catch(e){notify(e.message)}};
  const doCreateAgent=async()=>{try{if(!agentForm.name||agentForm.name.trim().length<2)throw new Error('AGENT_NAME_REQUIRED — name must be at least 2 characters');const r=await api('/api/v1/workforce/agents',{method:'POST',body:JSON.stringify({name:agentForm.name,purpose:agentForm.description})});if(r){notify('Agent created');setAgentForm({name:'',description:''});const w=await api('/api/v1/workforce');if(w){setWorkforce(w);setAgents(w.agents||[])}}}catch(e){notify(e.message)}};
  const doToggleAgentStatus=async(id,currentStatus)=>{try{const next=currentStatus==='ACTIVE'?'SUSPENDED':'ACTIVE';await api('/api/v1/workforce/agents/'+id,{method:'PATCH',body:JSON.stringify({status:next})});notify(next==='ACTIVE'?'Agent activated':'Agent suspended');const w=await api('/api/v1/workforce');if(w){setWorkforce(w);setAgents(w.agents||[])}}catch(e){notify(e.message)}};
+ const doAnalyzeTrade=async()=>{try{
+  let candles;try{candles=JSON.parse(tradeForm.candles||'[]')}catch{throw new Error('CANDLES_INVALID: paste a JSON array of {t,o,h,l,c} candles (min 20).')}
+  const body={kind:tradeForm.kind,instrument:tradeForm.instrument,marketType:tradeForm.marketType,timeframe:tradeForm.timeframe,candles,pair:tradeForm.instrument};
+  const r=await api('/api/v1/trading/analyze',{method:'POST',body:JSON.stringify(body)});
+  if(r){setTradeResult(r.analysis||null);notify('Analysis complete: '+((r.analysis&&r.analysis.state)||'—'))}
+ }catch(e){notify(e.message)}};
+ const doPaperExecute=async()=>{try{
+  if(!tradeResult||!String(tradeResult.state||'').startsWith('CONFIRMED'))throw new Error('SIGNAL_NOT_CONFIRMED: analyze first and execute only CONFIRMED signals.');
+  const r=await api('/api/v1/trading/paper',{method:'POST',body:JSON.stringify({signal:tradeResult,riskAmount:tradeResult.riskAmount||0})});
+  if(r){notify('Paper position opened: '+((r.position&&r.position.id)||''));const lg=await api('/api/v1/trading/ledger');if(lg)setTradeLedger(lg.positions||[])}
+ }catch(e){notify(e.message)}};
+ const doPaperClose=async(id)=>{try{const r=await api('/api/v1/trading/paper/'+id+'/close',{method:'POST',body:JSON.stringify({outcome:'MANUAL'})});if(r){notify('Paper position closed');const lg=await api('/api/v1/trading/ledger');if(lg)setTradeLedger(lg.positions||[])}}catch(e){notify(e.message)}};
+ const doEmergencyStop=async(on)=>{try{const r=await api('/api/v1/trading/emergency-stop',{method:'POST',body:JSON.stringify({on})});if(r){notify(on?'Emergency stop ENGAGED':'Emergency stop released');const st=await api('/api/v1/trading/status');if(st)setTradeStatus(st.trading||null)}}catch(e){notify(e.message)}};
 
  const doApprovePilot=async(intakeId)=>{try{await api('/api/v1/procarta/pilot/approve',{method:'POST',body:JSON.stringify({intakeId,reason:'Founder approval'})});notify('Pilot approved');const c=await api('/api/v1/procarta/pilot-candidates');if(c)setPilotCandidates(c.candidates||[]);const reg=await api('/api/v1/procarta/pilot/registry');if(reg){setPilotRegistry(reg.records||[]);setPilotStats(reg.stats||null)}}catch(e){notify(e.message)}};
  const doVerdict=async(recordId,verdict)=>{try{await api('/api/v1/procarta/pilot/verdict',{method:'POST',body:JSON.stringify({recordId,verdict,reason:'Founder verdict'})});notify('Verdict recorded');const reg=await api('/api/v1/procarta/pilot/registry');if(reg){setPilotRegistry(reg.records||[]);setPilotStats(reg.stats||null)}}catch(e){notify(e.message)}};
@@ -850,6 +870,71 @@ function App(){
   )
  );
 
+ /* ── TRADING (paper mode) ── */
+ const TAB_TRADING=()=>h('div',{className:'stack'},
+  h('div',{className:'sectionHead'},h('h2',null,'MARKET INTELLIGENCE'),h('p',null,'Paper-mode signal analytics on supplied candles. No live broker is connected — live execution always reports BROKER_NOT_CONFIGURED.')),
+  h('div',{className:'card'},h('div',{className:'panelTitle'},h('h3',null,'TRADING STATUS'),h('span',null,'PAPER MODE')),
+   h('div',{className:'cardBody'},
+    tradeStatus?h('div',{style:{display:'flex',flexWrap:'wrap',gap:8,alignItems:'center'}},
+     B('MODE: '+(tradeStatus.mode||'PAPER'),'muted'),
+     B('LIVE: '+(tradeStatus.liveExecution||'BROKER_NOT_CONFIGURED'),'warn'),
+     B('BALANCE: '+(tradeStatus.paperBalance??'—'),'muted'),
+     B('OPEN: '+(tradeStatus.risk?.openPositions??'—'),'blue'),
+     B(tradeStatus.risk?.emergencyStop?'EMERGENCY STOP ON':'EMERGENCY STOP OFF',tradeStatus.risk?.emergencyStop?'bad':'good'),
+     h('button',{className:'btn sm danger',onClick:()=>doEmergencyStop(!tradeStatus.risk?.emergencyStop)},tradeStatus.risk?.emergencyStop?'Release Stop':'Engage Stop')
+    ):h('div',{className:'emptyState'},'Loading trading status...')
+   )
+  ),
+  h('div',{className:'card'},h('div',{className:'panelTitle'},h('h3',null,'ANALYZE'),h('span',null,'SUPPLIED CANDLES ONLY')),
+   h('div',{className:'cardBody'},
+    h('div',{className:'formGrid'},
+     h('div',{className:'formRow'},
+      h('div',null,h('label',{className:'fieldLabel'},'KIND'),h('select',{className:'formInput',value:tradeForm.kind,onChange:e=>setTradeForm({...tradeForm,kind:e.target.value})},h('option',{value:'FOREX'},'FOREX'),h('option',{value:'BINARY'},'BINARY'))),
+      h('div',null,h('label',{className:'fieldLabel'},'INSTRUMENT / PAIR'),h('input',{className:'formInput',value:tradeForm.instrument,onChange:e=>setTradeForm({...tradeForm,instrument:e.target.value}),placeholder:'EURUSD'}))
+     ),
+     h('div',{className:'formRow'},
+      h('div',null,h('label',{className:'fieldLabel'},'MARKET TYPE (BINARY)'),h('select',{className:'formInput',value:tradeForm.marketType,onChange:e=>setTradeForm({...tradeForm,marketType:e.target.value})},h('option',{value:'REGULAR'},'REGULAR'),h('option',{value:'OTC'},'OTC'))),
+      h('div',null,h('label',{className:'fieldLabel'},'TIMEFRAME'),h('select',{className:'formInput',value:tradeForm.timeframe,onChange:e=>setTradeForm({...tradeForm,timeframe:e.target.value})},h('option',{value:'M1'},'M1'),h('option',{value:'M5'},'M5'),h('option',{value:'M15'},'M15'),h('option',{value:'H1'},'H1')))
+     ),
+     h('div',null,h('label',{className:'fieldLabel'},'CANDLES JSON [{t,o,h,l,c}...] MIN 20'),h('textarea',{className:'formInput',value:tradeForm.candles,onChange:e=>setTradeForm({...tradeForm,candles:e.target.value}),placeholder:'[{"t":..., "o":1.08, "h":1.081, "l":1.079, "c":1.0805}, ...]',style:{minHeight:90,fontFamily:'ui-monospace,Consolas,monospace',fontSize:11}})),
+     h('div',{style:{display:'flex',gap:8,flexWrap:'wrap'}},h('button',{className:'btn primary',onClick:doAnalyzeTrade},'ANALYZE'))
+    ),
+    tradeResult&&h('div',{className:'inviteResult',style:{marginTop:14}},
+     h('div',{style:{display:'flex',gap:8,flexWrap:'wrap',alignItems:'center',marginBottom:8}},
+      B(tradeResult.state||'—',String(tradeResult.state||'').startsWith('CONFIRMED')?'good':tradeResult.state==='NO_TRADE'?'bad':'warn'),
+      tradeResult.direction&&B(tradeResult.direction,'blue'),
+      h('span',{style:{fontSize:11,color:'var(--muted)'}},tradeResult.instrument||'')
+     ),
+     h('div',{style:{fontSize:12,lineHeight:1.7,color:'var(--ink)'}},
+      tradeResult.entry!=null?h('div',null,'ENTRY '+tradeResult.entry+' · SL '+tradeResult.stopLoss+' · TP1 '+tradeResult.tp1+' · TP2 '+tradeResult.tp2+' · TP3 '+tradeResult.tp3):null,
+      tradeResult.expiry?h('div',null,'EXPIRY (ESTIMATED): '+tradeResult.expiry.estimatedMinutes+' min — '+tradeResult.expiry.note):null,
+      tradeResult.riskAmount!=null?h('div',null,'RISK '+tradeResult.riskAmount+' · SIZE '+tradeResult.positionSize+' · RR '+tradeResult.riskReward):null,
+      tradeResult.invalidation?h('div',null,'INVALIDATION: '+tradeResult.invalidation):null,
+      tradeResult.reason?h('div',{style:{color:'var(--muted)'}},tradeResult.reason):null
+     ),
+     String(tradeResult.state||'').startsWith('CONFIRMED')&&h('div',{style:{marginTop:10}},h('button',{className:'btn sm primary',onClick:doPaperExecute},'EXECUTE PAPER'))
+    )
+   )
+  ),
+  h('div',{className:'card'},h('div',{className:'panelTitle'},h('h3',null,'PAPER LEDGER'),h('span',null,(tradeLedger.length)+' POSITIONS')),
+   h('div',{className:'cardBody'},
+    tradeLedger.length?h('div',{className:'tableWrap'},
+     h('table',null,h('thead',null,h('tr',null,h('th',null,'ID'),h('th',null,'INSTRUMENT'),h('th',null,'DIR'),h('th',null,'STATE'),h('th',null,'ENTRY'),h('th',null,'RISK'),h('th',null,'RESULT'),h('th',null,'ACTIONS'))),
+      h('tbody',null,tradeLedger.map(p=>h('tr',{key:p.id},
+       h('td',{style:{fontFamily:'ui-monospace,Consolas,monospace',fontSize:11}},p.id),
+       h('td',null,p.instrument||'—'),
+       h('td',null,B(p.direction||'—','blue')),
+       h('td',null,B(p.closedAt?'CLOSED':p.executionState||'—',p.closedAt?'muted':'good')),
+       h('td',null,p.entry??'—'),
+       h('td',null,p.riskAmount??'—'),
+       h('td',null,p.result?(p.result.outcome+' '+(p.result.pnl??'')):'—'),
+       h('td',null,!p.closedAt&&h('button',{className:'btn sm',onClick:()=>doPaperClose(p.id)},'Close'))
+      ))))
+    ):h('div',{className:'emptyState'},'No paper positions.')
+   )
+  )
+ );
+
  /* ── PRODUCT THEATER ── */
  const TAB_THEATER=()=>h('div',{className:'stack'},
   h('div',{className:'card'},h('div',{className:'panelTitle'},h('h3',null,'MEDIA REQUEST'),h('span',null,'NEW REQUEST')),
@@ -953,7 +1038,7 @@ function App(){
   )
  );
 
- const tabContent={OVERVIEW:TAB_OVERVIEW,INBOX:TAB_INBOX,WORKFORCE:TAB_WORKFORCE,PILOTS:TAB_PILOTS,PARTNERS:TAB_PARTNERS,INTEGRATIONS:TAB_INTEGRATIONS,'FEATURE CONTROL':TAB_FEATURES,'PRODUCT THEATER':TAB_THEATER,ANNOUNCEMENTS:TAB_ANNOUNCEMENTS,AUDIT:TAB_AUDIT};
+ const tabContent={OVERVIEW:TAB_OVERVIEW,INBOX:TAB_INBOX,WORKFORCE:TAB_WORKFORCE,PILOTS:TAB_PILOTS,PARTNERS:TAB_PARTNERS,INTEGRATIONS:TAB_INTEGRATIONS,TRADING:TAB_TRADING,'FEATURE CONTROL':TAB_FEATURES,'PRODUCT THEATER':TAB_THEATER,ANNOUNCEMENTS:TAB_ANNOUNCEMENTS,AUDIT:TAB_AUDIT};
 
  return h('div',{className:'app'},
   h('header',{className:'top'},

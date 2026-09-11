@@ -58,6 +58,7 @@ import { DemoOrchestrator } from "./demo/DemoOrchestrator.js";
 import { DEMO_SCENARIOS, getScenario, listScenarioCategories } from "./demo/DemoScenarios.js";
 import { FeedbackIntelligence } from "./feedback/FeedbackIntelligence.js";
 import { MediaEngine } from "./media/MediaEngine.js";
+import { FounderSignalEngine } from "./trading/FounderSignalEngine.js";
 import { MediaRegistry } from "./media/MediaRegistry.js";
 import { CommunityProgression } from "./community/CommunityProgression.js";
 import { PilotGate } from "./community/PilotGate.js";
@@ -209,6 +210,7 @@ const feedbackIntelligence = new FeedbackIntelligence({ eventBus: kernel?.eventB
 const mediaRegistry = new MediaRegistry();
 const mediaEngine = new MediaEngine({ eventBus: kernel?.eventBus, mediaRegistry });
 const communityProgression = new CommunityProgression({ eventBus: kernel?.eventBus, store: runtimeConfig });
+const signalEngine = new FounderSignalEngine({ store: runtimeConfig, eventBus: kernel?.eventBus });
 const pilotGate = new PilotGate({ eventBus: kernel?.eventBus, progression: communityProgression });
 const pilotRegistry = new PilotRegistry({ store: runtimeConfig, eventBus: kernel?.eventBus });
 kernel?.eventBus?.subscribe?.("pilot.candidate.approved", (decision) => {
@@ -863,6 +865,12 @@ app.get('/api/v1/system/diagnostics', security.requireLevel(2), (req,res)=>{
         status: connectionManager.list().length>0 ? 'CONFIGURED' : 'NOT CONFIGURED / READY FOR CONNECTION',
         note: connectionManager.list().length>0 ? 'Connection metadata is durable via configured storage.' : 'No provider credential supplied. Connection remains honest pending state.'
       },
+      trading: {
+        mode: 'PAPER',
+        liveExecution: 'BROKER_NOT_CONFIGURED',
+        status: 'PAPER MODE — NO LIVE BROKER',
+        note: 'Paper-mode analytics on supplied candles only. Live execution requires an authorized broker/provider, which is not connected.'
+      },
       runtime: { version: '1.0.0', edition: editionPolicy.getEdition(), isDurable }
     };
     res.json({success:true, diagnostics: checklist, time: new Date().toISOString()});
@@ -1151,6 +1159,77 @@ app.get('/api/v1/market/signals', security.requireAuth(), (req, res) => {
     });
   } catch (error) {
     res.status(500).json({ success: false, error: "MARKET_SIGNALS_FAILED" });
+  }
+});
+
+// === FOUNDER MARKET INTELLIGENCE (PAPER MODE) ==============================
+// Deterministic paper-mode analytics over caller-supplied candles.
+// No live broker exists: live execution always BROKER_NOT_CONFIGURED.
+// Founder/authorized only; paper execution is a durable business mutation.
+app.get('/api/v1/trading/status', security.requireLevel(2), (req, res) => {
+  try {
+    res.json({ success: true, trading: signalEngine.getStatus() });
+  } catch (error) {
+    res.status(500).json({ success: false, error: "TRADING_STATUS_FAILED" });
+  }
+});
+
+app.post('/api/v1/trading/analyze', security.requireLevel(2), (req, res) => {
+  try {
+    const body = req.body || {};
+    const kind = String(body.kind || "FOREX").toUpperCase();
+    const result = kind === "BINARY"
+      ? signalEngine.analyzeBinary(body)
+      : signalEngine.analyzeForex(body);
+    res.json({ success: true, analysis: result });
+  } catch (error) {
+    res.status(400).json({ success: false, error: "TRADING_ANALYZE_FAILED", message: error.message });
+  }
+});
+
+app.post('/api/v1/trading/paper', security.requireLevel(2), requireDurableStorage, (req, res) => {
+  try {
+    const actor = req.identity?.sub || req.identity?.subject || "founder";
+    const record = signalEngine.executePaper({ ...(req.body || {}), actor });
+    res.status(201).json({ success: true, position: record });
+  } catch (error) {
+    const code = error.code || "PAPER_EXECUTE_FAILED";
+    const status = code === "RISK_REJECTED" ? 422 : code === "DUPLICATE_SUPPRESSED" ? 409 : code === "SIGNAL_NOT_CONFIRMED" ? 400 : 400;
+    res.status(status).json({ success: false, error: code, message: error.message });
+  }
+});
+
+app.post('/api/v1/trading/paper/:id/close', security.requireLevel(2), requireDurableStorage, (req, res) => {
+  try {
+    const record = signalEngine.closePaper({ id: req.params.id, ...(req.body || {}) });
+    res.json({ success: true, position: record });
+  } catch (error) {
+    const code = error.code || "PAPER_CLOSE_FAILED";
+    res.status(code === "PAPER_ALREADY_CLOSED" ? 409 : code === "PAPER_NOT_FOUND" ? 404 : 400).json({ success: false, error: code, message: error.message });
+  }
+});
+
+app.get('/api/v1/trading/ledger', security.requireLevel(2), (req, res) => {
+  try {
+    res.json({ success: true, positions: signalEngine.listLedger(Number(req.query.limit) || 50) });
+  } catch (error) {
+    res.status(500).json({ success: false, error: "TRADING_LEDGER_FAILED" });
+  }
+});
+
+app.post('/api/v1/trading/live', security.requireLevel(2), requireDurableStorage, (req, res) => {
+  try {
+    signalEngine.executeLive();
+  } catch (error) {
+    return res.status(503).json({ success: false, error: error.code || "BROKER_NOT_CONFIGURED", message: error.message });
+  }
+});
+
+app.post('/api/v1/trading/emergency-stop', security.requireLevel(2), (req, res) => {
+  try {
+    res.json({ success: true, ...(signalEngine.setEmergencyStop(req.body?.on === true)) });
+  } catch (error) {
+    res.status(400).json({ success: false, error: "EMERGENCY_STOP_FAILED", message: error.message });
   }
 });
 
