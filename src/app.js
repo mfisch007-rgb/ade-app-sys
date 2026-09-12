@@ -1194,7 +1194,7 @@ app.post('/api/v1/trading/paper', security.requireLevel(2), requireDurableStorag
     res.status(201).json({ success: true, position: record });
   } catch (error) {
     const code = error.code || "PAPER_EXECUTE_FAILED";
-    const status = code === "RISK_REJECTED" ? 422 : code === "DUPLICATE_SUPPRESSED" ? 409 : code === "SIGNAL_NOT_CONFIRMED" ? 400 : 400;
+    const status = code === "RISK_REJECTED" ? 422 : code === "DUPLICATE_SUPPRESSED" ? 409 : code === "SIGNAL_NOT_CONFIRMED" ? 400 : code === "BROKER_NOT_CONFIGURED" ? 503 : code === "EXECUTION_STYLE_INVALID" ? 400 : 400;
     res.status(status).json({ success: false, error: code, message: error.message });
   }
 });
@@ -1211,9 +1211,27 @@ app.post('/api/v1/trading/paper/:id/close', security.requireLevel(2), requireDur
 
 app.get('/api/v1/trading/ledger', security.requireLevel(2), (req, res) => {
   try {
-    res.json({ success: true, positions: signalEngine.listLedger(Number(req.query.limit) || 50) });
+    res.json({ success: true, positions: signalEngine.listLedger(Number(req.query.limit) || 50, { actor: req.query.actor || null }) });
   } catch (error) {
     res.status(500).json({ success: false, error: "TRADING_LEDGER_FAILED" });
+  }
+});
+
+// Deterministic backtest over caller-supplied candles (read-only evidence).
+app.post('/api/v1/trading/backtest', security.requireLevel(2), (req, res) => {
+  try {
+    res.json({ success: true, backtest: signalEngine.backtestForex(req.body || {}) });
+  } catch (error) {
+    res.status(400).json({ success: false, error: "TRADING_BACKTEST_FAILED", message: error.message });
+  }
+});
+
+// Honest gaming/virtual boundary: always an explicit non-prediction.
+app.post('/api/v1/trading/gaming', security.requireLevel(2), (req, res) => {
+  try {
+    res.json({ success: true, gaming: signalEngine.analyzeGaming(req.body || {}) });
+  } catch (error) {
+    res.status(400).json({ success: false, error: "TRADING_GAMING_FAILED", message: error.message });
   }
 });
 
@@ -1225,7 +1243,7 @@ app.post('/api/v1/trading/live', security.requireLevel(2), requireDurableStorage
   }
 });
 
-app.post('/api/v1/trading/emergency-stop', security.requireLevel(2), (req, res) => {
+app.post('/api/v1/trading/emergency-stop', security.requireLevel(2), requireDurableStorage, (req, res) => {
   try {
     res.json({ success: true, ...(signalEngine.setEmergencyStop(req.body?.on === true)) });
   } catch (error) {

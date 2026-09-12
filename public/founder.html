@@ -250,9 +250,11 @@ function App(){
  const [diagnostics,setDiagnostics]=useState(null);
  const [attention,setAttention]=useState(null);
  const [tradeStatus,setTradeStatus]=useState(null);
- const [tradeForm,setTradeForm]=useState({kind:'FOREX',instrument:'EURUSD',marketType:'REGULAR',timeframe:'M5',candles:''});
- const [tradeResult,setTradeResult]=useState(null);
- const [tradeLedger,setTradeLedger]=useState([]);
+  const [tradeForm,setTradeForm]=useState({kind:'FOREX',instrument:'EURUSD',marketType:'REGULAR',timeframe:'M5',candles:'',executionStyle:'MANUAL',backtestCandles:'',game:'AVIATOR'});
+  const [tradeResult,setTradeResult]=useState(null);
+  const [tradeLedger,setTradeLedger]=useState([]);
+  const [tradeBacktest,setTradeBacktest]=useState(null);
+  const [tradeGaming,setTradeGaming]=useState(null);
 
  const notify=m=>{setToast(m);setTimeout(()=>setToast(''),3000)};
 
@@ -403,11 +405,20 @@ function App(){
   const r=await api('/api/v1/trading/analyze',{method:'POST',body:JSON.stringify(body)});
   if(r){setTradeResult(r.analysis||null);notify('Analysis complete: '+((r.analysis&&r.analysis.state)||'—'))}
  }catch(e){notify(e.message)}};
- const doPaperExecute=async()=>{try{
-  if(!tradeResult||!String(tradeResult.state||'').startsWith('CONFIRMED'))throw new Error('SIGNAL_NOT_CONFIRMED: analyze first and execute only CONFIRMED signals.');
-  const r=await api('/api/v1/trading/paper',{method:'POST',body:JSON.stringify({signal:tradeResult,riskAmount:tradeResult.riskAmount||0})});
-  if(r){notify('Paper position opened: '+((r.position&&r.position.id)||''));const lg=await api('/api/v1/trading/ledger');if(lg)setTradeLedger(lg.positions||[])}
- }catch(e){notify(e.message)}};
+  const doPaperExecute=async()=>{try{
+   if(!tradeResult||!String(tradeResult.state||'').startsWith('CONFIRMED'))throw new Error('SIGNAL_NOT_CONFIRMED: analyze first and execute only CONFIRMED signals.');
+   const r=await api('/api/v1/trading/paper',{method:'POST',body:JSON.stringify({signal:tradeResult,riskAmount:tradeResult.riskAmount||0,executionMode:'PAPER',executionStyle:tradeForm.executionStyle||'MANUAL'})});
+   if(r){notify('Paper position opened ('+(tradeForm.executionStyle||'MANUAL')+'): '+((r.position&&r.position.id)||''));const lg=await api('/api/v1/trading/ledger');if(lg)setTradeLedger(lg.positions||[])}
+  }catch(e){notify(e.message)}};
+  const doBacktest=async()=>{try{
+   let candles;try{candles=JSON.parse(tradeForm.backtestCandles||tradeForm.candles||'[]')}catch{throw new Error('CANDLES_INVALID: paste a JSON array of {t,o,h,l,c} candles (min 40) for backtest.')}
+   const r=await api('/api/v1/trading/backtest',{method:'POST',body:JSON.stringify({instrument:tradeForm.instrument,candles})});
+   if(r){setTradeBacktest(r.backtest||null);notify('Backtest complete: '+((r.backtest&&r.backtest.confirmed)||0)+' confirmed')}
+  }catch(e){notify(e.message)}};
+  const doGamingCheck=async()=>{try{
+   const r=await api('/api/v1/trading/gaming',{method:'POST',body:JSON.stringify({game:tradeForm.game})});
+   if(r){setTradeGaming(r.gaming||null);notify('Gaming market: NOT_SUPPORTED — no prediction')}
+  }catch(e){notify(e.message)}};
  const doPaperClose=async(id)=>{try{const r=await api('/api/v1/trading/paper/'+id+'/close',{method:'POST',body:JSON.stringify({outcome:'MANUAL'})});if(r){notify('Paper position closed');const lg=await api('/api/v1/trading/ledger');if(lg)setTradeLedger(lg.positions||[])}}catch(e){notify(e.message)}};
  const doEmergencyStop=async(on)=>{try{const r=await api('/api/v1/trading/emergency-stop',{method:'POST',body:JSON.stringify({on})});if(r){notify(on?'Emergency stop ENGAGED':'Emergency stop released');const st=await api('/api/v1/trading/status');if(st)setTradeStatus(st.trading||null)}}catch(e){notify(e.message)}};
 
@@ -875,16 +886,20 @@ function App(){
   h('div',{className:'sectionHead'},h('h2',null,'MARKET INTELLIGENCE'),h('p',null,'Paper-mode signal analytics on supplied candles. No live broker is connected — live execution always reports BROKER_NOT_CONFIGURED.')),
   h('div',{className:'card'},h('div',{className:'panelTitle'},h('h3',null,'TRADING STATUS'),h('span',null,'PAPER MODE')),
    h('div',{className:'cardBody'},
-    tradeStatus?h('div',{style:{display:'flex',flexWrap:'wrap',gap:8,alignItems:'center'}},
-     B('MODE: '+(tradeStatus.mode||'PAPER'),'muted'),
-     B('LIVE: '+(tradeStatus.liveExecution||'BROKER_NOT_CONFIGURED'),'warn'),
-     B('BALANCE: '+(tradeStatus.paperBalance??'—'),'muted'),
-     B('OPEN: '+(tradeStatus.risk?.openPositions??'—'),'blue'),
-     B(tradeStatus.risk?.emergencyStop?'EMERGENCY STOP ON':'EMERGENCY STOP OFF',tradeStatus.risk?.emergencyStop?'bad':'good'),
-     h('button',{className:'btn sm danger',onClick:()=>doEmergencyStop(!tradeStatus.risk?.emergencyStop)},tradeStatus.risk?.emergencyStop?'Release Stop':'Engage Stop')
-    ):h('div',{className:'emptyState'},'Loading trading status...')
-   )
-  ),
+     tradeStatus?h('div',{style:{display:'flex',flexWrap:'wrap',gap:8,alignItems:'center'}},
+      B('MODE: '+(tradeStatus.mode||'PAPER'),'muted'),
+      B('LIVE: '+(tradeStatus.liveExecution||'BROKER_NOT_CONFIGURED'),'warn'),
+      B('BALANCE: '+(tradeStatus.paperBalance??'—'),'muted'),
+      B('OPEN: '+(tradeStatus.risk?.openPositions??'—'),'blue'),
+      B('MAX RISK: '+(tradeStatus.risk?.maxRiskPerTrade??'—')+'%','muted'),
+      B('DAILY CAP: '+(tradeStatus.risk?.maxDailyLoss??'—')+'%','muted'),
+      B('EXPOSURE: '+(tradeStatus.risk?.openPositions??0)+'/'+(tradeStatus.risk?.maxExposure??'—'),'muted'),
+      B(tradeStatus.risk?.emergencyStop?'EMERGENCY STOP ON':'EMERGENCY STOP OFF',tradeStatus.risk?.emergencyStop?'bad':'good'),
+      h('button',{className:'btn sm danger',onClick:()=>doEmergencyStop(!tradeStatus.risk?.emergencyStop)},tradeStatus.risk?.emergencyStop?'Release Stop':'Engage Stop')
+     ):h('div',{className:'emptyState'},'Loading trading status...'),
+     tradeStatus?h('div',{style:{marginTop:10,fontSize:11,color:'var(--muted)',lineHeight:1.6}},'Execution: PAPER only — LIVE is disabled until an authorized broker/provider is connected. Session-extraction and credential reuse are not supported; authenticate in your own broker session.') : null
+    )
+   ),
   h('div',{className:'card'},h('div',{className:'panelTitle'},h('h3',null,'ANALYZE'),h('span',null,'SUPPLIED CANDLES ONLY')),
    h('div',{className:'cardBody'},
     h('div',{className:'formGrid'},
@@ -892,10 +907,11 @@ function App(){
       h('div',null,h('label',{className:'fieldLabel'},'KIND'),h('select',{className:'formInput',value:tradeForm.kind,onChange:e=>setTradeForm({...tradeForm,kind:e.target.value})},h('option',{value:'FOREX'},'FOREX'),h('option',{value:'BINARY'},'BINARY'))),
       h('div',null,h('label',{className:'fieldLabel'},'INSTRUMENT / PAIR'),h('input',{className:'formInput',value:tradeForm.instrument,onChange:e=>setTradeForm({...tradeForm,instrument:e.target.value}),placeholder:'EURUSD'}))
      ),
-     h('div',{className:'formRow'},
-      h('div',null,h('label',{className:'fieldLabel'},'MARKET TYPE (BINARY)'),h('select',{className:'formInput',value:tradeForm.marketType,onChange:e=>setTradeForm({...tradeForm,marketType:e.target.value})},h('option',{value:'REGULAR'},'REGULAR'),h('option',{value:'OTC'},'OTC'))),
-      h('div',null,h('label',{className:'fieldLabel'},'TIMEFRAME'),h('select',{className:'formInput',value:tradeForm.timeframe,onChange:e=>setTradeForm({...tradeForm,timeframe:e.target.value})},h('option',{value:'M1'},'M1'),h('option',{value:'M5'},'M5'),h('option',{value:'M15'},'M15'),h('option',{value:'H1'},'H1')))
-     ),
+      h('div',{className:'formRow'},
+       h('div',null,h('label',{className:'fieldLabel'},'MARKET TYPE (BINARY)'),h('select',{className:'formInput',value:tradeForm.marketType,onChange:e=>setTradeForm({...tradeForm,marketType:e.target.value})},h('option',{value:'REGULAR'},'REGULAR'),h('option',{value:'OTC'},'OTC'))),
+       h('div',null,h('label',{className:'fieldLabel'},'TIMEFRAME'),h('select',{className:'formInput',value:tradeForm.timeframe,onChange:e=>setTradeForm({...tradeForm,timeframe:e.target.value})},h('option',{value:'M1'},'M1'),h('option',{value:'M5'},'M5'),h('option',{value:'M15'},'M15'),h('option',{value:'H1'},'H1'))),
+       h('div',null,h('label',{className:'fieldLabel'},'EXECUTION STYLE'),h('select',{className:'formInput',value:tradeForm.executionStyle,onChange:e=>setTradeForm({...tradeForm,executionStyle:e.target.value})},h('option',{value:'MANUAL'},'MANUAL — signal + you decide'),h('option',{value:'SEMI_AUTO'},'SEMI_AUTO — signal + confirm amount'),h('option',{value:'FULL_AUTO'},'FULL_AUTO — paper only, risk-gated')))
+      ),
      h('div',null,h('label',{className:'fieldLabel'},'CANDLES JSON [{t,o,h,l,c}...] MIN 20'),h('textarea',{className:'formInput',value:tradeForm.candles,onChange:e=>setTradeForm({...tradeForm,candles:e.target.value}),placeholder:'[{"t":..., "o":1.08, "h":1.081, "l":1.079, "c":1.0805}, ...]',style:{minHeight:90,fontFamily:'ui-monospace,Consolas,monospace',fontSize:11}})),
      h('div',{style:{display:'flex',gap:8,flexWrap:'wrap'}},h('button',{className:'btn primary',onClick:doAnalyzeTrade},'ANALYZE'))
     ),
@@ -905,17 +921,34 @@ function App(){
       tradeResult.direction&&B(tradeResult.direction,'blue'),
       h('span',{style:{fontSize:11,color:'var(--muted)'}},tradeResult.instrument||'')
      ),
-     h('div',{style:{fontSize:12,lineHeight:1.7,color:'var(--ink)'}},
-      tradeResult.entry!=null?h('div',null,'ENTRY '+tradeResult.entry+' · SL '+tradeResult.stopLoss+' · TP1 '+tradeResult.tp1+' · TP2 '+tradeResult.tp2+' · TP3 '+tradeResult.tp3):null,
-      tradeResult.expiry?h('div',null,'EXPIRY (ESTIMATED): '+tradeResult.expiry.estimatedMinutes+' min — '+tradeResult.expiry.note):null,
-      tradeResult.riskAmount!=null?h('div',null,'RISK '+tradeResult.riskAmount+' · SIZE '+tradeResult.positionSize+' · RR '+tradeResult.riskReward):null,
-      tradeResult.invalidation?h('div',null,'INVALIDATION: '+tradeResult.invalidation):null,
-      tradeResult.reason?h('div',{style:{color:'var(--muted)'}},tradeResult.reason):null
-     ),
-     String(tradeResult.state||'').startsWith('CONFIRMED')&&h('div',{style:{marginTop:10}},h('button',{className:'btn sm primary',onClick:doPaperExecute},'EXECUTE PAPER'))
+      h('div',{style:{fontSize:12,lineHeight:1.7,color:'var(--ink)'}},
+       tradeResult.entry!=null?h('div',null,'ENTRY '+tradeResult.entry+' · SL '+tradeResult.stopLoss+' · TP1 '+tradeResult.tp1+' · TP2 '+tradeResult.tp2+' · TP3 '+tradeResult.tp3):null,
+       tradeResult.expiry?h('div',null,'EXPIRY (ESTIMATED): '+tradeResult.expiry.estimatedMinutes+' min — '+tradeResult.expiry.note):null,
+       tradeResult.riskAmount!=null?h('div',null,'RISK '+tradeResult.riskAmount+' · SIZE '+tradeResult.positionSize+' · RR '+tradeResult.riskReward):null,
+       tradeResult.confidencePercent!=null?h('div',null,'QUALITY '+tradeResult.confidencePercent+'% ('+((tradeResult.quality&&tradeResult.quality.band)||'—')+') · CONF '+tradeResult.confidence):null,
+       tradeResult.invalidation?h('div',null,'INVALIDATION: '+tradeResult.invalidation):null,
+       tradeResult.reason?h('div',{style:{color:'var(--muted)'}},tradeResult.reason):null
+      ),
+      String(tradeResult.state||'').startsWith('CONFIRMED')&&h('div',{style:{marginTop:10,display:'flex',gap:8,alignItems:'center',flexWrap:'wrap'}},h('span',{style:{fontSize:11,color:'var(--muted)'}},'PAPER '+(tradeForm.executionStyle||'MANUAL')),h('button',{className:'btn sm primary',onClick:doPaperExecute},'EXECUTE PAPER'))
+     )
     )
-   )
-  ),
+   ),
+   h('div',{className:'card'},h('div',{className:'panelTitle'},h('h3',null,'BACKTEST EVIDENCE'),h('span',null,'SUPPLIED CANDLES')),
+    h('div',{className:'cardBody'},
+     h('div',null,h('label',{className:'fieldLabel'},'BACKTEST CANDLES (MIN 40 — LEAVE BLANK TO REUSE ABOVE)'),h('textarea',{className:'formInput',value:tradeForm.backtestCandles,onChange:e=>setTradeForm({...tradeForm,backtestCandles:e.target.value}),placeholder:'[{"t":null,"o":...,"h":...,"l":...,"c":...}, ...]',style:{minHeight:60,fontFamily:'ui-monospace,Consolas,monospace',fontSize:11}})),
+     h('div',{style:{marginTop:8}},h('button',{className:'btn sm',onClick:doBacktest},'RUN BACKTEST')),
+     tradeBacktest&&h('div',{style:{marginTop:10,fontSize:12,lineHeight:1.7}},h('div',null,'CONFIRMED '+tradeBacktest.confirmed+' · EVALUATED '+tradeBacktest.evaluated+' · W '+tradeBacktest.wins+' / L '+tradeBacktest.losses+(tradeBacktest.winRate!=null?' · WIN RATE '+(tradeBacktest.winRate*100).toFixed(1)+'%':'')),tradeBacktest.error?h('div',{style:{color:'var(--warn)'}},tradeBacktest.error):null,h('div',{style:{color:'var(--muted)',fontSize:11}},tradeBacktest.note||''))
+    )
+   ),
+   h('div',{className:'card'},h('div',{className:'panelTitle'},h('h3',null,'GAMING / VIRTUAL'),h('span',null,'ROADMAP')),
+    h('div',{className:'cardBody'},
+     h('div',{className:'formRow'},
+      h('div',null,h('label',{className:'fieldLabel'},'MARKET'),h('select',{className:'formInput',value:tradeForm.game,onChange:e=>setTradeForm({...tradeForm,game:e.target.value})},['AVIATOR','CRASH','VIRTUAL_FOOTBALL','VIRTUAL_SPORT','SPRIBE','POCKET_OPTION','QUOTEX','IQ_OPTION','EXPERT_OPTION','SPORTBET','BETWAY','BETNAIJA','BETKING'].map(g=>h('option',{key:g,value:g},g)))),
+      h('div',{style:{alignSelf:'end'}},h('button',{className:'btn sm',onClick:doGamingCheck},'CHECK SUPPORT'))
+     ),
+     tradeGaming?h('div',{style:{marginTop:10,fontSize:12,lineHeight:1.7}},B(tradeGaming.support||'NOT_SUPPORTED','warn'),h('div',{style:{marginTop:6,color:'var(--muted)'}},tradeGaming.reason||'')):h('div',{style:{marginTop:8,fontSize:11,color:'var(--muted)'}},'Crash/virtual/betting outcomes resolve on provider servers with no authorized analytical feed. ADE returns NO_TRADE here by design — no session extraction, no credential reuse, no detection evasion.')
+    )
+   ),
   h('div',{className:'card'},h('div',{className:'panelTitle'},h('h3',null,'PAPER LEDGER'),h('span',null,(tradeLedger.length)+' POSITIONS')),
    h('div',{className:'cardBody'},
     tradeLedger.length?h('div',{className:'tableWrap'},

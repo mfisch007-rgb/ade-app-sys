@@ -60,6 +60,26 @@ function swings(candles, k = 2) {
   return { highs: highs.slice(-2), lows: lows.slice(-2) };
 }
 
+const EXECUTION_STYLES = Object.freeze(["MANUAL", "SEMI_AUTO", "FULL_AUTO"]);
+const EXECUTION_MODES = Object.freeze(["PAPER", "LIVE"]);
+// Gaming/virtual markets are NOT live-predicted by ADE. There is no
+// authorized outcome feed or provider adapter for crash/virtual/betting
+// markets, so the only honest engine output is an explicit non-prediction.
+// This prevents fake "aviator/virtual" certainty while keeping the
+// Founder surface truthful about what is ROADMAP vs LIVE.
+const GAMING_MARKETS = Object.freeze([
+  "AVIATOR", "CRASH", "VIRTUAL_FOOTBALL", "VIRTUAL_SPORT", "SPRIBE",
+  "SPORTBET", "BETWAY", "BETNAIJA", "BETKING", "POCKET_OPTION",
+  "EXPERT_OPTION", "IQ_OPTION", "QUOTEX"
+]);
+
+function qualityRating(confidence) {
+  const c = Number(confidence) || 0;
+  const percent = Math.round(Math.min(0.99, Math.max(0, c)) * 100);
+  const band = percent >= 75 ? "HIGH" : percent >= 60 ? "USABLE" : percent >= 40 ? "WEAK" : "NO_EDGE";
+  return { percent, band };
+}
+
 function sanitizeCandles(input) {
   if (!Array.isArray(input) || input.length < 20) {
     return { error: "CANDLES_REQUIRED: at least 20 OHLC candles are required." };
@@ -136,10 +156,13 @@ export class FounderSignalEngine {
     const open = this._state.ledger.filter((r) => r.executionState === "FILLED" && !r.closedAt).length;
     return {
       mode: "PAPER",
+      executionModes: [...EXECUTION_MODES],
+      executionStyles: [...EXECUTION_STYLES],
       liveExecution: "BROKER_NOT_CONFIGURED",
       paperBalance: this.config.paperBalance,
       risk: { ...this.config, dailyLoss: this._state.risk.dailyLoss, consecutiveLosses: this._state.risk.consecutiveLosses, emergencyStop: this._state.risk.emergencyStop, openPositions: open },
       ledgerSize: this._state.ledger.length,
+      gaming: { mode: "NOT_SUPPORTED", note: "Virtual/crash/betting markets have no authorized outcome feed. ADE does not predict them; gaming stays ROADMAP until a legitimate provider is connected." },
       truth: "Paper-mode analytics on supplied candles only. No live broker is connected."
     };
   }
@@ -163,7 +186,7 @@ export class FounderSignalEngine {
     this._state.cooldowns[key] = now + this.config.cooldownMs;
   }
 
-  analyzeForex({ instrument, candles, accountBalance, riskPercent, now = Date.now() } = {}) {
+  analyzeForex({ instrument, candles, higherCandles = null, accountBalance, riskPercent, now = Date.now() } = {}) {
     const symbol = String(instrument || "").trim().toUpperCase();
     if (!symbol) return this._noTrade("INSTRUMENT_REQUIRED", "Instrument symbol is required.");
     const clean = sanitizeCandles(candles);
@@ -187,6 +210,24 @@ export class FounderSignalEngine {
     else if (e50 === null && slope > 0.05) regime = "TREND_UP";
     else if (e50 === null && slope < -0.05) regime = "TREND_DOWN";
 
+    // Optional multi-timeframe agreement: caller may supply higher-timeframe
+    // candles. They are never invented here; when absent the factor is skipped.
+    // When present but invalid/stale, analysis degrades honestly to NO_TRADE
+    // rather than guessing alignment.
+    let higherBias = null;
+    if (higherCandles !== null && higherCandles !== undefined) {
+      const hc = sanitizeCandles(higherCandles);
+      if (hc.error) return this._noTrade("DATA_INVALID", `Higher-timeframe candles rejected: ${hc.error}`, { instrument: symbol });
+      const hCloses = hc.candles.map((c) => c.c);
+      const hE20 = ema(hCloses, 20);
+      if (hE20 === null) return this._noTrade("INSUFFICIENT_DATA", "Not enough higher-timeframe history for agreement check.", { instrument: symbol });
+      const hLast = hc.candles[hc.candles.length - 1];
+      if (hLast.t !== null && now - Number(hLast.t) > this.config.maxCandleAgeMs * 4) {
+        return this._noTrade("STALE_DATA", "Higher-timeframe data is stale. NO TRADE without fresh alignment.", { instrument: symbol });
+      }
+      higherBias = hLast.c >= hE20 ? "UP" : "DOWN";
+    }
+
     const factors = [];
     let direction = null;
     if (regime === "TREND_UP" && last.c > e20) { direction = "LONG"; factors.push("trend+price-above-ema20"); }
@@ -198,6 +239,16 @@ export class FounderSignalEngine {
     }
     if (last.c > prevClose) factors.push("bullish-close");
     if (last.c < prevClose) factors.push("bearish-close");
+    // Multi-timeframe agreement: when a higher-timeframe bias was supplied,
+    // direction must agree with it or the setup degrades honestly instead of
+    // executing against the higher trend.
+    if (higherBias) {
+      const agrees = (direction === "LONG" && higherBias === "UP") || (direction === "SHORT" && higherBias === "DOWN");
+      if (!agrees) {
+        return { instrument: symbol, market: "FOREX", state: "NO_TRADE", direction: null, regime, higherBias, confidence: 0, confidencePercent: 0, quality: qualityRating(0), reason: `NO_TRADE: higher-timeframe bias ${higherBias} disagrees with ${direction} setup.`, evidence: this._evidence(symbol, cs, { regime, atr: a, higherBias }) };
+      }
+      factors.push(`htf-agree-${higherBias}`);
+    }
     const structSL = direction === "LONG"
       ? (lows.length ? Math.min(...lows.map((s) => s.price)) - 0.5 * a : last.l - 1.0 * a)
       : (highs.length ? Math.max(...highs.map((s) => s.price)) + 0.5 * a : last.h + 1.0 * a);
@@ -221,8 +272,9 @@ export class FounderSignalEngine {
     }
     const fp = this._fingerprint([symbol, direction, Math.round(entry / (0.5 * a)), Math.floor(now / this.config.cooldownMs)]);
     const fresh = this._cooldownOk(`sig:${fp}`, now);
+    const confRounded = +confidence.toFixed(2);
     return {
-      instrument: symbol, market: "FOREX", state, direction, regime,
+      instrument: symbol, market: "FOREX", state, direction, regime, higherBias,
       entry: +entry.toFixed(5), entryZone: [+Math.min(entry, e20).toFixed(5), +Math.max(entry, e20).toFixed(5)],
       stopLoss: +structSL.toFixed(5), riskDistance: +slDist.toFixed(5),
       tp1: +tps[0].toFixed(5), tp2: +tps[1].toFixed(5), tp3: +tps[2].toFixed(5),
@@ -230,10 +282,10 @@ export class FounderSignalEngine {
       trailing: { mode: "STRUCTURE_PLUS_ATR", trailDistance: +(1.0 * a).toFixed(5), activateAfter: "+tp1", note: "Move stop to breakeven at TP1, then trail 1.0xATR behind structure." },
       invalidation: direction === "LONG" ? `Sustained close below ${(+structSL.toFixed(5))}` : `Sustained close above ${(+structSL.toFixed(5))}`,
       preAlert: state === "PRE-ALERT" ? { triggered: true, why: "Price near entry zone but confirmation below threshold.", expiresAt: new Date(now + this.config.cooldownMs).toISOString() } : { triggered: false },
-      confirmation: { required: `confidence >= ${this.config.confirmConfidence}`, observed: +confidence.toFixed(2), factors },
-      confidence: +confidence.toFixed(2), duplicateSuppressed: !fresh, fingerprint: fp,
+      confirmation: { required: `confidence >= ${this.config.confirmConfidence}`, observed: confRounded, factors },
+      confidence: confRounded, confidencePercent: qualityRating(confRounded).percent, quality: qualityRating(confRounded), duplicateSuppressed: !fresh, fingerprint: fp,
       atr: +a.toFixed(5),
-      evidence: this._evidence(symbol, cs, { regime, atr: a, ema20: e20, ema50: e50 })
+      evidence: this._evidence(symbol, cs, { regime, atr: a, ema20: e20, ema50: e50, higherBias })
     };
   }
 
@@ -270,15 +322,79 @@ export class FounderSignalEngine {
       return { instrument: symbol, market: "BINARY", marketType: mt, state: "WATCH", direction: null, zScore: +z.toFixed(2), reason: "No confirmed edge. Watching.", evidence: { candles: cs.length, atr: +a.toFixed(5), threshold } };
     }
     const state = confidence >= this.config.confirmConfidence ? (direction === "CALL" ? "CONFIRMED_CALL" : "CONFIRMED_PUT") : "PRE-ALERT";
+    const confRounded = +confidence.toFixed(2);
     return {
       instrument: symbol, market: "BINARY", marketType: mt, state, direction,
       timeframe: String(timeframe).toUpperCase(),
       entryWindow: { from: new Date(now).toISOString(), until: new Date(now + 2 * 60 * 1000).toISOString(), note: "Next 2 minutes on the connected platform clock." },
       expiry: { estimatedMinutes: estimatedExpiryMin, label: "ESTIMATED EXPIRY", note: "Estimate from volatility/timeframe only. Actual platform expiry must be confirmed on the broker platform — no broker is connected." },
-      zScore: +z.toFixed(2), confidence: +confidence.toFixed(2), factors,
+      zScore: +z.toFixed(2), confidence: confRounded, confidencePercent: qualityRating(confRounded).percent, quality: qualityRating(confRounded), factors,
       invalidation: `Opposite ${(direction === "CALL" ? "PUT" : "CALL")} confirmation or |z| < 1.0 before entry window closes.`,
       preAlert: state === "PRE-ALERT" ? { triggered: true, why: "Edge forming below confirmation threshold.", expiresAt: new Date(now + this.config.cooldownMs).toISOString() } : { triggered: false },
       evidence: { candles: cs.length, atr: +a.toFixed(5), threshold, otc: mt === "OTC" }
+    };
+  }
+
+  // Honest gaming/virtual boundary. ADE never predicts crash/virtual/betting
+  // outcomes: those markets resolve on provider-side RNG/servers with no
+  // authorized analytical feed. Returns an explicit non-prediction so the
+  // Founder UI can show ROADMAP instead of fake signals. Session-extraction,
+  // credential reuse, and anti-detection evasion are deliberately NOT
+  // implemented: live access requires the user to authenticate in their own
+  // broker session and only a legitimate authorized adapter may execute.
+  analyzeGaming({ game, market, provider } = {}) {
+    const label = String(game || market || provider || "GAMING").trim().toUpperCase().replace(/[^A-Z0-9_]+/g, "_") || "GAMING";
+    return {
+      market: "GAMING",
+      game: GAMING_MARKETS.includes(label) ? label : label,
+      state: "NO_TRADE",
+      direction: null,
+      confidence: 0,
+      confidencePercent: 0,
+      quality: qualityRating(0),
+      support: "NOT_SUPPORTED",
+      classification: "ROADMAP",
+      reason: `NOT_SUPPORTED: ${label} has no authorized outcome feed or provider adapter. ADE does not predict crash/virtual/betting outcomes and will not extract browser sessions, reuse credentials, or evade platform detection. Connect a legitimate authorized provider to reconsider; until then NO_TRADE.`,
+      evidence: { game: label, authorizedFeed: false, brokerConnected: false }
+    };
+  }
+
+  // Deterministic walk-forward backtest over caller-supplied candles only.
+  // Slides the existing analyzeForex across history and scores CONFIRMED
+  // signals against subsequent candles. No invented prices, no live data.
+  // This is ENGINE-QUALITY evidence — not a promise of future performance.
+  backtestForex({ instrument, candles, riskPercent, lookahead = 10 } = {}) {
+    const symbol = String(instrument || "").trim().toUpperCase();
+    const clean = sanitizeCandles(candles);
+    if (!symbol) return { instrument: "", evaluated: 0, error: "INSTRUMENT_REQUIRED" };
+    if (clean.error) return { instrument: symbol, evaluated: 0, error: clean.error };
+    const cs = clean.candles;
+    const now = Date.now();
+    if (cs.length < 40) return { instrument: symbol, evaluated: 0, error: "CANDLES_REQUIRED: at least 40 candles for backtest (20 history + evaluation window)." };
+    const la = Math.max(1, Math.min(30, Number(lookahead) || 10));
+    let confirmed = 0, wins = 0, losses = 0, noTrades = 0, evaluated = 0;
+    for (let end = 20; end <= cs.length - 1 - 1; end += 1) {
+      const window = cs.slice(Math.max(0, end - 60), end + 1).map((c) => ({ ...c, t: null }));
+      const sig = this.analyzeForex({ instrument: symbol, candles: window, riskPercent, now });
+      if (sig.state !== "CONFIRMED") { if (sig.state === "NO_TRADE") noTrades += 1; continue; }
+      confirmed += 1;
+      const future = cs.slice(end + 1, end + 1 + la);
+      if (!future.length) continue;
+      evaluated += 1;
+      const hitTp1 = future.some((c) => (sig.direction === "LONG" ? c.h >= sig.tp1 : c.l <= sig.tp1));
+      const hitSl = future.some((c) => (sig.direction === "LONG" ? c.l <= sig.stopLoss : c.h >= sig.stopLoss));
+      if (hitTp1 && !hitSl) wins += 1;
+      else if (hitSl && !hitTp1) losses += 1;
+      else if (hitTp1 && hitSl) losses += 1; // conservative: SL assumed first on ambiguity
+      else { evaluated -= 1; } // neither hit inside window: no decision, excluded
+    }
+    const decided = wins + losses;
+    return {
+      instrument: symbol, market: "FOREX", kind: "BACKTEST",
+      windows: cs.length, confirmed, noTrades, evaluated,
+      wins, losses,
+      winRate: decided ? +(wins / decided).toFixed(3) : null,
+      note: "Deterministic replay of analyzeForex on supplied candles only. Evidence of engine behavior on that sample — not predictive of live performance. Market intelligence is not trading performance."
     };
   }
 
@@ -307,8 +423,20 @@ export class FounderSignalEngine {
     return { ok: true };
   }
 
-  executePaper({ signal, riskAmount, actor = "founder", now = Date.now() } = {}) {
+  executePaper({ signal, riskAmount, actor = "founder", executionMode = "PAPER", executionStyle = "MANUAL", now = Date.now() } = {}) {
     if (!signal || typeof signal !== "object") throw new Error("SIGNAL_REQUIRED: a prior analyze result is required.");
+    const mode = String(executionMode || "PAPER").toUpperCase();
+    if (mode !== "PAPER") {
+      const e = new Error("BROKER_NOT_CONFIGURED: LIVE execution requires an authorized connected broker/provider. None is connected.");
+      e.code = "BROKER_NOT_CONFIGURED";
+      throw e;
+    }
+    const style = String(executionStyle || "MANUAL").toUpperCase();
+    if (!EXECUTION_STYLES.includes(style)) {
+      const e = new Error("EXECUTION_STYLE_INVALID: use MANUAL, SEMI_AUTO, or FULL_AUTO.");
+      e.code = "EXECUTION_STYLE_INVALID";
+      throw e;
+    }
     if (!["CONFIRMED", "CONFIRMED_CALL", "CONFIRMED_PUT"].includes(signal.state)) {
       const e = new Error("SIGNAL_NOT_CONFIRMED: only CONFIRMED signals may be paper-executed.");
       e.code = "SIGNAL_NOT_CONFIRMED";
@@ -342,9 +470,12 @@ export class FounderSignalEngine {
       riskAmount: num(riskAmount),
       executionState: "FILLED",
       executionMode: "PAPER",
+      executionStyle: String(executionStyle || "MANUAL").toUpperCase(),
       actor: String(actor),
       signalState: signal.state,
       confidence: signal.confidence ?? null,
+      confidencePercent: signal.confidencePercent ?? qualityRating(signal.confidence ?? 0).percent,
+      quality: signal.quality ?? qualityRating(signal.confidence ?? 0),
       fingerprint: fp,
       openedAt: new Date(now).toISOString(),
       closedAt: null,
@@ -386,8 +517,9 @@ export class FounderSignalEngine {
     return rec;
   }
 
-  listLedger(limit = 50) {
-    return this._state.ledger.slice(-Math.max(1, Math.min(200, limit))).reverse();
+  listLedger(limit = 50, { actor = null } = {}) {
+    const rows = actor ? this._state.ledger.filter((r) => String(r.actor) === String(actor)) : this._state.ledger;
+    return rows.slice(-Math.max(1, Math.min(200, limit))).reverse();
   }
 
   executeLive() {
@@ -412,5 +544,5 @@ export class FounderSignalEngine {
   }
 }
 
-export { FOREX_STATES, BINARY_STATES };
+export { FOREX_STATES, BINARY_STATES, EXECUTION_MODES, EXECUTION_STYLES };
 export default FounderSignalEngine;
