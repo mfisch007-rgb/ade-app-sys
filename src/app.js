@@ -71,6 +71,12 @@ import {
   PROCARTA_CAPABILITY_INTENT
 } from "./procarta/procartaCapability.js";
 import { AwbuliAdapter } from "../products/awbuli/adapter.js";
+import { ConnectionFabric } from "./integrations/ConnectionFabric.js";
+import { CapabilityActivation } from "./capabilities/CapabilityActivation.js";
+import { PROVIDER_CATALOG } from "./ai/ProviderCatalog.js";
+import { OracleFabric } from "./ai/OracleFabric.js";
+import { PublicDataRegistry } from "./data/PublicDataRegistry.js";
+import { LocalProvider } from "./ai/LocalProvider.js";
 
 
 const __filename = fileURLToPath(import.meta.url);
@@ -221,6 +227,17 @@ kernel?.eventBus?.subscribe?.("pilot.candidate.approved", (decision) => {
   }
 });
 const productRegistry = new ProductRegistry();
+const connectionFabric = new ConnectionFabric({ connectionManager, productRegistry, capabilityRegistry: CapabilityRegistry, eventBus: kernel?.eventBus });
+const capabilityActivation = new CapabilityActivation({ capabilityRegistry: CapabilityRegistry, editionPolicy, providerStatus: () => UniversalAIGateway.getInstance().getProviderStatus() });
+const publicDataRegistry = new PublicDataRegistry();
+const localProvider = new LocalProvider();
+const oracleFabric = new OracleFabric({
+  gateway: UniversalAIGateway.getInstance(),
+  knowledge: (() => { try { return kernel?.resolve?.("knowledge") || kernel?.resolve?.("knowledgeEngine") || null; } catch { return null; } })(),
+  dataRegistry: publicDataRegistry,
+  healthSnapshot: () => ({ kernel: kernel?.status || "UNKNOWN", uptimeSeconds: Math.floor(process.uptime()) }),
+  eventBus: kernel?.eventBus
+});
 const notificationEngine = new ProductNotificationEngine({ eventBus: kernel?.eventBus });
 const engagementOrchestrator = new EngagementOrchestrator({
   caseManager,
@@ -1271,6 +1288,94 @@ app.get('/api/v1/ai/providers', security.requireAuth(), (req, res) => {
     });
   } catch (error) {
     res.status(500).json({ success: false, error: "AI_PROVIDERS_FAILED" });
+  }
+});
+
+// === CONNECTIVITY FABRIC + SIDEWAYS ACTIVATION (expansion batch) ==========
+// Discovery/inventory are public reads (redacted). Verify/activate are L2.
+app.get('/api/v1/connectivity/inventory', (req, res) => {
+  try {
+    res.json({ success: true, products: connectionFabric.inventory(), truth: "Grip % derives from verified required capabilities only. CONNECTED is never claimed from URL syntax." });
+  } catch (error) {
+    res.status(500).json({ success: false, error: "CONNECTIVITY_INVENTORY_FAILED", message: error.message });
+  }
+});
+
+app.get('/api/v1/connectivity/products/:id', (req, res) => {
+  try {
+    const report = connectionFabric.inspect(String(req.params.id || "").toLowerCase());
+    res.json({ success: true, report });
+  } catch (error) {
+    res.status(500).json({ success: false, error: "CONNECTIVITY_INSPECT_FAILED", message: error.message });
+  }
+});
+
+app.post('/api/v1/admin/connections/:id/verify', security.requireLevel(2), async (req, res) => {
+  try {
+    const id = String(req.params.id || "");
+    // Resolve either a connection-record id or a product id.
+    const rec = connectionManager.get(id);
+    const productId = rec ? String(rec.provider || "").toLowerCase() : id.toLowerCase();
+    const report = await connectionFabric.verify(productId);
+    res.json({ success: true, verify: report.verify || null, report });
+  } catch (error) {
+    res.status(500).json({ success: false, error: "CONNECTIVITY_VERIFY_FAILED", message: error.message });
+  }
+});
+
+app.get('/api/v1/capabilities/activation', security.requireAuth(), (req, res) => {
+  try {
+    res.json({ success: true, capabilities: capabilityActivation.assess(), ecosystem: capabilityActivation.ecosystemStates(BUILTIN_ECOSYSTEM_CAPABILITIES) });
+  } catch (error) {
+    res.status(500).json({ success: false, error: "ACTIVATION_MAP_FAILED", message: error.message });
+  }
+});
+
+app.post('/api/v1/admin/capabilities/:id/activate', security.requireLevel(2), requireDurableStorage, (req, res) => {
+  try {
+    // Safe-local activation only: a handler must already exist or be supplied
+    // by an authorized adapter call. External/credential gates are never bypassed.
+    const result = capabilityActivation.activate(req.params.id, { handler: null, metadata: { activatedBy: req.identity?.sub || "founder" } });
+    if (!result.ok) return res.status(422).json({ success: false, ...result });
+    res.json({ success: true, ...result });
+  } catch (error) {
+    res.status(500).json({ success: false, error: "ACTIVATION_FAILED", message: error.message });
+  }
+});
+
+// === ORACLE FABRIC + DATA INTELLIGENCE (expansion batch, advisory only) ===
+app.get('/api/v1/oracle/status', security.requireAuth(), (req, res) => {
+  try {
+    res.json({
+      success: true,
+      oracle: oracleFabric.status(),
+      gateway: UniversalAIGateway.getInstance().getProviderStatus(),
+      catalog: PROVIDER_CATALOG,
+      local: localProvider.status(),
+      dataSources: publicDataRegistry.catalog(),
+      note: "Oracle output is advisory. Guardian/Decision retain execution authority."
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, error: "ORACLE_STATUS_FAILED", message: error.message });
+  }
+});
+
+app.post('/api/v1/oracle/query', security.requireAuth(), async (req, res) => {
+  try {
+    const { prompt, capability, privacy, includePublicData, humanInput } = req.body || {};
+    const result = await oracleFabric.query({ prompt, capability, privacy, includePublicData, humanInput });
+    if (!result.ok) return res.status(400).json({ success: false, ...result });
+    res.json({ success: true, ...result });
+  } catch (error) {
+    res.status(500).json({ success: false, error: "ORACLE_QUERY_FAILED", message: error.message });
+  }
+});
+
+app.get('/api/v1/data-sources', (req, res) => {
+  try {
+    res.json({ success: true, sources: publicDataRegistry.catalog() });
+  } catch (error) {
+    res.status(500).json({ success: false, error: "DATA_SOURCES_FAILED", message: error.message });
   }
 });
 
