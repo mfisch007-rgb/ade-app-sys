@@ -31,6 +31,24 @@ export const CONNECTION_STATES = Object.freeze([
   "DISCONNECTED"
 ]);
 
+/**
+ * Required detection vocabulary for the ecosystem expansion batch.
+ * Canonical ConnectionFabric states are mapped onto these labels without
+ * inventing connectivity. UNKNOWN is reserved for no-evidence cases.
+ */
+export const DETECTION_LABELS = Object.freeze([
+  "ACTIVE",
+  "CONNECTED",
+  "OFFLINE",
+  "REMOTE",
+  "CONFIGURED",
+  "CODE_SCHEMA_PRESENT",
+  "NOT_INITIALIZED",
+  "PARTIAL",
+  "INCOMPATIBLE",
+  "UNKNOWN"
+]);
+
 // Required-capability contracts per known product. Each entry lists the
 // evidence key that proves it. Grip % derives strictly from these.
 export const PRODUCT_CONTRACTS = Object.freeze({
@@ -401,6 +419,173 @@ export class ConnectionFabric {
     try { this.eventBus?.publish?.("connectivity.verify.completed", { product: productId, state: attempt.state }); } catch {}
     return { ...this.inspect(productId), verify: attempt };
   }
+
+  /**
+   * CLASSIFY — map canonical state + locality evidence onto the required
+   * detection vocabulary. Pure function of inspect(); no network, no secrets.
+   */
+  classify(productId) {
+    const r = this.inspect(productId);
+    const rec = (this._matchingConnections(productId) || [])[0] || null;
+    let remote = false;
+    try {
+      if (rec?.baseUrl) {
+        const u = new URL(rec.baseUrl);
+        remote = !/^(localhost|127\.|10\.|192\.168\.|169\.254\.|\.local$)/.test(u.hostname);
+      }
+    } catch { remote = false; }
+    const codePresent = Boolean(r.connected?.length) || ["INSPECTABLE", "PARTIALLY_CONNECTED", "CONFIGURED", "CONNECTED"].includes(r.state);
+    let label = "UNKNOWN";
+    if (r.state === "CONNECTED") label = remote ? "REMOTE" : "CONNECTED";
+    else if (r.state === "PARTIALLY_CONNECTED" || r.state === "CONFIGURED") label = "PARTIAL";
+    else if (r.state === "AUTH_REQUIRED") label = "CONFIGURED";
+    else if (r.state === "INSPECTABLE") label = "CODE_SCHEMA_PRESENT";
+    else if (r.state === "DISCOVERED") label = "NOT_INITIALIZED";
+    else if (r.state === "OFFLINE" || r.state === "DEGRADED" || r.state === "DISCONNECTED") label = "OFFLINE";
+    else if (r.state === "INCOMPATIBLE") label = "INCOMPATIBLE";
+    else if (r.state === "UNKNOWN") label = "UNKNOWN";
+    if (r.state === "CONNECTED" && Array.isArray(r.connected) && r.connected.length > 0) {
+      // ACTIVE = connected AND recently verified or in-process live engine.
+      const verified = Boolean(r.lastVerified) || r.id === "procarta";
+      if (verified) label = remote ? "REMOTE" : "ACTIVE";
+    }
+    return {
+      product: r.product, id: r.id, canonicalState: r.state, detectionLabel: label,
+      remote, codeOrSchemaPresent: codePresent, grip: r.grip,
+      reason: r.failureReason || null, requiredAction: r.requiredAction || null
+    };
+  }
+
+  /**
+   * CONNECT — record-only step. Creates/updates a ConnectionManager record.
+   * Never claims transport success; caller must VERIFY afterwards.
+   */
+  connect(productId, { baseUrl = null, authType = "API_KEY", credential = null } = {}) {
+    if (!this.connectionManager || typeof this.connectionManager.upsert !== "function") {
+      return { ok: false, error: "CONNECTION_MANAGER_UNAVAILABLE" };
+    }
+    try {
+      const body = { provider: String(productId || "").toUpperCase(), baseUrl, authType };
+      if (credential) body.apiKey = credential;
+      const record = this.connectionManager.upsert(body);
+      try { this.eventBus?.publish?.("connectivity.record.created", { product: productId }); } catch {}
+      return { ok: true, stage: "CONNECT_RECORDED", recordId: record?.id || null, next: "INITIALIZE" };
+    } catch (e) {
+      return { ok: false, error: e?.message || "CONNECT_FAILED" };
+    }
+  }
+
+  /**
+   * INITIALIZE — evidence gate. Marks initialized only when code/schema
+   * evidence exists; otherwise returns NOT_INITIALIZED with the blocker.
+   */
+  initialize(productId) {
+    const d = this.discover().find((x) => x.id === productId);
+    if (!d) return { ok: false, stage: "UNKNOWN", error: "No manifest, registry entry, or connection record." };
+    const ready = Boolean(d.manifestPresent || d.adapterPresent || d.localEngine || d.canonicalEngine || (d.connectionRecords || []).length);
+    if (!ready) return { ok: false, stage: "NOT_INITIALIZED", error: "CODE_SCHEMA_MISSING: no manifest, adapter, engine, or record." };
+    return { ok: true, stage: "INITIALIZED", evidence: { manifest: d.manifestPresent, adapter: d.adapterPresent, localEngine: Boolean(d.localEngine), canonicalEngine: Boolean(d.canonicalEngine) }, next: "VERIFY" };
+  }
+
+  /**
+   * REGISTER — registers product capabilities only when a real handler is
+   * supplied. Never fabricates handlers; unknown systems are never activated.
+   */
+  registerCapabilities(productId, capabilities = []) {
+    if (!this.capabilityRegistry || typeof this.capabilityRegistry.registerCapability !== "function") {
+      return { ok: false, error: "CAPABILITY_REGISTRY_UNAVAILABLE" };
+    }
+    const results = [];
+    for (const cap of capabilities || []) {
+      if (!cap || typeof cap.handler !== "function" || !cap.intent) {
+        results.push({ intent: cap?.intent || null, ok: false, error: "HANDLER_REQUIRED: unknown systems are never activated." });
+        continue;
+      }
+      try {
+        this.capabilityRegistry.registerCapability({ intent: String(cap.intent).toUpperCase(), name: cap.name || cap.intent, handler: cap.handler, sourceModule: cap.sourceModule || `PRODUCT:${String(productId).toUpperCase()}` }, { persist: false });
+        results.push({ intent: String(cap.intent).toUpperCase(), ok: true });
+      } catch (e) {
+        results.push({ intent: cap?.intent || null, ok: false, error: e?.message || "REGISTER_FAILED" });
+      }
+    }
+    try { this.eventBus?.publish?.("connectivity.capabilities.registered", { product: productId, count: results.filter((r) => r.ok).length }); } catch {}
+    return { ok: results.every((r) => r.ok), product: productId, results, next: "EXCHANGE" };
+  }
+
+  /**
+   * EXCHANGE — delegates to the mutual CapabilityExchange model when wired;
+   * otherwise returns an honest NOT_WIRED disclosure (never fabricated).
+   */
+  exchange(productId, exchange = null) {
+    if (exchange && typeof exchange.compare === "function") {
+      return { ok: true, stage: "EXCHANGED", comparison: exchange.compare(productId) };
+    }
+    const r = this.inspect(productId);
+    return {
+      ok: false, stage: "EXCHANGE_NOT_WIRED", product: productId,
+      note: "CapabilityExchange module not supplied; inspect() remains the source of truth.",
+      inspect: { state: r.state, grip: r.grip, connected: r.connected, unavailable: r.unavailable }
+    };
+  }
+
+  /**
+   * ACTIVATE — safe activation gate. Only CONNECTED (grip 100) or explicitly
+   * verified in-process slices may proceed, and only with a real handler.
+   * Unknown/partial systems return the blocker (never activated).
+   */
+  activate(productId, { handler = null, intent = null } = {}) {
+    const r = this.inspect(productId);
+    if (r.state === "UNKNOWN" || r.grip === 0) {
+      return { ok: false, stage: "UNKNOWN", error: "ACTIVATION_REFUSED: unknown systems are never activated.", requiredAction: r.requiredAction || "Register evidence first." };
+    }
+    if (r.state !== "CONNECTED") {
+      return { ok: false, stage: r.state, error: `ACTIVATION_REFUSED: product is ${r.state} at ${r.grip}% grip.`, requiredAction: r.requiredAction, grip: r.grip };
+    }
+    if (typeof handler !== "function" && !intent) {
+      return { ok: false, stage: "CONFIGURATION_REQUIRED", error: "No executable handler supplied; nothing was registered." };
+    }
+    return { ok: true, stage: "ACTIVATED", product: productId, grip: r.grip, next: "REPORT" };
+  }
+
+  /**
+   * REPORT — full DETECT → REPORT bundle for one product. No network.
+   */
+  report(productId) {
+    const detected = this.discover().find((d) => d.id === productId) || null;
+    const inspected = this.inspect(productId);
+    const classified = this.classify(productId);
+    return {
+      product: inspected.product, id: inspected.id,
+      pipeline: ["DETECT", "INSPECT", "CLASSIFY", "CONNECT", "INITIALIZE", "VERIFY", "REGISTER", "EXCHANGE", "ACTIVATE", "REPORT"],
+      detected: detected ? { manifest: detected.manifestPresent, adapter: detected.adapterPresent, records: (detected.connectionRecords || []).length } : null,
+      inspected: { state: inspected.state, grip: inspected.grip, connected: inspected.connected, unavailable: inspected.unavailable },
+      classified,
+      gripMeter: gripMeter(inspected),
+      verify: this.verifyCache.get(productId) || null,
+      nextAction: inspected.nextAction || "VERIFY"
+    };
+  }
+}
+
+/**
+ * Grip meter — truthful GREEN/RED intensity derived strictly from grip %.
+ * GREEN = grip/100 (verified strength). RED = (100-grip)/100 (gap severity).
+ * Never invented: grip comes from the inspected report only.
+ */
+export function gripMeter(report) {
+  const grip = Math.max(0, Math.min(100, Number(report?.grip ?? 0)));
+  return {
+    grip,
+    label: `Degree of Connection Grip: ${grip}%`,
+    greenIntensity: Math.round((grip / 100) * 100) / 100,
+    redIntensity: Math.round(((100 - grip) / 100) * 100) / 100,
+    connected: Array.isArray(report?.connected) ? report.connected : [],
+    partial: Array.isArray(report?.partial) ? report.partial : [],
+    unavailable: Array.isArray(report?.unavailable) ? report.unavailable : [],
+    reason: report?.failureReason || null,
+    requiredAction: report?.requiredAction || null,
+    recommendedAugmentation: report?.alternative || null
+  };
 }
 
 export default ConnectionFabric;

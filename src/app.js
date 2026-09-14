@@ -72,11 +72,16 @@ import {
 } from "./procarta/procartaCapability.js";
 import { AwbuliAdapter } from "../products/awbuli/adapter.js";
 import { ConnectionFabric } from "./integrations/ConnectionFabric.js";
+import { CapabilityExchange } from "./integrations/CapabilityExchange.js";
 import { CapabilityActivation } from "./capabilities/CapabilityActivation.js";
 import { PROVIDER_CATALOG } from "./ai/ProviderCatalog.js";
 import { OracleFabric } from "./ai/OracleFabric.js";
 import { PublicDataRegistry } from "./data/PublicDataRegistry.js";
 import { LocalProvider } from "./ai/LocalProvider.js";
+import { LearningCandidates } from "./learning/LearningCandidates.js";
+import { VenueRegistry } from "./trading/VenueRegistry.js";
+import { TradingEntitlements } from "./trading/TradingEntitlements.js";
+import { SignalQualityGate } from "./trading/SignalQualityGate.js";
 
 
 const __filename = fileURLToPath(import.meta.url);
@@ -228,7 +233,12 @@ kernel?.eventBus?.subscribe?.("pilot.candidate.approved", (decision) => {
 });
 const productRegistry = new ProductRegistry();
 const connectionFabric = new ConnectionFabric({ connectionManager, productRegistry, capabilityRegistry: CapabilityRegistry, eventBus: kernel?.eventBus });
+const capabilityExchange = new CapabilityExchange({ productRegistry, capabilityRegistry: CapabilityRegistry, connectionFabric });
 const capabilityActivation = new CapabilityActivation({ capabilityRegistry: CapabilityRegistry, editionPolicy, providerStatus: () => UniversalAIGateway.getInstance().getProviderStatus() });
+const learningCandidates = new LearningCandidates({ feedbackIntelligence, capabilityRegistry: CapabilityRegistry, eventBus: kernel?.eventBus });
+const venueRegistry = new VenueRegistry({ store: runtimeConfig, eventBus: kernel?.eventBus });
+const tradingEntitlements = new TradingEntitlements({ store: runtimeConfig, eventBus: kernel?.eventBus });
+const signalQualityGate = new SignalQualityGate({ entitlements: tradingEntitlements, venueRegistry, signalEngine });
 const publicDataRegistry = new PublicDataRegistry();
 const localProvider = new LocalProvider();
 const oracleFabric = new OracleFabric({
@@ -1340,6 +1350,142 @@ app.post('/api/v1/admin/capabilities/:id/activate', security.requireLevel(2), re
     res.json({ success: true, ...result });
   } catch (error) {
     res.status(500).json({ success: false, error: "ACTIVATION_FAILED", message: error.message });
+  }
+});
+
+// === ECOSYSTEM EXPANSION: classify/report/exchange/learning (additive) =====
+// Reads are public/redacted; every mutation is L2 + durable-gated.
+app.get('/api/v1/connectivity/classify/:id', (req, res) => {
+  try {
+    res.json({ success: true, classification: connectionFabric.classify(String(req.params.id || "").toLowerCase()) });
+  } catch (error) {
+    res.status(500).json({ success: false, error: "CONNECTIVITY_CLASSIFY_FAILED", message: error.message });
+  }
+});
+
+app.get('/api/v1/connectivity/report/:id', (req, res) => {
+  try {
+    res.json({ success: true, ...connectionFabric.report(String(req.params.id || "").toLowerCase()) });
+  } catch (error) {
+    res.status(500).json({ success: false, error: "CONNECTIVITY_REPORT_FAILED", message: error.message });
+  }
+});
+
+app.get('/api/v1/connectivity/exchange/:id', security.requireAuth(), (req, res) => {
+  try {
+    res.json({ success: true, exchange: capabilityExchange.compare(String(req.params.id || "").toLowerCase()) });
+  } catch (error) {
+    res.status(500).json({ success: false, error: "EXCHANGE_FAILED", message: error.message });
+  }
+});
+
+app.get('/api/v1/connectivity/exchange', security.requireAuth(), (req, res) => {
+  try {
+    res.json({ success: true, exchanges: capabilityExchange.inventory() });
+  } catch (error) {
+    res.status(500).json({ success: false, error: "EXCHANGE_FAILED", message: error.message });
+  }
+});
+
+app.get('/api/v1/learning/candidates', security.requireLevel(2), (req, res) => {
+  try {
+    const derived = learningCandidates.deriveFromPatterns({});
+    res.json({ success: true, candidates: learningCandidates.list(), newlyDerived: derived.length });
+  } catch (error) {
+    res.status(500).json({ success: false, error: "LEARNING_CANDIDATES_FAILED", message: error.message });
+  }
+});
+
+app.post('/api/v1/learning/candidates/:id/decision', security.requireLevel(2), requireDurableStorage, (req, res) => {
+  try {
+    const decidedBy = req.identity?.sub || req.identity?.subject || "founder";
+    const { approved, reason } = req.body || {};
+    // Handler/intent are never fabricated from HTTP: approval without a real
+    // authorized handler is recorded as a blocked decision (truthful).
+    const result = learningCandidates.decide(req.params.id, { approved: approved === true, decidedBy, reason: reason || "", handler: null, intent: null });
+    res.json({ success: true, candidate: result });
+  } catch (error) {
+    const code = error.code || "LEARNING_DECISION_FAILED";
+    const status = code === "CANDIDATE_NOT_FOUND" ? 404 : code === "APPROVAL_HANDLER_REQUIRED" ? 422 : 400;
+    res.status(status).json({ success: false, error: code, message: error.message, detail: error.detail || null });
+  }
+});
+
+// === TRADING VENUES + ENTITLEMENTS + SIGNAL GATE (surrounding only) ========
+app.get('/api/v1/trading/venues', security.requireLevel(2), (req, res) => {
+  try {
+    res.json({ success: true, venues: venueRegistry.list(), kinds: ["BINARY_BROKER", "GAMING_BOOKIE"], note: "Catalog only. Live execution requires VERIFIED venue + entitlement + human approval. No stealth automation." });
+  } catch (error) {
+    res.status(500).json({ success: false, error: "VENUES_FAILED", message: error.message });
+  }
+});
+
+app.post('/api/v1/trading/venues', security.requireLevel(2), requireDurableStorage, (req, res) => {
+  try {
+    const venue = venueRegistry.registerVenue(req.body || {});
+    res.status(201).json({ success: true, venue });
+  } catch (error) {
+    res.status(400).json({ success: false, error: error.code || "VENUE_REGISTER_FAILED", message: error.message });
+  }
+});
+
+app.patch('/api/v1/trading/venues/:id', security.requireLevel(2), requireDurableStorage, (req, res) => {
+  try {
+    const venue = venueRegistry.setConfigured(req.params.id, { configured: req.body?.configured !== false, verified: req.body?.verified === true, configuredBy: req.identity?.sub || "founder" });
+    res.json({ success: true, venue });
+  } catch (error) {
+    res.status(error.code === "VENUE_NOT_FOUND" ? 404 : 400).json({ success: false, error: error.code || "VENUE_UPDATE_FAILED", message: error.message });
+  }
+});
+
+app.get('/api/v1/trading/venues/:id/eligibility', security.requireLevel(2), (req, res) => {
+  try {
+    res.json({ success: true, ...venueRegistry.liveEligibility(req.params.id) });
+  } catch (error) {
+    res.status(500).json({ success: false, error: "VENUE_ELIGIBILITY_FAILED", message: error.message });
+  }
+});
+
+app.get('/api/v1/admin/trading/entitlements', security.requireLevel(2), (req, res) => {
+  try {
+    res.json({ success: true, entitlements: tradingEntitlements.list() });
+  } catch (error) {
+    res.status(500).json({ success: false, error: "ENTITLEMENTS_FAILED", message: error.message });
+  }
+});
+
+app.post('/api/v1/admin/trading/entitlements', security.requireLevel(2), requireDurableStorage, (req, res) => {
+  try {
+    const { userId, trading, gaming } = req.body || {};
+    const rec = tradingEntitlements.grant(userId, { trading, gaming, grantedBy: req.identity?.sub || "founder" });
+    res.status(201).json({ success: true, entitlement: rec });
+  } catch (error) {
+    res.status(400).json({ success: false, error: error.code || "ENTITLEMENT_GRANT_FAILED", message: error.message });
+  }
+});
+
+app.delete('/api/v1/admin/trading/entitlements/:userId', security.requireLevel(2), requireDurableStorage, (req, res) => {
+  try {
+    res.json({ success: true, ...(tradingEntitlements.revoke(req.params.userId, { revokedBy: req.identity?.sub || "founder" }) || { revoked: false }) });
+  } catch (error) {
+    res.status(500).json({ success: false, error: "ENTITLEMENT_REVOKE_FAILED", message: error.message });
+  }
+});
+
+app.post('/api/v1/trading/signal-gate', security.requireLevel(2), (req, res) => {
+  try {
+    const { analysis, minConfidence, userId, feature } = req.body || {};
+    res.json({ success: true, ...signalQualityGate.gate(analysis || {}, { minConfidence: minConfidence ?? 0.6, userId: userId || null, feature: feature || "trading" }) });
+  } catch (error) {
+    res.status(500).json({ success: false, error: "SIGNAL_GATE_FAILED", message: error.message });
+  }
+});
+
+app.post('/api/v1/trading/auto-mode', security.requireLevel(2), (req, res) => {
+  try {
+    res.json({ success: true, ...signalQualityGate.autoMode(req.body || {}) });
+  } catch (error) {
+    res.status(500).json({ success: false, error: "AUTO_MODE_FAILED", message: error.message });
   }
 });
 

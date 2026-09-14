@@ -39,6 +39,42 @@ export const DATA_SOURCE_CATALOG = Object.freeze([
     privacyRisk: "NONE",
     adeUse: "Country reference (region, currency, languages) for intake profiling.",
     safeNow: true
+  },
+  {
+    id: "frankfurter", name: "Frankfurter FX Rates API", dataType: "MARKET_FX",
+    access: "GET https://api.frankfurter.app/v1/... (no key)",
+    freeLimit: "No-key fair use (open-source ECB mirror)", authRequired: false,
+    commercialUse: "Allowed; ECB reference rates (open data)", rateLimit: "Fair use; cache daily",
+    license: "Open data (ECB reference)", updateFrequency: "Daily (ECB business days)",
+    reliability: "HIGH for reference FX (not tradable quotes)",
+    privacyRisk: "NONE",
+    adeUse: "Market context for FX reference rates (e.g., EUR/NGN proxies); never tradable pricing.",
+    safeNow: true
+  },
+  {
+    id: "reliefweb", name: "ReliefWeb Humanitarian API", dataType: "OPPORTUNITIES_INTEL",
+    access: "GET https://api.reliefweb.int/v1/... (no key, appname param)",
+    freeLimit: "No-key fair use", authRequired: false,
+    commercialUse: "Allowed with attribution; verify ReliefWeb ToS",
+    rateLimit: "Fair use; paginated",
+    license: "Varies by content source; metadata open",
+    updateFrequency: "Continuous (humanitarian updates)",
+    reliability: "HIGH (UN OCHA operated)",
+    privacyRisk: "NONE (public humanitarian metadata)",
+    adeUse: "Grants/opportunities/sector signals for Africa/Nigeria (disasters, appeals, jobs, training).",
+    safeNow: true
+  },
+  {
+    id: "world-bank-projects", name: "World Bank Projects API", dataType: "PROCUREMENT_FUNDING",
+    access: "GET https://search.worldbank.org/api/v3/projects?...&format=json (no key)",
+    freeLimit: "No-key fair use", authRequired: false,
+    commercialUse: "Allowed (CC BY-4.0 attribution)",
+    rateLimit: "Fair use; cache aggressively",
+    license: "CC BY-4.0", updateFrequency: "Continuous (project pipeline)",
+    reliability: "HIGH (official procurement/funding pipeline)",
+    privacyRisk: "NONE (public project metadata)",
+    adeUse: "Funding/procurement pipeline for Nigeria/Africa (project status, sector, commitments).",
+    safeNow: true
   }
 ]);
 
@@ -109,6 +145,40 @@ export class PublicDataRegistry {
   }
 
   _build(sourceId, params) {
+    if (sourceId === "frankfurter") {
+      const base = String(params.base || "EUR").toUpperCase().replace(/[^A-Z]/g, "").slice(0, 3) || "EUR";
+      const symbols = String(params.symbols || "NGN,USD,GBP").toUpperCase().replace(/[^A-Z,]/g, "");
+      const url = `https://api.frankfurter.app/v1/latest?base=${base}&symbols=${symbols}`;
+      return {
+        url,
+        normalize: (raw) => [{ base: raw?.base || base, date: raw?.date || null, rates: raw?.rates || {}, note: "ECB reference rates; not tradable quotes." }]
+      };
+    }
+    if (sourceId === "reliefweb") {
+      const query = String(params.query || params.q || "Nigeria").slice(0, 120);
+      const limit = Math.min(20, Math.max(1, Number(params.limit || 5)));
+      const url = `https://api.reliefweb.int/v1/reports?appname=ADE-APEX&query[value]=${encodeURIComponent(query)}&limit=${limit}`;
+      return {
+        url,
+        normalize: (raw) => {
+          const rows = raw?.data || [];
+          return rows.map((r) => ({ id: r?.id || null, title: r?.fields?.title || null, date: r?.fields?.date?.created || null, source: (r?.fields?.source || []).map((s) => s?.name).filter(Boolean).slice(0, 3), url: r?.fields?.url || null }));
+        }
+      };
+    }
+    if (sourceId === "world-bank-projects") {
+      const country = String(params.country || "NG").toUpperCase().replace(/[^A-Z]/g, "").slice(0, 3) || "NG";
+      const rows = Math.min(20, Math.max(1, Number(params.rows || 5)));
+      const url = `https://search.worldbank.org/api/v3/projects?format=json&countryshortname_exact=${country}&rows=${rows}`;
+      return {
+        url,
+        normalize: (raw) => {
+          const list = raw?.projects || raw?.project || [];
+          const arr = Array.isArray(list) ? list : Object.values(list || {});
+          return arr.slice(0, rows).map((p) => ({ id: p?.id || p?.projectid || null, title: p?.project_name || p?.title || null, status: p?.projectstatusdisplay || p?.status || null, sector: p?.sector || p?.mjsector1 || null, commitment: p?.commitmentamount ?? p?.lendprojectcost ?? null }));
+        }
+      };
+    }
     if (sourceId === "world-bank") {
       const country = String(params.country || "NG").toUpperCase().replace(/[^A-Z]/g, "") || "NG";
       const indicator = String(params.indicator || "NY.GDP.MKTP.CD").replace(/[^A-Z0-9.]/gi, "");
