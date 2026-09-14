@@ -23,6 +23,7 @@ if (!ADE_RUNTIME_MODE_CONTRACT.includes(ADE_RUNTIME_MODE)) {
 
 
 import express from "express";
+import fs from "node:fs";
 import path from "path";
 import { fileURLToPath } from "url";
 
@@ -83,6 +84,17 @@ import { LearningCandidates } from "./learning/LearningCandidates.js";
 import { VenueRegistry } from "./trading/VenueRegistry.js";
 import { TradingEntitlements } from "./trading/TradingEntitlements.js";
 import { SignalQualityGate } from "./trading/SignalQualityGate.js";
+import { MarketDataAdapter } from "./trading/MarketDataAdapter.js";
+import { MarketDataRegistry } from "./trading/MarketDataRegistry.js";
+import { SportsDataBus } from "./trading/SportsDataBus.js";
+import { FBSAdapter } from "./trading/adapters/FBSAdapter.js";
+import { PocketOptionAdapter } from "./trading/adapters/PocketOptionAdapter.js";
+import { IQOptionAdapter } from "./trading/adapters/IQOptionAdapter.js";
+import { ExpertOptionAdapter } from "./trading/adapters/ExpertOptionAdapter.js";
+import { BetPawaAdapter } from "./trading/adapters/BetPawaAdapter.js";
+import { BetKingAdapter } from "./trading/adapters/BetKingAdapter.js";
+import { Bet9jaAdapter } from "./trading/adapters/Bet9jaAdapter.js";
+import { SportyBetAdapter } from "./trading/adapters/SportyBetAdapter.js";
 
 
 const __filename = fileURLToPath(import.meta.url);
@@ -238,6 +250,17 @@ const capabilityExchange = new CapabilityExchange({ productRegistry, capabilityR
 const capabilityActivation = new CapabilityActivation({ capabilityRegistry: CapabilityRegistry, editionPolicy, providerStatus: () => UniversalAIGateway.getInstance().getProviderStatus() });
 const learningCandidates = new LearningCandidates({ feedbackIntelligence, capabilityRegistry: CapabilityRegistry, eventBus: kernel?.eventBus });
 const venueRegistry = new VenueRegistry({ store: runtimeConfig, eventBus: kernel?.eventBus });
+const marketDataRegistry = new MarketDataRegistry({ store: runtimeConfig, eventBus: kernel?.eventBus, venueRegistry });
+const sportsDataBus = new SportsDataBus({ marketDataRegistry, eventBus: kernel?.eventBus });
+// Register all market data adapters
+const fbsAdapter = new FBSAdapter(); marketDataRegistry.registerAdapter(fbsAdapter);
+const pocketOptionAdapter = new PocketOptionAdapter(); marketDataRegistry.registerAdapter(pocketOptionAdapter);
+const iqOptionAdapter = new IQOptionAdapter(); marketDataRegistry.registerAdapter(iqOptionAdapter);
+const expertOptionAdapter = new ExpertOptionAdapter(); marketDataRegistry.registerAdapter(expertOptionAdapter);
+const betPawaAdapter = new BetPawaAdapter(); marketDataRegistry.registerAdapter(betPawaAdapter);
+const betKingAdapter = new BetKingAdapter(); marketDataRegistry.registerAdapter(betKingAdapter);
+const bet9jaAdapter = new Bet9jaAdapter(); marketDataRegistry.registerAdapter(bet9jaAdapter);
+const sportyBetAdapter = new SportyBetAdapter(); marketDataRegistry.registerAdapter(sportyBetAdapter);
 const tradingEntitlements = new TradingEntitlements({ store: runtimeConfig, eventBus: kernel?.eventBus });
 const signalQualityGate = new SignalQualityGate({ entitlements: tradingEntitlements, venueRegistry, signalEngine });
 const publicDataRegistry = new PublicDataRegistry();
@@ -901,6 +924,200 @@ app.get('/api/v1/system/diagnostics', security.requireLevel(2), (req,res)=>{
     };
     res.json({success:true, diagnostics: checklist, time: new Date().toISOString()});
   }catch(e){ res.status(500).json({success:false, error:'DIAGNOSTICS_FAILED', message:e.message}); }
+});
+
+// === MARKET DATA / VENUE HEALTH ROUTES =====================================
+
+app.get('/api/v1/market/health', (req, res) => {
+  try {
+    const summary = marketDataRegistry.getHealthSummary();
+    res.json({ success: true, marketData: summary, time: new Date().toISOString() });
+  } catch (e) {
+    res.status(500).json({ success: false, error: 'MARKET_HEALTH_FAILED', message: e.message });
+  }
+});
+
+app.get('/api/v1/market/adapters', (req, res) => {
+  try {
+    const kind = req.query.kind || null;
+    res.json({ success: true, adapters: marketDataRegistry.listAdapters(kind), time: new Date().toISOString() });
+  } catch (e) {
+    res.status(500).json({ success: false, error: 'MARKET_ADAPTERS_FAILED', message: e.message });
+  }
+});
+
+app.get('/api/v1/market/adapter/:providerId', (req, res) => {
+  try {
+    const adapter = marketDataRegistry.getAdapter(req.params.providerId);
+    if (!adapter) return res.status(404).json({ success: false, error: 'ADAPTER_NOT_FOUND' });
+    res.json({ success: true, adapter: adapter.getStatus(), time: new Date().toISOString() });
+  } catch (e) {
+    res.status(500).json({ success: false, error: 'MARKET_ADAPTER_FAILED', message: e.message });
+  }
+});
+
+app.post('/api/v1/market/adapter/:providerId/connect', security.requireLevel(2), async (req, res) => {
+  try {
+    const adapter = marketDataRegistry.getAdapter(req.params.providerId);
+    if (!adapter) return res.status(404).json({ success: false, error: 'ADAPTER_NOT_FOUND' });
+    const result = await adapter.connect();
+    res.json({ success: true, result, time: new Date().toISOString() });
+  } catch (e) {
+    res.status(500).json({ success: false, error: 'MARKET_CONNECT_FAILED', message: e.message });
+  }
+});
+
+app.post('/api/v1/market/adapter/:providerId/disconnect', security.requireLevel(2), async (req, res) => {
+  try {
+    const adapter = marketDataRegistry.getAdapter(req.params.providerId);
+    if (!adapter) return res.status(404).json({ success: false, error: 'ADAPTER_NOT_FOUND' });
+    await adapter.disconnect();
+    res.json({ success: true, time: new Date().toISOString() });
+  } catch (e) {
+    res.status(500).json({ success: false, error: 'MARKET_DISCONNECT_FAILED', message: e.message });
+  }
+});
+
+app.get('/api/v1/market/candles', async (req, res) => {
+  try {
+    const { symbol, timeframe, limit = 100 } = req.query;
+    if (!symbol || !timeframe) return res.status(400).json({ success: false, error: 'SYMBOL_AND_TIMEFRAME_REQUIRED' });
+    const result = await marketDataRegistry.getBestCandles(symbol, timeframe, Number(limit));
+    res.json({ success: true, ...result, time: new Date().toISOString() });
+  } catch (e) {
+    res.status(500).json({ success: false, error: 'MARKET_CANDLES_FAILED', message: e.message });
+  }
+});
+
+app.get('/api/v1/market/quotes', async (req, res) => {
+  try {
+    const { symbols } = req.query;
+    if (!symbols) return res.status(400).json({ success: false, error: 'SYMBOLS_REQUIRED' });
+    const syms = String(symbols).split(',').map(s => s.trim().toUpperCase()).filter(Boolean);
+    const adapter = marketDataRegistry.getConnectedAdapters().find(a => a.capabilities.data.includes('QUOTES'));
+    if (!adapter) return res.status(503).json({ success: false, error: 'NO_QUOTE_ADAPTER_AVAILABLE' });
+    const quotes = await adapter.fetchQuotes(syms);
+    res.json({ success: true, quotes, providerId: adapter.getId(), time: new Date().toISOString() });
+  } catch (e) {
+    res.status(500).json({ success: false, error: 'MARKET_QUOTES_FAILED', message: e.message });
+  }
+});
+
+app.get('/api/v1/sports/health', (req, res) => {
+  try {
+    const status = sportsDataBus.getStatus();
+    res.json({ success: true, sportsData: status, time: new Date().toISOString() });
+  } catch (e) {
+    res.status(500).json({ success: false, error: 'SPORTS_HEALTH_FAILED', message: e.message });
+  }
+});
+
+app.get('/api/v1/sports/fixtures', async (req, res) => {
+  try {
+    const { sport, competition, status, limit = 100 } = req.query;
+    const fixtures = sportsDataBus.getFixtures({ sport, competition, status, limit: Number(limit) });
+    res.json({ success: true, fixtures, time: new Date().toISOString() });
+  } catch (e) {
+    res.status(500).json({ success: false, error: 'SPORTS_FIXTURES_FAILED', message: e.message });
+  }
+});
+
+app.get('/api/v1/sports/fixture/:fixtureId', (req, res) => {
+  try {
+    const fixture = sportsDataBus.getFixture(req.params.fixtureId);
+    if (!fixture) return res.status(404).json({ success: false, error: 'FIXTURE_NOT_FOUND' });
+    res.json({ success: true, fixture, time: new Date().toISOString() });
+  } catch (e) {
+    res.status(500).json({ success: false, error: 'SPORTS_FIXTURE_FAILED', message: e.message });
+  }
+});
+
+app.get('/api/v1/sports/odds/:fixtureId', (req, res) => {
+  try {
+    const { market } = req.query;
+    const odds = sportsDataBus.getOdds(req.params.fixtureId);
+    const best = sportsDataBus.getBestOdds(req.params.fixtureId, market);
+    res.json({ success: true, fixtureId: req.params.fixtureId, odds, bestOdds: best, time: new Date().toISOString() });
+  } catch (e) {
+    res.status(500).json({ success: false, error: 'SPORTS_ODDS_FAILED', message: e.message });
+  }
+});
+
+app.get('/api/v1/sports/statistics/:fixtureId', (req, res) => {
+  try {
+    const stats = sportsDataBus.getStatistics(req.params.fixtureId);
+    if (!stats) return res.status(404).json({ success: false, error: 'STATISTICS_NOT_FOUND' });
+    res.json({ success: true, fixtureId: req.params.fixtureId, statistics: stats, time: new Date().toISOString() });
+  } catch (e) {
+    res.status(500).json({ success: false, error: 'SPORTS_STATISTICS_FAILED', message: e.message });
+  }
+});
+
+app.post('/api/v1/sports/refresh', security.requireLevel(2), async (req, res) => {
+  try {
+    const { sportsbooks } = req.body || {};
+    const result = await sportsDataBus.refreshAll({ sportsbooks });
+    res.json({ success: true, result, time: new Date().toISOString() });
+  } catch (e) {
+    res.status(500).json({ success: false, error: 'SPORTS_REFRESH_FAILED', message: e.message });
+  }
+});
+
+app.get('/api/v1/venue/health', (req, res) => {
+  try {
+    const venues = venueRegistry.list();
+    res.json({ success: true, venues, time: new Date().toISOString() });
+  } catch (e) {
+    res.status(500).json({ success: false, error: 'VENUE_HEALTH_FAILED', message: e.message });
+  }
+});
+
+app.get('/api/v1/venue/:id/eligibility', (req, res) => {
+  try {
+    const elig = venueRegistry.liveEligibility(req.params.id);
+    res.json({ success: true, eligibility: elig, time: new Date().toISOString() });
+  } catch (e) {
+    res.status(500).json({ success: false, error: 'VENUE_ELIGIBILITY_FAILED', message: e.message });
+  }
+});
+
+app.post('/api/v1/venue/:id/configure', security.requireLevel(2), (req, res) => {
+  try {
+    const { configured, verified } = req.body || {};
+    const result = venueRegistry.setConfigured(req.params.id, { configured, verified, configuredBy: 'founder' });
+    res.json({ success: true, venue: result, time: new Date().toISOString() });
+  } catch (e) {
+    res.status(500).json({ success: false, error: 'VENUE_CONFIGURE_FAILED', message: e.message });
+  }
+});
+
+app.post('/api/v1/venue/register', security.requireLevel(2), (req, res) => {
+  try {
+    const { name, kind, authMethods, requiredFields, note } = req.body || {};
+    const venue = venueRegistry.registerVenue({ name, kind, authMethods, requiredFields, note });
+    res.status(201).json({ success: true, venue, time: new Date().toISOString() });
+  } catch (e) {
+    res.status(500).json({ success: false, error: 'VENUE_REGISTER_FAILED', message: e.message });
+  }
+});
+
+app.get('/api/v1/connectivity/market', (req, res) => {
+  try {
+    const marketHealth = marketDataRegistry.getHealthSummary();
+    const sportsStatus = sportsDataBus.getStatus();
+    const venueList = venueRegistry.list();
+    res.json({
+      success: true,
+      connectivity: {
+        marketData: marketHealth,
+        sportsData: sportsStatus,
+        venues: venueList
+      },
+      time: new Date().toISOString()
+    });
+  } catch (e) {
+    res.status(500).json({ success: false, error: 'CONNECTIVITY_MARKET_FAILED', message: e.message });
+  }
 });
 app.get('/api/v1/attention', security.requireLevel(2), (req,res)=>{
   try{
@@ -2056,6 +2273,14 @@ app.use("/api", (req, res) => {
 });
 
 app.get("*", (req, res) => {
+  // SPA fallback: serve the canonical Community frontend. This preserves
+  // direct navigation, refresh, back/forward, and deep links for
+  // founder/admin and general users. The API 404 boundary above already
+  // handles /api/*, so this only serves frontend routes.
+  const indexFile = path.join(__dirname, "../public/index.html");
+  if (fs.existsSync(indexFile)) {
+    return res.sendFile(indexFile);
+  }
   res.send(`<!DOCTYPE html><html><head><title>ADE-APEX EOS</title></head><body><h1>ADE-APEX ENTERPRISE OS OPERATIONAL</h1></body></html>`);
 });
 

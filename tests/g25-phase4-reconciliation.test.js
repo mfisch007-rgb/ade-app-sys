@@ -247,7 +247,8 @@ test("FIX3 — the frontend HTML fallback applies only to non-API GET routes", a
   const spa = await fetch(`${baseUrl}/some/non/api/route`);
   assert.equal(spa.status, 200);
   const html = await spa.text();
-  assert.ok(html.includes("ADE-APEX ENTERPRISE OS OPERATIONAL"), "non-API GET still reaches the SPA fallback");
+  // SPA fallback serves the canonical Community frontend (public/index.html), not the legacy stub.
+  assert.ok(html.includes("ADE APEX") && html.includes("<!doctype html>"), "non-API GET still reaches the SPA fallback (public/index.html)");
   assert.ok(!(spa.headers.get("content-type") || "").includes("application/json"));
 });
 
