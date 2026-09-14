@@ -11,6 +11,8 @@ import SupabaseStorageAdapter, {
 function cleanEnv() {
   const keys = [
     "SUPABASE_URL",
+    "SUPABASE_SECRET_KEY",
+    "SUPABASE_SERVICE_ROLE_KEY",
     "SUPABASE_STORAGE_KEY",
     "SUPABASE_STORAGE_TABLE",
     "ADE_STORAGE_PROVIDER"

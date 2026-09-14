@@ -27,10 +27,12 @@ export class BinaryBrokerConnector {
     this.activeSession = {
       userId,
       affiliateId,
-      connectedAt: new Date().toISOString()
+      connectedAt: new Date().toISOString(),
+      executionMode: "PAPER",
+      note: "Affiliate-locked paper session only. No live venue handshake was performed."
     };
 
-    return { status: "CONNECTED", session: this.activeSession };
+    return { status: "PAPER_SESSION", session: this.activeSession };
   }
 
   executeTradeOrder(signal) {
@@ -39,19 +41,21 @@ export class BinaryBrokerConnector {
     }
 
     const tradeRecord = {
-      orderId: `ORD_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
+      orderId: `PAPER_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
       symbol: signal.symbol,
       direction: signal.direction,
       entryPrice: signal.price,
       zScore: signal.zScore,
       userId: this.activeSession.userId,
       affiliateId: this.activeSession.affiliateId,
-      status: "EXECUTED",
+      status: "PAPER_RECORDED",
+      executionMode: "PAPER",
+      outcome: "PENDING_NO_VENUE_CONFIRMATION",
       executedAt: new Date().toISOString()
     };
 
     this.executedTrades.push(tradeRecord);
-    this.eventBus.publish("BROKER_TRADE_EXECUTED", tradeRecord);
+    this.eventBus.publish("BROKER_TRADE_PAPER_RECORDED", tradeRecord);
 
     return tradeRecord;
   }

@@ -25,11 +25,13 @@ async function verifyPhase4Batch1() {
     }
   });
 
-  // 1. Verify Binary Options Connector Initialization & Trade Execution
-  registry.registerCapability("BROKER_EXT_POCKET_OPTION", "EXECUTE_MARKET_TRADE", (p) => p);
+  // 1. Verify Binary Options Connector Initialization & Paper Trade Recording
+  // Truthful sandbox boundary: no live broker exists, so only PAPER_RECORDED
+  // outcomes are accepted — never ORDER_PLACED/WIN/PAYOUT.
+  registry.registerCapability("BROKER_EXT_POCKET_OPTION", "RECORD_PAPER_TRADE", (p) => p);
   broker.connectBroker("POCKET_OPTION", { wsToken: "sample_token_xyz", offsetCorrection: 1 });
   const tradeRes = broker.executeBinaryTrade("POCKET_OPTION", { asset: "EURUSD_OTC", direction: "CALL", amount: 50 });
-  console.log(` [1] Binary Options Broker Connection & Trade Dispatch : ${tradeRes.status === "ORDER_PLACED" ? "PASS ✅" : "FAIL ❌"}`);
+  console.log(` [1] Binary Options Paper/Sandbox Recording ............ : ${tradeRes.status === "PAPER_RECORDED" && tradeRes.outcome === "PENDING_NO_BROKER_CONFIRMATION" ? "PASS ✅" : "FAIL ❌"}`);
 
   // 2. Verify External Laptop Strategy Script Bridge Hook
   externalBridge.attachLocalScript("C:/Users/USER/Desktop/my_offline_script.js", (p) => `Local script executed for ${p.symbol}`);
@@ -41,7 +43,7 @@ async function verifyPhase4Batch1() {
   console.log(` [3] Master Remote Admin User Tier Override Controls ... : ${overrideRes.status === "UPDATED_INSTANTLY" ? "PASS ✅" : "FAIL ❌"}`);
 
   // 4. Verify Telemetry Broadcast
-  const brokerEventSeen = capturedEvents.some(e => e.eventName === "BROKER_CONNECTED" || e.eventName === "BINARY_TRADE_EXECUTED");
+  const brokerEventSeen = capturedEvents.some(e => e.eventName === "BROKER_SANDBOX_SESSION" || e.eventName === "BINARY_TRADE_SANDBOX_RECORDED");
   console.log(` [4] Real-time Telemetry Event Propagation ............. : ${brokerEventSeen ? "PASS ✅" : "FAIL ❌"}`);
 
   console.log("\n=========================================================================");

@@ -27,15 +27,20 @@ import LocalStorageAdapter from "./LocalStorageAdapter.js";
 export class SupabaseStorageAdapter extends StorageProvider {
   constructor(config = {}) {
     super();
-    // Canonical contract: SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY + SUPABASE_STORAGE_TABLE.
-    // SUPABASE_STORAGE_KEY is accepted as a legacy alias for the service-role key.
+    // Canonical contract: SUPABASE_URL + key + SUPABASE_STORAGE_TABLE.
+    // Key resolution order (newest first, all server-side only):
+    //   SUPABASE_SECRET_KEY (current Supabase backend secret-key model)
+    //   SUPABASE_SERVICE_ROLE_KEY (previous service_role model)
+    //   SUPABASE_STORAGE_KEY (legacy alias used by ADE docs/tests)
+    // Never defaulted, never committed, never exposed to client bundles.
     this.config = {
       url: config.url ?? process.env.SUPABASE_URL,
-      key: config.key ?? process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.SUPABASE_STORAGE_KEY,
+      key: config.key ?? process.env.SUPABASE_SECRET_KEY ?? process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.SUPABASE_STORAGE_KEY,
       table: config.table ?? process.env.SUPABASE_STORAGE_TABLE
     };
     this._client = null;
     this._clientPromise = null;
+    this._restMode = false;
   }
 
   /**
@@ -55,7 +60,7 @@ export class SupabaseStorageAdapter extends StorageProvider {
     if (this.isConfigured()) return null;
     const missing = [];
     if (!this.config.url) missing.push("SUPABASE_URL");
-    if (!this.config.key) missing.push("SUPABASE_SERVICE_ROLE_KEY (alias: SUPABASE_STORAGE_KEY)");
+    if (!this.config.key) missing.push("SUPABASE_SECRET_KEY (aliases: SUPABASE_SERVICE_ROLE_KEY, SUPABASE_STORAGE_KEY)");
     if (!this.config.table) missing.push("SUPABASE_STORAGE_TABLE");
     return new Error(
       `STORAGE_NOT_CONFIGURED: missing ${missing.join(", ")}`
@@ -72,21 +77,84 @@ export class SupabaseStorageAdapter extends StorageProvider {
       throw this.configurationError();
     }
     if (this._client) return Promise.resolve(this._client);
+    if (this._restMode) return Promise.resolve(null);
     if (this._clientPromise) return this._clientPromise;
 
+    // Prefer the optional @supabase/supabase-js client when installed,
+    // otherwise fall back to dependency-free PostgREST via native fetch.
+    // Import failure must NOT throw at import time — it selects REST mode.
     this._clientPromise = import("@supabase/supabase-js").then(
       ({ createClient }) => {
         this._client = createClient(this.config.url, this.config.key);
         return this._client;
       }
-    );
+    ).catch(() => {
+      this._restMode = true;
+      this._client = null;
+      return null;
+    });
 
     return this._clientPromise;
+  }
+
+  #restHeaders(extra = {}) {
+    return {
+      apikey: this.config.key,
+      Authorization: `Bearer ${this.config.key}`,
+      "Content-Type": "application/json",
+      Prefer: "resolution=merge-duplicates",
+      ...extra
+    };
+  }
+
+  #restBase() {
+    return `${String(this.config.url).replace(/\/$/, "")}/rest/v1/${this.config.table}`;
+  }
+
+  async #restGet(key) {
+    const res = await fetch(`${this.#restBase()}?k=eq.${encodeURIComponent(key)}&select=k,v`, {
+      headers: this.#restHeaders()
+    });
+    if (!res.ok) throw new Error(`SUPABASE_STORAGE_READ_FAILED: HTTP ${res.status}`);
+    const rows = await res.json().catch(() => null);
+    if (!Array.isArray(rows) || rows.length === 0) return undefined;
+    return rows[0]?.v;
+  }
+
+  async #restSet(key, value) {
+    const res = await fetch(this.#restBase(), {
+      method: "POST",
+      headers: this.#restHeaders({ Prefer: "resolution=merge-duplicates" }),
+      body: JSON.stringify({ k: key, v: value })
+    });
+    if (!res.ok) throw new Error(`SUPABASE_STORAGE_WRITE_FAILED: HTTP ${res.status}`);
+  }
+
+  async #restDelete(key) {
+    const res = await fetch(`${this.#restBase()}?k=eq.${encodeURIComponent(key)}`, {
+      method: "DELETE",
+      headers: this.#restHeaders()
+    });
+    if (!res.ok) throw new Error(`SUPABASE_STORAGE_DELETE_FAILED: HTTP ${res.status}`);
+  }
+
+  async #restList(prefix = "") {
+    const q = prefix
+      ? `?k=like.${encodeURIComponent(prefix)}*&select=k,v&order=k.asc`
+      : `?select=k,v&order=k.asc`;
+    const res = await fetch(`${this.#restBase()}${q}`, { headers: this.#restHeaders() });
+    if (!res.ok) throw new Error(`SUPABASE_STORAGE_LIST_FAILED: HTTP ${res.status}`);
+    const rows = await res.json().catch(() => []);
+    return (Array.isArray(rows) ? rows : []).map((row) => ({ key: row.k, value: row.v }));
   }
 
   async get(key, defaultValue = null) {
     this.#assertConfigured();
     const client = await this.#client();
+    if (!client) {
+      const v = await this.#restGet(key);
+      return v !== undefined && v !== null ? v : defaultValue;
+    }
     const { data, error } = await client
       .from(this.config.table)
       .select("v")
@@ -104,6 +172,10 @@ export class SupabaseStorageAdapter extends StorageProvider {
   async set(key, value) {
     this.#assertConfigured();
     const client = await this.#client();
+    if (!client) {
+      await this.#restSet(key, value);
+      return value;
+    }
     const { error } = await client
       .from(this.config.table)
       .upsert({ k: key, v: value });
@@ -117,6 +189,10 @@ export class SupabaseStorageAdapter extends StorageProvider {
   async delete(key) {
     this.#assertConfigured();
     const client = await this.#client();
+    if (!client) {
+      await this.#restDelete(key);
+      return true;
+    }
     const { error } = await client
       .from(this.config.table)
       .delete()
@@ -131,6 +207,7 @@ export class SupabaseStorageAdapter extends StorageProvider {
   async list(prefix = "") {
     this.#assertConfigured();
     const client = await this.#client();
+    if (!client) return this.#restList(prefix);
 
     let query = client
       .from(this.config.table)

@@ -25,7 +25,7 @@ async function runIndustrialE2ETest() {
   // STAGE 2: Affiliate Restriction Guard & Active Broker Session
   affiliateGuard.registerValidAffiliate("AFFILIATE_PROD_555");
   const session = brokerConnector.connectSession("ENTERPRISE_USER_001", "AFFILIATE_PROD_555");
-  const sessionEstablished = session.status === "CONNECTED";
+  const sessionEstablished = session.status === "PAPER_SESSION";
   console.log(` [2] Affiliate Guard & Binary Broker Session Interlock .. : ${sessionEstablished ? "PASS ✅" : "FAIL ❌"}`);
 
   // STAGE 3: Auto-Execution Pipeline Subscription
@@ -58,10 +58,10 @@ async function runIndustrialE2ETest() {
 
   const signalsLogged = snapshot.metrics.signalsGenerated >= 1;
   const tradesExecuted = snapshot.metrics.tradesExecuted >= 1;
-  const historySynced = history.some(t => t.symbol === "USDJPY_OTC" && t.status === "EXECUTED");
+  const historySynced = history.some(t => t.symbol === "USDJPY_OTC" && t.status === "PAPER_RECORDED");
 
   console.log(` [3] Multi-Asset GhostBrain Z-Score Signal Generation ... : ${signalsLogged ? "PASS ✅" : "FAIL ❌"}`);
-  console.log(` [4] End-to-End Real-Time Broker Execution Pipeline ..... : ${tradesExecuted ? "PASS ✅" : "FAIL ❌"}`);
+  console.log(` [4] End-to-End Paper-Record Pipeline .................... : ${tradesExecuted ? "PASS ✅" : "FAIL ❌"}`);
   console.log(` [5] Enterprise Ledger Synchronization & Telemetry Stream : ${historySynced ? "PASS ✅" : "FAIL ❌"}`);
 
   const e2ePassed = licenseValid && sessionEstablished && signalsLogged && tradesExecuted && historySynced;

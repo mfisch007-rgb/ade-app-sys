@@ -1,4 +1,4 @@
-﻿import CapabilityRegistry from "../core/CapabilityRegistry.js";
+﻿import { CapabilityRegistry } from "../core/CapabilityRegistry.js";
 import KernelEventBus from "../core/EventBus.js";
 
 export class ExtensionSandboxGuard {

@@ -5,7 +5,7 @@ import KernelEventBus from "../core/EventBus.js";
 
 async function verifyPhase4Batch4() {
   console.log("=========================================================================");
-  console.log("   ADE SYSTEM ENGINE: PHASE 4.4 BINARY BROKER EXECUTION HOOKS PROOF");
+  console.log("   ADE SYSTEM ENGINE: PHASE 4.4 BINARY BROKER PAPER-RECORD HOOKS PROOF");
   console.log("=========================================================================\n");
 
   const eventBus = KernelEventBus.getInstance();
@@ -14,7 +14,7 @@ async function verifyPhase4Batch4() {
   const brokerConnector = BinaryBrokerConnector.getInstance();
 
   let brokerExecutionCaptured = null;
-  eventBus.on("BROKER_TRADE_EXECUTED", (eventRecord) => {
+  eventBus.on("BROKER_TRADE_PAPER_RECORDED", (eventRecord) => {
     brokerExecutionCaptured = eventRecord.payload || eventRecord;
   });
 
@@ -31,7 +31,7 @@ async function verifyPhase4Batch4() {
 
   // Connect valid session
   const connection = brokerConnector.connectSession("user_authorized", "AFFILIATE_OFFICIAL_1001");
-  const sessionValid = connection.status === "CONNECTED";
+  const sessionValid = connection.status === "PAPER_SESSION";
   console.log(` [2] Broker Authorized Affiliate Session Lock Connection: ${sessionValid ? "PASS ✅" : "FAIL ❌"}`);
 
   // 3. Register GhostBrain Signal Auto-Execution Hook
@@ -50,10 +50,11 @@ async function verifyPhase4Batch4() {
 
   const executionCheck = brokerExecutionCaptured !== null &&
     brokerExecutionCaptured.symbol === "USDJPY_OTC" &&
-    brokerExecutionCaptured.status === "EXECUTED" &&
+    brokerExecutionCaptured.status === "PAPER_RECORDED" &&
+    brokerExecutionCaptured.outcome === "PENDING_NO_VENUE_CONFIRMATION" &&
     brokerExecutionCaptured.affiliateId === "AFFILIATE_OFFICIAL_1001";
 
-  console.log(` [3] GhostBrain Signal -> Broker Auto-Execution Pipeline: ${executionCheck ? "PASS ✅" : "FAIL ❌"}`);
+  console.log(` [3] GhostBrain Signal -> Broker Paper-Record Pipeline: ${executionCheck ? "PASS ✅" : "FAIL ❌"}`);
 
   if (!unauthorizedBlocked || !sessionValid || !executionCheck) {
     console.log("\n=========================================================================");

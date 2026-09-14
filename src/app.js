@@ -65,6 +65,7 @@ import { PilotGate } from "./community/PilotGate.js";
 import { PilotRegistry } from "./community/PilotRegistry.js";
 import { ProductRegistry } from "./products/ProductRegistry.js";
 import { ProductNotificationEngine } from "./notification/ProductNotificationEngine.js";
+import { ResendEmailConnector } from "./notification/ResendEmailConnector.js";
 import { ProcartaExecutionEngine } from "./procarta/ProcartaExecutionEngine.js";
 import {
   registerProcartaCapability,
@@ -249,6 +250,10 @@ const oracleFabric = new OracleFabric({
   eventBus: kernel?.eventBus
 });
 const notificationEngine = new ProductNotificationEngine({ eventBus: kernel?.eventBus });
+// Canonical server-side transactional email path (Resend via existing
+// notification architecture). Single instance; server routes only; the key
+// is never exposed to client bundles or logs.
+const emailConnector = new ResendEmailConnector();
 const engagementOrchestrator = new EngagementOrchestrator({
   caseManager,
   partnerRegistry: partners,
@@ -869,17 +874,11 @@ app.get('/api/v1/system/diagnostics', security.requireLevel(2), (req,res)=>{
         mode: isDurable ? 'SUPABASE/DURABLE' : 'LOCAL/EPHEMERAL',
         status: isDurable ? 'DURABLE' : 'EPHEMERAL - CONFIGURATION REQUIRED',
         durable: Boolean(isDurable),
-        requiredEnv: ['ADE_STORAGE_PROVIDER=supabase','SUPABASE_URL','SUPABASE_SERVICE_ROLE_KEY','SUPABASE_STORAGE_TABLE'],
+        requiredEnv: ['ADE_STORAGE_PROVIDER=supabase','SUPABASE_URL','SUPABASE_SECRET_KEY (aliases: SUPABASE_SERVICE_ROLE_KEY, SUPABASE_STORAGE_KEY)','SUPABASE_STORAGE_TABLE=ade_kv_store'],
         note: isDurable ? 'Production persistence is durable via Supabase.' : 'Local adapter is ephemeral on Vercel serverless. Configure Supabase for durable partner/pilot/connection persistence.',
         configured: Boolean(isDurable)
       },
-      email: {
-        provider: 'NONE',
-        status: 'NOT CONFIGURED',
-        configured: false,
-        requiredEnv: ['RESEND_API_KEY or SMTP_HOST/SMTP_USER/SMTP_PASS','EMAIL_SENDER (e.g. noreply@yourdomain.com)'],
-        note: 'Email delivery requires external provider. Invitations and notifications are delivered as codes/links in the Command Center until email is configured. No fake email is sent.'
-      },
+      email: (()=>{ try{ return emailConnector.status(); }catch{ return { provider:'RESEND', status:'NOT CONFIGURED', configured:false }; } })(),
       ai: {
         status: (aiStatus?.configuredProviderCount||0) > 0 ? 'PROVIDER CONNECTED' : 'OFFLINE LEXICAL FALLBACK',
         fallback: 'OFFLINE_LEXICAL_ENGINE',
@@ -1783,6 +1782,69 @@ app.get('/api/v1/media/registry/stats', (req, res) => {
   }
 });
 
+// === PRODUCT THEATRE / MEDIA CONSOLE (founder + top-admin CMD console) ====
+// Chat-console placement is served by the existing PRODUCT THEATER UI bound
+// to these endpoints. Generation is open to authenticated operators; every
+// SEND/EXTRACT (handoff outside ADE) requires a fresh founder/admin PIN via
+// the canonical CredentialLifecycleStore. Artefacts self-purge after 7 days.
+app.post('/api/v1/media/theatre/generate', security.requireLevel(2), requireDurableStorage, (req, res) => {
+  try {
+    const { cmd, uploads, lexicon, freeSources } = req.body || {};
+    const request = mediaEngine.generateFromCommand({ cmd, uploads, lexicon, freeSources });
+    res.status(201).json({ success: true, request: { requestId: request.requestId, theatre: request.theatre, status: request.status } });
+  } catch (error) {
+    res.status(400).json({ success: false, error: error.message.startsWith("THEATRE_") ? error.message.split(":")[0] : "THEATRE_GENERATE_FAILED", message: error.message });
+  }
+});
+
+app.post('/api/v1/media/theatre/:requestId/uploads', security.requireLevel(2), requireDurableStorage, (req, res) => {
+  try {
+    const { uploads } = req.body || {};
+    const request = mediaEngine.attachUploads(req.params.requestId, uploads);
+    res.json({ success: true, requestId: request.requestId, uploads: request.theatre.uploads });
+  } catch (error) {
+    res.status(400).json({ success: false, error: "THEATRE_UPLOAD_FAILED", message: error.message });
+  }
+});
+
+app.get('/api/v1/media/theatre/gallery', security.requireLevel(2), (req, res) => {
+  try {
+    res.json({ success: true, gallery: mediaEngine.listTheatreGallery(), retentionDays: 7 });
+  } catch (error) {
+    res.status(500).json({ success: false, error: "THEATRE_GALLERY_FAILED", message: error.message });
+  }
+});
+
+app.post('/api/v1/media/theatre/purge', security.requireLevel(2), (req, res) => {
+  try {
+    res.json({ success: true, ...mediaEngine.purgeExpired() });
+  } catch (error) {
+    res.status(500).json({ success: false, error: "THEATRE_PURGE_FAILED", message: error.message });
+  }
+});
+
+app.post('/api/v1/media/theatre/:requestId/send', security.requireLevel(2), requireDurableStorage, async (req, res) => {
+  try {
+    const { pin, destinations } = req.body || {};
+    if (!pin || typeof pin !== "string") {
+      return res.status(403).json({ success: false, error: "PIN_REQUIRED", message: "Founder/admin PIN is required to send or extract theatre artefacts." });
+    }
+    let ok = false;
+    try { ok = await security.credentialStore.verifyPin(pin); } catch { ok = false; }
+    if (!ok) {
+      return res.status(403).json({ success: false, error: "PIN_INVALID", message: "PIN authorization failed." });
+    }
+    mediaEngine.authorizeSend(req.params.requestId);
+    const request = mediaEngine.markSent(req.params.requestId, destinations);
+    logEvent('MEDIA', `Theatre send authorized for ${request.requestId} by level-2 operator`);
+    res.json({ success: true, requestId: request.requestId, delivery: request.theatre.delivery });
+  } catch (error) {
+    const msg = error?.message || "THEATRE_SEND_FAILED";
+    const code = msg.split(":")[0] || "THEATRE_SEND_FAILED";
+    res.status(msg.includes("EXPIRED") ? 410 : 400).json({ success: false, error: code, message: msg });
+  }
+});
+
 // === COMMUNITY PROGRESSION ==================================================
 
 app.post('/api/v1/community/intake', requireDurableStorage, (req, res) => {
@@ -1941,6 +2003,36 @@ app.get('/api/v1/notifications/recent', (req, res) => {
     res.json({ success: true, events: notificationEngine.getRecentEvents(limit) });
   } catch (error) {
     res.status(500).json({ success: false, error: "NOTIFICATIONS_FAILED", message: error.message });
+  }
+});
+
+// === TRANSACTIONAL EMAIL (Resend, canonical) ==============================
+// Status is safe to expose (never includes the key). Sending is gated to
+// level-2 operators and recorded as an internal notification event first,
+// so every external delivery has an auditable internal counterpart.
+app.get('/api/v1/email/status', security.requireLevel(2), (req, res) => {
+  try {
+    res.json({ success: true, email: emailConnector.status() });
+  } catch (error) {
+    res.status(500).json({ success: false, error: "EMAIL_STATUS_FAILED", message: error.message });
+  }
+});
+
+app.post('/api/v1/email/send', security.requireLevel(2), async (req, res) => {
+  try {
+    const { to, subject, html, text, profile, from } = req.body || {};
+    const internal = notificationEngine.generateInternalEvent("notification.request_status", {
+      channel: "EMAIL",
+      to: typeof to === "string" ? to.trim() : to,
+      subject: typeof subject === "string" ? subject.slice(0, 200) : subject
+    });
+    const result = await emailConnector.send({ to, subject, html, text, profile, from });
+    logEvent('EMAIL', `Resend delivery ${result.id || "accepted"} to ${result.to} (event ${internal.eventId})`);
+    res.json({ success: true, delivery: result, internalEventId: internal.eventId });
+  } catch (error) {
+    const code = String(error?.message || "EMAIL_SEND_FAILED").split(":")[0] || "EMAIL_SEND_FAILED";
+    const status = /NOT_CONFIGURED|EMAIL_NOT_CONFIGURED/.test(error?.message || "") ? 503 : 400;
+    res.status(status).json({ success: false, error: code, message: error.message });
   }
 });
 
