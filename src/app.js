@@ -95,6 +95,7 @@ import { BetPawaAdapter } from "./trading/adapters/BetPawaAdapter.js";
 import { BetKingAdapter } from "./trading/adapters/BetKingAdapter.js";
 import { Bet9jaAdapter } from "./trading/adapters/Bet9jaAdapter.js";
 import { SportyBetAdapter } from "./trading/adapters/SportyBetAdapter.js";
+import { AviatorAnalyticsEngine } from "./trading/AviatorAnalyticsEngine.js";
 
 
 const __filename = fileURLToPath(import.meta.url);
@@ -263,6 +264,7 @@ const bet9jaAdapter = new Bet9jaAdapter(); marketDataRegistry.registerAdapter(be
 const sportyBetAdapter = new SportyBetAdapter(); marketDataRegistry.registerAdapter(sportyBetAdapter);
 const tradingEntitlements = new TradingEntitlements({ store: runtimeConfig, eventBus: kernel?.eventBus });
 const signalQualityGate = new SignalQualityGate({ entitlements: tradingEntitlements, venueRegistry, signalEngine });
+const aviatorEngine = new AviatorAnalyticsEngine({ store: runtimeConfig, eventBus: kernel?.eventBus });
 const publicDataRegistry = new PublicDataRegistry();
 const localProvider = new LocalProvider();
 const oracleFabric = new OracleFabric({
@@ -1475,6 +1477,47 @@ app.post('/api/v1/trading/gaming', security.requireLevel(2), (req, res) => {
     res.json({ success: true, gaming: signalEngine.analyzeGaming(req.body || {}) });
   } catch (error) {
     res.status(400).json({ success: false, error: "TRADING_GAMING_FAILED", message: error.message });
+  }
+});
+
+// === AVIATOR / CRASH ANALYTICS (educational, never predictive) ==============
+// This is the ONLY Aviator surface. It analyses SUPPLIED history for risk
+// education — it never predicts the next crash. Reuses the same defense
+// philosophy (stale guard + cross-venue check + distribution edge) without
+// rebuilding heavy trading scripts. PAPER/ANALYTICS only; no auto-betting.
+app.get('/api/v1/gaming/aviator/status', (req, res) => {
+  try { res.json({ success: true, aviator: aviatorEngine.getStatus(), time: new Date().toISOString() }); }
+  catch (e) { res.status(500).json({ success: false, error: "AVIATOR_STATUS_FAILED", message: e.message }); }
+});
+
+app.post('/api/v1/gaming/aviator/analyze', security.requireLevel(2), (req, res) => {
+  try {
+    const result = aviatorEngine.analyze(req.body || {});
+    // INSUFFICIENT_DATA still returns 200 with state flag (diagnostic, not error)
+    res.json({ success: true, aviator: result, time: new Date().toISOString() });
+  } catch (e) {
+    res.status(400).json({ success: false, error: "AVIATOR_ANALYZE_FAILED", message: e.message });
+  }
+});
+
+app.post('/api/v1/gaming/aviator/simulate', security.requireLevel(2), (req, res) => {
+  try {
+    const result = aviatorEngine.simulateRound(req.body || {});
+    if (result.error) return res.status(400).json({ success: false, error: "AVIATOR_SIMULATE_FAILED", message: result.error });
+    res.json({ success: true, simulation: result, time: new Date().toISOString() });
+  } catch (e) {
+    res.status(400).json({ success: false, error: "AVIATOR_SIMULATE_FAILED", message: e.message });
+  }
+});
+
+// Generic crash/gaming alias: same engine, any venue label. Keeps the
+// "all gaming sites" request without duplicating logic.
+app.post('/api/v1/gaming/crash/analyze', security.requireLevel(2), (req, res) => {
+  try {
+    const result = aviatorEngine.analyze({ venue: req.body?.venue || req.body?.provider || "CRASH", ...req.body });
+    res.json({ success: true, crash: result, time: new Date().toISOString() });
+  } catch (e) {
+    res.status(400).json({ success: false, error: "CRASH_ANALYZE_FAILED", message: e.message });
   }
 });
 
