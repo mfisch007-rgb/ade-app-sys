@@ -572,7 +572,7 @@ h('div',null,h('div',{className:'sectionHead'},h('h2',null,'Feedback'),h('p',nul
     h('div',{style:{fontSize:11,marginTop:4,color:'var(--good)'}},'CONNECTED: '+((c.connected&&c.connected.length)||0)),
     h('div',{style:{fontSize:11,color:'var(--warn)'}},'PARTIAL: '+((c.partial&&c.partial.length)||0)),
     h('div',{style:{fontSize:11,color:'var(--bad)'}},'UNAVAILABLE: '+((c.unavailable&&c.unavailable.length)||0)),
-    (c.requiredAction||c.failureReason)&&h('div',{style:{fontSize:11,color:'var(--ink)',marginTop:4}},'ACTION REQUIRED: '+(c.requiredAction||c.failureReason)))})):h('div',{className:'emptyState'},'Connectivity inventory unavailable in this runtime slice.')))),
+    (c.requiredAction||c.failureReason)&&h('div',{style:{fontSize:11,color:'var(--ink)',marginTop:4}},'ACTION REQUIRED: '+(c.requiredAction||c.failureReason)))})):h('div',{className:'emptyState'},'Connectivity inventory unavailable in this runtime slice.'))),
   h('div',{className:'card'},h('div',{className:'panelTitle'},h('h3',null,'PRODUCT BOUNDARY'),h('span',null,'ONE CORE · MULTIPLE PRODUCTS')),h('div',{className:'cardBody'},h('p',{className:'muted',style:{margin:0,lineHeight:1.6}},'AWBULI (messaging automation) and PROCARTA (business process automation) report INTEGRATED status and require their product plugins to activate in an edition. Until a plugin is live in Community, their surfaces remain available as demonstration pathways — never as claimed production activity. Order and descriptions follow the server registry exactly.'))));
  /* ── PROCARTA ──────────────────────────────── */
  const PROCARTA=()=>h('div',{className:'stack'},
