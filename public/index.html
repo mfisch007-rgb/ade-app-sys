@@ -16,6 +16,7 @@
  --good:#12906a;--warn:#c58a16;--bad:#d93a4e;
  --shadow:0 22px 60px rgba(6,26,64,.12);--shadowSm:0 10px 30px rgba(6,26,64,.08);
  --radius:18px;--radiusSm:12px;
+ --focusRing:0 0 0 3px rgba(11,182,210,.18);
  --gold1:#b8860b;--gold2:#daa520;--gold3:#ffd700;
  --page-gutter:32px;--content-max:1240px;
  --header-height:92px;--nav-height:48px;
@@ -38,9 +39,16 @@ a{color:var(--royal)}
 .btn.coral{background:linear-gradient(135deg,rgba(239,59,82,.12),rgba(239,59,82,.05));border-color:rgba(239,59,82,.35);color:#b9273a}
 .btn.sm{min-height:38px;padding:7px 13px;font-size:12.5px;border-radius:11px}
 .btn.ghost{background:transparent;border-color:transparent;color:var(--royal);font-weight:700}
-.btn[disabled]{opacity:.55;cursor:default}
+.btn[disabled]{opacity:.55;cursor:not-allowed}
+.btn:focus-visible{outline:none;box-shadow:var(--focusRing);border-color:var(--cyan)}
 .iconBtn{all:unset;box-sizing:border-box;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;min-height:var(--touch);min-width:44px;padding:8px 12px;border-radius:12px;border:1px solid var(--line);background:var(--surface);color:var(--muted);font-size:15px;transition:.18s}
 .iconBtn:hover{border-color:var(--cyan);color:var(--royal)}
+.iconBtn:focus-visible{outline:none;box-shadow:var(--focusRing);border-color:var(--cyan)}
+.card{transition:transform .18s, box-shadow .18s, border-color .18s}
+.card:hover{border-color:rgba(6,26,64,.18)}
+.btn:active{transform:translateY(1px)}
+.cap:focus-visible{outline:none;box-shadow:var(--focusRing)}
+.search:focus-visible{outline:none;box-shadow:var(--focusRing)}
 /* ── Header ────────────────────────────────── */
 .top{position:sticky;top:0;z-index:30;width:100%;background:rgba(245,242,235,.9);backdrop-filter:blur(18px);border-bottom:1px solid var(--lineSoft);transition:box-shadow .2s;box-shadow:0 10px 34px rgba(6,26,64,.06)}
 .top.scrolled{box-shadow:0 6px 26px rgba(6,26,64,.10)}
@@ -426,8 +434,10 @@ function CapCard({c,onRun}){
 function Metric({label,value,sub,cls}){
  return h('div',{className:'card metric'},h('div',{className:'label'},label),h('div',{className:'value '+(cls||'')},value),h('div',{className:'trend'},sub||''));
 }
-function App(){
- const [health,setHealth]=useState(null),[caps,setCaps]=useState([]),[events,setEvents]=useState([]),[runtime,setRuntime]=useState(null),[metrics,setMetrics]=useState(null),[products,setProducts]=useState([]),[connectivity,setConnectivity]=useState([]),[providers,setProviders]=useState([]),[mediaStats,setMediaStats]=useState(null),[mediaManifest,setMediaManifest]=useState(null),[procarta,setProcarta]=useState(null),[query,setQuery]=useState(""),[palette,setPalette]=useState(false),[auth,setAuth]=useState(false),[pin,setPin]=useState(""),[token,setToken]=useState(null),[toast,setToast]=useState(""),[section,setSection]=useState("Home"),[menuOpen,setMenuOpen]=useState(false),[sse,setSse]=useState('connecting');
+ function App(){
+  const [health,setHealth]=useState(null),[caps,setCaps]=useState([]),[events,setEvents]=useState([]),[runtime,setRuntime]=useState(null),[metrics,setMetrics]=useState(null),[products,setProducts]=useState([]),[connectivity,setConnectivity]=useState([]),[providers,setProviders]=useState([]),[mediaStats,setMediaStats]=useState(null),[mediaManifest,setMediaManifest]=useState(null),[procarta,setProcarta]=useState(null),[query,setQuery]=useState(""),[palette,setPalette]=useState(false),[auth,setAuth]=useState(false),[pin,setPin]=useState(""),[token,_setToken]=useState(()=>{try{return localStorage.getItem('ade_token')||sessionStorage.getItem('ade_token')||null}catch{return null}}),[toast,setToast]=useState(""),[section,_setSection]=useState(()=>{try{const s=localStorage.getItem('ade_section');const h=String(window.location.hash||'').replace(/^#\/?/,'');const d=decodeURIComponent(h);const valid=['Home','Products','PROCARTA','Product Theater','Try ADE','Architecture','Community','Feedback','Account','Command Center'];if(s&&valid.includes(s)&&!d)return s;if(d&&valid.includes(d))return d;if(s&&valid.includes(s))return s;}catch{}return "Home"}),[menuOpen,setMenuOpen]=useState(false),[sse,setSse]=useState('connecting');
+  const setToken=(v)=>{_setToken(v);try{if(v){localStorage.setItem('ade_token',v);sessionStorage.setItem('ade_token',v);}else{localStorage.removeItem('ade_token');sessionStorage.removeItem('ade_token');}}catch{}};
+  const setSection=(v)=>{_setSection(v);try{localStorage.setItem('ade_section',v)}catch{}};
  const [edition,setEdition]=useState(null),[scenarios,setScenarios]=useState([]),[demoResult,setDemoResult]=useState(null),[demoRunning,setDemoRunning]=useState(false),[feedbackCat,setFeedbackCat]=useState("OTHER"),[feedbackMsg,setFeedbackMsg]=useState(""),[feedbackFeat,setFeedbackFeat]=useState(""),[intakeKind,setIntakeKind]=useState("USE_CASE"),[intakeOrg,setIntakeOrg]=useState(""),[intakeDesc,setIntakeDesc]=useState(""),[pOrg,setPOrg]=useState(""),[pDesc,setPDesc]=useState(""),[pBusy,setPBusy]=useState(false),[pResult,setPResult]=useState(null);
  const [account,setAccount]=useState(null),[announcements,setAnnouncements]=useState([]),[acctMode,setAcctMode]=useState("signin"),[signUser,setSignUser]=useState(""),[signPass,setSignPass]=useState(""),[curPass,setCurPass]=useState(""),[newPass,setNewPass]=useState(""),[newPassConfirm,setNewPassConfirm]=useState(""),[curPassPin,setCurPassPin]=useState(""),[newPin,setNewPin]=useState(""),[newPinConfirm,setNewPinConfirm]=useState(""),[recoveryCodes,setRecoveryCodes]=useState([]);
   const [authBusy,setAuthBusy]=useState(false),[authMsg,setAuthMsg]=useState(null),[pwErr,setPwErr]=useState(""),[pwMsg,setPwMsg]=useState(""),[pinErr,setPinErr]=useState(""),[pinMsg,setPinMsg]=useState(""),[recMsg,setRecMsg]=useState(""),[elevMsg,setElevMsg]=useState("");
@@ -445,8 +455,13 @@ const [a,b,c,d,e,f,g,s,h2,i,m,n,o]=await Promise.all([j('/api/v1/health'),j('/ap
   setProducts((s&&s.success&&Array.isArray(s.products))?s.products:[]);setMetrics(m);setConnectivity((o&&o.success&&Array.isArray(o.products))?o.products:[]);
  },[]);
  useEffect(()=>{refresh();const poll=setInterval(refresh,15000);const es=new EventSource('/api/v1/events/stream');es.onopen=()=>{setSse('live')};es.onmessage=e=>{try{const x=JSON.parse(e.data);if(x.type==='STREAM_CONNECTED'){}else{setEvents(v=>[x,...v].slice(0,80));setSse('live')}}catch{}};es.onerror=()=>{setSse('retry')};return()=>{clearInterval(poll);es.close()}},[refresh]);
- useEffect(()=>{const f=e=>{if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='k'){e.preventDefault();if(!token){setAuth(true);notify('Authorize to unlock the command palette.')}else{setPalette(v=>!v)}}if(e.key==='Escape'){setPalette(false);setAuth(false);setMenuOpen(false)}};addEventListener('keydown',f);return()=>removeEventListener('keydown',f)},[token]);
- const filtered=useMemo(()=>caps.filter(c=>!query||[c.intent,c.name,c.description,c.sourceModule].join(' ').toLowerCase().includes(query.toLowerCase())),[caps,query]);
+  useEffect(()=>{const f=e=>{if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='k'){e.preventDefault();if(!token){setAuth(true);notify('Authorize to unlock the command palette.')}else{setPalette(v=>!v)}}if(e.key==='Escape'){setPalette(false);setAuth(false);setMenuOpen(false)}};addEventListener('keydown',f);return()=>removeEventListener('keydown',f)},[token]);
+  useEffect(()=>{if(!token)return;let cancelled=false;(async()=>{try{const r=await api('/api/v1/account/session',{method:'GET',headers:{Authorization:'Bearer '+token}});if(!cancelled&&r&&r.person)setAccount(r);}catch(e){if(!cancelled&&(e.message||'').includes('Authentication')||(e.message||'').includes('401')){setToken(null);notify('Session expired — please sign in again');}}})();return()=>{cancelled=true}},[token]);
+  const roleName=((account&&account.person&&account.person.role)||(account&&account.claims&&account.claims.role)||'').toUpperCase();
+  const isPartner=roleName==='PARTNER';const isPilot=roleName==='VIEWER'||roleName==='PILOT';const isElevated=Boolean(account&&account.claims&&account.claims.pinVerified);const isOperatorOrAbove=['FOUNDER','ADMIN','OPERATOR','ANALYST'].includes(roleName)||isElevated;
+  const visibleNav=useMemo(()=>NAV.filter(([name])=>{if(name==='Command Center'&&!token)return false;if((name==='Command Center')&&isPartner)return false;if(isPartner&&['PROCARTA','Try ADE','Architecture'].includes(name))return false;return true}),[token,isPartner]);
+  const filtered=useMemo(()=>{let list=caps.filter(c=>!query||[c.intent,c.name,c.description,c.sourceModule].join(' ').toLowerCase().includes(query.toLowerCase()));if(isPartner) list=list.filter(c=>![2,4].includes(Number(c.rbacLevel))&&!String(c.intent||'').includes('SYSTEM_'));if(isPilot&&!isElevated) list=list.filter(c=>Number(c.rbacLevel)<=1);return list},[caps,query,isPartner,isPilot,isElevated]);
+  const cmdEmpty=query&&filtered.length===0;
  const execute=async cap=>{try{if(cap.rbacLevel>0&&!token){setAuth(true);return}const r=await api('/api/command/execute',{method:'POST',body:JSON.stringify({action:cap.intent,payload:{}})});notify(r.success?'Command accepted by kernel':'Kernel rejected command')}catch(e){notify(e.message)}};
 const loadAccount=async(tok)=>{try{const r=await api('/api/v1/account/session',{method:'GET',headers:{Authorization:'Bearer '+(tok||token)}});setAccount(r);return r}catch(e){setAccount(null);return null}};
   const flashAuth=(type,text)=>{
@@ -713,11 +728,11 @@ return h('div',{className:'app'},
     h('div',{className:'topMottoInner'},
      h('div',{className:'topMottoLine'},'We ',h('em',null,'Listened'),' · We ',h('em',null,'Observed'),' · We ',h('em',null,'Learnt'),' · We ',h('em',null,'Evolved')),
      h('div',{className:'topMottoLine','data-testid':'ade-identity-statement',title:'ADE identity',style:{fontWeight:800}},'This is not Another AI, But The Future!'),
-h('nav',{className:'topNav','aria-label':'Primary'},NAV.map(n=>h('button',{key:n[0],className:(section===n[0]?'active ':'')+(n[0]==='Command Center'?'ops':''),'aria-current':section===n[0]?'page':null,title:n[1],onClick:()=>go(n[0])},n[0])))))),
-   menuOpen&&h('nav',{className:'mobileMenu open','aria-label':'Mobile'},
-   h('div',{className:'identity-line'},'AUTOMATED ALPHA ALIPH DIGITAL ECOSYSTEMS — ADE · BUILDING AFRICAN DIGITAL BUSINESS OPERATIONAL SYSTEMS'),
-   h('div',{className:'contact-line'},h('a',{href:'mailto:Automated_alpha_aliph@yahoo.com'},'Automated_alpha_aliph@yahoo.com'),h('span',null,'WhatsApp + Calls: ',h('a',{href:'tel:+2347038272792'},'+234 (0) 7038272792')),h('span',null,'Calls Only: ',h('a',{href:'tel:+2347058769114'},'+234 (0) 7058769114'))),
-   NAV.map(n=>h('button',{key:n[0],className:(section===n[0]?'active ':'')+(n[0]==='Command Center'?'ops':''),onClick:()=>go(n[0])},n[0])),h('div',{className:'sub'},'EXTERNAL SURFACES'),h('a',{href:'/ade-experience/',onClick:()=>setMenuOpen(false)},'Product Theater & Media Studio'),h('a',{href:'/admin',onClick:()=>setMenuOpen(false)},'Admin Console')),
+ h('nav',{className:'topNav','aria-label':'Primary'},visibleNav.map(n=>h('button',{key:n[0],className:(section===n[0]?'active ':'')+(n[0]==='Command Center'?'ops':''),'aria-current':section===n[0]?'page':null,title:n[1]+(n[0]==='Products'&&isPartner?' · filtered for partner':'')+(n[0]==='Command Center'&&isPartner?' — partner · no internal telemetry':''),onClick:()=>go(n[0])},n[0])))))),
+    menuOpen&&h('nav',{className:'mobileMenu open','aria-label':'Mobile'},
+    h('div',{className:'identity-line'},'AUTOMATED ALPHA ALIPH DIGITAL ECOSYSTEMS — ADE · BUILDING AFRICAN DIGITAL BUSINESS OPERATIONAL SYSTEMS'),
+    h('div',{className:'contact-line'},h('a',{href:'mailto:Automated_alpha_aliph@yahoo.com'},'Automated_alpha_aliph@yahoo.com'),h('span',null,'WhatsApp + Calls: ',h('a',{href:'tel:+2347038272792'},'+234 (0) 7038272792')),h('span',null,'Calls Only: ',h('a',{href:'tel:+2347058769114'},'+234 (0) 7058769114'))),
+    visibleNav.map(n=>h('button',{key:n[0],className:(section===n[0]?'active ':'')+(n[0]==='Command Center'?'ops':''),onClick:()=>go(n[0])},n[0])),h('div',{className:'sub'},'EXTERNAL SURFACES'),h('a',{href:'/ade-experience/',onClick:()=>setMenuOpen(false)},'Product Theater & Media Studio'),h('a',{href:'/admin',onClick:()=>setMenuOpen(false)},'Admin Console')),
    announcements.length>0&&h('div',{className:'ticker'},h('span',{className:'tickerLabel'},'LATEST'),announcements.map(a=>h('span',{key:a.id,className:'tickerItem'},h('b',null,a.kind||'NEWS'),a.title))),
    h('main',{className:'shell'},
    Sec('Home',HOME()),
@@ -741,7 +756,7 @@ h('footer',{className:'footer'},
     h('div',{className:'fi-main'},'AUTOMATED ALPHA ALIPH DIGITAL ECOSYSTEMS'),
     h('div',{className:'fi-sub'},'BUILDING AFRICAN DIGITAL BUSINESS OPERATIONAL SYSTEMS & AFRICAN BUSINESSES\u2019 BACKBONE'),
     h('div',{className:'fi-ade'},'ADE'))),
-  palette&&token&&h('div',{className:'palette',onMouseDown:e=>{if(e.target===e.currentTarget)setPalette(false)}},h('div',{className:'paletteBox'},h('div',{className:'paletteHead'},h('input',{className:'search',autoFocus:true,placeholder:'Search the ADE command surface…',value:query,onChange:e=>setQuery(e.target.value)})),h('div',{className:'commandList'},filtered.map(c=>h('div',{className:'command',key:c.intent,onClick:()=>{setPalette(false);execute(c)}},h('div',null,h('b',null,c.name||c.intent),h('small',null,' '+c.intent)),h('small',null,'RBAC '+(c.rbacLevel!=null?c.rbacLevel:'—'))))),filtered.length===0&&h('div',{className:'emptyState'},'No commands matched.'))),
+   palette&&token&&h('div',{className:'palette',onMouseDown:e=>{if(e.target===e.currentTarget)setPalette(false)}},h('div',{className:'paletteBox'},h('div',{className:'paletteHead'},h('input',{className:'search',autoFocus:true,placeholder:'Search capabilities, intents, subsystems… (Ctrl+K)',value:query,onChange:e=>setQuery(e.target.value)})),h('div',{style:{display:'flex',gap:6,flexWrap:'wrap',padding:'6px 12px',fontSize:10,color:'var(--faint)'}},h('span',null,'↵ Execute'),h('span',null,'·'),h('span',null,'Esc dismiss'),h('span',null,'·'),h('span',null,filtered.length+' available')),h('div',{className:'commandList'},filtered.length?filtered.map(c=>h('div',{className:'command',key:c.intent,onClick:()=>{setPalette(false);execute(c)},title:!isOperatorOrAbove&&Number(c.rbacLevel)>=2?'Requires elevated authorization — '+c.intent:''},h('div',null,h('b',null,c.name||c.intent),h('small',null,' '+c.intent)),h('small',null,'RBAC '+(c.rbacLevel!=null?c.rbacLevel:'—')))):null),cmdEmpty&&h('div',{className:'emptyState'},h('div',{className:'big'},'No Matching Capabilities'),h('p',null,'No capabilities match “'+query+'”. Try a different intent, subsystem or keyword.'),h('button',{className:'btn sm',onClick:()=>setQuery('')},'Clear search')))),
   auth&&h('div',{className:'auth',onMouseDown:e=>{if(e.target===e.currentTarget)setAuth(false)}},h('div',{className:'card authBox'},h('div',{className:'eyebrow'},'SERVER-AUTHORITATIVE SESSION'),h('h2',null,acctMode==='signin'?'Sign in to ADE':'Admin PIN'),h('p',null,acctMode==='signin'?'Workforce accounts authenticate with username and password. Step-up PIN is requested only for elevated operations.':'Legacy single-admin authentication using the configured runtime PIN.'),acctMode==='signin'?h('div',{className:'accountForm'},
    h('label',{className:'fieldLabel'},'Username'),
    h('input',{className:'authInput',type:'text',autoComplete:'username',value:signUser,onChange:e=>setSignUser(e.target.value),placeholder:'username',disabled:authBusy}),

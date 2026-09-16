@@ -39,7 +39,8 @@ a:hover{text-decoration:underline}
 .btn.sm{min-height:34px;padding:7px 12px;font-size:11.5px;border-radius:10px}
 .btn.ghost{background:transparent;border-color:transparent;color:var(--gold);font-weight:700}
 .btn.ghost:hover{background:var(--goldDim)}
-.btn[disabled]{opacity:.5;cursor:default}
+.btn[disabled]{opacity:.5;cursor:not-allowed}
+.btn:focus-visible{outline:none;box-shadow:0 0 0 3px rgba(212,168,67,.22);border-color:var(--gold)}
 .btn.share{background:rgba(255,255,255,.05);border-color:rgba(255,255,255,.1);color:var(--muted);font-size:11px;min-height:32px;padding:5px 10px}
 .btn.share:hover{border-color:var(--gold);color:var(--gold)}
 .iconBtn{all:unset;box-sizing:border-box;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;min-height:var(--touch);min-width:44px;padding:8px 12px;border-radius:var(--radiusSm);border:1px solid var(--line);background:var(--surface);color:var(--muted);font-size:15px;transition:.18s}
@@ -198,13 +199,17 @@ const copyText=text=>navigator.clipboard.writeText(text).then(()=>true).catch(()
 const decodeB64u=s=>{s=String(s||'').replace(/-/g,'+').replace(/_/g,'/');while(s.length%4)s+='=';return decodeURIComponent(Array.prototype.map.call(window.atob(s),c=>'%'+('00'+c.charCodeAt(0).toString(16)).slice(-2)).join(''))};
 const decodeClaims=t=>{try{const p=String(t||'').split('.');if(p.length!==3)return null;return JSON.parse(decodeB64u(p[1]))}catch{return null}};
 
-function App(){
- const [token,setToken]=useState(()=>sessionStorage.getItem('ade_founder_token'));
- const [identity,setIdentity]=useState(()=>{try{return sessionStorage.getItem('ade_founder_identity')?JSON.parse(sessionStorage.getItem('ade_founder_identity')):null}catch{return null}});
- const [sessionMeta,setSessionMeta]=useState(()=>{try{return sessionStorage.getItem('ade_founder_session_meta')?JSON.parse(sessionStorage.getItem('ade_founder_session_meta')):null}catch{return null}});
- const [liveEvents,setLiveEvents]=useState([]);
- const [streamState,setStreamState]=useState('DISCONNECTED');
- const [tab,setTab]=useState('OVERVIEW');
+ function App(){
+  const [token,_setToken]=useState(()=>{try{return sessionStorage.getItem('ade_founder_token')||localStorage.getItem('ade_founder_token')||null}catch{return null}});
+  const setToken=(v)=>{_setToken(v);try{if(v){sessionStorage.setItem('ade_founder_token',v);localStorage.setItem('ade_founder_token',v);}else{sessionStorage.removeItem('ade_founder_token');localStorage.removeItem('ade_founder_token');}}catch{}};
+  const [identity,setIdentity]=useState(()=>{try{const a=sessionStorage.getItem('ade_founder_identity');const b=localStorage.getItem('ade_founder_identity');const s=a||b;return s?JSON.parse(s):null}catch{return null}});
+  const [sessionMeta,setSessionMeta]=useState(()=>{try{const a=sessionStorage.getItem('ade_founder_session_meta');const b=localStorage.getItem('ade_founder_session_meta');const s=a||b;return s?JSON.parse(s):null}catch{return null}});
+  const [liveEvents,setLiveEvents]=useState([]);
+  const [streamState,setStreamState]=useState('DISCONNECTED');
+  const _tabInit=(()=>{try{const h=String(window.location.hash||'').replace(/^#\/?/,'');const d=decodeURIComponent(h);if(TABS.includes(d))return d;const s=sessionStorage.getItem('ade_founder_tab')||localStorage.getItem('ade_founder_tab');if(s&&TABS.includes(s))return s;}catch{}return 'OVERVIEW'})();
+  const [tab,_setTab]=useState(_tabInit);
+  const setTab=(v)=>{_setTab(v);try{sessionStorage.setItem('ade_founder_tab',v);localStorage.setItem('ade_founder_tab',v);history.pushState({adeTab:v},'',v==='OVERVIEW'?'#/OVERVIEW':'#/'+encodeURIComponent(v));}catch{}};
+  useEffect(()=>{const onPop=()=>{try{const h=String(window.location.hash||'').replace(/^#\/?/,'');const d=decodeURIComponent(h);if(TABS.includes(d))_setTab(d);}catch{}};window.addEventListener('popstate',onPop);try{if(!window.location.hash) history.replaceState({adeTab:_tabInit},'', '#/'+encodeURIComponent(_tabInit));}catch{}return()=>window.removeEventListener('popstate',onPop)},[]);
  const [toast,setToast]=useState('');
  const [menuOpen,setMenuOpen]=useState(false);
 
@@ -258,12 +263,10 @@ function App(){
 
  const notify=m=>{setToast(m);setTimeout(()=>setToast(''),3000)};
 
- const clearSession=()=>{
-  setToken(null);setIdentity(null);setSessionMeta(null);
-  sessionStorage.removeItem('ade_founder_token');
-  sessionStorage.removeItem('ade_founder_identity');
-  sessionStorage.removeItem('ade_founder_session_meta');
- };
+  const clearSession=()=>{
+   setToken(null);setIdentity(null);setSessionMeta(null);
+   try{sessionStorage.removeItem('ade_founder_token');localStorage.removeItem('ade_founder_token');sessionStorage.removeItem('ade_founder_identity');localStorage.removeItem('ade_founder_identity');sessionStorage.removeItem('ade_founder_session_meta');localStorage.removeItem('ade_founder_session_meta');sessionStorage.removeItem('ade_founder_tab');localStorage.removeItem('ade_founder_tab');}catch{}
+  };
 
  const api=useCallback(async(url,opt={})=>{
   const headers={"Content-Type":"application/json",...(opt.headers||{})};
@@ -353,16 +356,16 @@ function App(){
   loadTab();
  },[tab,token,api,auditLimit]);
 
-  const pinLogin=async(pin)=>{
-   if(loginBusy)return;
-   setLoginMsg(null);setLoginBusy(true);
-   try{
-    const r=await fetch('/api/v1/auth/pin',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({pin})});
-    const d=await r.json();
-    if(!r.ok)throw new Error(d.error||'Invalid PIN');
-    setToken(d.token);sessionStorage.setItem('ade_founder_token',d.token);
-    if(d.identity){setIdentity(d.identity);sessionStorage.setItem('ade_founder_identity',JSON.stringify(d.identity))}
-    if(d.expiresAt){const meta={expiresAt:d.expiresAt,expiresIn:d.expiresIn||null};setSessionMeta(meta);sessionStorage.setItem('ade_founder_session_meta',JSON.stringify(meta))}
+   const pinLogin=async(pin)=>{
+    if(loginBusy)return;
+    setLoginMsg(null);setLoginBusy(true);
+    try{
+     const r=await fetch('/api/v1/auth/pin',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({pin})});
+     const d=await r.json();
+     if(!r.ok)throw new Error(d.error||'Invalid PIN');
+     setToken(d.token);
+     if(d.identity){setIdentity(d.identity);try{sessionStorage.setItem('ade_founder_identity',JSON.stringify(d.identity));localStorage.setItem('ade_founder_identity',JSON.stringify(d.identity));}catch{}}
+     if(d.expiresAt){const meta={expiresAt:d.expiresAt,expiresIn:d.expiresIn||null};setSessionMeta(meta);try{sessionStorage.setItem('ade_founder_session_meta',JSON.stringify(meta));localStorage.setItem('ade_founder_session_meta',JSON.stringify(meta));}catch{}}
     setLoginBusy(false);setLoginMsg({type:'ok',text:'✓ FOUNDER SESSION AUTHENTICATED'});
     notify('FOUNDER SESSION AUTHENTICATED');
    }catch(e){setLoginBusy(false);setLoginMsg({type:'err',text:'✕ '+e.message});notify(e.message)}
@@ -462,9 +465,23 @@ function App(){
 
  const doCreateAnnouncement=async()=>{try{const r=await api('/api/v1/announcements',{method:'POST',body:JSON.stringify(annForm)});if(r){notify('Announcement published');setAnnForm({title:'',body:'',kind:'ANNOUNCEMENT',link:''});const a=await api('/api/v1/announcements/admin');if(a)setAnnouncements(a.announcements||[])}}catch(e){notify(e.message)}};
 
- const B=(label,cls)=>h('span',{className:'badge '+(cls||'muted')},label);
+  const roleName=((identity&&identity.persona==='ADMIN'&&Number(identity.level)>=2)?'FOUNDER':(identity&&identity.role)||'').toUpperCase(); const _isWorkforceRole=((identity&&identity.persona==='WORKFORCE')?roleName:'FOUNDER'); const _accessRole=roleName||_isWorkforceRole||'FOUNDER';
+  const isFounder=_accessRole==='FOUNDER'||(identity&&identity.level>=4)||(identity&&identity.persona==='ADMIN'&&Number(identity.level)>=2);
+  const visibleTabs=(()=>{
+   if(isFounder) return TABS;
+   // strict 5-tier: Admin sees everything except founder-only diagnostics is filtered elsewhere; User sees ops-trimmed; Pilot/Partner isolated
+   const all=TABS.slice();
+   // Partner sees only PARTNERS + OVERVIEW/PILOTS lite — strip internal infra
+   if(_accessRole==='PARTNER') return ['OVERVIEW','PARTNERS','ANNOUNCEMENTS'];
+   if(_accessRole==='PILOT'||_accessRole==='VIEWER') return ['OVERVIEW','PILOTS','PARTNERS','ANNOUNCEMENTS'];
+   // USER (OPERATOR/ANALYST) — no trading/audit/feature internal telemetry
+   if(['OPERATOR','ANALYST','USER'].includes(_accessRole)) return all.filter(t=>!['AUDIT','TRADING','FEATURE CONTROL'].includes(t));
+   return all;
+  })();
+  useEffect(()=>{try{if(!TABS.includes(tab)&&!visibleTabs.includes(tab)) _setTab(visibleTabs[0]||'OVERVIEW');}catch{}},[visibleTabs,tab]);
+  const B=(label,cls)=>h('span',{className:'badge '+(cls||'muted')},label);
 
- /* ── Login Gate ── */
+  /* ── Login Gate ── */
  if(!token)return h('div',{className:'app',style:{minHeight:'100vh',display:'grid',placeItems:'center'}},
   h('div',{className:'authBox',style:{textAlign:'center'}},
    h('div',{className:'eyebrow'},'AUTOMATED ALPHA ALIPH DIGITAL ECOSYSTEMS'),
@@ -1080,15 +1097,15 @@ function App(){
      h('img',{src:'/ADE-LOGO.png',alt:'ADE',style:{width:38,height:38,objectFit:'contain'}}),
      h('div',{className:'brandName'},h('strong',null,'FOUNDER COMMAND CENTER'),h('span',null,'AUTOMATED ALPHA ALIPH DIGITAL ECOSYSTEMS'))
     ),
-    h('nav',{className:'topNav'},TABS.map(t=>h('button',{key:t,className:tab===t?'active':'',onClick:()=>{setTab(t);setMenuOpen(false)}},t))),
+     h('nav',{className:'topNav'},visibleTabs.map(t=>h('button',{key:t,className:tab===t?'active':'',onClick:()=>{setTab(t);setMenuOpen(false)},title:visibleTabs.length!==TABS.length?('Filtered for '+(_accessRole||'role')):''},t))),
     h('div',{className:'topRight'},
-     identity?h('span',{className:'pill'},'@'+identity.subject+' · '+identity.persona+' · L'+identity.level):null,
+     identity?h('span',{className:'pill',title:'Role: '+(_accessRole||'—')+' · Persona: '+(identity.persona||'—')},'@'+identity.subject+' · '+(_accessRole||identity.persona||'—')+' · L'+identity.level):null,
      h('span',{className:'pill '+(kernLive?'live':kernStatus==='OFFLINE'?'off':'')},h('i',{className:'dot'}),kernLive?'ONLINE':kernStatus),
      h('button',{className:'btn sm danger',onClick:logout},'⊘ LOGOUT'),
      h('button',{className:'iconBtn hamburger',onClick:()=>setMenuOpen(v=>!v)},menuOpen?'✕':'☰')
     )
    ),
-   menuOpen&&h('nav',{className:'mobileMenu open'},TABS.map(t=>h('button',{key:t,className:tab===t?'active':'',onClick:()=>{setTab(t);setMenuOpen(false)}},t)))
+   menuOpen&&h('nav',{className:'mobileMenu open'},visibleTabs.map(t=>h('button',{key:t,className:tab===t?'active':'',onClick:()=>{setTab(t);setMenuOpen(false)}},t)))
   ),
   h('main',{className:'shell'},
    h('div',{className:'sectionHead'},h('h2',null,'ADE FOUNDER COMMAND CENTER'),h('p',null,'AUTOMATED ALPHA ALIPH DIGITAL ECOSYSTEMS — Building African Digital Business Operational Systems')),
