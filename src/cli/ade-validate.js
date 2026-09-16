@@ -42,7 +42,7 @@ async function main() {
     const boot = await kernel.boot();
     assert.equal(boot.status, "ONLINE");
     assert.equal(kernel.isBooted, true);
-    assert.equal(kernel.subsystems.size, 8);
+    assert.equal(kernel.subsystems.size, 9);
     assert.ok(kernel.metrics.bootTimeMs >= 0);
   });
 

@@ -893,15 +893,17 @@ app.get('/api/v1/system/diagnostics', security.requireLevel(2), (req,res)=>{
     const isDurable = durableStorageEnabled;
     const providerName = storageProvider?.constructor?.name || 'Unknown';
     const aiStatus = (()=>{ try{ return UniversalAIGateway.getInstance().getProviderStatus(); }catch{ return {configuredProviderCount:0, totalProviderCount:0}; }})();
+    const isEphemeralProd = isProductionEphemeral();
     const checklist = {
       storage: {
         provider: providerName,
-        mode: isDurable ? 'SUPABASE/DURABLE' : 'LOCAL/EPHEMERAL',
-        status: isDurable ? 'DURABLE' : 'EPHEMERAL - CONFIGURATION REQUIRED',
+        mode: isDurable ? 'SUPABASE/DURABLE' : (isEphemeralProd ? 'EPHEMERAL/PRODUCTION-WARN' : 'LOCAL/DEVELOPMENT'),
+        status: isDurable ? 'DURABLE' : (isEphemeralProd ? 'EPHEMERAL — PRODUCTION CONFIGURATION REQUIRED' : 'LOCAL — DEVELOPMENT ACTIVE'),
         durable: Boolean(isDurable),
         requiredEnv: ['ADE_STORAGE_PROVIDER=supabase','SUPABASE_URL','SUPABASE_SECRET_KEY (aliases: SUPABASE_SERVICE_ROLE_KEY, SUPABASE_STORAGE_KEY)','SUPABASE_STORAGE_TABLE=ade_kv_store'],
-        note: isDurable ? 'Production persistence is durable via Supabase.' : 'Local adapter is ephemeral on Vercel serverless. Configure Supabase for durable partner/pilot/connection persistence.',
-        configured: Boolean(isDurable)
+        note: isDurable ? 'Production persistence is durable via Supabase.' : (isEphemeralProd ? 'Running on Vercel without durable provider: business mutations are blocked (503) to prevent state loss. Local development is unaffected.' : 'Local development — filesystem persistence active. Configure Supabase only for Vercel/production durability.'),
+        configured: Boolean(isDurable),
+        warning: isEphemeralProd ? 'PRODUCTION_EPHEMERAL' : null
       },
       email: (()=>{ try{ return emailConnector.status(); }catch{ return { provider:'RESEND', status:'NOT CONFIGURED', configured:false }; } })(),
       ai: {
