@@ -30,18 +30,18 @@ pre{white-space:pre-wrap;word-break:break-word}
 button{font-family:inherit}
 a{color:var(--cyan);text-decoration:none}
 a:hover{text-decoration:underline}
-.btn{all:unset;box-sizing:border-box;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:42px;padding:10px 16px;border-radius:var(--radiusSm);border:1px solid var(--line);background:var(--surface);color:var(--ink);font-size:13px;font-weight:600;transition:.18s;white-space:nowrap}
+.btn{all:unset;box-sizing:border-box;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:10px 16px;border-radius:var(--radiusSm);border:1px solid var(--line);background:var(--surface);color:var(--ink);font-size:13px;font-weight:600;transition:.18s;white-space:nowrap}
 .btn:hover{border-color:var(--gold);box-shadow:0 0 20px var(--goldDim)}
 .btn.primary{background:linear-gradient(135deg,var(--gold),#b8912e);border-color:rgba(212,168,67,.5);color:#0a0e16;box-shadow:0 8px 28px rgba(212,168,67,.25)}
 .btn.primary:hover{background:linear-gradient(135deg,var(--goldBright),var(--gold))}
 .btn.danger{background:rgba(255,82,82,.12);border-color:rgba(255,82,82,.35);color:var(--coral)}
 .btn.danger:hover{background:rgba(255,82,82,.2)}
-.btn.sm{min-height:34px;padding:7px 12px;font-size:11.5px;border-radius:10px}
+.btn.sm{min-height:44px;padding:7px 12px;font-size:11.5px;border-radius:10px}
 .btn.ghost{background:transparent;border-color:transparent;color:var(--gold);font-weight:700}
 .btn.ghost:hover{background:var(--goldDim)}
 .btn[disabled]{opacity:.5;cursor:not-allowed}
 .btn:focus-visible{outline:none;box-shadow:0 0 0 3px rgba(212,168,67,.22);border-color:var(--gold)}
-.btn.share{background:rgba(255,255,255,.05);border-color:rgba(255,255,255,.1);color:var(--muted);font-size:11px;min-height:32px;padding:5px 10px}
+.btn.share{background:rgba(255,255,255,.05);border-color:rgba(255,255,255,.1);color:var(--muted);font-size:11px;min-height:44px;padding:5px 10px}
 .btn.share:hover{border-color:var(--gold);color:var(--gold)}
 .iconBtn{all:unset;box-sizing:border-box;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;min-height:var(--touch);min-width:44px;padding:8px 12px;border-radius:var(--radiusSm);border:1px solid var(--line);background:var(--surface);color:var(--muted);font-size:15px;transition:.18s}
 .iconBtn:hover{border-color:var(--gold);color:var(--gold)}
@@ -52,7 +52,7 @@ a:hover{text-decoration:underline}
 .brand img{width:38px;height:38px;object-fit:contain}
 .brandName strong{display:block;font-size:13px;letter-spacing:.14em;color:var(--gold)}
 .brandName span{display:block;font-size:8.5px;color:var(--muted);letter-spacing:.14em;margin-top:2px;text-transform:uppercase}
-.topNav{display:flex;align-items:center;gap:2px;flex:1 1 auto;justify-content:flex-end;flex-wrap:nowrap;overflow-x:auto;-ms-overflow-style:none;scrollbar-width:none}
+.topNav{display:flex;align-items:center;gap:2px;flex:1 1 auto;justify-content:flex-end;flex-wrap:nowrap;overflow-x:auto;-ms-overflow-style:none;scrollbar-width:none;-webkit-overflow-scrolling:touch;scroll-padding-right:16px;padding-right:12px;padding-bottom:2px;mask-image:linear-gradient(to right, black 92%, transparent 100%);-webkit-mask-image:linear-gradient(to right, black 92%, transparent 100%)}
 .topNav::-webkit-scrollbar{display:none}
 .topNav button{all:unset;cursor:pointer;min-height:38px;padding:7px 10px;border-radius:10px;color:var(--muted);font-size:12px;font-weight:600;border:1px solid transparent;transition:.16s}
 .topNav button:hover{color:var(--ink);background:rgba(255,255,255,.05)}
@@ -77,8 +77,13 @@ a:hover{text-decoration:underline}
 .mobileMenu button:hover,.mobileMenu button.active{color:var(--gold);background:var(--goldDim);border-color:rgba(212,168,67,.2)}
 
 .shell{width:min(calc(100% - 2*var(--page-gutter)),var(--content-max));margin:0 auto;padding:24px 0 60px;flex:1}
-.card{border:1px solid var(--line);border-radius:var(--radius);background:var(--surface);box-shadow:var(--shadowSm);backdrop-filter:blur(8px)}
+.card{border:1px solid var(--line);border-radius:var(--radius);background:var(--surface);box-shadow:var(--shadowSm);backdrop-filter:blur(8px);transition:transform .18s ease, box-shadow .18s ease}
+.card:hover{transform:translateY(-1px);box-shadow:0 12px 32px rgba(0,0,0,.4)}
 .card.pad{padding:20px}
+.heroCard{position:relative;overflow:hidden;border:1px solid var(--line);border-radius:var(--radius);background:radial-gradient(600px 300px at 15% 10%, rgba(212,168,67,.14), transparent 60%), radial-gradient(500px 400px at 90% 0%, rgba(0,188,212,.10), transparent 60%), linear-gradient(180deg, rgba(14,26,47,.96), rgba(14,26,47,.92));box-shadow:var(--shadowSm)}
+.heroCard::before{content:'';position:absolute;inset:0;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' opacity='0.06'%3E%3Cpath d='M50 8 L78 20 V48 C78 64 68 80 50 88 C32 80 22 64 22 48 V20 Z' fill='none' stroke='%23d4a843' stroke-width='2'/%3E%3Cpath d='M36 52 L44 60 L64 38' fill='none' stroke='%23d4a843' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;background-size:220px 220px;pointer-events:none}
+.heroOrb{position:absolute;right:18px;top:50%;transform:translateY(-50%);width:96px;height:96px;border-radius:50%;background:radial-gradient(circle at 30% 30%, #2a3a5c 0%, #0c1a2e 55%, #07111f 100%);border:1px solid rgba(212,168,67,.18);box-shadow:inset 0 8px 20px rgba(255,255,255,.06), 0 12px 32px rgba(0,0,0,.4), 0 0 24px rgba(212,168,67,.12);opacity:.9}
+.heroOrb::after{content:'';position:absolute;inset:12px;border-radius:50%;background:radial-gradient(circle at 35% 25%, rgba(212,168,67,.18), transparent 60%);}
 .panelTitle{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:14px 18px;border-bottom:1px solid var(--lineSoft);flex-wrap:wrap}
 .panelTitle h3{margin:0;font-size:11.5px;letter-spacing:.15em;color:var(--gold)}
 .panelTitle span{font-size:9.5px;color:var(--muted);letter-spacing:.1em}
@@ -91,7 +96,8 @@ a:hover{text-decoration:underline}
 .sectionHead h2{font-size:clamp(1.2rem,2.5vw,1.7rem);margin:0 0 4px;letter-spacing:-.01em;color:var(--gold)}
 .sectionHead p{margin:0;color:var(--muted);font-size:12.5px;line-height:1.5}
 
-.stat{padding:14px 16px;border:1px solid var(--lineSoft);border-radius:14px;background:var(--surface)}
+.stat{padding:14px 16px;border:1px solid var(--lineSoft);border-radius:14px;background:var(--surface);box-shadow:0 4px 16px rgba(0,0,0,.18);transition:transform .18s ease, box-shadow .18s ease}
+.stat:hover{transform:translateY(-1px);box-shadow:0 12px 32px rgba(0,0,0,.4)}
 .stat b{display:block;font-size:clamp(17px,2.5vw,22px);letter-spacing:.02em;color:var(--gold)}
 .stat span{display:block;color:var(--muted);font-size:9.5px;letter-spacing:.12em;margin-top:4px;text-transform:uppercase}
 
@@ -106,11 +112,15 @@ select.formInput{cursor:pointer}
 
 .formGrid{display:grid;gap:10px}
 .formRow{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,200px),1fr));gap:10px}
-.emptyState{padding:28px 16px;text-align:center;color:var(--muted)}
+.emptyState{padding:32px 20px;text-align:center;color:var(--muted);display:grid;place-items:center;gap:8px}
 .emptyState .big{font-size:28px;margin-bottom:6px;letter-spacing:.02em}
+.emptyState .esTitle{font-size:13px;font-weight:700;color:var(--ink);margin:4px 0 2px;letter-spacing:.02em}
+.emptyState .esDesc{font-size:12px;color:var(--muted);line-height:1.65;max-width:520px;margin:0 auto}
+.emptyState .esAction{margin-top:12px}
+.emptyShield{display:block;margin:0 auto 10px;filter:drop-shadow(0 4px 12px rgba(212,168,67,.18))}
 
-.tableWrap{overflow-x:auto;padding:0 0 4px}
-table{width:100%;border-collapse:collapse;font-size:12px}
+.tableWrap{overflow-x:auto;padding:0 0 4px;-webkit-overflow-scrolling:touch;scrollbar-width:thin}
+table{width:100%;border-collapse:collapse;font-size:12px;min-width:640px}
 th{text-align:left;padding:10px 12px;color:var(--gold);font-size:10px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;border-bottom:1px solid var(--line)}
 td{padding:10px 12px;border-bottom:1px solid var(--lineSoft);color:var(--muted);white-space:nowrap}
 tr:hover td{background:rgba(212,168,67,.03)}
@@ -198,6 +208,15 @@ const shareNative=(title,text,url)=>{if(navigator.share)return navigator.share({
 const copyText=text=>navigator.clipboard.writeText(text).then(()=>true).catch(()=>false);
 const decodeB64u=s=>{s=String(s||'').replace(/-/g,'+').replace(/_/g,'/');while(s.length%4)s+='=';return decodeURIComponent(Array.prototype.map.call(window.atob(s),c=>'%'+('00'+c.charCodeAt(0).toString(16)).slice(-2)).join(''))};
 const decodeClaims=t=>{try{const p=String(t||'').split('.');if(p.length!==3)return null;return JSON.parse(decodeB64u(p[1]))}catch{return null}};
+// JWT verification is server-side only; client decode is display-only — spoofed tokens will be rejected by API 401/403 and visibleTabs will revert to minimal
+const ALLOWED_GAMES=['AVIATOR','CRASH','VIRTUAL_FOOTBALL','VIRTUAL_SPORT','SPRIBE','POCKET_OPTION','QUOTEX','IQ_OPTION','EXPERT_OPTION','SPORTBET','BETWAY','BETNAIJA','BETKING'];
+const sanitizeVenue=v=>String(v||'').trim().toUpperCase();
+const isAllowedVenue=v=>ALLOWED_GAMES.includes(sanitizeVenue(v));
+const escapeHtml=s=>String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+const truncateHtml=s=>{const e=escapeHtml(s);return e.length>500?e.slice(0,500)+'…':e};
+const ShieldSvg=(size=36)=>h('svg',{className:'emptyShield',width:size,height:size,viewBox:'0 0 24 24',fill:'none',stroke:'var(--gold)',strokeWidth:'1.7',strokeLinejoin:'round',role:'img','aria-hidden':'true'},h('path',{d:'M12 2.8 L18.6 6.2 V11.6 C18.6 15.3 16.4 18.9 12 20.8 C7.6 18.9 5.4 15.3 5.4 11.6 V6.2 Z'}),h('path',{d:'M8.8 12.1 L11 14.3 L15.6 9.4',strokeLinecap:'round',strokeLinejoin:'round'}));
+const EmptyState=(opts)=>{const title=opts.title||'Nothing here yet';const desc=opts.desc||'';const actionLabel=opts.actionLabel;const actionFn=opts.actionFn;const hint=opts.hint;return h('div',{className:'emptyState'}, ShieldSvg(opts.iconSize||36), h('div',{className:'esTitle'},title), desc?h('div',{className:'esDesc'},desc):null, hint?h('div',{style:{fontSize:'11px',color:'var(--faint)',marginTop:'4px'}},hint):null, actionLabel?h('div',{className:'esAction'},h('button',{className:'btn sm primary',onClick:actionFn||(()=>{})},actionLabel)):null);};
+const heroShieldBg='url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' viewBox=\'0 0 100 100\' opacity=\'0.06\'%3E%3Cpath d=\'M50 8 L78 20 V48 C78 64 68 80 50 88 C32 80 22 64 22 48 V20 Z\' fill=\'none\' stroke=\'%23d4a843\' stroke-width=\'2\'/%3E%3C/svg%3E")';
 
  function App(){
   const [token,_setToken]=useState(()=>{try{return sessionStorage.getItem('ade_founder_token')||localStorage.getItem('ade_founder_token')||null}catch{return null}});
@@ -220,13 +239,17 @@ const decodeClaims=t=>{try{const p=String(t||'').split('.');if(p.length!==3)retu
  const [edition,setEdition]=useState(null);
  const [caps,setCaps]=useState([]);
 
- const [workforce,setWorkforce]=useState(null);
- const [inviteForm,setInviteForm]=useState({fullName:'',email:'',username:'',role:'OPERATOR',organization:'',supervisor:'',permissionProfile:'',expiryDays:'30',message:''});
- const [inviteResult,setInviteResult]=useState(null);
- const [agents,setAgents]=useState([]);
-  const [agentForm,setAgentForm]=useState({name:'',description:''});
-  const [loginBusy,setLoginBusy]=useState(false);
-  const [loginMsg,setLoginMsg]=useState(null);
+  const [workforce,setWorkforce]=useState(null);
+  const [inviteForm,setInviteForm]=useState({fullName:'',email:'',username:'',role:'OPERATOR',organization:'',supervisor:'',permissionProfile:'',expiryDays:'30',message:''});
+  const [inviteResult,setInviteResult]=useState(null);
+  const [inviteBusy,setInviteBusy]=useState(false);
+  const [partnerBusy,setPartnerBusy]=useState(false);
+  const [connBusy,setConnBusy]=useState(false);
+  const [pilotBusy,setPilotBusy]=useState(false);
+  const [agents,setAgents]=useState([]);
+   const [agentForm,setAgentForm]=useState({name:'',description:''});
+   const [loginBusy,setLoginBusy]=useState(false);
+   const [loginMsg,setLoginMsg]=useState(null);
 
  const [pilotCandidates,setPilotCandidates]=useState([]);
  const [pilotRegistry,setPilotRegistry]=useState([]);
@@ -377,23 +400,25 @@ const decodeClaims=t=>{try{const p=String(t||'').split('.');if(p.length!==3)retu
   notify('Session ended');
  };
 
- const doInvite=async()=>{
-  try{
-   const body={
-    fullName:inviteForm.fullName,
-    role:inviteForm.role,
-    expiresInDays:Math.max(1,Math.min(90,Number(inviteForm.expiryDays)||30)),
-    username:inviteForm.username,
-    email:inviteForm.email,
-    organization:inviteForm.organization,
-    supervisor:inviteForm.supervisor,
-    permissionProfile:inviteForm.permissionProfile,
-    message:inviteForm.message
-   };
-   const r=await api('/api/v1/workforce/invite',{method:'POST',body:JSON.stringify(body)});
-   if(r){setInviteResult(r);notify('Invitation created')}
-  }catch(e){notify(e.message)}
- };
+  const doInvite=async()=>{
+   if(inviteBusy) return;
+   setInviteBusy(true);
+   try{
+    const body={
+     fullName:inviteForm.fullName,
+     role:inviteForm.role,
+     expiresInDays:Math.max(1,Math.min(90,Number(inviteForm.expiryDays)||30)),
+     username:inviteForm.username,
+     email:inviteForm.email,
+     organization:inviteForm.organization,
+     supervisor:inviteForm.supervisor,
+     permissionProfile:inviteForm.permissionProfile,
+     message:inviteForm.message
+    };
+    const r=await api('/api/v1/workforce/invite',{method:'POST',body:JSON.stringify(body)});
+    if(r){setInviteResult(r);notify('Invitation created')}
+   }catch(e){notify(e.message)}finally{setInviteBusy(false)}
+  };
  const doPromote=async(id,role)=>{try{await api('/api/v1/workforce/'+id+'/promote',{method:'POST',body:JSON.stringify({role})});notify('Promoted');const r=await api('/api/v1/workforce');if(r)setWorkforce(r)}catch(e){notify(e.message)}};
  const doDemote=async(id,role)=>{try{await api('/api/v1/workforce/'+id+'/demote',{method:'POST',body:JSON.stringify({role})});notify('Demoted');const r=await api('/api/v1/workforce');if(r)setWorkforce(r)}catch(e){notify(e.message)}};
  const doSuspend=async(id)=>{try{await api('/api/v1/workforce/'+id+'/suspend',{method:'POST'});notify('Suspended');const r=await api('/api/v1/workforce');if(r)setWorkforce(r)}catch(e){notify(e.message)}};
@@ -418,20 +443,26 @@ const decodeClaims=t=>{try{const p=String(t||'').split('.');if(p.length!==3)retu
    const r=await api('/api/v1/trading/backtest',{method:'POST',body:JSON.stringify({instrument:tradeForm.instrument,candles})});
    if(r){setTradeBacktest(r.backtest||null);notify('Backtest complete: '+((r.backtest&&r.backtest.confirmed)||0)+' confirmed')}
   }catch(e){notify(e.message)}};
-  const doGamingCheck=async()=>{try{
-   const r=await api('/api/v1/trading/gaming',{method:'POST',body:JSON.stringify({game:tradeForm.game})});
-   if(r){setTradeGaming(r.gaming||null);notify('Gaming market: NOT_SUPPORTED — no prediction')}
-  }catch(e){notify(e.message)}};
+   const doGamingCheck=async()=>{try{
+    const venue=sanitizeVenue(tradeForm.game);
+    if(!isAllowedVenue(venue)){
+      setTradeGaming({support:'NOT_SUPPORTED',reason:'Venue '+escapeHtml(venue||'UNKNOWN')+' is not supported — no prediction. Allowed: '+ALLOWED_GAMES.join(', ')});
+      notify('Gaming market: NOT_SUPPORTED — no prediction');
+      return;
+    }
+    const r=await api('/api/v1/trading/gaming',{method:'POST',body:JSON.stringify({game:venue})});
+    if(r){setTradeGaming(r.gaming||null);notify('Gaming market: NOT_SUPPORTED — no prediction')}
+   }catch(e){notify(e.message)}};
  const doPaperClose=async(id)=>{try{const r=await api('/api/v1/trading/paper/'+id+'/close',{method:'POST',body:JSON.stringify({outcome:'MANUAL'})});if(r){notify('Paper position closed');const lg=await api('/api/v1/trading/ledger');if(lg)setTradeLedger(lg.positions||[])}}catch(e){notify(e.message)}};
  const doEmergencyStop=async(on)=>{try{const r=await api('/api/v1/trading/emergency-stop',{method:'POST',body:JSON.stringify({on})});if(r){notify(on?'Emergency stop ENGAGED':'Emergency stop released');const st=await api('/api/v1/trading/status');if(st)setTradeStatus(st.trading||null)}}catch(e){notify(e.message)}};
 
- const doApprovePilot=async(intakeId)=>{try{await api('/api/v1/procarta/pilot/approve',{method:'POST',body:JSON.stringify({intakeId,reason:'Founder approval'})});notify('Pilot approved');const c=await api('/api/v1/procarta/pilot-candidates');if(c)setPilotCandidates(c.candidates||[]);const reg=await api('/api/v1/procarta/pilot/registry');if(reg){setPilotRegistry(reg.records||[]);setPilotStats(reg.stats||null)}}catch(e){notify(e.message)}};
+  const doApprovePilot=async(intakeId)=>{if(pilotBusy) return; setPilotBusy(true); try{await api('/api/v1/procarta/pilot/approve',{method:'POST',body:JSON.stringify({intakeId,reason:'Founder approval'})});notify('Pilot approved');const c=await api('/api/v1/procarta/pilot-candidates');if(c)setPilotCandidates(c.candidates||[]);const reg=await api('/api/v1/procarta/pilot/registry');if(reg){setPilotRegistry(reg.records||[]);setPilotStats(reg.stats||null)}}catch(e){notify(e.message)}finally{setPilotBusy(false)}};
  const doVerdict=async(recordId,verdict)=>{try{await api('/api/v1/procarta/pilot/verdict',{method:'POST',body:JSON.stringify({recordId,verdict,reason:'Founder verdict'})});notify('Verdict recorded');const reg=await api('/api/v1/procarta/pilot/registry');if(reg){setPilotRegistry(reg.records||[]);setPilotStats(reg.stats||null)}}catch(e){notify(e.message)}};
 
- const doCreatePartner=async()=>{try{
-   if(!partnerForm.orgName||partnerForm.orgName.trim().length<2) throw new Error('ORGANIZATION_REQUIRED — organization name must be at least 2 characters');
-   const splitCsv=v=>String(v||'').split(/[,\n]/).map(s=>s.trim()).filter(Boolean);
-   const r=await api('/api/v1/admin/partners',{method:'POST',body:JSON.stringify({
+  const doCreatePartner=async()=>{if(partnerBusy) return; setPartnerBusy(true); try{
+    if(!partnerForm.orgName||partnerForm.orgName.trim().length<2) throw new Error('ORGANIZATION_REQUIRED — organization name must be at least 2 characters');
+    const splitCsv=v=>String(v||'').split(/[,\n]/).map(s=>s.trim()).filter(Boolean);
+    const r=await api('/api/v1/admin/partners',{method:'POST',body:JSON.stringify({
     name:partnerForm.orgName.trim(),
     status:'EVALUATION',
     capabilities:splitCsv(partnerForm.capabilities),
@@ -446,9 +477,9 @@ const decodeClaims=t=>{try{const p=String(t||'').split('.');if(p.length!==3)retu
      countriesServed:splitCsv(partnerForm.countriesServed)
     },
     priority:'STANDARD'
-   })});if(r){notify('Partner created');setPartnerForm({orgName:'',website:'',country:'',contactPerson:'',email:'',partnerType:'TECHNOLOGY',capabilities:'',industries:'',countriesServed:''});const p=await api('/api/v1/admin/partners');if(p)setPartners(p.partners||[])}}catch(e){notify(e.message)}};
+    })});if(r){notify('Partner created');setPartnerForm({orgName:'',website:'',country:'',contactPerson:'',email:'',partnerType:'TECHNOLOGY',capabilities:'',industries:'',countriesServed:''});const p=await api('/api/v1/admin/partners');if(p)setPartners(p.partners||[])}}catch(e){notify(e.message)}finally{setPartnerBusy(false)}};
 
- const doCreateConn=async()=>{try{const r=await api('/api/v1/admin/connections',{method:'POST',body:JSON.stringify({...connForm,provider:connForm.provider||connForm.name||''})});if(r){notify('Connection created');setConnForm({name:'',provider:'',type:'REST',baseUrl:'',authType:'NONE',credentials:{}});const c=await api('/api/v1/admin/connections');if(c)setConnections(c.connections||[])}}catch(e){notify(e.message)}};
+  const doCreateConn=async()=>{if(connBusy) return; setConnBusy(true); try{const r=await api('/api/v1/admin/connections',{method:'POST',body:JSON.stringify({...connForm,provider:connForm.provider||connForm.name||''})});if(r){notify('Connection created');setConnForm({name:'',provider:'',type:'REST',baseUrl:'',authType:'NONE',credentials:{}});const c=await api('/api/v1/admin/connections');if(c)setConnections(c.connections||[])}}catch(e){notify(e.message)}finally{setConnBusy(false)}};
  const doTestConn=async(id)=>{try{setConnTest({id,testing:true});const r=await api('/api/v1/admin/connections/'+id+'/test',{method:'POST'});setConnTest({id,result:r});notify(r?.success?'Connection OK':'Test failed')}catch(e){setConnTest({id,result:{success:false,error:e.message}});notify(e.message)}};
 
  const doToggleFeature=async(name,currentAvail)=>{
@@ -465,8 +496,11 @@ const decodeClaims=t=>{try{const p=String(t||'').split('.');if(p.length!==3)retu
 
  const doCreateAnnouncement=async()=>{try{const r=await api('/api/v1/announcements',{method:'POST',body:JSON.stringify(annForm)});if(r){notify('Announcement published');setAnnForm({title:'',body:'',kind:'ANNOUNCEMENT',link:''});const a=await api('/api/v1/announcements/admin');if(a)setAnnouncements(a.announcements||[])}}catch(e){notify(e.message)}};
 
-  const roleName=((identity&&identity.persona==='ADMIN'&&Number(identity.level)>=2)?'FOUNDER':(identity&&identity.role)||'').toUpperCase(); const _isWorkforceRole=((identity&&identity.persona==='WORKFORCE')?roleName:'FOUNDER'); const _accessRole=roleName||_isWorkforceRole||'FOUNDER';
-  const isFounder=_accessRole==='FOUNDER'||(identity&&identity.level>=4)||(identity&&identity.persona==='ADMIN'&&Number(identity.level)>=2);
+   // Truthful role derivation — display actual role; server is authoritative. JWT decode is display-only; spoofed localStorage will be rejected by API 401/403 which reverts visibleTabs to minimal.
+   const roleName = (identity && identity.persona === 'ADMIN' ? 'ADMIN' : (identity.role || identity.persona || '').toUpperCase());
+   const _isWorkforceRole=((identity&&identity.persona==='WORKFORCE')?roleName:'FOUNDER'); const _accessRole=roleName||_isWorkforceRole||'FOUNDER';
+   // isFounder allows ADMIN (level>=2) and level>=4 to see all Founder tabs, without mislabeling ADMIN as FOUNDER in pill; also checks workforce roster if available
+   const isFounder=_accessRole==='FOUNDER'||(identity&&Number(identity.level)>=4)||(identity&&identity.persona==='ADMIN'&&Number(identity.level)>=2)||(workforce&&workforce.persons&&identity&&workforce.persons.some(p=>String(p.username).toLowerCase()===String(identity.subject).toLowerCase()&&String(p.role).toUpperCase()==='FOUNDER'));
   const visibleTabs=(()=>{
    if(isFounder) return TABS;
    // strict 5-tier: Admin sees everything except founder-only diagnostics is filtered elsewhere; User sees ops-trimmed; Pilot/Partner isolated
@@ -534,7 +568,7 @@ const decodeClaims=t=>{try{const p=String(t||'').split('.');if(p.length!==3)retu
       h('div',{style:{fontSize:10,fontWeight:800,letterSpacing:0.12,color:'var(--gold)',marginBottom:6}},'ACTIVE SUBSYSTEMS'),
       h('div',{style:{display:'flex',flexWrap:'wrap',gap:6}},runtime.kernel.activeSubsystems.map(s=>B(typeof s==='string'?s:s.name||s.id||'—','blue')))
      ):null
-    ):h('div',{className:'emptyState'},'Loading runtime data...')
+    ):h(EmptyState,{title:'Loading runtime data…',desc:'Fetching kernel status, PID, platform and active subsystems from the ADE runtime.',hint:'WHAT: System health detail · WHY LOADING: fetching /api/v1/runtime',iconSize:28})
    )
   ),
   h('div',{className:'card'},h('div',{className:'panelTitle'},h('h3',null,'ADMIN OVERVIEW'),h('span',null,'SERVER')),
@@ -544,7 +578,7 @@ const decodeClaims=t=>{try{const p=String(t||'').split('.');if(p.length!==3)retu
      h('div',{className:'stat'},h('b',null,overview.connections?.length??'—'),h('span',null,'Connections')),
      h('div',{className:'stat'},h('b',null,overview.partners?.length??'—'),h('span',null,'Partners')),
      h('div',{className:'stat'},h('b',null,overview.cases?.length??'—'),h('span',null,'Cases'))
-    ):h('div',{className:'emptyState'},'Loading overview...')
+    ):h(EmptyState,{title:'Loading overview…',desc:'Fetching admin overview channels, connections, partners and cases from the server.',hint:'Please wait — overview refreshes every 20s',iconSize:28})
    )
    ),
    h('div',{className:'card'},h('div',{className:'panelTitle'},h('h3',null,'PRODUCTION READINESS'),h('span',null,'DIAGNOSTICS')),
@@ -585,7 +619,7 @@ const decodeClaims=t=>{try{const p=String(t||'').split('.');if(p.length!==3)retu
        h('span',{style:{fontSize:10,color:'var(--faint)',marginLeft:8}},'WORKFORCE'),
        B(workforce?'READY':'—',workforce?'good':'muted')
       )
-     ):h('div',{className:'emptyState'},'Loading diagnostics...')
+     ):h(EmptyState,{title:'Loading diagnostics…',desc:'Checking storage, email, AI and integration health for production readiness.',hint:'WHAT: Diagnostics · fetching /api/v1/system/diagnostics',iconSize:28})
     )
    ),
    h('div',{className:'card'},h('div',{className:'panelTitle'},h('h3',null,'ATTENTION PREVIEW'),h('span',null,h('button',{className:'btn sm',onClick:()=>setTab('INBOX')},'OPEN INBOX →'))),
@@ -611,7 +645,7 @@ const decodeClaims=t=>{try{const p=String(t||'').split('.');if(p.length!==3)retu
        h('div',{style:{fontSize:18,fontWeight:800,color:'var(--ink)'}},String(attention.stats?.partners??'—')),
        h('div',{style:{fontSize:10,color:'var(--faint)'}},'interests')
       )
-     ):h('div',{className:'emptyState'},'Loading attention...')
+     ):h(EmptyState,{title:'Loading attention…',desc:'Aggregating intakes, candidates, pilots and partners that need founder attention.',hint:'WHAT: Attention inbox · fetching /api/v1/attention',iconSize:28})
     )
    ),
    h('div',{className:'card'},h('div',{className:'panelTitle'},h('h3',null,'LIVE EVENT STREAM'),h('span',null,'EVENTBUS · SSE')),
@@ -626,7 +660,7 @@ const decodeClaims=t=>{try{const p=String(t||'').split('.');if(p.length!==3)retu
       h('span',{style:{fontSize:9.5,color:'var(--faint)'}},fmtTime(ev.at))
      ),
      ev.payload&&typeof ev.payload==='object'?h('div',{style:{fontSize:10.5,color:'var(--muted)',marginTop:4,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',maxWidth:'100%'}},Object.keys(ev.payload).slice(0,5).map(k=>k+':'+(typeof ev.payload[k]==='object'?JSON.stringify(ev.payload[k]).slice(0,40):String(ev.payload[k]).slice(0,40))).join(' · ')):null
-    ))):h('div',{className:'emptyState'},'Waiting for live events…')
+    ))):h(EmptyState,{title:'Waiting for live events…',desc:'Connected to the canonical ADE Enterprise Event Bus via /api/v1/events/stream (SSE). Events will appear here in real time.',hint:'WHAT: Live event stream · WHY EMPTY: no events published yet',iconSize:28})
    )
   )
   );
@@ -640,16 +674,16 @@ const decodeClaims=t=>{try{const p=String(t||'').split('.');if(p.length!==3)retu
     h('div',{className:'stat'},h('b',null,attention.stats?.partners??'—'),h('span',null,'Partners')),
     h('div',{className:'stat'},h('b',null,attention.stats?.connections??'—'),h('span',null,'Connections')),
     h('div',{className:'stat'},h('b',null,attention.stats?.cases??'—'),h('span',null,'Cases'))
-   ))):h('div',{className:'card'},h('div',{className:'cardBody'},h('div',{className:'emptyState'},'Loading attention...'))),
+   ))):h('div',{className:'card'},h('div',{className:'cardBody'},h(EmptyState,{title:'Loading attention…',desc:'Aggregating intakes, candidates, pilots and partners that need founder attention.',hint:'WHAT: Attention inbox · fetching /api/v1/attention',iconSize:28}))),
    h('div',{className:'card'},h('div',{className:'panelTitle'},h('h3',null,'RECENT INTAKES'),h('span',null,String(attention?.intakes?.length||0)+' RECORDS')),h('div',{className:'cardBody'},attention?.intakes?.length?h('div',null,attention.intakes.slice(0,12).map(i=>h('div',{key:i.id,style:{padding:'8px 10px',borderBottom:'1px solid var(--lineSoft)',display:'flex',justifyContent:'space-between',gap:8}},
      h('div',null,h('div',{style:{fontWeight:700,color:'var(--ink)'}},i.organization||'—'),h('div',{style:{fontSize:11,color:'var(--muted)'}},i.type||'—')),
      h('div',{style:{fontSize:11,color:'var(--faint)'}},fmtDate(i.receivedAt))
-    ))):h('div',{className:'emptyState'},'No community intakes.'))),
+    ))):h(EmptyState,{title:'No community intakes yet',desc:'Intakes are inbound community requests that enter ADE for qualification. None have been received in this period.',hint:'WHAT: Community intakes · WHY EMPTY: no submissions yet · WHAT TO DO: Check back after intake forms are submitted',actionLabel:'Refresh inbox',actionFn:()=>{try{api("/api/v1/attention").then(r=>r&&r.attention&&setAttention(r.attention))}catch{}},iconSize:32}))),
    h('div',{className:'card'},h('div',{className:'panelTitle'},h('h3',null,'CANDIDATES — ACTION REQUIRED'),h('span',null,String(attention?.candidates?.length||0)+' CANDIDATES')),h('div',{className:'cardBody'},attention?.candidates?.length?h('div',null,attention.candidates.slice(0,12).map(c=>h('div',{key:c.intakeId,style:{padding:'8px 10px',borderBottom:'1px solid var(--lineSoft)',display:'flex',justifyContent:'space-between',alignItems:'center',gap:8}},
-    h('div',null,h('div',{style:{fontWeight:700}},c.organization||'—'),h('div',{style:{fontSize:11,color:'var(--muted)'}},c.intent||'—')),
-    h('button',{className:'btn sm primary',onClick:()=>doApprovePilot(c.intakeId)},'Approve')
-   ))):h('div',{className:'emptyState'},'No candidates.'))),
-   h('div',{className:'card'},h('div',{className:'panelTitle'},h('h3',null,'PARTNERS'),h('span',null,String(attention?.partners?.length||0)+' PARTNERS')),h('div',{className:'cardBody'},attention?.partners?.length?h('div',null,attention.partners.slice(0,12).map(p=>h('div',{key:p.id,style:{padding:'8px 10px',borderBottom:'1px solid var(--lineSoft)'}},h('div',{style:{fontWeight:700}},p.name||'—'),h('div',{style:{fontSize:11,color:'var(--muted)'}},p.contact?.partnerType||'—')+' · '+B(p.status||'—','muted')))):h('div',{className:'emptyState'},'No partners.')))
+     h('div',null,h('div',{style:{fontWeight:700}},c.organization||'—'),h('div',{style:{fontSize:11,color:'var(--muted)'}},c.intent||'—')),
+     h('button',{className:'btn sm primary',onClick:()=>doApprovePilot(c.intakeId),disabled:pilotBusy},pilotBusy?h('span',{style:{display:'inline-flex',alignItems:'center',gap:4}},h('span',{className:'spinner',style:{width:10,height:10,borderWidth:'2px'}}),'…'):'Approve')
+    ))):h(EmptyState,{title:'No candidates — action required queue is clear',desc:'Candidates are intakes that passed PROCARTA qualification and await founder approval. The queue is empty because none are pending.',hint:'WHAT: Qualified candidates · WHY EMPTY: no pending approvals · WHAT TO DO: New candidates appear when PROCARTA qualifies intakes',actionLabel:'View pilot candidates',actionFn:()=>setTab('PILOTS'),iconSize:32}))),
+   h('div',{className:'card'},h('div',{className:'panelTitle'},h('h3',null,'PARTNERS'),h('span',null,String(attention?.partners?.length||0)+' PARTNERS')),h('div',{className:'cardBody'},attention?.partners?.length?h('div',null,attention.partners.slice(0,12).map(p=>h('div',{key:p.id,style:{padding:'8px 10px',borderBottom:'1px solid var(--lineSoft)'}},h('div',{style:{fontWeight:700}},p.name||'—'),h('div',{style:{fontSize:11,color:'var(--muted)'}},p.contact?.partnerType||'—')+' · '+B(p.status||'—','muted')))):h(EmptyState,{title:'No partners in attention queue',desc:'This preview shows recent partner interests. None are present because no partner activity is pending attention.',hint:'WHAT: Attention partners · WHY EMPTY: no partner events · WHAT TO DO: Register a partner in the Partners tab',actionLabel:'Go to Partners',actionFn:()=>setTab('PARTNERS'),iconSize:32})))
   );
 
   /* ── WORKFORCE ── */
@@ -674,7 +708,7 @@ const decodeClaims=t=>{try{const p=String(t||'').split('.');if(p.length!==3)retu
       h('div',null,h('label',{className:'fieldLabel'},'EXPIRY (DAYS)'),h('input',{className:'formInput',type:'number',min:'1',max:'90',value:inviteForm.expiryDays,onChange:e=>setInviteForm({...inviteForm,expiryDays:e.target.value})}))
      ),
      h('div',null,h('label',{className:'fieldLabel'},'MESSAGE'),h('textarea',{className:'formInput',value:inviteForm.message,onChange:e=>setInviteForm({...inviteForm,message:e.target.value}),placeholder:'Welcome message (optional)'})),
-     h('div',{style:{display:'flex',gap:8}},h('button',{className:'btn primary',onClick:doInvite},'SEND INVITATION'))
+      h('div',{style:{display:'flex',gap:8}},h('button',{className:'btn primary',onClick:doInvite,disabled:inviteBusy},inviteBusy?h('span',{style:{display:'inline-flex',alignItems:'center',gap:6}},h('span',{className:'spinner',style:{width:12,height:12,borderWidth:'2px'}}),'SENDING…'):'SEND INVITATION'))
     ),
     inviteResult&&h('div',{className:'inviteResult'},
      h('div',{style:{fontWeight:700,color:'var(--good)',marginBottom:8}},'INVITATION CREATED'),
@@ -719,7 +753,7 @@ const decodeClaims=t=>{try{const p=String(t||'').split('.');if(p.length!==3)retu
        ))
       )))
      )
-    ):h('div',{className:'emptyState'},'No workforce members found.')
+    ):h(EmptyState,{title:'No workforce members yet',desc:'This roster lists every invited person who can operate ADE. It is empty because no invitations have been created or accepted yet. Use the form above to invite your first teammate.',hint:'WHAT: Workforce roster · WHY EMPTY: no invitations yet · WHAT TO DO: Create your first invitation above',actionLabel:'Create your first invitation above',actionFn:()=>{try{const el=document.querySelector(".formInput");if(el)el.focus();window.scrollTo({top:0,behavior:"smooth"})}catch{}},iconSize:36})
    )
   ),
   h('div',{className:'card'},h('div',{className:'panelTitle'},h('h3',null,'AGENT IDENTITIES'),h('span',null,(agents.length)+' AGENTS')),
@@ -732,7 +766,7 @@ const decodeClaims=t=>{try{const p=String(t||'').split('.');if(p.length!==3)retu
      agents.length?h('div',{className:'tableWrap'},
        h('table',null,h('thead',null,h('tr',null,h('th',null,'NAME'),h('th',null,'STATUS'),h('th',null,'PURPOSE'),h('th',null,'CREATED'),h('th',null,'ACTIONS'))),
        h('tbody',null,agents.map(a=>h('tr',{key:a.id},h('td',{style:{color:'var(--ink)',fontWeight:600}},a.name),h('td',null,B(a.status||'ACTIVE',a.status==='ACTIVE'?'good':'muted')),h('td',{style:{color:'var(--muted)',whiteSpace:'normal'}},a.purpose||'—'),h('td',null,fmtDate(a.createdAt)),h('td',null,h('div',{className:'actions'},a.status==='ACTIVE'?h('button',{className:'btn sm danger',onClick:()=>doToggleAgentStatus(a.id,a.status)},'⊘ Suspend'):h('button',{className:'btn sm',onClick:()=>doToggleAgentStatus(a.id,a.status)},'✓ Activate')))))))
-      ):h('div',{className:'emptyState'},'No agents registered.')
+      ):h(EmptyState,{title:'No agent identities yet',desc:'Agents are programmatic actors that operate on behalf of ADE. None are registered because no agent has been created.',hint:'WHAT: Agent identities · WHY EMPTY: no agents created · WHAT TO DO: Add your first agent above',actionLabel:'Create your first agent above',actionFn:()=>{try{window.scrollTo({top:0,behavior:"smooth"})}catch{}},iconSize:32})
    )
   )
  );
@@ -756,10 +790,10 @@ const decodeClaims=t=>{try{const p=String(t||'').split('.');if(p.length!==3)retu
       h('td',{style:{color:'var(--ink)',fontWeight:600}},c.organization||'—'),
       h('td',{style:{whiteSpace:'normal'}},c.intent||c.useCaseDescription||'—'),
       h('td',null,B('PROCARTA','blue')),
-      h('td',null,fmtDate(c.receivedAt)),
-      h('td',null,h('button',{className:'btn sm primary',onClick:()=>doApprovePilot(c.intakeId||c.id)},'✓ Approve'))
+       h('td',null,fmtDate(c.receivedAt)),
+       h('td',null,h('button',{className:'btn sm primary',onClick:()=>doApprovePilot(c.intakeId||c.id),disabled:pilotBusy},pilotBusy?h('span',{style:{display:'inline-flex',alignItems:'center',gap:4}},h('span',{className:'spinner',style:{width:10,height:10,borderWidth:'2px'}}),'…'):'✓ Approve'))
      )))
-    )):h('div',{className:'emptyState'},'No pilot candidates at this time.')
+    )):h(EmptyState,{title:'No pilot candidates at this time',desc:'New candidates appear when community intake qualifies via PROCARTA. The pipeline monitors intake signals and promotes only qualified prospects.',hint:'WHAT: Pilot candidates · WHY EMPTY: no qualified intakes yet · WHAT TO DO: Wait for PROCARTA qualification or check Inbox',actionLabel:'View Inbox',actionFn:()=>setTab('INBOX'),iconSize:36})
     )
    ),
   h('div',{className:'card'},h('div',{className:'panelTitle'},h('h3',null,'PILOT REGISTRY'),h('span',null,(pilotRegistry.length)+' RECORDS')),
@@ -779,7 +813,7 @@ const decodeClaims=t=>{try{const p=String(t||'').split('.');if(p.length!==3)retu
        r.state==='EVALUATION'&&h('button',{className:'btn sm danger',onClick:()=>doVerdict(r.id||r.recordId,'ARCHIVED')},'↓ Archive')
       ))
      )))
-    )):h('div',{className:'emptyState'},'No pilot records in the registry.')
+    )):h(EmptyState,{title:'No pilot records in the registry',desc:'This registry tracks every pilot from EVALUATION through PROMOTED or ARCHIVED. It is empty because no pilot has been approved yet.',hint:'WHAT: Pilot registry · WHY EMPTY: no approved pilots · WHAT TO DO: Approve a candidate above to create a record',actionLabel:'View candidates',actionFn:()=>window.scrollTo({top:0,behavior:"smooth"}),iconSize:32})
    )
   )
  );
@@ -805,8 +839,8 @@ const decodeClaims=t=>{try{const p=String(t||'').split('.');if(p.length!==3)retu
       h('div',null,h('label',{className:'fieldLabel'},'CAPABILITIES'),h('input',{className:'formInput',value:partnerForm.capabilities,onChange:e=>setPartnerForm({...partnerForm,capabilities:e.target.value}),placeholder:'Comma-separated capabilities'})),
       h('div',null,h('label',{className:'fieldLabel'},'INDUSTRIES'),h('input',{className:'formInput',value:partnerForm.industries,onChange:e=>setPartnerForm({...partnerForm,industries:e.target.value}),placeholder:'Comma-separated industries'}))
      ),
-     h('div',null,h('label',{className:'fieldLabel'},'COUNTRIES SERVED'),h('input',{className:'formInput',value:partnerForm.countriesServed,onChange:e=>setPartnerForm({...partnerForm,countriesServed:e.target.value}),placeholder:'Comma-separated countries'})),
-     h('button',{className:'btn primary',onClick:doCreatePartner},'REGISTER PARTNER')
+      h('div',null,h('label',{className:'fieldLabel'},'COUNTRIES SERVED'),h('input',{className:'formInput',value:partnerForm.countriesServed,onChange:e=>setPartnerForm({...partnerForm,countriesServed:e.target.value}),placeholder:'Comma-separated countries'})),
+      h('button',{className:'btn primary',onClick:doCreatePartner,disabled:partnerBusy},partnerBusy?h('span',{style:{display:'inline-flex',alignItems:'center',gap:6}},h('span',{className:'spinner',style:{width:12,height:12,borderWidth:'2px'}}),'REGISTERING…'):'REGISTER PARTNER')
     )
    )
   ),
@@ -825,7 +859,7 @@ const decodeClaims=t=>{try{const p=String(t||'').split('.');if(p.length!==3)retu
        h('td',null,p.contact?.person||'—'),
        h('td',null,p.contact?.email||'—')
 )))
-     )):h('div',{className:'emptyState'},'No partners registered.')
+     )):h(EmptyState,{title:'No partners registered yet',desc:'Partners are organizations that extend ADE capability. None are registered because no partner application has been submitted or approved.',hint:'WHAT: Partner list · WHY EMPTY: no partners yet · WHAT TO DO: Register your first partner above',actionLabel:'Register your first partner above',actionFn:()=>window.scrollTo({top:0,behavior:"smooth"}),iconSize:36})
     )
    )
   );
@@ -844,8 +878,8 @@ const decodeClaims=t=>{try{const p=String(t||'').split('.');if(p.length!==3)retu
       h('div',null,h('label',{className:'fieldLabel'},'AUTH TYPE'),h('select',{className:'formInput',value:connForm.authType,onChange:e=>setConnForm({...connForm,authType:e.target.value})},AUTH_TYPES.map(t=>h('option',{key:t,value:t},t))))
      ),
      h('div',null,h('label',{className:'fieldLabel'},'BASE URL'),h('input',{className:'formInput',value:connForm.baseUrl,onChange:e=>setConnForm({...connForm,baseUrl:e.target.value}),placeholder:'https://api.example.com'})),
-     h('p',{className:'formHint'},'PROVIDER is required and identifies the connection; the NAME field is a local label only.'),
-     h('button',{className:'btn primary',onClick:doCreateConn},'CREATE CONNECTION')
+      h('p',{className:'formHint'},'PROVIDER is required and identifies the connection; the NAME field is a local label only.'),
+      h('button',{className:'btn primary',onClick:doCreateConn,disabled:connBusy},connBusy?h('span',{style:{display:'inline-flex',alignItems:'center',gap:6}},h('span',{className:'spinner',style:{width:12,height:12,borderWidth:'2px'}}),'CREATING…'):'CREATE CONNECTION')
     )
    )
   ),
@@ -862,7 +896,7 @@ const decodeClaims=t=>{try{const p=String(t||'').split('.');if(p.length!==3)retu
        h('td',null,B(c.status||'CONFIGURED',c.status==='CONNECTED'?'good':'muted')),
        h('td',null,h('button',{className:'btn sm',onClick:()=>doTestConn(c.id)},connTest?.id===c.id&&connTest?.testing?'Testing...':'⚡ Test'))
 )))
-     )):h('div',{className:'emptyState'},'No connections configured.'),
+     )):h(EmptyState,{title:'No connections configured',desc:'Connections link ADE to external systems via REST, WEBHOOK or OAUTH2. None exist because no integration has been added yet.',hint:'WHAT: External integrations · WHY EMPTY: no connections yet · WHAT TO DO: Add your first integration above to connect external systems',actionLabel:'Add your first integration above',actionFn:()=>window.scrollTo({top:0,behavior:"smooth"}),iconSize:36}),
     connTest?.result&&!connTest?.testing?h('div',{className:'card',style:{marginTop:12}},
      h('div',{className:'panelTitle'},h('h3',null,'TEST RESULT')),
      h('div',{className:'cardBody'},
@@ -881,7 +915,7 @@ const decodeClaims=t=>{try{const p=String(t||'').split('.');if(p.length!==3)retu
      B(edition.edition||'COMMUNITY','gold'),
      B(edition.badge||'—','muted'),
      B('DEMO MODE: '+(edition.isDemoMode?'YES':'NO'),edition.isDemoMode?'warn':'good')
-    ):h('div',{className:'emptyState'},'Loading edition...')
+    ):h(EmptyState,{title:'Loading edition…',desc:'Fetching current ADE edition and badge from the server.',hint:'WHAT: Edition info · fetching /api/v1/edition',iconSize:28})
    )
   ),
   h('div',{className:'card'},h('div',{className:'panelTitle'},h('h3',null,'FEATURE MATRIX'),h('span',null,(features.length)+' FEATURES')),
@@ -893,7 +927,7 @@ const decodeClaims=t=>{try{const p=String(t||'').split('.');if(p.length!==3)retu
      B(f.available?'AVAILABLE':'DISABLED',f.available?'good':'bad'),
      f.requiresExternal?B('EXTERNAL DEPENDENCY','warn'):null,
      f.requiresPayment?B('PAID','bad'):null
-    )):h('div',{className:'emptyState'},'No features in the feature control store.')
+    )):h(EmptyState,{title:'No features in the control store',desc:'Features are edition-gated capabilities controlled from this matrix. None are loaded because the store is empty or still syncing.',hint:'WHAT: Feature matrix · WHY EMPTY: store empty or loading · WHAT TO DO: Refresh or check diagnostics for storage health',actionLabel:'Refresh diagnostics',actionFn:()=>refreshAll(),iconSize:32})
    )
   )
  );
@@ -913,7 +947,7 @@ const decodeClaims=t=>{try{const p=String(t||'').split('.');if(p.length!==3)retu
       B('EXPOSURE: '+(tradeStatus.risk?.openPositions??0)+'/'+(tradeStatus.risk?.maxExposure??'—'),'muted'),
       B(tradeStatus.risk?.emergencyStop?'EMERGENCY STOP ON':'EMERGENCY STOP OFF',tradeStatus.risk?.emergencyStop?'bad':'good'),
       h('button',{className:'btn sm danger',onClick:()=>doEmergencyStop(!tradeStatus.risk?.emergencyStop)},tradeStatus.risk?.emergencyStop?'Release Stop':'Engage Stop')
-     ):h('div',{className:'emptyState'},'Loading trading status...'),
+     ):h(EmptyState,{title:'Loading trading status…',desc:'Fetching paper-mode status, balance and risk limits from /api/v1/trading/status.',hint:'Trading runs PAPER only until a broker is connected',iconSize:28}),
      tradeStatus?h('div',{style:{marginTop:10,fontSize:11,color:'var(--muted)',lineHeight:1.6}},'Execution: PAPER only — LIVE is disabled until an authorized broker/provider is connected. Session-extraction and credential reuse are not supported; authenticate in your own broker session.') : null
     )
    ),
@@ -960,7 +994,7 @@ const decodeClaims=t=>{try{const p=String(t||'').split('.');if(p.length!==3)retu
    h('div',{className:'card'},h('div',{className:'panelTitle'},h('h3',null,'GAMING / VIRTUAL'),h('span',null,'ROADMAP')),
     h('div',{className:'cardBody'},
      h('div',{className:'formRow'},
-      h('div',null,h('label',{className:'fieldLabel'},'MARKET'),h('select',{className:'formInput',value:tradeForm.game,onChange:e=>setTradeForm({...tradeForm,game:e.target.value})},['AVIATOR','CRASH','VIRTUAL_FOOTBALL','VIRTUAL_SPORT','SPRIBE','POCKET_OPTION','QUOTEX','IQ_OPTION','EXPERT_OPTION','SPORTBET','BETWAY','BETNAIJA','BETKING'].map(g=>h('option',{key:g,value:g},g)))),
+       h('div',null,h('label',{className:'fieldLabel'},'MARKET'),h('select',{className:'formInput',value:tradeForm.game,onChange:e=>setTradeForm({...tradeForm,game:sanitizeVenue(e.target.value)})},['AVIATOR','CRASH','VIRTUAL_FOOTBALL','VIRTUAL_SPORT','SPRIBE','POCKET_OPTION','QUOTEX','IQ_OPTION','EXPERT_OPTION','SPORTBET','BETWAY','BETNAIJA','BETKING'].map(g=>h('option',{key:g,value:g},g)))),
       h('div',{style:{alignSelf:'end'}},h('button',{className:'btn sm',onClick:doGamingCheck},'CHECK SUPPORT'))
      ),
      tradeGaming?h('div',{style:{marginTop:10,fontSize:12,lineHeight:1.7}},B(tradeGaming.support||'NOT_SUPPORTED','warn'),h('div',{style:{marginTop:6,color:'var(--muted)'}},tradeGaming.reason||'')):h('div',{style:{marginTop:8,fontSize:11,color:'var(--muted)'}},'Crash/virtual/betting outcomes resolve on provider servers with no authorized analytical feed. ADE returns NO_TRADE here by design — no session extraction, no credential reuse, no detection evasion.')
@@ -980,7 +1014,7 @@ const decodeClaims=t=>{try{const p=String(t||'').split('.');if(p.length!==3)retu
        h('td',null,p.result?(p.result.outcome+' '+(p.result.pnl??'')):'—'),
        h('td',null,!p.closedAt&&h('button',{className:'btn sm',onClick:()=>doPaperClose(p.id)},'Close'))
       ))))
-    ):h('div',{className:'emptyState'},'No paper positions.')
+    ):h(EmptyState,{title:'No paper positions yet',desc:'Paper positions simulate trades on supplied candles without a live broker. None exist because no CONFIRMED signal has been executed.',hint:'WHAT: Paper ledger · WHY EMPTY: no executed signals · WHAT TO DO: Analyze candles and execute a CONFIRMED signal in PAPER mode',actionLabel:'Analyze candles',actionFn:()=>window.scrollTo({top:0,behavior:"smooth"}),iconSize:32})
    )
   )
  );
@@ -1014,7 +1048,7 @@ const decodeClaims=t=>{try{const p=String(t||'').split('.');if(p.length!==3)retu
      h('div',{style:{fontSize:13,fontWeight:700,color:'var(--ink)'}},p.id||p.name),
      h('div',{style:{marginTop:4}},B(p.configured?'CONFIGURED':'UNCONFIGURED',p.configured?'good':'muted')),
      p.type?h('div',{style:{marginTop:4,fontSize:10,color:'var(--muted)'}},(p.type||'')+(p.status?' · '+p.status:'')):null
-    ))):h('div',{className:'emptyState'},'No media providers configured.')
+    ))):h(EmptyState,{title:'No media providers configured',desc:'Providers power Product Theater rendering. None are configured because no provider credentials are set in this environment.',hint:'WHAT: Media engine providers · WHY EMPTY: no provider env configured · WHAT TO DO: Configure a provider in environment or submit a media request',actionLabel:'Submit media request below',actionFn:()=>window.scrollTo({top:0,behavior:"smooth"}),iconSize:32})
    )
   ),
   h('div',{className:'card'},h('div',{className:'panelTitle'},h('h3',null,'MEDIA REQUESTS'),h('span',null,(mediaRequests.length)+' REQUESTS')),
@@ -1029,7 +1063,7 @@ const decodeClaims=t=>{try{const p=String(t||'').split('.');if(p.length!==3)retu
        h('td',null,B(m.status||'CREATED','muted')),
        h('td',null,fmtDate(m.createdAt))
 )))
-     )):h('div',{className:'emptyState'},'No media requests.')
+     )):h(EmptyState,{title:'No media requests yet',desc:'Media requests queue promotional, demo or tutorial assets for production. None exist because none have been submitted.',hint:'WHAT: Media requests · WHY EMPTY: no submissions · WHAT TO DO: Submit your first request above',actionLabel:'Create media request above',actionFn:()=>window.scrollTo({top:0,behavior:"smooth"}),iconSize:32})
    )
   )
  );
@@ -1059,7 +1093,7 @@ const decodeClaims=t=>{try{const p=String(t||'').split('.');if(p.length!==3)retu
      h('div',{style:{fontSize:14,fontWeight:700,color:'var(--ink)',marginBottom:4}},a.title),
      a.body?h('div',{style:{fontSize:12,color:'var(--muted)',lineHeight:1.5}},a.body):null,
      a.link?h('a',{href:a.link,target:'_blank',rel:'noopener',style:{fontSize:11,marginTop:4,display:'inline-block'}},a.link):null
-    ))):h('div',{className:'emptyState'},'No announcements published.')
+    ))):h(EmptyState,{title:'No announcements published yet',desc:'Announcements broadcast news, bulletins or adverts to the ecosystem. None are published because none have been created.',hint:'WHAT: Published announcements · WHY EMPTY: none created · WHAT TO DO: Publish your first announcement above',actionLabel:'Publish your first announcement above',actionFn:()=>window.scrollTo({top:0,behavior:"smooth"}),iconSize:32})
    )
   )
  );
@@ -1077,13 +1111,17 @@ const decodeClaims=t=>{try{const p=String(t||'').split('.');if(p.length!==3)retu
    h('div',{className:'cardBody'},
     auditEntries.length?h('div',{className:'tableWrap'},
      h('table',null,h('thead',null,h('tr',null,h('th',null,'TIMESTAMP'),h('th',null,'TYPE'),h('th',null,'TOPIC'),h('th',null,'DETAILS'))),
-      h('tbody',null,(auditFilter?auditEntries.filter(e=>{const t=(e.payload?.type??e.type??e.topic??'').toLowerCase();return t.includes(auditFilter.toLowerCase())}):auditEntries).map((e,i)=>h('tr',{key:i},
-       h('td',{style:{fontFamily:'ui-monospace,Consolas,monospace',fontSize:10}},fmtTime(e.meta?.timestamp||e.timestamp||e.createdAt)),
-       h('td',null,B(e.payload?.type||e.type||e.topic||'—','blue')),
-       h('td',{style:{color:'var(--ink)',fontWeight:600}},e.topic||e.type||'—'),
-       h('td',{style:{fontSize:11,color:'var(--faint)',maxWidth:300,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}},e.message||e.payload?.message||JSON.stringify(e.payload||{}).slice(0,120))
-)))
-     )):h('div',{className:'emptyState'},'No audit entries found.')
+       h('tbody',null,(auditFilter?auditEntries.filter(e=>{const t=(e.payload?.type??e.type??e.topic??'').toLowerCase();return t.includes(auditFilter.toLowerCase())}):auditEntries).map((e,i)=>{
+         // Audit JSON sanitization: escape HTML entities & < > " and truncate; render as text (React escapes), never as HTML
+         const raw=e.message||e.payload?.message||JSON.stringify(e.payload||{});
+         const safe=truncateHtml(raw);
+         return h('tr',{key:i},
+        h('td',{style:{fontFamily:'ui-monospace,Consolas,monospace',fontSize:10}},fmtTime(e.meta?.timestamp||e.timestamp||e.createdAt)),
+        h('td',null,B(escapeHtml(e.payload?.type||e.type||e.topic||'—'),'blue')),
+        h('td',{style:{color:'var(--ink)',fontWeight:600}},escapeHtml(e.topic||e.type||'—')),
+        h('td',{style:{fontSize:11,color:'var(--faint)',maxWidth:300,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}},safe)
+ )}))
+     )):h(EmptyState,{title:'No audit entries found',desc:'The audit ledger records every security-relevant event. No entries match the current filter or none have been emitted yet.',hint:'WHAT: Security audit ledger · WHY EMPTY: no matching events · WHAT TO DO: Clear the filter or adjust limit and refresh',actionLabel:'Refresh audit',actionFn:async()=>{try{const r=await api("/api/v1/audit?limit="+auditLimit);if(r)setAuditEntries(r.entries||[])}catch{}},iconSize:32})
    )
   )
  );
@@ -1107,10 +1145,21 @@ const decodeClaims=t=>{try{const p=String(t||'').split('.');if(p.length!==3)retu
    ),
    menuOpen&&h('nav',{className:'mobileMenu open'},visibleTabs.map(t=>h('button',{key:t,className:tab===t?'active':'',onClick:()=>{setTab(t);setMenuOpen(false)}},t)))
   ),
-  h('main',{className:'shell'},
-   h('div',{className:'sectionHead'},h('h2',null,'ADE FOUNDER COMMAND CENTER'),h('p',null,'AUTOMATED ALPHA ALIPH DIGITAL ECOSYSTEMS — Building African Digital Business Operational Systems')),
-   (tabContent[tab]||TAB_OVERVIEW)()
-  ),
+   h('main',{className:'shell'},
+    h('div',{className:'heroCard',style:{padding:'18px 20px',marginBottom:'18px',display:'flex',alignItems:'center',gap:'16px',flexWrap:'wrap'}},
+     h('div',{style:{flex:'1 1 260px',position:'relative',zIndex:1,minWidth:'200px'}},
+      h('div',{className:'eyebrow',style:{color:'var(--gold)',fontSize:'10px',letterSpacing:'.22em'}},'AUTOMATED ALPHA ALIPH DIGITAL ECOSYSTEMS'),
+      h('h2',{style:{margin:'6px 0 4px',fontSize:'18px',letterSpacing:'-.01em',color:'var(--gold)'}},'ADE FOUNDER COMMAND CENTER'),
+      h('p',{style:{margin:0,color:'var(--muted)',fontSize:'12.5px',lineHeight:1.5}},'Building African Digital Business Operational Systems — shield-grade operations, procurement and intelligence.'),
+      h('div',{style:{marginTop:'10px',display:'flex',gap:'8px',flexWrap:'wrap'}},h('span',{className:'badge gold'},'SHIELD SECURED'),h('span',{className:'badge blue'},'FOUNDER AUTHORITY'))
+     ),
+     h('div',{style:{position:'relative',width:'96px',height:'96px',flex:'0 0 auto',display:'block'}},
+      h('div',{className:'heroOrb',role:'img','aria-label':'ADE shield orb'}),
+      h('svg',{viewBox:'0 0 24 24',width:36,height:36,style:{position:'absolute',left:'50%',top:'50%',transform:'translate(-50%,-50%)',filter:'drop-shadow(0 2px 8px rgba(0,0,0,.4))'},fill:'none',stroke:'var(--gold)',strokeWidth:'1.6',strokeLinejoin:'round','aria-hidden':'true'},h('path',{d:'M12 2.8 L18.6 6.2 V11.6 C18.6 15.3 16.4 18.9 12 20.8 C7.6 18.9 5.4 15.3 5.4 11.6 V6.2 Z'}),h('path',{d:'M8.8 12.1 L11 14.3 L15.6 9.4',strokeLinecap:'round',strokeLinejoin:'round'}))
+     )
+    ),
+    (tabContent[tab]||TAB_OVERVIEW)()
+   ),
    h('footer',{style:{marginTop:'auto',borderTop:'1px solid var(--line)',padding:'24px 0 20px',textAlign:'center'}},
     h('div',{style:{fontSize:10,color:'var(--faint)',letterSpacing:0.12,fontWeight:700}},'AUTOMATED ALPHA ALIPH DIGITAL ECOSYSTEMS'),
     h('div',{style:{fontSize:10,color:'var(--faint)',marginTop:4}},h('a',{href:'mailto:Automated_alpha_aliph@yahoo.com',style:{color:'var(--muted)'}},'Automated_alpha_aliph@yahoo.com')),
