@@ -185,7 +185,7 @@ td .actions{display:flex;gap:4px;flex-wrap:wrap}
 const {useEffect,useMemo,useState,useCallback}=React;
 const h=React.createElement;
 
-const TABS=['OVERVIEW','INBOX','WORKFORCE','PILOTS','PARTNERS','INTEGRATIONS','TRADING','FEATURE CONTROL','PRODUCT THEATER','ANNOUNCEMENTS','AUDIT'];
+ const TABS=['OVERVIEW','INBOX','WORKFORCE','PILOTS','PARTNERS','INTEGRATIONS','TRADING','FOREX','BINARY','GAMING','FEATURE CONTROL','PRODUCT THEATER','ANNOUNCEMENTS','AUDIT'];
 const PILOT_STAGES=['PROSPECT','QUALIFIED','ASSESSMENT','BASELINE','PILOT','HUMAN REVIEW','IMPLEMENTATION','RE-MEASUREMENT','EVIDENCE','SUCCESS'];
 const ROLES=['FOUNDER','ADMIN','OPERATOR','ANALYST','PARTNER','VIEWER'];
 const PARTNER_TYPES=['TECHNOLOGY','CONSULTING','CHANNEL','STRATEGIC','RESELLER','IMPLEMENTATION'];
@@ -570,16 +570,24 @@ const heroShieldBg='url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/200
      ):null
     ):h(EmptyState,{title:'Loading runtime data…',desc:'Fetching kernel status, PID, platform and active subsystems from the ADE runtime.',hint:'WHAT: System health detail · WHY LOADING: fetching /api/v1/runtime',iconSize:28})
    )
-  ),
-  h('div',{className:'card'},h('div',{className:'panelTitle'},h('h3',null,'ADMIN OVERVIEW'),h('span',null,'SERVER')),
-   h('div',{className:'cardBody'},
-    overview?h('div',{style:{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(140px,1fr))',gap:10}},
-     h('div',{className:'stat'},h('b',null,overview.channels?.length??'—'),h('span',null,'Channels')),
-     h('div',{className:'stat'},h('b',null,overview.connections?.length??'—'),h('span',null,'Connections')),
-     h('div',{className:'stat'},h('b',null,overview.partners?.length??'—'),h('span',null,'Partners')),
-     h('div',{className:'stat'},h('b',null,overview.cases?.length??'—'),h('span',null,'Cases'))
-    ):h(EmptyState,{title:'Loading overview…',desc:'Fetching admin overview channels, connections, partners and cases from the server.',hint:'Please wait — overview refreshes every 20s',iconSize:28})
-   )
+    ),
+   h('div',{className:'card'},h('div',{className:'panelTitle'},h('h3',null,'SYSTEM TELEMETRY'),h('span',null,'EVENTBUS · LATENCY · HEALTH')),h('div',{className:'cardBody'}, metrics?h('div',{style:{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(150px,1fr))',gap:10}},
+     h('div',{className:'stat'},h('b',null,metrics?.eventBus?.published??'—'),h('span',null,'Events Published')),
+     h('div',{className:'stat'},h('b',null,metrics?.eventBus?.delivered??'—'),h('span',null,'Events Delivered')),
+     h('div',{className:'stat'},h('b',null,metrics?.kernel?.intentsDispatched??'—'),h('span',null,'Intents Dispatched')),
+     h('div',{className:'stat'},h('b',null,metrics?.kernel?.intentsSucceeded??'—'),h('span',null,'Intents Succeeded')),
+     h('div',{className:'stat'},h('b',null,metrics?.kernel?.errors??0),h('span',null,'Kernel Errors')),
+     h('div',{className:'stat'},h('b',null,metrics?.observatory?.uptimeSeconds!=null?Math.floor(metrics.observatory.uptimeSeconds)+'s':'—'),h('span',null,'Observatory Uptime'))
+   ):h(EmptyState,{title:'Loading telemetry…',desc:'EventBus and capability latency from the kernel telemetry hub.',hint:'WHAT: Telemetry · WHY LOADING: fetching /api/v1/metrics',iconSize:28}))),
+   h('div',{className:'card'},h('div',{className:'panelTitle'},h('h3',null,'ADMIN OVERVIEW'),h('span',null,'SERVER')),
+    h('div',{className:'cardBody'},
+     overview?h('div',{style:{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(140px,1fr))',gap:10}},
+      h('div',{className:'stat'},h('b',null,overview.channels?.length??'—'),h('span',null,'Channels')),
+      h('div',{className:'stat'},h('b',null,overview.connections?.length??'—'),h('span',null,'Connections')),
+      h('div',{className:'stat'},h('b',null,overview.partners?.length??'—'),h('span',null,'Partners')),
+      h('div',{className:'stat'},h('b',null,overview.cases?.length??'—'),h('span',null,'Cases'))
+     ):h(EmptyState,{title:'Loading overview…',desc:'Fetching admin overview channels, connections, partners and cases from the server.',hint:'Please wait — overview refreshes every 20s',iconSize:28})
+    )
    ),
    h('div',{className:'card'},h('div',{className:'panelTitle'},h('h3',null,'PRODUCTION READINESS'),h('span',null,'DIAGNOSTICS')),
     h('div',{className:'cardBody'},
@@ -1126,7 +1134,10 @@ const heroShieldBg='url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/200
   )
  );
 
- const tabContent={OVERVIEW:TAB_OVERVIEW,INBOX:TAB_INBOX,WORKFORCE:TAB_WORKFORCE,PILOTS:TAB_PILOTS,PARTNERS:TAB_PARTNERS,INTEGRATIONS:TAB_INTEGRATIONS,TRADING:TAB_TRADING,'FEATURE CONTROL':TAB_FEATURES,'PRODUCT THEATER':TAB_THEATER,ANNOUNCEMENTS:TAB_ANNOUNCEMENTS,AUDIT:TAB_AUDIT};
+  const TAB_FOREX=()=>h('div',{className:'stack'},h('div',{className:'sectionHead'},h('h2',null,'FOREX — Broker Connections & Paper Intelligence'),h('p',null,'Live paper analytics with risk controls. Broker status badges: Connected / Authenticated / Unconfigured. Manual venue configuration via INTEGRATIONS.')), TAB_TRADING());
+  const TAB_BINARY=()=>h('div',{className:'stack'},h('div',{className:'sectionHead'},h('h2',null,'BINARY — Live Feed + Manipulation Shields'),h('p',null,'Tick-stall (15s), 2.5-pip edge, 0.8-pip feed validation. Paper only until VERIFIED broker.')), TAB_TRADING());
+  const TAB_GAMING=()=>h('div',{className:'stack'},h('div',{className:'sectionHead'},h('h2',null,'GAMING — Aviator / Crash Analytics (Educational)'),h('p',null,'Rolling history via AviatorHistoryStore, bustTable + MonteCarlo — not prediction. Paper simulation only.')), h('div',{className:'card'},h('div',{className:'cardBody'}, h('div',{style:{display:'flex',gap:8,flexWrap:'wrap'}},h('button',{className:'btn primary',onClick:()=>window.open('/market-lab','_blank')},'Open Market Lab'),h('button',{className:'btn',onClick:()=>setTab('TRADING')},'Go to Trading')))));
+  const tabContent={OVERVIEW:TAB_OVERVIEW,INBOX:TAB_INBOX,WORKFORCE:TAB_WORKFORCE,PILOTS:TAB_PILOTS,PARTNERS:TAB_PARTNERS,INTEGRATIONS:TAB_INTEGRATIONS,TRADING:TAB_TRADING,FOREX:TAB_FOREX,BINARY:TAB_BINARY,GAMING:TAB_GAMING,'FEATURE CONTROL':TAB_FEATURES,'PRODUCT THEATER':TAB_THEATER,ANNOUNCEMENTS:TAB_ANNOUNCEMENTS,AUDIT:TAB_AUDIT};
 
  return h('div',{className:'app'},
   h('header',{className:'top'},
