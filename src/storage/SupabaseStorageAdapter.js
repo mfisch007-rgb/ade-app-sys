@@ -50,7 +50,8 @@ export class SupabaseStorageAdapter extends StorageProvider {
    */
   isConfigured() {
     const { url, key, table } = this.config;
-    return Boolean(url && key && table);
+    const isPlaceholder = (v) => !v || String(v).trim()==="[SENSITIVE]" || String(v).trim()==="[PRESENT]" || String(v).trim()==="";
+    return Boolean(url && key && table && !isPlaceholder(url) && !isPlaceholder(key) && !isPlaceholder(table));
   }
 
   /**
@@ -58,10 +59,11 @@ export class SupabaseStorageAdapter extends StorageProvider {
    */
   configurationError() {
     if (this.isConfigured()) return null;
+    const isPlaceholder = (v) => !v || String(v).trim()==="[SENSITIVE]" || String(v).trim()==="[PRESENT]" || String(v).trim()==="";
     const missing = [];
-    if (!this.config.url) missing.push("SUPABASE_URL");
-    if (!this.config.key) missing.push("SUPABASE_SECRET_KEY (aliases: SUPABASE_SERVICE_ROLE_KEY, SUPABASE_STORAGE_KEY)");
-    if (!this.config.table) missing.push("SUPABASE_STORAGE_TABLE");
+    if (isPlaceholder(this.config.url)) missing.push("SUPABASE_URL");
+    if (isPlaceholder(this.config.key)) missing.push("SUPABASE_SECRET_KEY (aliases: SUPABASE_SERVICE_ROLE_KEY, SUPABASE_STORAGE_KEY)");
+    if (isPlaceholder(this.config.table)) missing.push("SUPABASE_STORAGE_TABLE");
     return new Error(
       `STORAGE_NOT_CONFIGURED: missing ${missing.join(", ")}`
     );

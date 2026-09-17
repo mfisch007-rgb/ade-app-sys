@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#07111f">
+<title>ADE Market & Simulation Lab</title>
+<script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<style>
+:root{--bg:#07111f;--surface:rgba(14,26,47,.92);--gold:#d4a843;--goldDim:rgba(212,168,67,.18);--goldBright:#f0c75e;--ink:#e8ecf2;--muted:#8a9bb8;--line:rgba(212,168,67,.12);--good:#00c853;--warn:#ffb300;--bad:#ff5252;--radius:16px;--radiusSm:12px;--touch:44px}
+*{box-sizing:border-box}html,body,#root{margin:0;width:100%}body{background:var(--bg);color:var(--ink);font-family:Inter,system-ui,sans-serif}
+.top{position:sticky;top:0;z-index:30;background:rgba(7,17,31,.92);backdrop-filter:blur(18px);border-bottom:1px solid var(--line);padding:10px 16px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.top h1{margin:0;font-size:15px;letter-spacing:.08em}
+.badge{display:inline-flex;align-items:center;min-height:28px;padding:4px 10px;border-radius:999px;border:1px solid var(--line);font-size:11px;font-weight:700;letter-spacing:.04em}
+.badge.live{border-color:rgba(0,200,83,.35);color:var(--good);background:rgba(0,200,83,.08)}
+.badge.paper{border-color:rgba(30,136,229,.35);color:#64b5f6;background:rgba(30,136,229,.08)}
+.badge.sim{background:rgba(255,179,0,.08);border-color:rgba(255,179,0,.35);color:var(--warn)}
+.badge.req{border-color:rgba(255,82,82,.35);color:var(--bad);background:rgba(255,82,82,.08)}
+.badge.off{color:var(--muted)}
+.wrap{max-width:1280px;margin:0 auto;padding:18px 16px;display:flex;flex-direction:column;gap:18px}
+.grid{display:grid;gap:16px;grid-template-columns:repeat(auto-fit,minmax(320px,1fr))}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:16px;display:flex;flex-direction:column;gap:10px}
+.card h3{margin:0;font-size:13px;letter-spacing:.06em;color:var(--gold)}
+.meta{font-size:11.5px;color:var(--muted);line-height:1.5}
+.btn{all:unset;box-sizing:border-box;cursor:pointer;display:inline-flex;align-items:center;gap:8px;min-height:44px;padding:10px 14px;border-radius:12px;border:1px solid var(--line);background:rgba(255,255,255,.04);font-size:12px;font-weight:600}
+.btn.primary{background:linear-gradient(135deg,var(--gold),#b8912e);color:#0a0e16;border-color:rgba(212,168,67,.5)}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+input,select,textarea{width:100%;min-height:44px;padding:10px 12px;border-radius:12px;border:1px solid var(--line);background:rgba(255,255,255,.04);color:var(--ink);font-family:inherit}
+label{font-size:11px;letter-spacing:.06em;color:var(--muted);display:flex;flex-direction:column;gap:6px}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+pre{white-space:pre-wrap;word-break:break-word;background:rgba(0,0,0,.25);border:1px solid var(--line);border-radius:10px;padding:10px;font-size:11px;color:var(--muted);max-height:320px;overflow:auto}
+.kv{display:grid;grid-template-columns:120px 1fr;gap:6px;font-size:11.5px}
+.kv b{color:var(--muted);font-weight:600}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script>
+const {createElement:h,useState,useEffect,useCallback}=React;
+function Badge({kind}){
+  const m={LIVE:'live',PAPER:'paper',SIMULATION:'sim',PROVIDER_REQUIRED:'req',AUTH_REQUIRED:'req',OFFLINE:'off',CONNECTED:'live',DATA_FLOWING:'live',STALE:'off'};
+  return h('span',{className:'badge '+(m[kind]||'off')}, kind);
+}
+function Card({title,children}){ return h('div',{className:'card'}, h('h3',null,title), children); }
+
+function Lab(){
+  const [auth,setAuth]=useState({token:localStorage.getItem('ade_lab_token')||'', level:0});
+  const [health,setHealth]=useState(null);
+  const [market,setMarket]=useState(null);
+  const [sports,setSports]=useState(null);
+  const [trading,setTrading]=useState(null);
+  const [aviator,setAviator]=useState(null);
+  const [history,setHistory]=useState(null);
+  const [caps,setCaps]=useState([]);
+  const [msg,setMsg]=useState('');
+  const headers=auth.token?{Authorization:'Bearer '+auth.token}:{};
+  const fetchJSON=useCallback(async(url,opts={})=>{
+    const r=await fetch(url,{...opts,headers:{...headers,...(opts.headers||{})}});
+    const j=await r.json().catch(()=>({ok:false,status:r.status}));
+    return {status:r.status,json:j};
+  },[auth.token]);
+
+  const refresh=useCallback(async()=>{
+    try{
+      const [h1,m1,s1,t1,a1,c1]=await Promise.all([
+        fetch('/api/v1/health').then(r=>r.json()).catch(()=>null),
+        fetchJSON('/api/v1/market/health'), fetchJSON('/api/v1/sports/health'),
+        auth.level>=2?fetchJSON('/api/v1/trading/status'):Promise.resolve({json:{trading:{mode:'LOGIN_REQUIRED'}}}),
+        fetch('/api/v1/gaming/aviator/status').then(r=>r.json()).catch(()=>null),
+        fetchJSON('/api/v1/capabilities')
+      ]);
+      setHealth(h1); setMarket(m1.json); setSports(s1.json); setTrading(t1.json?.trading||t1.json); setAviator(a1); setCaps(c1.json?.capabilities||[]);
+      if(auth.level>=2){
+        const hist=await fetchJSON('/api/v1/gaming/aviator/history?limit=20');
+        setHistory(hist.json);
+      }
+    }catch(e){ setMsg(String(e.message||e)); }
+  },[fetchJSON,auth.level]);
+
+  useEffect(()=>{ refresh(); const id=setInterval(refresh,15000); return ()=>clearInterval(id); },[refresh]);
+
+  const doLogin=async()=>{
+    const pin=prompt('Founder PIN:'); if(!pin) return;
+    const r=await fetch('/api/v1/auth/pin',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({pin})});
+    const j=await r.json().catch(()=>null);
+    if(j?.token){ localStorage.setItem('ade_lab_token',j.token); setAuth({token:j.token, level:j.authLevel||j.identity?.level||2}); setMsg('Logged in level '+(j.authLevel||'?')); refresh(); }
+    else setMsg('Login failed: '+(j?.error||r.status));
+  };
+  const doLogout=()=>{ localStorage.removeItem('ade_lab_token'); setAuth({token:'',level:0}); setMsg('Logged out'); };
+
+  return h('div',null,
+    h('div',{className:'top'},
+      h('h1',null,'ADE MARKET & SIMULATION LAB'),
+      h(Badge,{kind: health?.kernel?.status==='HEALTHY'?'LIVE':'OFFLINE'}),
+      h('span',{style:{fontSize:11,color:'var(--muted)'}}, health?`Kernel ${health.kernel.status} · ${health.kernel.subsystemCount} subsystems`:'Loading health…'),
+      h('span',{style:{marginLeft:'auto'}}),
+      auth.token? h('button',{className:'btn',onClick:doLogout, 'aria-label':'Logout lab'},'Logout') : h('button',{className:'btn primary',onClick:doLogin,'aria-label':'Login to lab'},'Founder Login'),
+      h('button',{className:'btn',onClick:refresh,'aria-label':'Refresh lab'},'Refresh')
+    ),
+    h('div',{className:'wrap'},
+      msg? h('div',{className:'card',style:{borderColor:'var(--gold)'},role:'status','aria-live':'polite'}, msg):null,
+      h('div',{className:'grid'},
+        h(Card,{title:'FOREX — LIVE DATA / PAPER ANALYSIS'},
+          h('div',{className:'row'}, h(Badge,{kind: market?.marketData?.dataFlowing?'LIVE':'PAPER'}), h('span',{className:'meta'}, market?`${market.marketData.total} adapters · ${market.marketData.dataFlowing} flowing`:'No market data')),
+          h('div',{className:'meta'}, 'Adapters: '+(market?.marketData?.adapters?.map(a=>a.providerId).join(', ')||'—')),
+          h('div',{className:'meta'}, 'Route: /api/v1/market/health · /api/v1/trading/analyze (kind:FOREX) · /api/v1/trading/paper'),
+          h('pre',null, JSON.stringify(trading||market||{},null,2).slice(0,1200))
+        ),
+        h(Card,{title:'BINARY — LIVE FEED + MANIPULATION SHIELDS'},
+          h('div',{className:'row'}, h(Badge,{kind:'PAPER'}), h('span',{className:'meta'}, 'Shields: 2.5-pip edge · 15s tick-stall · 0.8-pip feed validation')),
+          h('div',{className:'meta'}, 'Pipeline: LIVE FEED → ticks → staleness → tick-stall → feed validation → ANALYSIS → CONFIRMED_CALL/PUT → PAPER → LEDGER'),
+          h('div',{className:'meta'}, 'Route: /api/v1/trading/analyze (kind:BINARY) — defence runs before signal'),
+          h('pre',null, JSON.stringify({note:'Binary analyze returns REJECTED_BROKER_MANIPULATION on manipulation, else WATCH/PRE-ALERT/CONFIRMED', trading: trading?.risk||null},null,2))
+        ),
+        h(Card,{title:'AVIATOR / CRASH — ROLLING OBSERVATION → ANALYTICS'},
+          h('div',{className:'row'}, h(Badge,{kind: history?.status?.stale===false?'LIVE':'PAPER'}), h('span',{className:'meta'}, history?`${history.status.total} rounds · last ${history.status.lastMultiplier||'—'}x` : (aviator?.aviator?.mode||'ANALYTICS_ONLY'))),
+          h('div',{className:'meta'}, 'Ingest: POST /api/v1/gaming/aviator/history/ingest {rounds:[{multiplier}]} · Source: WEBHOOK/POLL/MANUAL — rolling, deduped, persisted'),
+          h('div',{className:'meta'}, 'Analyze: POST /api/v1/gaming/aviator/history/analyze → bustTable + Kelly + Monte Carlo (educational, not predictive)'),
+          h('pre',null, JSON.stringify(history?.status||aviator||{},null,2).slice(0,1200))
+        ),
+        h(Card,{title:'FOOTBALL / SPORTS — FIXTURES → ODDS → STATS'},
+          h('div',{className:'row'}, h(Badge,{kind: sports?.sportsData?.fixtures?'LIVE':'PAPER'}), h('span',{className:'meta'}, sports?`${sports.sportsData.fixtures} fixtures · ${sports.sportsData.oddsEntries} odds`:'No sports data')),
+          h('div',{className:'meta'}, 'Routes: /api/v1/sports/fixtures · /api/v1/sports/odds/:id · /api/v1/sports/statistics/:id · /api/v1/sports/refresh (L2)'),
+          h('pre',null, JSON.stringify(sports||{},null,2).slice(0,1200))
+        )
+      ),
+      h(Card,{title:'AUTOMATION & RISK CONTROLS (Founder L2)'},
+        h('div',{className:'kv'},
+          h('b',null,'Paper mode'), h('span',null, 'Always available — no broker required'),
+          h('b',null,'Auto analysis'), h('span',null, '/api/v1/trading/auto-mode {targetAmount, venueId} → PAPER_AUTO / LIVE_IF_APPROVED (human approval per order)'),
+          h('b',null,'Emergency stop'), h('span',null, 'POST /api/v1/trading/emergency-stop {on:true} — blocks paper execution, gated on durable storage'),
+          h('b',null,'Risk caps'), h('span',null, JSON.stringify(trading?.risk?{maxRiskPerTrade:trading.risk.maxRiskPerTrade, maxDailyLoss:trading.risk.maxDailyLoss, maxExposure:trading.risk.maxExposure, cooldownMs:trading.risk.cooldownMs}:'—')),
+          h('b',null,'Providers'), h('span',null, 'MarketDataRegistry: '+(market?.marketData?.adapters?.length||0)+' · SportsDataBus: '+(sports?.sportsData?.adapters?.length||0)),
+          h('b',null,'Storage'), h('span',null, health?`durable=${String(health?.runtime?.isDurable??'—')}`:'—'),
+          h('b',null,'Auth'), h('span',null, auth.token?`Level ${auth.level} token present`:'Login required for trading/aviator history')
+        )
+      ),
+      h(Card,{title:'CAPABILITY REGISTRY — DISCOVERED ('+caps.length+')'},
+        h('div',{className:'meta'}, 'Source: GET /api/v1/capabilities — honest capability discovery, founder sees full lab.'),
+        h('pre',null, JSON.stringify(caps.slice(0,20).map(c=>({action:c.action||c.id, label:c.label||c.name, category:c.category})),null,2))
+      ),
+      h(Card,{title:'E2E LAB EXERCISE (copy-paste)'},
+        h('pre',null, `FOREX: POST /api/v1/trading/analyze {kind:"FOREX", instrument:"EURUSD", candles:[{o,h,l,c,t} x40]}
+BINARY: POST /api/v1/trading/analyze {kind:"BINARY", pair:"EURUSD", marketType:"REGULAR", candles:[...], timeframe:"M5"}
+AVIATOR ingest: POST /api/v1/gaming/aviator/history/ingest {rounds:[{multiplier:2.14},{multiplier:1.03}]}
+AVIATOR analyze: POST /api/v1/gaming/aviator/history/analyze {venue:"SPRIBE"}
+SPORTS: GET /api/v1/sports/fixtures?sport=FOOTBALL&limit=5
+PAPER: POST /api/v1/trading/paper {signal, riskAmount, actor} (requires CONFIRMED)
+LEDGER: GET /api/v1/trading/ledger?limit=20`)
+      )
+    )
+  );
+}
+ReactDOM.createRoot(document.getElementById('root')).render(h(Lab));
+</script>
+</body>
+</html>

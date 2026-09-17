@@ -96,6 +96,7 @@ import { BetKingAdapter } from "./trading/adapters/BetKingAdapter.js";
 import { Bet9jaAdapter } from "./trading/adapters/Bet9jaAdapter.js";
 import { SportyBetAdapter } from "./trading/adapters/SportyBetAdapter.js";
 import { AviatorAnalyticsEngine } from "./trading/AviatorAnalyticsEngine.js";
+import { AviatorHistoryStore } from "./trading/AviatorHistoryStore.js";
 
 
 const __filename = fileURLToPath(import.meta.url);
@@ -265,6 +266,7 @@ const sportyBetAdapter = new SportyBetAdapter(); marketDataRegistry.registerAdap
 const tradingEntitlements = new TradingEntitlements({ store: runtimeConfig, eventBus: kernel?.eventBus });
 const signalQualityGate = new SignalQualityGate({ entitlements: tradingEntitlements, venueRegistry, signalEngine });
 const aviatorEngine = new AviatorAnalyticsEngine({ store: runtimeConfig, eventBus: kernel?.eventBus });
+const aviatorHistory = new AviatorHistoryStore({ store: runtimeConfig, eventBus: kernel?.eventBus });
 const publicDataRegistry = new PublicDataRegistry();
 const localProvider = new LocalProvider();
 const oracleFabric = new OracleFabric({
@@ -1523,6 +1525,39 @@ app.post('/api/v1/gaming/crash/analyze', security.requireLevel(2), (req, res) =>
   }
 });
 
+// === AVIATOR ROLLING HISTORY — automatic observation buffer =================
+// Legitimate ingest only: webhook/poll/manual/operator feed. No scraping.
+// History is rolling, deduped, persisted via RuntimeConfigStore.
+app.get('/api/v1/gaming/aviator/history', security.requireLevel(2), (req, res) => {
+  try {
+    const limit = Math.min(500, Math.max(1, Number(req.query.limit) || 100));
+    const venue = req.query.venue || null;
+    res.json({ success: true, history: aviatorHistory.list({ venue, limit }), status: aviatorHistory.getStatus(), time: new Date().toISOString() });
+  } catch (e) { res.status(500).json({ success: false, error: "AVIATOR_HISTORY_FAILED", message: e.message }); }
+});
+
+app.post('/api/v1/gaming/aviator/history/ingest', security.requireLevel(2), requireDurableStorage, (req, res) => {
+  try {
+    const { rounds, history, multiplier, venue, source } = req.body || {};
+    const payload = rounds || history || (multiplier != null ? [{ multiplier, t: req.body.t, roundId: req.body.roundId }] : null);
+    if (!payload) return res.status(400).json({ success: false, error: "ROUNDS_REQUIRED", message: "Provide rounds:[{multiplier}] or history:[{multiplier}] or multiplier:number" });
+    const result = aviatorHistory.ingest(payload, { venue, source });
+    res.status(201).json({ success: true, ...result, time: new Date().toISOString() });
+  } catch (e) { res.status(400).json({ success: false, error: "AVIATOR_INGEST_FAILED", message: e.message }); }
+});
+
+app.delete('/api/v1/gaming/aviator/history', security.requireLevel(2), requireDurableStorage, (req, res) => {
+  try { res.json({ success: true, ...aviatorHistory.clear(), time: new Date().toISOString() }); }
+  catch (e) { res.status(500).json({ success: false, error: "AVIATOR_HISTORY_CLEAR_FAILED", message: e.message }); }
+});
+
+app.post('/api/v1/gaming/aviator/history/analyze', security.requireLevel(2), (req, res) => {
+  try {
+    const result = aviatorHistory.analyzeWith(aviatorEngine, req.body || {});
+    res.json({ success: true, aviator: result, historyCount: aviatorHistory.list({ limit: 500 }).length, time: new Date().toISOString() });
+  } catch (e) { res.status(400).json({ success: false, error: "AVIATOR_HISTORY_ANALYZE_FAILED", message: e.message }); }
+});
+
 app.post('/api/v1/trading/live', security.requireLevel(2), requireDurableStorage, (req, res) => {
   try {
     signalEngine.executeLive();
@@ -2300,6 +2335,8 @@ app.post('/api/v1/email/send', security.requireLevel(2), async (req, res) => {
 
 app.get('/admin', (req,res)=>res.sendFile(path.join(__dirname, '../public/admin/index.html')));
 app.get('/founder', (req,res)=>res.sendFile(path.join(__dirname, '../public/founder.html')));
+app.get('/market-lab', (req,res)=>res.sendFile(path.join(__dirname, '../public/market-lab.html')));
+app.get('/lab', (req,res)=>res.sendFile(path.join(__dirname, '../public/market-lab.html')));
 
 // Serve Static UI Assets
 app.use(express.static(path.join(__dirname, "../public")));
