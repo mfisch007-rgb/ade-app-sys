@@ -500,6 +500,131 @@ a{color:var(--royal)}
   }
 }
 </style>
+<style id="ADE_HOMEPAGE_FINAL_RECONCILIATION">
+/* ADE FINAL HOMEPAGE PRESENTATION RECONCILIATION */
+
+.ade-home-responsive {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+.ade-home-responsive .ade-header-nav {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 8px 14px;
+  min-width: 0;
+}
+
+.ade-home-responsive .ade-header-nav a,
+.ade-home-responsive .ade-header-nav button {
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+  min-width: max-content;
+}
+
+.ade-home-responsive .ade-identity {
+  width: min(100%, 1000px);
+  margin-left: auto;
+  margin-right: auto;
+  text-align: center;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: normal;
+}
+
+.ade-home-responsive .ade-rotating-text {
+  width: min(100%, 900px);
+  margin-left: auto;
+  margin-right: auto;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  line-height: 1.45;
+  font-size: clamp(18px, 2vw, 28px);
+}
+
+.ade-home-responsive .ade-architecture-stack {
+  gap: 10px !important;
+}
+
+.ade-home-responsive .ade-pilot-cta {
+  display: block;
+  width: fit-content;
+  max-width: 100%;
+  margin-left: auto;
+  margin-right: auto;
+  padding: 12px 18px;
+  font-size: clamp(16px, 1.5vw, 22px);
+  font-weight: 800;
+  line-height: 1.35;
+  text-align: center;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  cursor: pointer;
+}
+
+@media (max-width: 1024px) {
+  .ade-home-responsive .ade-header-nav {
+    gap: 7px 11px;
+  }
+
+  .ade-home-responsive .ade-identity {
+    padding-left: 20px;
+    padding-right: 20px;
+  }
+}
+
+@media (max-width: 768px) {
+  .ade-home-responsive .ade-header-nav {
+    gap: 6px 9px;
+  }
+
+  .ade-home-responsive .ade-header-nav a,
+  .ade-home-responsive .ade-header-nav button {
+    font-size: 14px;
+  }
+
+  .ade-home-responsive .ade-rotating-text {
+    font-size: 19px;
+    line-height: 1.45;
+  }
+
+  .ade-home-responsive .ade-architecture-stack {
+    gap: 8px !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .ade-home-responsive .ade-header-nav {
+    width: 100%;
+    gap: 5px 7px;
+  }
+
+  .ade-home-responsive .ade-header-nav a,
+  .ade-home-responsive .ade-header-nav button {
+    font-size: 13px;
+  }
+
+  .ade-home-responsive .ade-identity {
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+
+  .ade-home-responsive .ade-rotating-text {
+    width: calc(100% - 24px);
+    font-size: 18px;
+    line-height: 1.4;
+  }
+
+  .ade-home-responsive .ade-pilot-cta {
+    width: calc(100% - 24px);
+    font-size: 16px;
+  }
+}
+</style>
 </head>
 <body><div id="root" class="ade-home-responsive"></div>
 <script>
@@ -916,3 +1041,4 @@ h('footer',{className:'footer'},
 ReactDOM.createRoot(document.getElementById('root')).render(h(App));
 })();
 </script></body></html>
+
