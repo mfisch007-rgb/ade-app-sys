@@ -380,8 +380,128 @@ a{color:var(--royal)}
 .footer-contact a:hover{color:var(--royal)}
 .footer-contact .contact-label{font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--faint);margin-right:2px}
 @media(max-width:720px){.footer-contact{padding-top:6px}}
-</style></head>
-<body><div id="root"></div>
+</style><style id="ADE_HOMEPAGE_RESPONSIVE_RECONCILIATION">
+/* ADE homepage presentation reconciliation — UI ONLY */
+.ade-home-responsive,
+.ade-home-responsive * {
+  box-sizing: border-box;
+}
+
+@media (max-width: 1024px) {
+  .ade-home-responsive {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: hidden;
+  }
+
+  .ade-home-responsive .ade-header-nav {
+    flex-wrap: wrap !important;
+    gap: 8px 14px !important;
+  }
+
+  .ade-home-responsive .ade-header-nav a,
+  .ade-home-responsive .ade-header-nav button {
+    white-space: normal !important;
+    min-width: max-content;
+  }
+
+  .ade-home-responsive .ade-identity-title {
+    white-space: normal !important;
+    overflow: visible !important;
+    text-overflow: clip !important;
+    line-height: 1.25 !important;
+  }
+
+  .ade-home-responsive .ade-identity-subtitle {
+    white-space: normal !important;
+    overflow: visible !important;
+    text-overflow: clip !important;
+    line-height: 1.4 !important;
+  }
+
+  .ade-home-responsive .ade-rotating-copy {
+    font-size: clamp(16px, 2.2vw, 21px) !important;
+    line-height: 1.45 !important;
+    white-space: normal !important;
+    overflow: visible !important;
+    text-overflow: clip !important;
+    min-height: 3em;
+  }
+
+  .ade-home-responsive .ade-architecture-stack {
+    gap: 8px !important;
+  }
+}
+
+@media (max-width: 768px) {
+  .ade-home-responsive .ade-header-nav {
+    justify-content: center !important;
+    gap: 7px 11px !important;
+  }
+
+  .ade-home-responsive .ade-header-nav a,
+  .ade-home-responsive .ade-header-nav button {
+    font-size: 13px !important;
+    line-height: 1.25 !important;
+  }
+
+  .ade-home-responsive .ade-identity-title {
+    font-size: clamp(21px, 6vw, 32px) !important;
+  }
+
+  .ade-home-responsive .ade-identity-subtitle {
+    font-size: clamp(14px, 3.8vw, 18px) !important;
+  }
+
+  .ade-home-responsive .ade-rotating-copy {
+    font-size: clamp(16px, 4.2vw, 20px) !important;
+    line-height: 1.5 !important;
+    min-height: 4.5em;
+  }
+
+  .ade-home-responsive .ade-architecture-stack {
+    gap: 6px !important;
+  }
+
+  .ade-home-responsive .ade-pilot-cta {
+    width: 100% !important;
+    max-width: 100% !important;
+    white-space: normal !important;
+    text-align: center !important;
+    line-height: 1.35 !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .ade-home-responsive .ade-header-nav {
+    width: 100% !important;
+    gap: 6px 9px !important;
+  }
+
+  .ade-home-responsive .ade-header-nav a,
+  .ade-home-responsive .ade-header-nav button {
+    font-size: 12px !important;
+  }
+
+  .ade-home-responsive .ade-identity-title {
+    font-size: 20px !important;
+    line-height: 1.25 !important;
+  }
+
+  .ade-home-responsive .ade-identity-subtitle {
+    font-size: 14px !important;
+    line-height: 1.4 !important;
+  }
+
+  .ade-home-responsive .ade-rotating-copy {
+    font-size: 16px !important;
+    line-height: 1.5 !important;
+    min-height: 5em;
+  }
+}
+</style>
+</head>
+<body><div id="root" class="ade-home-responsive"></div>
 <script>
 (()=>{
 const {useEffect,useMemo,useState,useCallback}=React; const h=React.createElement;
@@ -522,7 +642,7 @@ const loadAccount=async(tok)=>{try{const r=await api('/api/v1/account/session',{
       intakeErr&&h('div',{className:'fieldErr'},intakeErr),
       h('div',{style:{display:'flex',gap:8,flexWrap:'wrap'}},h('button',{className:'btn primary','data-testid':'intake-submit',onClick:submitIntake,disabled:intakeBusy},intakeBusy?'Sending...':'Submit Interest'),h('button',{className:'btn','data-testid':'try-procarta',onClick:()=>go('PROCARTA')},'Try PROCARTA')))));
   const FEEDBACK_CARD=()=>h('div',{className:'card'},h('div',{className:'panelTitle'},h('h3',null,'FEEDBACK'),h('span',null,'HELP IMPROVE ADE')),h('div',{className:'cardBody'},h('div',{className:'feedback-form'},h('select',{value:feedbackCat,onChange:e=>setFeedbackCat(e.target.value)},h('option',{value:'SOMETHING_FAILED'},'Something failed'),h('option',{value:'SOMETHING_CONFUSED_ME'},'Something confused me'),h('option',{value:'RESULT_LOOKED_WRONG'},'Result looked wrong'),h('option',{value:'FEATURE_DID_NOT_WORK'},'Feature did not work'),h('option',{value:'I_EXPECTED_SOMETHING_ELSE'},'I expected something else'),h('option',{value:'I_FOUND_A_BUG'},'I found a bug'),h('option',{value:'IMPROVEMENT_IDEA'},'Improvement idea'),h('option',{value:'NEW_USE_CASE'},'New use case'),h('option',{value:'POSITIVE_FEEDBACK'},'Positive feedback'),h('option',{value:'OTHER'},'Other')),h('input',{placeholder:'Feature or module (optional)',value:feedbackFeat,onChange:e=>setFeedbackFeat(e.target.value)}),h('textarea',{placeholder:'Your feedback...',value:feedbackMsg,onChange:e=>setFeedbackMsg(e.target.value)}),h('p',{className:'formHint'},'Feedback is never used to modify source automatically.'),h('button',{className:'btn primary',onClick:submitFeedback,disabled:feedbackBusy},feedbackBusy?'Sending...':'Submit Feedback'))));
-   const HOME=()=>h('div',{className:'stack'},
+   const HOME=()=>h('div',{className:'stack ade-architecture-stack'},
     h('section',{className:'hero'},
      h('div',{className:'card heroMain'},
       h('div',{className:'eyebrow'},'AUTOMATED ALPHA ALIPH DIGITAL ECOSYSTEMS'),
@@ -588,12 +708,12 @@ h('div',{className:'card orb'},h('div',{className:'orbCore'},'ADE'))),
     h('div',{className:'card feature',style:{cursor:'pointer',opacity:.95},onClick:()=>setProductModal({title:'GOVERNMENT / NGO / GRANTS / CENSUS',desc:'Sector operations for government, NGO, grants and census programmes — ROADMAP, marketplace/ecosystem pathway.',cta:'Explore Ecosystem',go:'Community'})},h('div',{className:'mark'},'GO'),h('div',{className:'n'},'GOV / NGO / GRANTS'),h('div',{className:'d'},'Public-sector and development programmes — ecosystem marketplace pathway.'),h('div',{className:'accent'},h('span',{className:'badge muted'},'ROADMAP')))),
    h('section',{className:'sectionHead'},h('h2',null,'Architecture at a glance'),h('p',null,'A single ADE abstraction from users to the kernel.')),
   h('div',{className:'card'},h('div',{className:'cardBody'},h('div',{className:'archRow'},h('div',{className:'archLayer'},h('b',null,'ADE USERS'),' — operators, community and product surfaces'),h('div',{style:{textAlign:'center',color:'var(--faint)',fontSize:20}},'↓'),h('div',{className:'archLayer'},h('b',null,'ADE EXPERIENCE LAYER'),' — public site, Product Theater, media studio'),h('div',{style:{textAlign:'center',color:'var(--faint)',fontSize:20}},'↓'),h('div',{className:'archLayer'},h('b',null,'OPERATIONS LAYER'),h('div',{className:'ops',style:{marginTop:8}},['Decision','Workflow','Knowledge','Quality','Confidence','Media Engine'].map(o=>h('span',{key:o},o)))),h('div',{style:{textAlign:'center',color:'var(--faint)',fontSize:20}},'↓'),h('div',{className:'archLayer'},h('b',null,'ADE CORE / KERNEL'),h('div',{style:{marginTop:6,fontSize:11.5}},((health?.kernel?.subsystemCount)??(health?.runtime?.subsystems?.total)??9)+' subsystems active · secure system services · identity · protection'))))),
-  h('section',{className:'sectionHead'},h('h2',null,'Community · Pilot · Partner'),h('p',null,'Register your interest to progress to Pilot or Enterprise.')),
+  h('section',{className:'sectionHead'},h('h2',null,'REGISTER YOUR INTEREST TO PROGRESS TO PILOT OR ENTERPRISE NOW'),h('p',null,'Register your interest to progress to Pilot or Enterprise.')),
    h('div',{className:'interactGrid'},
-    h('div',null,h('div',{className:'sectionHead'},h('h2',null,'Community · Pilot · Partner'),h('p',null,'Community provides guided self-exploration. Register your interest to progress to Pilot or Enterprise.')),COMMUNITY_CARD()),
+    h('div',null,h('div',{className:'sectionHead'},h('h2',null,'REGISTER YOUR INTEREST TO PROGRESS TO PILOT OR ENTERPRISE NOW'),h('p',null,'Community provides guided self-exploration. Register your interest to progress to Pilot or Enterprise.')),COMMUNITY_CARD()),
 h('div',null,h('div',{className:'sectionHead'},h('h2',null,'Feedback'),h('p',null,'Tell us what to fix next — never applied to source automatically.')),FEEDBACK_CARD())));
   /* ── Products ──────────────────────────────── */
- const PRODUCTS=()=>h('div',{className:'stack'},
+ const PRODUCTS=()=>h('div',{className:'stack ade-architecture-stack'},
   h('section',{className:'sectionHead'},h('h2',null,'ADE PRODUCT SUITES'),h('p',null,'Server-registered ADE products. Availability is reported by the runtime — nothing here is invented.')),
   h('div',{className:'card'},h('div',{className:'cardBody'},products.length?h('div',{className:'productGrid'},products.map(p=>h('div',{key:p.id||p.name,className:'product'},h('div',{className:'n'},p.name),h('div',{className:'d'},p.description||'No description provided by the registry.'),h('div',{className:'tags'},B(p.status||'REGISTERED',p.status==='ACTIVE'?'good':p.status==='INTEGRATED'?'community':'muted'),p.edition&&B(p.edition,tierClass(p.edition)),p.pluginRequired?B('PLUGIN REQUIRED','community'):null)))):h('div',{className:'emptyState'},'Product registry reports no public products in this runtime slice.'))),
    token?h('div',{className:'card'},h('div',{className:'panelTitle'},h('h3',null,'CONNECTION GRIP — ADMIN'),h('span',null,'DISCOVER → CONNECT → ACTIVATE → RUN')),h('div',{className:'cardBody','data-testid':'connectivity-grip'},
@@ -607,7 +727,7 @@ h('div',null,h('div',{className:'sectionHead'},h('h2',null,'Feedback'),h('p',nul
      (c.requiredAction||c.failureReason)&&h('div',{style:{fontSize:11,color:'var(--ink)',marginTop:4}},'ACTION REQUIRED: '+(c.requiredAction||c.failureReason)))})):h('div',{className:'emptyState'},'Connectivity inventory unavailable in this runtime slice.'))):h('div',{className:'card'},h('div',{className:'cardBody'},h('p',{className:'muted',style:{margin:0,lineHeight:1.6}},'Product availability is registered by the server runtime. Sign in to view connection diagnostics and requirement countdown.'))),
   h('div',{className:'card'},h('div',{className:'panelTitle'},h('h3',null,'PRODUCT BOUNDARY'),h('span',null,'ONE CORE · MULTIPLE PRODUCTS')),h('div',{className:'cardBody'},h('p',{className:'muted',style:{margin:0,lineHeight:1.6}},'AWBULI (messaging automation) and PROCARTA (business process automation) report INTEGRATED status and require their product plugins to activate in an edition. Until a plugin is live in Community, their surfaces remain available as demonstration pathways — never as claimed production activity. Order and descriptions follow the server registry exactly.'))));
  /* ── PROCARTA ──────────────────────────────── */
- const PROCARTA=()=>h('div',{className:'stack'},
+ const PROCARTA=()=>h('div',{className:'stack ade-architecture-stack'},
   h('section',{className:'sectionHead'},h('h2',null,'PROCARTA'),h('p',null,'Business Process Intelligence & Automation — the ADE engine for analysing and automating business processes.')),
   h('div',{className:'card'},h('div',{className:'cardBody'},
    h('div',{style:{display:'flex',alignItems:'center',gap:14,flexWrap:'wrap',marginBottom:12}},h('span',{className:'enginePill '+(procarta&&procarta.engine&&procarta.engine.status==='ONLINE'?'':'off')},h('i',{className:'dot'}),procarta&&procarta.engine?(procarta.engine.status+' · '+procarta.engine.executionMode):'QUERYING'),B('DETERMINISTIC ANALYSIS','community'),B('COMMUNITY EDITION',tierClass('FREE'))),
@@ -617,7 +737,7 @@ h('div',null,h('div',{className:'sectionHead'},h('h2',null,'Feedback'),h('p',nul
    pResult&&h('div',{className:'demo-result'},h('h4',null,'INTAKE ACCEPTED'),h('p',{className:'muted'},'Case created: '+pResult.id),h('p',{className:'muted',style:{margin:0}},'Discovery, processing and pilot progression require a server-established operator session. Community Edition observes the pathway honestly.')))),
   h('div',{className:'card'},h('div',{className:'panelTitle'},h('h3',null,'AUTHENTICATION BOUNDARY'),h('span',null,'VERIFIED ACCESS')),h('div',{className:'cardBody'},h('p',{className:'muted',style:{margin:0,lineHeight:1.6}},'Public intake is available. Operator actions — case processing, execution, pilot promotion — are gated by the ADE security layer and require an authorized session (ADE Admin PIN). Unauthorized command execution is rejected by design.'))));
  /* ── Product Theater / Media ───────────────── */
- const THEATER=()=>h('div',{className:'stack'},
+ const THEATER=()=>h('div',{className:'stack ade-architecture-stack'},
   h('section',{className:'sectionHead'},h('h2',null,'PRODUCT THEATER & MEDIA STUDIO'),h('p',null,'Real ADE media surfaces. The media engine registry currently reports '+totalAssets+' published assets — until media is generated through a configured provider, the gallery presents an honest bound.')),
   h('div',{className:'card'},h('div',{className:'panelTitle'},h('h3',null,'TRUTH CLASSIFICATION'),h('span',null,'NEVER LABELLED WRONG')),h('div',{className:'cardBody'},h('p',{className:'muted',style:{margin:0}},'Every media item is classified so public visitors can distinguish real production activity from bounded demonstrations. The boundary below is enforced on every surface.'),h('div',{className:'truthRow'},h('span',{className:'truthChip live'},'● LIVE'),h('span',{className:'truthChip sim'},'● SIMULATED'),h('span',{className:'truthChip promo'},'● PROMOTIONAL / FOUNDER'),h('span',{className:'truthChip future'},'● FUTURE / GENERATED'))),
    h('div',{style:{padding:'6px 18px 18px',display:'flex',gap:10,flexWrap:'wrap'}},h('a',{className:'btn primary',href:'/ade-experience/',style:{textDecoration:'none'}},'Open Live Product Theater'))),
@@ -625,22 +745,22 @@ h('div',null,h('div',{className:'sectionHead'},h('h2',null,'Feedback'),h('p',nul
   h('div',{className:'card'},h('div',{className:'panelTitle'},h('h3',null,'SOURCE MEDIA LIBRARY'),h('span',null,'AVAILABLE_FOR_MEDIA_STUDIO')),sourceMedia.length?h('div',{className:'mediaGrid',style:{padding:'16px'}},sourceMedia.map(m=>{const fn=(m.file||'').replace(/_/g,' ').replace(/\(\d\)/g,'').replace(/\.mp4$/i,'').trim();return h('div',{key:m.file,className:'mediaCard'},h('div',{className:'mediaThumb'},'▶'),h('div',{className:'meta'},h('div',{className:'n'},fn),h('div',{className:'d'},'Source input · '+(m.duration_seconds!=null?Math.round(m.duration_seconds)+'s':'—')),h('div',{className:'d',style:{color:'var(--royal)'}},'STATUS: '+m.status),h('a',{className:'btn sm',href:'/ade-experience/media/'+encodeURIComponent(m.file),target:'_blank',rel:'noopener',style:{textDecoration:'none'}},'Play in Theater')))})):h('div',{className:'emptyState'},'Source media manifest is not present or empty.')),
   h('div',{className:'card'},h('div',{className:'panelTitle'},h('h3',null,'PROVIDER REGISTRY'),h('span',null,'SERVER-OWNED STATUS')),h('div',{className:'cardBody'},providers.length?h('div',{className:'mediaGrid',style:{padding:0}},providers.map(p=>h('div',{key:p.id||p.name,className:'mediaCard'},h('div',{className:'meta'},h('div',{className:'n'},p.name||p.id),h('div',{className:'d'},h('span',{className:'badge '+(p.available?'good':'muted')},p.available?'AVAILABLE':'UNCONFIGURED')),p.kind&&h('div',{className:'d'},'Kind: '+p.kind))))):h('div',{className:'emptyState'},'Provider registry reports no providers configured in Community Edition.'))));
  /* ── Try ADE ───────────────────────────────── */
- const TRYADE=()=>h('div',{className:'stack'},
+ const TRYADE=()=>h('div',{className:'stack ade-architecture-stack'},
   h('section',{className:'sectionHead'},h('h2',null,'TRY ADE — GUIDED DEMONSTRATIONS'),h('p',null,'Each scenario executes real ADE pathways. External integrations are simulated where unavailable — never presented as live.')),
   h('div',{className:'card'},h('div',{className:'cardBody'},scenarios.length>0?h('div',null,scenarios.map(s=>h('div',{key:s.id,className:'scenario-card',onClick:()=>runDemo(s.id)},h('h4',null,s.label),h('p',null,s.description),h('div',{className:'meta'},s.category&&h('span',null,s.category),h('span',{className:s.truthClassification==='LIVE'?'truth-live':s.truthClassification==='SIMULATED'?'truth-simulated':'truth-placeholder'},s.truthClassification),h('span',null,s.stages?String(s.stages.length)+' stages':'—'))))):h('div',{className:'emptyState'},'Loading scenarios…')),demoRunning&&h('div',{className:'demo-result'},h('h4',null,'⏳ Running demonstration…'),h('p',{className:'muted'},'ADE is executing the demonstration stages.')),demoResult&&h('div',{className:'demo-result'},h('h4',null,'DEMO RESULT — '+demoResult.status),h('p',{className:'muted'},'Demo ID: '+demoResult.demoId),h('div',{style:{marginTop:8}},(demoResult.stages||[]).map((s,i)=>h('div',{key:i,className:'demo-stage'},h('span',{className:'stage-name'},s.label||s.stageId),h('span',{className:'stage-class stage-'+(s.classification||'SIMULATED')},s.classification||'—'),h('span',{className:'stage-dur'},s.durationMs+'ms')))),h('div',{style:{marginTop:12,display:'flex',flexWrap:'wrap',gap:8}},h('span',{className:'badge'},'Confidence: '+(demoResult.confidence!=null?(demoResult.confidence*100).toFixed(0):'—')+'%'),demoResult.outcome&&h('span',{className:'badge community'},'Outcome: '+(demoResult.outcome.type||'—'))))),
   h('div',{className:'card'},h('div',{className:'panelTitle'},h('h3',null,'DEMO BOUNDARY'),h('span',null,'HONEST CLASSIFICATION')),h('div',{className:'cardBody'},h('p',{className:'muted',style:{margin:0}},'Demonstrations run the real kernel pathway and are labelled LIVE or SIMULATED per scenario. Simulations are clearly marked — the UI never presents simulated content as live activity.'))));
  /* ── Architecture ──────────────────────────── */
  const ARCH=()=>h('div',{className:'card'},h('div',{className:'panelTitle'},h('h3',null,'PUBLIC ARCHITECTURE'),h('span',null,'THE ADE ABSTRACTION')),h('div',{className:'cardBody'},h('div',{className:'archRow'},h('div',{className:'archLayer'},h('b',null,'ADE USERS'),' — operators, community and product surfaces'),h('div',{style:{textAlign:'center',color:'var(--faint)',fontSize:20}},'↓'),h('div',{className:'archLayer'},h('b',null,'ADE EXPERIENCE LAYER'),' — public site, Product Theater, media'),h('div',{style:{textAlign:'center',color:'var(--faint)',fontSize:20}},'↓'),h('div',{className:'archLayer'},h('b',null,'OPERATIONS LAYER'),h('div',{className:'ops',style:{marginTop:8}},['Decision','Workflow','Knowledge','Quality','Confidence','Media Engine'].map(o=>h('span',{key:o},o)))),h('div',{style:{textAlign:'center',color:'var(--faint)',fontSize:20}},'↓'),h('div',{className:'archLayer'},h('b',null,'ADE CORE / KERNEL'),h('div',{style:{marginTop:6,fontSize:11.5}},((health?.kernel?.subsystemCount)??(health?.runtime?.subsystems?.total)??9)+' subsystems active · secure system services · identity · protection')))));
  /* ── Community / Feedback standalone ───────── */
-const COMMUNITY=()=>h('div',{className:'stack'},
-   h('section',{className:'sectionHead'},h('h2',null,'Community · Pilot · Partner'),h('p',null,'ADE Community provides self-guided exploration of ADE capabilities. Register your interest to progress to Pilot or Enterprise.')),
+const COMMUNITY=()=>h('div',{className:'stack ade-architecture-stack'},
+   h('section',{className:'sectionHead'},h('h2',null,'REGISTER YOUR INTEREST TO PROGRESS TO PILOT OR ENTERPRISE NOW'),h('p',null,'ADE Community provides self-guided exploration of ADE capabilities. Register your interest to progress to Pilot or Enterprise.')),
    h('div',{className:'interactGrid'},h('div',null,COMMUNITY_CARD()),h('div',null,FEEDBACK_CARD())),
    h('div',{className:'card'},h('div',{className:'panelTitle'},h('h3',null,'COMMUNITY BOUNDARY'),h('span',null,'EDITION-AWARE')),h('div',{className:'cardBody'},h('p',{className:'muted',style:{margin:0,lineHeight:1.6}},'Pilot and partner pathways exist in the backend and are operator-gated. The capability matrix reports the exact edition boundaries — Community, Pro and Enterprise privileges are never conflated.'))));
-  const FEEDBACK=()=>h('div',{className:'stack'},
+  const FEEDBACK=()=>h('div',{className:'stack ade-architecture-stack'},
    h('section',{className:'sectionHead'},h('h2',null,'Feedback'),h('p',null,'Tell us what to fix next. Feedback is never used to modify source automatically.')),
    h('div',{className:'interactGrid'},h('div',null,FEEDBACK_CARD()),h('div',null,COMMUNITY_CARD())));
   /* ── Account (workforce identity) ──────────── */
-  const ACCOUNT=()=>token?h('div',{className:'stack'},
+  const ACCOUNT=()=>token?h('div',{className:'stack ade-architecture-stack'},
    h('section',{className:'sectionHead'},h('h2',null,'ACCOUNT & SECURITY'),h('p',null,'Workforce identity, authorization PIN and recovery options. Credentials only ever touch the server.')),
 h('div',{className:'accountGrid'},
      h('div',{className:'card pad'},
@@ -708,7 +828,7 @@ h('div',{className:'accountGrid'},
    h('div',{style:{display:'flex',gap:10,flexWrap:'wrap'}},h('button',{className:'btn primary',onClick:()=>{setAcctMode('signin');setAuth(true)}},'Sign In'),h('button',{className:'btn',onClick:()=>go('Home')},'Back to Home')));
 
   /* ── Command Center (auth-gated ops) ───────── */
- const CM=()=>token?h('div',{className:'stack'},
+ const CM=()=>token?h('div',{className:'stack ade-architecture-stack'},
   h('section',{className:'hero'},
    h('div',{className:'card heroMain'},h('div',{className:'eyebrow'},'ADE · YOUR WORKSPACE — SIGNED IN'),h('h1',null,'Command Center'),h('p',null,'The living APEX surface. Platform health, live system activity, available actions and runtime metrics — every value below is securely provided, updated live from ADE. Your workspace is ready.'),   h('div',{className:'heroStats'},!health?h('div',{className:'stat',style:{background:'rgba(6,26,64,.06)',animation:'pulse 1.5s infinite'}},h('div',{style:{display:'flex',alignItems:'center',gap:8}},h('span',{className:'spinner'}),h('b',null,'Loading…')),h('span',null,'Core Subsystems')):h('div',{className:'stat'},h('b',null,health?.kernel?.subsystemCount??health?.runtime?.subsystems?.total??'—'),h('span',null,'Core Subsystems')),!health?h('div',{className:'stat',style:{background:'rgba(6,26,64,.06)',opacity:.7}},h('b',null,'—'),h('span',null,'Capabilities')):h('div',{className:'stat'},h('b',null,caps.length||'—'),h('span',null,'Capabilities')),h('div',{className:'stat'},h('b',null,events.length),h('span',null,'Live Events')))),
    h('div',{className:'card orb'},h('div',{className:'orbCore'},'ADE'))),
@@ -717,7 +837,7 @@ h('div',{className:'accountGrid'},
    h('div',{className:'card'},h('div',{className:'panelTitle'},h('h3',null,'Live Operations'),h('span',{className:'badge '+(sse==='live'?'good':'muted')},evState)),h('div',{className:'cardBody',style:{paddingBottom:0}},events.length?h('div',{className:'stream'},events.map((e,i)=>h('div',{className:'event',key:e.eventId||e.id||i},h('time',null,fmtTime(e.meta?.timestamp||e.timestamp)),h('b',null,e.topic||e.type||'EVENT'),h('pre',null,JSON.stringify(e.payload||e).slice(0,240))))):h('div',{className:'emptyState'},h('div',{className:'big'},'NO EVENTS YET'),h('p',{style:{margin:0}},'Kernel activities will appear here as they happen. The fabric is connected and listening.',h('br'),'Boundary: heartbeats are kept separate from real kernel events.')))),
    h('div',{className:'card'},h('div',{className:'panelTitle'},h('h3',null,'Available Actions'),h('span',null,'VERIFIED')),h('div',{className:'cardBody',style:{paddingBottom:0}},h('input',{className:'search',placeholder:'Search capability, subsystem or intent…',value:query,onChange:e=>setQuery(e.target.value)}),h('div',{className:'capGrid'},filtered.slice(0,40).map(c=>h(CapCard,{key:c.intent,c,onRun:execute}))),filtered.length===0&&h('div',{className:'emptyState'},h('div',{className:'big'},'No matching capabilities'),h('p',null,query?'No capabilities match “'+query+'”. Try another keyword or clear your search to see all capabilities.':'No capabilities are available for your current authorization level.'),h('button',{className:'btn sm',onClick:()=>setQuery('')},'Clear search')))),
   h('section',{className:'sectionHead'},h('h2',null,'WHERE TO GO NEXT'),h('p',null,'Explore the surfaces available in the ADE Community Edition.')),
-  h('div',{className:'nextRow'},h('div',{className:'nextCard',onClick:()=>go('Products')},h('b',null,'Products'),h('span',null,'ADE Platform · PROCARTA · AWBULI')),h('div',{className:'nextCard',onClick:()=>go('PROCARTA')},h('b',null,'PROCARTA'),h('span',null,'Business process intelligence & automation')),h('div',{className:'nextCard',onClick:()=>go('Product Theater')},h('b',null,'Product Theater'),h('span',null,'Gallery, source media and media studio')),h('div',{className:'nextCard',onClick:()=>go('Try ADE')},h('b',null,'Try ADE'),h('span',null,'Guided demonstrations of the kernel')))):
+  h('div',{className:'nextRow'},h('div',{className:'nextCard',onClick:()=>go('Products')},h('b',null,'Products'),h('span',null,'ADE Platform · PROCARTA · AWBULI')),h('div',{className:'nextCard',onClick:()=>go('PROCARTA')},h('b',null,'PROCARTA'),h('span',null,'Business process intelligence & automation')),h('div',{className:'nextCard',onClick:()=>go('Product Theater')},h('b',null,'Product Theater'),h('span',null,'Gallery, source media and media studio')),h('div',{className:'nextCard',onClick:()=>go('Try ADE')},h('b',null,'Try ADE'),h('span',null,'Guided demonstrations of the kernel'))))):
   h('div',{className:'card gate'},
    h('div',{className:'orbMini'},'OP'),
    h('div',{className:'eyebrow'},'OPERATIONS SURFACE'),
@@ -766,7 +886,7 @@ h('footer',{className:'footer'},
     h('div',{className:'footerInner'},
       h('div',null,h('div',{className:'fbrand'},h('img',{src:'/ADE-LOGO.png',alt:'ADE logo'}),h('img',{src:'/brand-mark.png',alt:'ADE brand mark',style:{width:28,height:28,objectFit:'contain',opacity:.85}}),h('div',null,h('strong',{style:{letterSpacing:'.12em',color:'var(--ocean)',fontSize:13}},'ADE APEX'),h('div',{className:'muted',style:{fontSize:10,marginTop:2}},'Autonomous Event-Driven Operations'))),h('p',{className:'motto'},'We ',h('em',null,'Listened'),' · We ',h('em',null,'Observed'),' · We ',h('em',null,'Learnt'),' · We ',h('em',null,'Evolved')),h('span',{className:'badge community'},editionBadge),h('div',{className:'footer-contact'},h('a',{href:'mailto:Automated_alpha_aliph@yahoo.com'},'Automated_alpha_aliph@yahoo.com'),h('span',null,h('span',{className:'contact-label'},'WhatsApp + Calls: '),h('a',{href:'tel:+2347038272792'},'+234 (0) 7038272792')),h('span',null,h('span',{className:'contact-label'},'Calls Only: '),h('a',{href:'tel:+2347058769114'},'+234 (0) 7058769114')))),
     h('div',null,h('h5',null,'PRODUCTS'),h('a',{href:'#',onClick:e=>{e.preventDefault();go('Products')}},'Product Suites'),h('a',{href:'#',onClick:e=>{e.preventDefault();go('PROCARTA')}},'PROCARTA'),h('a',{href:'#',onClick:e=>{e.preventDefault();go('Product Theater')}},'Product Theater & Media'),h('a',{href:'/ade-experience/',onClick:()=>setMenuOpen(false)},'Legacy Experience Layer')),
-    h('div',null,h('h5',null,'PLATFORM'),h('a',{href:'#',onClick:e=>{e.preventDefault();go('Architecture')}},'Public Architecture'),h('a',{href:'#',onClick:e=>{e.preventDefault();go('Community')}},'Community · Pilot · Partner'),h('a',{href:'#',onClick:e=>{e.preventDefault();go('Feedback')}},'Feedback'),h('a',{href:'#',onClick:e=>{e.preventDefault();go('Try ADE')}},'Try ADE')),
+    h('div',null,h('h5',null,'PLATFORM'),h('a',{href:'#',onClick:e=>{e.preventDefault();go('Architecture')}},'Public Architecture'),h('a',{href:'#',onClick:e=>{e.preventDefault();go('Community')}},'REGISTER YOUR INTEREST TO PROGRESS TO PILOT OR ENTERPRISE NOW'),h('a',{href:'#',onClick:e=>{e.preventDefault();go('Feedback')}},'Feedback'),h('a',{href:'#',onClick:e=>{e.preventDefault();go('Try ADE')}},'Try ADE')),
     h('div',null,h('h5',null,'OPERATIONS'),h('a',{href:'#',onClick:e=>{e.preventDefault();go('Command Center')}},'Command Center (operator)'),h('a',{href:'/admin'},'Admin Console'),h('span',{className:'flink',onClick:()=>go('Account')},'Account & Security'))),
    h('div',{className:'footerLegal'},'© '+new Date().getFullYear()+' AUTOMATED ALPHA ALIPH DIGITAL ECOSYSTEMS (ADE) — ADE APEX Community Edition · Building African Digital Business Operational Systems · v1.0.0 Community',h('br'),'Platform services are securely provided. Physical integrations and external providers are never fabricated — LIVE and SIMULATED are always labelled.'),
    h('div',{className:'footerIdentity'},
