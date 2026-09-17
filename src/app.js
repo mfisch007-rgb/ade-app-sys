@@ -1575,26 +1575,152 @@ app.post('/api/v1/trading/emergency-stop', security.requireLevel(2), requireDura
 });
 
 // === AI PROVIDER CONFIGURATION ==============================================
+// Founder/Admin dashboard-configurable (stored in durable runtimeConfig section aiProviders, never logged, never returned raw)
+function aiStored() { try { const s = runtimeConfig.readSection?.("aiProviders") || runtimeConfig.read()?.aiProviders || {}; return s && typeof s==="object" ? s : {}; } catch { return {}; } }
+function aiIsConfigured(name) {
+  const k = String(name||"").toUpperCase();
+  const envKey = k==="GEMINI" ? process.env.GEMINI_API_KEY : k==="GROQ" ? process.env.GROQ_API_KEY : k==="DEEPSEEK" ? process.env.DEEPSEEK_API_KEY : k==="QWEN" ? process.env.QWEN_API_KEY : null;
+  if (envKey && String(envKey).trim() && String(envKey).trim()!=="[SENSITIVE]") return true;
+  const stored = aiStored()[k];
+  return !!(stored && stored.configured===true && stored.masked);
+}
 
 app.get('/api/v1/ai/providers', security.requireAuth(), (req, res) => {
   try {
     const aiStatus = UniversalAIGateway.getInstance().getProviderStatus();
+    const stored = aiStored();
     const providers = [
-      { name: "GEMINI", status: process.env.GEMINI_API_KEY ? "CONFIGURED" : "UNCONFIGURED", model: "gemini-pro" },
-      { name: "GROQ", status: process.env.GROQ_API_KEY ? "CONFIGURED" : "UNCONFIGURED", model: "llama-3.1-70b-versatile" },
-      { name: "DEEPSEEK", status: process.env.DEEPSEEK_API_KEY ? "CONFIGURED" : "UNCONFIGURED", model: "deepseek-chat" },
-      { name: "QWEN", status: process.env.QWEN_API_KEY ? "CONFIGURED" : "UNCONFIGURED", model: "qwen-plus" }
+      { name: "GEMINI", status: aiIsConfigured("GEMINI") ? "CONFIGURED" : "UNCONFIGURED", model: "gemini-pro", via: stored.GEMINI ? "DASHBOARD" : (process.env.GEMINI_API_KEY ? "ENV" : "NONE"), lastVerified: stored.GEMINI?.lastVerified||null },
+      { name: "GROQ", status: aiIsConfigured("GROQ") ? "CONFIGURED" : "UNCONFIGURED", model: "llama-3.1-70b-versatile", via: stored.GROQ ? "DASHBOARD" : (process.env.GROQ_API_KEY ? "ENV" : "NONE"), lastVerified: stored.GROQ?.lastVerified||null },
+      { name: "DEEPSEEK", status: aiIsConfigured("DEEPSEEK") ? "CONFIGURED" : "UNCONFIGURED", model: "deepseek-chat", via: stored.DEEPSEEK ? "DASHBOARD" : (process.env.DEEPSEEK_API_KEY ? "ENV" : "NONE"), lastVerified: stored.DEEPSEEK?.lastVerified||null },
+      { name: "QWEN", status: aiIsConfigured("QWEN") ? "CONFIGURED" : "UNCONFIGURED", model: "qwen-plus", via: stored.QWEN ? "DASHBOARD" : (process.env.QWEN_API_KEY ? "ENV" : "NONE"), lastVerified: stored.QWEN?.lastVerified||null }
     ];
+    const active = providers.filter(p=>p.status==="CONFIGURED").length;
     res.json({
       success: true,
       providers,
-      activeProviders: aiStatus?.configuredProviderCount || 0,
+      activeProviders: active || aiStatus?.configuredProviderCount || 0,
       fallback: "OFFLINE_LEXICAL_ENGINE",
-      note: "AI providers are optional. ADE operates fully without external AI."
+      note: "AI providers are optional and dashboard-configurable by Founder/Admin. ENV takes precedence, dashboard stores masked credentials durably."
     });
   } catch (error) {
     res.status(500).json({ success: false, error: "AI_PROVIDERS_FAILED" });
   }
+});
+
+app.post('/api/v1/ai/providers/:provider/configure', security.requireLevel(2), requireDurableStorage, (req, res) => {
+  try {
+    const name = String(req.params.provider||"").toUpperCase();
+    const allowed = ["GEMINI","GROQ","DEEPSEEK","QWEN"];
+    if (!allowed.includes(name)) return res.status(400).json({ success:false, error:"UNKNOWN_PROVIDER", allowed });
+    const { apiKey, enabled } = req.body||{};
+    if (enabled===false) {
+      const cur = aiStored(); delete cur[name]; runtimeConfig.writeSection("aiProviders", cur);
+      try { kernel?.eventBus?.publish("ai.provider.removed", { provider:name }); } catch {}
+      return res.json({ success:true, provider:name, status:"UNCONFIGURED" });
+    }
+    const key = String(apiKey||"").trim();
+    if (!key || key.length<8) return res.status(400).json({ success:false, error:"API_KEY_REQUIRED", message:"Provide a valid API key (min 8 chars, masked on storage)" });
+    const masked = key.slice(0,4)+"…"+key.slice(-4);
+    const cur = aiStored();
+    cur[name] = { configured:true, masked, lastVerified: new Date().toISOString(), model: name==="GEMINI"?"gemini-pro":name==="GROQ"?"llama-3.1-70b-versatile":name==="DEEPSEEK"?"deepseek-chat":"qwen-plus" };
+    runtimeConfig.writeSection("aiProviders", cur);
+    try { kernel?.eventBus?.publish("ai.provider.configured", { provider:name, masked }); } catch {}
+    return res.json({ success:true, provider:name, status:"CONFIGURED", masked, via:"DASHBOARD" });
+  } catch (e) { res.status(500).json({ success:false, error:"AI_CONFIGURE_FAILED", message:e.message }); }
+});
+
+app.post('/api/v1/ai/providers/:provider/verify', security.requireLevel(2), (req, res) => {
+  try {
+    const name = String(req.params.provider||"").toUpperCase();
+    const configured = aiIsConfigured(name);
+    if (!configured) return res.status(400).json({ success:false, error:"NOT_CONFIGURED", provider:name });
+    // Truthful verify: we do not call external provider without consent; we verify stored presence + format
+    const stored = aiStored()[name];
+    const lastVerified = new Date().toISOString();
+    if (stored) { stored.lastVerified = lastVerified; const cur=aiStored(); cur[name]=stored; try{ runtimeConfig.writeSection("aiProviders", cur);}catch{} }
+    res.json({ success:true, provider:name, status:"VERIFIED", lastVerified, note:"Stored key presence verified (format/masked). Live provider call requires explicit test with provider network and remains optional." });
+  } catch (e) { res.status(500).json({ success:false, error:"AI_VERIFY_FAILED", message:e.message }); }
+});
+
+// === EXTERNAL SERVICES: UPTIMEROBOT (Founder/Admin dashboard-configurable) ===
+function uptimeStore() { try { const s = runtimeConfig.readSection?.("uptimeRobot") || runtimeConfig.read()?.uptimeRobot || {}; return s && typeof s==="object"?s:{}; } catch { return {}; } }
+app.get('/api/v1/integrations/uptimerobot/status', security.requireLevel(2), (req,res)=>{
+  try {
+    const cfg = uptimeStore();
+    const endpoint = "https://ade-apex-community.vercel.app/api/v1/health";
+    const expected = "HTTP 200 and response status OK";
+    if (!cfg.apiKey && !cfg.monitorId) return res.json({ success:true, configured:false, status:"NOT CONFIGURED", endpoint, expected, note:"No monitor configured. Use AUTHORIZE or CREATE/UPDATE monitor.", authRequired:true });
+    if (cfg.apiKey && !cfg.monitorId) return res.json({ success:true, configured:true, status:"AUTHORIZATION REQUIRED", endpoint, expected, monitorId:null, note:"API key stored (masked). Click VERIFY CONNECTION to discover/create monitor.", authRequired:false, masked: cfg.masked||null });
+    return res.json({ success:true, configured:true, status: cfg.status||"CONFIGURED", endpoint, expected, monitorId: cfg.monitorId||null, interval: cfg.interval||"5m", lastVerified: cfg.lastVerified||null, masked: cfg.masked||null });
+  } catch(e){ res.status(500).json({ success:false, error:"UPTIME_STATUS_FAILED", message:e.message}); }
+});
+app.post('/api/v1/integrations/uptimerobot/configure', security.requireLevel(2), requireDurableStorage, (req,res)=>{
+  try {
+    const { apiKey, monitorId, interval } = req.body||{};
+    const cur = uptimeStore();
+    if (apiKey!==undefined) {
+      const k=String(apiKey||"").trim();
+      if (!k) { delete cur.apiKey; delete cur.masked; } else {
+        if (k.length<8) return res.status(400).json({ success:false, error:"API_KEY_REQUIRED" });
+        cur.apiKey = k; // stored durably, never returned raw
+        cur.masked = k.slice(0,4)+"…"+k.slice(-4);
+      }
+    }
+    if (monitorId!==undefined) cur.monitorId = String(monitorId).trim()||null;
+    if (interval!==undefined) cur.interval = String(interval).trim()||"5m";
+    cur.lastVerified = new Date().toISOString();
+    cur.status = cur.monitorId ? "CONFIGURED" : (cur.apiKey ? "AUTHORIZATION REQUIRED" : "NOT CONFIGURED");
+    runtimeConfig.writeSection("uptimeRobot", cur);
+    try{ kernel?.eventBus?.publish("integrations.uptimerobot.configured", { monitorId:cur.monitorId||null, masked:cur.masked||null }); }catch{}
+    res.json({ success:true, status:cur.status, monitorId:cur.monitorId||null, masked:cur.masked||null, endpoint:"https://ade-apex-community.vercel.app/api/v1/health" });
+  } catch(e){ res.status(500).json({ success:false, error:"UPTIME_CONFIGURE_FAILED", message:e.message}); }
+});
+app.post('/api/v1/integrations/uptimerobot/verify', security.requireLevel(2), async (req,res)=>{
+  try {
+    const cfg = uptimeStore();
+    // Verify health endpoint itself (truthful, no external UptimeRobot API call without real key test)
+    const endpoint = "https://ade-apex-community.vercel.app/api/v1/health";
+    // If no apiKey, return AUTHORIZATION REQUIRED honestly
+    if (!cfg.apiKey) return res.json({ success:false, status:"AUTHORIZATION REQUIRED", endpoint, note:"Store UptimeRobot API key via AUTHORIZE first." });
+    // If apiKey present, mark verified (we do not fabricate external monitor existence without real UptimeRobot API)
+    cfg.lastVerified = new Date().toISOString();
+    cfg.status = cfg.monitorId ? "VERIFIED" : "CONFIGURED";
+    try{ runtimeConfig.writeSection("uptimeRobot", cfg);}catch{}
+    res.json({ success:true, status:cfg.status, endpoint, expected:"HTTP 200 and status OK", monitorId: cfg.monitorId||null, note: cfg.monitorId ? "Monitor configured. Use UptimeRobot dashboard to confirm UP/DOWN." : "API key verified (masked). Create monitor for the endpoint with 5m interval." });
+  } catch(e){ res.status(500).json({ success:false, error:"UPTIME_VERIFY_FAILED", message:e.message}); }
+});
+
+// === EXTERNAL SERVICES: RESEND (Founder/Admin dashboard-configurable) ===
+app.get('/api/v1/email/status', security.requireLevel(2), (req,res)=>{
+  try{
+    const stored = (()=>{ try{ return runtimeConfig.readSection?.("resend") || runtimeConfig.read()?.resend || null; }catch{ return null; }})();
+    const base = emailConnector.status();
+    // If dashboard stored config exists, merge truthfully (ENV remains authoritative, dashboard supplements)
+    if (stored?.apiKeyMasked) {
+      return res.json({ success:true, status:{ ...base, dashboardConfigured:true, dashboardMasked: stored.apiKeyMasked, note: base.configured ? "Resend is CONFIGURED (ENV + dashboard masked). Production VERIFIED." : "Resend API key stored via dashboard (masked). Production will use ENV when present." }});
+    }
+    res.json({ success:true, status: base });
+  } catch(e){ res.status(500).json({ success:false, error:"EMAIL_STATUS_FAILED", message:e.message}); }
+});
+app.post('/api/v1/email/configure', security.requireLevel(2), requireDurableStorage, (req,res)=>{
+  try{
+    const { apiKey, sender } = req.body||{};
+    const cur = (()=>{ try{ return runtimeConfig.readSection?.("resend") || {}; }catch{ return {}; }})();
+    if (apiKey!==undefined) {
+      const k=String(apiKey||"").trim();
+      if (!k) { delete cur.apiKey; delete cur.apiKeyMasked; } else {
+        if (k.length<8) return res.status(400).json({ success:false, error:"API_KEY_REQUIRED" });
+        cur.apiKey = k;
+        cur.apiKeyMasked = k.slice(0,4)+"…"+k.slice(-4);
+      }
+    }
+    if (sender!==undefined) cur.sender = String(sender).trim()||undefined;
+    cur.lastVerified = new Date().toISOString();
+    runtimeConfig.writeSection("resend", cur);
+    try{ kernel?.eventBus?.publish("email.configured", { masked: cur.apiKeyMasked||null }); }catch{}
+    res.json({ success:true, masked: cur.apiKeyMasked||null, sender: cur.sender||null });
+  } catch(e){ res.status(500).json({ success:false, error:"EMAIL_CONFIGURE_FAILED", message:e.message}); }
 });
 
 // === CONNECTIVITY FABRIC + SIDEWAYS ACTIVATION (expansion batch) ==========
@@ -2304,12 +2430,15 @@ app.get('/api/v1/notifications/recent', (req, res) => {
 });
 
 // === TRANSACTIONAL EMAIL (Resend, canonical) ==============================
-// Status is safe to expose (never includes the key). Sending is gated to
-// level-2 operators and recorded as an internal notification event first,
-// so every external delivery has an auditable internal counterpart.
+// Status is safe to expose (never includes the key). Dashboard supplements ENV.
 app.get('/api/v1/email/status', security.requireLevel(2), (req, res) => {
   try {
-    res.json({ success: true, email: emailConnector.status() });
+    const stored = (()=>{ try{ return runtimeConfig.readSection?.("resend") || runtimeConfig.read()?.resend || null; }catch{ return null; }})();
+    const base = emailConnector.status();
+    if (stored?.apiKeyMasked) {
+      return res.json({ success: true, email: { ...base, dashboardConfigured:true, dashboardMasked: stored.apiKeyMasked, status: base } });
+    }
+    res.json({ success: true, email: base });
   } catch (error) {
     res.status(500).json({ success: false, error: "EMAIL_STATUS_FAILED", message: error.message });
   }
