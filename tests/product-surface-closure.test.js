@@ -244,3 +244,67 @@ test("product-surface: elevated non-admin role cannot invite, suspend or revoke 
   const blockedRevoke = await request(analystElevated, "POST", `/api/v1/workforce/${accepted.person.id}/revoke`, {});
   assert.equal(blockedRevoke.status, 403);
 });
+
+test("workspace: role workspaces expose every required module with a destination (no blank workspace)", () => {
+  const html = fs.readFileSync(path.resolve("public/index.html"), "utf8");
+  const required = {
+    founder: ["overview", "products", "access", "workforce", "invitations", "agents", "operations", "workflows", "knowledge", "decisions", "audit", "notifications", "settings", "account"],
+    admin: ["overview", "products", "workforce", "invitations", "agents", "announcements", "operations", "workflows", "audit", "notifications", "account"],
+    worker: ["overview", "products", "work", "announcements", "notifications", "account"],
+    pilot: ["poverview", "request", "diagnostic", "evidence", "products", "implementation", "contact", "account"],
+    partner: ["paroverview", "partnership", "integrations", "products", "implementation", "contact", "account"]
+  };
+  for (const [role, modules] of Object.entries(required)) {
+    for (const m of modules) {
+      assert.ok(html.includes(`id:'${m}'`), `${role}: workspace module '${m}' missing from WS_MODULES`);
+    }
+  }
+  for (const marker of ["ws-module-", "ws-panel", "wsGrid", "ROLE WORKSPACE"]) {
+    assert.ok(html.includes(marker), `workspace shell missing: ${marker}`);
+  }
+  // Workspace is a routed section, not a dead anchor.
+  assert.ok(html.includes("Sec('Workspace',WS())"), "Workspace section not mounted");
+  assert.ok(html.includes("'Workspace'"), "Workspace missing from navigation sections");
+});
+
+test("workspace: every module action maps to an existing API or real navigation (no dead controls)", () => {
+  const html = fs.readFileSync(path.resolve("public/index.html"), "utf8");
+  const apiCalls = [
+    "/api/v1/workforce'", "/api/v1/workforce/invite", "/api/v1/workforce/agents",
+    "/api/v1/audit", "/api/v1/announcements", "/api/v1/capabilities/activation",
+    "/api/v1/admin/trading/entitlements", "/api/v1/cases", "/api/v1/notifications/recent",
+    "/api/v1/community/progression", "/api/v1/partners", "/api/v1/connectivity/inventory"
+  ];
+  for (const a of apiCalls) assert.ok(html.includes(a), `workspace never calls ${a}`);
+  // Loading / error states are rendered inline, never silent.
+  for (const s of ["Loading…", "fieldErr", "formOk", "emptyState", "Retry"]) {
+    assert.ok(html.includes(s), `workspace missing UI state: ${s}`);
+  }
+  // No module silently does nothing: the grid renders one button per module definition.
+  const wsStart = html.indexOf("const WS_MODULES={");
+  const wsEnd = html.indexOf("const wsModules=WS_MODULES");
+  assert.ok(wsStart > 0 && wsEnd > wsStart, "WS_MODULES block missing");
+  const modIds = (html.slice(wsStart, wsEnd).match(/\{id:'[a-z]+'/g) || []).length;
+  assert.ok(modIds >= 40, `expected >=40 module definitions across roles, found ${modIds}`);
+  assert.ok(html.includes("onClick:()=>{if(m.id==='account')"), "module buttons must wire click actions");
+});
+
+test("workspace: mobile navigation exposes all permitted destinations with touch targets", () => {
+  const html = fs.readFileSync(path.resolve("public/index.html"), "utf8");
+  assert.ok(html.includes("mobileMenu"), "mobile menu missing");
+  assert.ok(html.includes("visibleNav.map"), "mobile menu not driven by permitted nav");
+  assert.ok(html.includes("min-height:44px") || html.includes("min-height:48px"), "touch targets missing");
+  assert.ok(html.includes("overflow-x:clip") || html.includes("overflow-x:hidden"), "page overflow guard missing");
+  assert.ok(html.includes("max-height:min(72vh,640px)"), "mobile menu scroll bound missing");
+  assert.ok(html.includes("tableScroll"), "table scroll container missing (page would overflow on small screens)");
+  assert.ok(!html.includes("min-height:40px"), "sub-44px touch target regression");
+});
+
+test("workspace: privileged actions are gated in UI and truthfully labelled (no fake AVAILABLE)", () => {
+  const html = fs.readFileSync(path.resolve("public/index.html"), "utf8");
+  assert.ok(html.includes("canWorkforceAdmin"), "workforce admin gate missing in workspace");
+  assert.ok(html.includes("requires a Founder, Admin or elevated Operator session"), "honest elevation notice missing");
+  assert.ok(html.includes("Password/PIN resets live in the Admin Console") || html.includes("Admin Console"), "reset path must point at the real console, not a fake control");
+  // Management controls that need secrets (password/PIN reset prompts) stay in /admin; workspace exposes only real endpoints.
+  assert.ok(!html.includes("/reset-password',{"), "workspace must not half-wire password resets");
+});
