@@ -316,7 +316,7 @@ test("connective: duplicate homepage section removed, palette/media/cases/storag
     "palSearch", "/api/command/search", "SERVER CATALOG", "palRunServer",
     "media-request-form", "/api/v1/media/request", "REQUEST LOGGED",
     "Include demos", "includeDemo", "DEMO · synthetic", "demoExcluded",
-    "/api/v1/admin/storage/verify", "STORAGE VERIFY", "READ-ONLY PROBE",
+    "/api/v1/admin/storage/verify", "STORAGE VERIFY", "READ-ONLY PROBE", "self-cleaning write probe",
     "ws-module-", "ws-panel", "tableScroll"
   ]) {
     assert.ok(html.includes(marker), `connective surface missing: ${marker}`);
@@ -377,6 +377,11 @@ test("connective: storage verify is read-only and truthful; backend search serve
   assert.equal(probe.success, true);
   assert.ok(["OK", "FAILED"].includes(probe.probe) || probe.probe === "NOT_RUN", "unexpected probe state");
   assert.ok(String(probe.hint || "").toLowerCase().includes("no data was written"), "probe must disclose no-write");
+  const writeProbe = await (await fetch(`${base}/api/v1/admin/storage/verify?write=true`, { headers: { Authorization: `Bearer ${tok}` } })).json();
+  assert.equal(writeProbe.success, true);
+  assert.deepEqual(writeProbe.stages, { read: "OK", write: "OK", readBack: "OK", delete: "OK" }, "self-cleaning write round-trip must pass stage by stage");
+  assert.equal(writeProbe.probe, "OK");
+  assert.ok(String(writeProbe.hint || "").toLowerCase().includes("no residue"), "write probe must disclose cleanup");
   const search = await (await fetch(`${base}/api/command/search?q=procarta`)).json();
   assert.equal(search.success, true);
   assert.ok(Array.isArray(search.commands) && search.commands.length > 0, "backend search empty");

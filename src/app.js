@@ -2432,10 +2432,12 @@ app.get('/api/v1/product-surface', (req, res) => {
   }
 });
 
-// Storage diagnostics (read-only probe, never writes). Distinguishes
-// "not configured" from "configured but unreachable" (e.g. PostgREST 404 =
-// table missing/invisible) so the exact SUPABASE_STORAGE_* failure can be
-// surfaced with its fix instead of a generic error. L2-gated; no secrets.
+// Storage diagnostics: read probe by default; opt-in self-cleaning write
+// probe (?write=true) that deletes any stale probe key first, writes a fresh
+// probe value, reads it back, compares, then deletes it again. Every stage is
+// reported, so a Founder can prove durable write+read+delete end-to-end (or
+// see the exact failing stage) without leaving residue. L2-gated; no secrets.
+const ADE_VERIFY_PROBE_KEY = "__ade_verify_probe__";
 app.get('/api/v1/admin/storage/verify', security.requireLevel(2), async (req, res) => {
   try {
     const provider = storageProvider?.constructor?.name || "UNKNOWN";
@@ -2445,12 +2447,31 @@ app.get('/api/v1/admin/storage/verify', security.requireLevel(2), async (req, re
     if (configErr) {
       return res.json({ success: true, configured: false, provider, probe: "NOT_RUN", error: "STORAGE_NOT_CONFIGURED", message: String(configErr.message || configErr) });
     }
+    const stages = {};
     try {
-      await storageProvider.list("__ade_verify_probe__");
+      await storageProvider.list(ADE_VERIFY_PROBE_KEY);
+      stages.read = "OK";
     } catch (e) {
-      return res.json({ success: true, configured: true, provider, probe: "FAILED", error: "STORAGE_PROBE_FAILED", message: String(e?.message || e), hint: "No data was written by this check. For HTTP 404: create the configured table / grant access, then retry." });
+      return res.json({ success: true, configured: true, provider, probe: "FAILED", stages: { ...stages, read: "FAILED" }, error: "STORAGE_PROBE_FAILED", message: String(e?.message || e), hint: "No data was written by this check. For HTTP 404: create the configured table / grant access, then retry." });
     }
-    res.json({ success: true, configured: true, provider, probe: "OK", hint: "Read probe succeeded; no data was written by this check." });
+    if (String(req.query.write || "").toLowerCase() !== "true") {
+      return res.json({ success: true, configured: true, provider, probe: "OK", stages, hint: "Read probe succeeded; no data was written by this check. Re-run with ?write=true for a self-cleaning write/read/delete proof." });
+    }
+    const marker = `probe-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    try {
+      try { await storageProvider.delete(ADE_VERIFY_PROBE_KEY); } catch {}
+      await storageProvider.set(ADE_VERIFY_PROBE_KEY, { marker });
+      stages.write = "OK";
+      const back = await storageProvider.get(ADE_VERIFY_PROBE_KEY, null);
+      if (!back || back.marker !== marker) throw new Error("STORAGE_PROBE_MISMATCH: read-back value did not match the written probe.");
+      stages.readBack = "OK";
+      await storageProvider.delete(ADE_VERIFY_PROBE_KEY);
+      stages.delete = "OK";
+    } catch (e) {
+      try { await storageProvider.delete(ADE_VERIFY_PROBE_KEY); } catch {}
+      return res.json({ success: true, configured: true, provider, probe: "FAILED", stages, error: "STORAGE_WRITE_PROBE_FAILED", message: String(e?.message || e), hint: "Cleanup attempted. For HTTP 404: create the configured table / grant access, then retry." });
+    }
+    res.json({ success: true, configured: true, provider, probe: "OK", stages, hint: "Write, read-back and delete all succeeded; no residue remains." });
   } catch (error) {
     res.status(500).json({ success: false, error: "STORAGE_VERIFY_FAILED", message: error.message });
   }
