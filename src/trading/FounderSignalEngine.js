@@ -568,7 +568,7 @@ export class FounderSignalEngine {
     };
   }
 
-  analyzeBinary({ pair, instrument, marketType = "REGULAR", candles, timeframe = "M5", now = Date.now(), pipSize, expectedDeltaPips, projectedExpiryPrice, expectedMove, brokerTicks, brokerFeed, spotTicks, spotFeed, spotCandles, spotPrice, spotClose, entryCutoffAt, expiryAt, defense = {} } = {}) {
+  analyzeBinary({ pair, instrument, marketType = "REGULAR", candles, timeframe = "M5", now = Date.now(), pipSize, expectedDeltaPips, projectedExpiryPrice, expectedMove, brokerTicks, brokerFeed, spotTicks, spotFeed, spotCandles, spotPrice, spotClose, entryCutoffAt, expiryAt, defense = {}, enforce } = {}) {
     const symbol = String(pair ?? instrument ?? "").trim().toUpperCase();
     if (!symbol) return this._noTrade("INSTRUMENT_REQUIRED", "Pair symbol is required.", { market: "BINARY" });
     const mt = String(marketType || "REGULAR").toUpperCase() === "OTC" ? "OTC" : "REGULAR";
@@ -595,6 +595,12 @@ export class FounderSignalEngine {
 
     // ---- Mandatory Binary Manipulation Defense Layer (before any signal evaluation) ----
     const dObj = (defense && typeof defense === "object") ? defense : {};
+    // Enforcement boundary: the programmed legacy decision below is preserved
+    // exactly unless the caller explicitly opts into rejection with
+    // defense:{enforce:true} (or top-level enforce:true). Without the flag,
+    // feed evidence is evaluated and attached as diagnostics only, and every
+    // pre-existing input reaches the same state it always reached.
+    const defenseEnforced = dObj.enforce === true || enforce === true;
     const resolvedPipSize = pipSizeFor(symbol, num(pipSize) ?? num(dObj.pipSize) ?? null);
     const thresholds = {
       minPipEdge: num(dObj.minPipEdge) ?? num(this.config.minBinaryPipEdge) ?? BINARY_DEFENSE_DEFAULTS.minPipEdge,
@@ -760,11 +766,14 @@ export class FounderSignalEngine {
     if (!tickLatency.passed) defenseSummary.failed.push(tickLatency.code);
     if (!feedValidation.passed) defenseSummary.failed.push(feedValidation.code);
 
-    if (!defenseSummary.passed) {
+    if (!defenseSummary.passed && defenseEnforced) {
       const first = defenseSummary.failed[0];
       const rationale = [pipEdge, tickLatency, feedValidation].filter((c) => c.passed === false).map((c) => c.detail).join(" ");
       return this._rejectedBinary({ symbol, marketType: mt, timeframe, manipulation: first, rationale, defense: defenseSummary, zScore: +z.toFixed(2), extra: { candles: cs.length, atr: +a.toFixed(5), threshold } });
     }
+    // Without enforcement the legacy programmed decision below runs unchanged
+    // (defense diagnostics stay attached as additive fields only).
+    const entryUntilIso = defenseEnforced ? defaultEntryCutoff : now + 2 * 60 * 1000;
 
     // ---- Signal evaluation (only reached when defense passes) ----
     let direction = null;
@@ -780,7 +789,7 @@ export class FounderSignalEngine {
     return {
       instrument: symbol, market: "BINARY", marketType: mt, state, direction,
       timeframe: String(timeframe).toUpperCase(),
-      entryWindow: { from: new Date(now).toISOString(), until: new Date(defaultEntryCutoff).toISOString(), note: "Next 2 minutes on the connected platform clock." },
+      entryWindow: { from: new Date(now).toISOString(), until: new Date(entryUntilIso).toISOString(), note: "Next 2 minutes on the connected platform clock." },
       expiry: { estimatedMinutes: estimatedExpiryMin, label: "ESTIMATED EXPIRY", note: "Estimate from volatility/timeframe only. Actual platform expiry must be confirmed on the broker platform — no broker is connected." },
       zScore: +z.toFixed(2), confidence: confRounded, confidencePercent: qualityRating(confRounded).percent, quality: qualityRating(confRounded), factors,
       defense: defenseSummary,

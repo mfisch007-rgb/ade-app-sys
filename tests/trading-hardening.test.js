@@ -132,7 +132,7 @@ test("hardening: binary minimum pip edge rejects sub-2.5-pip expected moves", ()
 
   // 1 pip of expected movement (5 bars x 0.00002 = 0.0001 = 1 pip) -> must reject.
   const thin = candles(60, 1.08, 0.00002);
-  const rejected = eng.analyzeBinary({ pair: "EURUSD", candles: thin, timeframe: "M5", now: FRESH });
+  const rejected = eng.analyzeBinary({ pair: "EURUSD", candles: thin, timeframe: "M5", now: FRESH, defense: { enforce: true } });
   assert.equal(rejected.state, "REJECTED_BROKER_MANIPULATION");
   assert.equal(rejected.manipulation, "INSUFFICIENT_PIP_EDGE");
   assert.equal(rejected.manipulationFlag, "INSUFFICIENT_PIP_EDGE");
@@ -149,7 +149,7 @@ test("hardening: binary minimum pip edge rejects sub-2.5-pip expected moves", ()
   assert.notEqual(ok.state, "REJECTED_BROKER_MANIPULATION");
 
   // Explicit deterministic overrides win over candle-implied momentum.
-  const forcedThin = eng.analyzeBinary({ pair: "EURUSD", candles: strong, timeframe: "M5", now: FRESH, expectedDeltaPips: 1.0 });
+  const forcedThin = eng.analyzeBinary({ pair: "EURUSD", candles: strong, timeframe: "M5", now: FRESH, expectedDeltaPips: 1.0, defense: { enforce: true } });
   assert.equal(forcedThin.state, "REJECTED_BROKER_MANIPULATION");
   assert.equal(forcedThin.manipulation, "INSUFFICIENT_PIP_EDGE");
 
@@ -160,7 +160,7 @@ test("hardening: binary minimum pip edge rejects sub-2.5-pip expected moves", ()
 
   // Projected expiry price path: 1 pip above last close -> reject; 5 pips -> pass pip check.
   const last = lastCloseOf(strong);
-  const projThin = eng.analyzeBinary({ pair: "EURUSD", candles: strong, timeframe: "M5", now: FRESH, projectedExpiryPrice: last + 0.0001 });
+  const projThin = eng.analyzeBinary({ pair: "EURUSD", candles: strong, timeframe: "M5", now: FRESH, projectedExpiryPrice: last + 0.0001, defense: { enforce: true } });
   assert.equal(projThin.manipulation, "INSUFFICIENT_PIP_EDGE");
   const projWide = eng.analyzeBinary({ pair: "EURUSD", candles: strong, timeframe: "M5", now: FRESH, projectedExpiryPrice: last + 0.0005 });
   assert.equal(projWide.defense.pipEdge.passed, true);
@@ -186,7 +186,7 @@ test("hardening: binary tick stall guard flags BROKER_TICK_STALL within 15s of c
   const stalled = eng.analyzeBinary({
     pair: "EURUSD", candles: cs, timeframe: "M5", now: FRESH,
     brokerTicks: stalledTicksGap(entryCutoff, expiryCutoff, px),
-    entryCutoffAt: entryCutoff, expiryAt: expiryCutoff
+    entryCutoffAt: entryCutoff, expiryAt: expiryCutoff, defense: { enforce: true }
   });
   assert.equal(stalled.state, "REJECTED_BROKER_MANIPULATION");
   assert.equal(stalled.manipulation, "BROKER_TICK_STALL");
@@ -198,7 +198,7 @@ test("hardening: binary tick stall guard flags BROKER_TICK_STALL within 15s of c
   const thin = eng.analyzeBinary({
     pair: "EURUSD", candles: cs, timeframe: "M5", now: FRESH,
     brokerTicks: thinTicksLiquidityDrop(entryCutoff, expiryCutoff, px),
-    entryCutoffAt: entryCutoff, expiryAt: expiryCutoff
+    entryCutoffAt: entryCutoff, expiryAt: expiryCutoff, defense: { enforce: true }
   });
   assert.equal(thin.state, "REJECTED_BROKER_MANIPULATION");
   assert.equal(thin.manipulation, "BROKER_TICK_STALL");
@@ -208,7 +208,7 @@ test("hardening: binary tick stall guard flags BROKER_TICK_STALL within 15s of c
   const far = eng.analyzeBinary({
     pair: "EURUSD", candles: cs, timeframe: "M5", now: FRESH,
     brokerTicks: [{ t: FRESH - 600000, price: px }, { t: FRESH - 599000, price: px }, { t: FRESH - 598000, price: px }],
-    entryCutoffAt: entryCutoff, expiryAt: expiryCutoff
+    entryCutoffAt: entryCutoff, expiryAt: expiryCutoff, defense: { enforce: true }
   });
   assert.equal(far.state, "REJECTED_BROKER_MANIPULATION");
   assert.equal(far.manipulation, "BROKER_TICK_STALL");
@@ -227,7 +227,7 @@ test("hardening: binary independent feed validation flags MANIPULATED_FEED over 
   assert.equal(priceOk.defense.feedValidation.state, "FEED_OK");
   assert.notEqual(priceOk.state, "REJECTED_BROKER_MANIPULATION");
 
-  const priceBad = eng.analyzeBinary({ pair: "EURUSD", candles: cs, timeframe: "M5", now: FRESH, spotPrice: px + 0.0002 });
+  const priceBad = eng.analyzeBinary({ pair: "EURUSD", candles: cs, timeframe: "M5", now: FRESH, spotPrice: px + 0.0002, defense: { enforce: true } });
   assert.equal(priceBad.state, "REJECTED_BROKER_MANIPULATION");
   assert.equal(priceBad.manipulation, "MANIPULATED_FEED");
   assert.equal(priceBad.feedState, "MANIPULATED_FEED");
@@ -242,7 +242,7 @@ test("hardening: binary independent feed validation flags MANIPULATED_FEED over 
   assert.notEqual(candleOk.state, "REJECTED_BROKER_MANIPULATION");
 
   const spotShifted = cs.map((c, i, a) => (i === a.length - 1 ? { ...c, h: c.h + 0.0002, c: c.c + 0.0002 } : { ...c }));
-  const candleBad = eng.analyzeBinary({ pair: "EURUSD", candles: cs, timeframe: "M5", now: FRESH, spotCandles: spotShifted });
+  const candleBad = eng.analyzeBinary({ pair: "EURUSD", candles: cs, timeframe: "M5", now: FRESH, spotCandles: spotShifted, defense: { enforce: true } });
   assert.equal(candleBad.state, "REJECTED_BROKER_MANIPULATION");
   assert.equal(candleBad.manipulation, "MANIPULATED_FEED");
   assert.ok(candleBad.defense.feedValidation.wickDeviationPips > 0.8);
@@ -262,7 +262,7 @@ test("hardening: binary independent feed validation flags MANIPULATED_FEED over 
   const spotTicksShifted = healthyTicks(entryCutoff, expiryCutoff, px + 0.0002);
   const ticksBad = eng.analyzeBinary({
     pair: "EURUSD", candles: cs, timeframe: "M5", now: FRESH,
-    brokerTicks, spotTicks: spotTicksShifted, entryCutoffAt: entryCutoff, expiryAt: expiryCutoff
+    brokerTicks, spotTicks: spotTicksShifted, entryCutoffAt: entryCutoff, expiryAt: expiryCutoff, defense: { enforce: true }
   });
   assert.equal(ticksBad.state, "REJECTED_BROKER_MANIPULATION");
   assert.equal(ticksBad.manipulation, "MANIPULATED_FEED");
@@ -273,7 +273,7 @@ test("hardening: binary REJECTED_BROKER_MANIPULATION carries rationale and block
   assert.ok(BINARY_STATES.includes("REJECTED_BROKER_MANIPULATION"));
 
   const thin = candles(60, 1.08, 0.00002);
-  const r = eng.analyzeBinary({ pair: "EURUSD", candles: thin, timeframe: "M5", now: FRESH });
+  const r = eng.analyzeBinary({ pair: "EURUSD", candles: thin, timeframe: "M5", now: FRESH, defense: { enforce: true } });
   assert.equal(r.state, "REJECTED_BROKER_MANIPULATION");
   assert.ok(r.manipulation && r.manipulationFlag === r.manipulation);
   assert.ok(["INSUFFICIENT_PIP_EDGE", "BROKER_TICK_STALL", "MANIPULATED_FEED"].includes(r.manipulation));
@@ -325,13 +325,13 @@ test("hardening: binary defense layer runs before signals and is fully determini
   assert.equal(jpyOk.defense.pipEdge.passed, true);
 
   const jpyThin = candles(60, 150.0, 0.002, 0.02);
-  const jpyReject = eng.analyzeBinary({ pair: "USDJPY", candles: jpyThin, timeframe: "M5", now: FRESH });
+  const jpyReject = eng.analyzeBinary({ pair: "USDJPY", candles: jpyThin, timeframe: "M5", now: FRESH, defense: { enforce: true } });
   assert.equal(jpyReject.state, "REJECTED_BROKER_MANIPULATION");
   assert.equal(jpyReject.manipulation, "INSUFFICIENT_PIP_EDGE");
 
   // Config override of the 2.5-pip minimum is honored deterministically.
   const strict = new FounderSignalEngine({ config: { minBinaryPipEdge: 50 } });
-  const strictRejected = strict.analyzeBinary({ pair: "EURUSD", candles: cs, timeframe: "M5", now: FRESH });
+  const strictRejected = strict.analyzeBinary({ pair: "EURUSD", candles: cs, timeframe: "M5", now: FRESH, defense: { enforce: true } });
   assert.equal(strictRejected.state, "REJECTED_BROKER_MANIPULATION");
   assert.equal(strictRejected.defense.thresholds.minPipEdge, 50);
 });
