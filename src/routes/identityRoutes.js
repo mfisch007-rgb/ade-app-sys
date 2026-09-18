@@ -114,7 +114,18 @@ export function registerIdentityRoutes({
       Number(claims.level) >= 2;
     if (legacyAdmin) {
       req.claims = claims;
-      req.person = null;
+      // Synthesize the same legacy person record as loadAuthenticated so
+      // downstream handlers (createdBy username, actor id) behave exactly
+      // as they did before workforce-mutating routes were admin-guarded.
+      req.person = {
+        id: null,
+        username: String(claims.sub || "admin"),
+        fullName: "Legacy Administrator",
+        role: "ADMIN",
+        level: Number(claims.level) || 2,
+        status: "ACTIVE",
+        accessExpiryAt: null
+      };
       return next();
     }
     if (String(claims.persona || "").toUpperCase() !== "WORKFORCE") {
@@ -306,9 +317,15 @@ export function registerIdentityRoutes({
     try {
       const count = await workforce.personCount();
       if (count > 0) {
-        return new Promise((resolve) => {
-          requireWorkforceAdmin(req, res, resolve);
+        // Bootstrap is complete: any further provision attempt is an
+        // authenticated admin action that truthfully fails with
+        // FOUNDER_ALREADY_PROVISIONED (409). Never hang the request.
+        let nextCalled = false;
+        await new Promise((resolve) => {
+          requireWorkforceAdmin(req, res, () => { nextCalled = true; resolve(); });
+          setImmediate(() => resolve());
         });
+        if (!nextCalled) return;
       }
       const person = await workforce.provisionFounder(req.body || {});
       return res.status(201).json({ success: true, person, status: "FOUNDER_PROVISIONED" });
@@ -317,7 +334,7 @@ export function registerIdentityRoutes({
     }
   });
 
-  app.post("/api/v1/workforce/invite", loadAuthenticated, requireElevatedPin, gate, async (req, res) => {
+  app.post("/api/v1/workforce/invite", loadAuthenticated, requireElevatedPin, requireWorkforceAdmin, gate, async (req, res) => {
     try {
       const result = await workforce.invite({
         ...(req.body || {}),
@@ -342,49 +359,49 @@ export function registerIdentityRoutes({
   const withActor = (fn) => (req, person, extra = {}) =>
     fn(person, req.body || {}, req.person?.id ?? null, extra);
 
-  app.post("/api/v1/workforce/:id/promote", loadAuthenticated, requireElevatedPin, gate,
+  app.post("/api/v1/workforce/:id/promote", loadAuthenticated, requireElevatedPin, requireWorkforceAdmin, gate,
     personAction(
       withActor((person, body, actorId) => workforce.changeRole(person.id, body.role, actorId)),
       "PROMOTE_FAILED"
     ));
 
-  app.post("/api/v1/workforce/:id/demote", loadAuthenticated, requireElevatedPin, gate,
+  app.post("/api/v1/workforce/:id/demote", loadAuthenticated, requireElevatedPin, requireWorkforceAdmin, gate,
     personAction(
       withActor((person, body, actorId) => workforce.changeRole(person.id, body.role, actorId)),
       "DEMOTE_FAILED"
     ));
 
-  app.post("/api/v1/workforce/:id/suspend", loadAuthenticated, requireElevatedPin, gate,
+  app.post("/api/v1/workforce/:id/suspend", loadAuthenticated, requireElevatedPin, requireWorkforceAdmin, gate,
     personAction(
       withActor((person, _body, actorId) => workforce.setStatus(person.id, "SUSPENDED", actorId)),
       "SUSPEND_FAILED"
     ));
 
-  app.post("/api/v1/workforce/:id/revoke", loadAuthenticated, requireElevatedPin, gate,
+  app.post("/api/v1/workforce/:id/revoke", loadAuthenticated, requireElevatedPin, requireWorkforceAdmin, gate,
     personAction(
       withActor((person, _body, actorId) => workforce.setStatus(person.id, "REVOKED", actorId)),
       "REVOKE_FAILED"
     ));
 
-  app.post("/api/v1/workforce/:id/activate", loadAuthenticated, requireElevatedPin, gate,
+  app.post("/api/v1/workforce/:id/activate", loadAuthenticated, requireElevatedPin, requireWorkforceAdmin, gate,
     personAction(
       withActor((person, _body, actorId) => workforce.setStatus(person.id, "ACTIVE", actorId)),
       "ACTIVATE_FAILED"
     ));
 
-  app.patch("/api/v1/workforce/:id/expiry", loadAuthenticated, requireElevatedPin, gate,
+  app.patch("/api/v1/workforce/:id/expiry", loadAuthenticated, requireElevatedPin, requireWorkforceAdmin, gate,
     personAction(
       withActor((person, body, actorId) => workforce.setExpiry(person.id, body.accessExpiryAt ?? null, actorId)),
       "EXPIRY_FAILED"
     ));
 
-  app.post("/api/v1/workforce/:id/reset-password", loadAuthenticated, requireElevatedPin, gate,
+  app.post("/api/v1/workforce/:id/reset-password", loadAuthenticated, requireElevatedPin, requireWorkforceAdmin, gate,
     personAction(
       withActor((person, body, actorId) => workforce.resetPassword(person.id, actorId, body.newPassword)),
       "PASSWORD_RESET_FAILED"
     ));
 
-  app.post("/api/v1/workforce/:id/reset-pin", loadAuthenticated, requireElevatedPin, gate,
+  app.post("/api/v1/workforce/:id/reset-pin", loadAuthenticated, requireElevatedPin, requireWorkforceAdmin, gate,
     personAction(
       withActor((person, body, actorId) => workforce.imposePin(person.id, actorId, body.newPin)),
       "PIN_RESET_FAILED"
@@ -394,7 +411,7 @@ export function registerIdentityRoutes({
     return res.json({ success: true, agents: await workforce.listAgents() });
   });
 
-  app.post("/api/v1/workforce/agents", loadAuthenticated, requireElevatedPin, gate, async (req, res) => {
+  app.post("/api/v1/workforce/agents", loadAuthenticated, requireElevatedPin, requireWorkforceAdmin, gate, async (req, res) => {
     try {
       const agent = await workforce.createAgent({
         ...(req.body || {}),
@@ -406,7 +423,7 @@ export function registerIdentityRoutes({
     }
   });
 
-  app.patch("/api/v1/workforce/agents/:id", loadAuthenticated, requireElevatedPin, gate, async (req, res) => {
+  app.patch("/api/v1/workforce/agents/:id", loadAuthenticated, requireElevatedPin, requireWorkforceAdmin, gate, async (req, res) => {
     try {
       const agent = await workforce.updateAgent(req.params.id, req.body || {}, req.person.id);
       return res.json({ success: true, agent });
@@ -450,7 +467,7 @@ export function registerIdentityRoutes({
     }
   });
 
-  app.post("/api/v1/announcements", loadAuthenticated, requireElevatedPin, gate, async (req, res) => {
+  app.post("/api/v1/announcements", loadAuthenticated, requireElevatedPin, requireWorkforceAdmin, gate, async (req, res) => {
     try {
       const entry = await announcements.create({
         ...(req.body || {}),
@@ -462,7 +479,7 @@ export function registerIdentityRoutes({
     }
   });
 
-  app.patch("/api/v1/announcements/:id", loadAuthenticated, requireElevatedPin, gate, async (req, res) => {
+  app.patch("/api/v1/announcements/:id", loadAuthenticated, requireElevatedPin, requireWorkforceAdmin, gate, async (req, res) => {
     try {
       const entry = await announcements.update(req.params.id, req.body || {}, req.person.id);
       return res.json({ success: true, announcement: entry });
@@ -471,7 +488,7 @@ export function registerIdentityRoutes({
     }
   });
 
-  app.delete("/api/v1/announcements/:id", loadAuthenticated, requireElevatedPin, gate, async (req, res) => {
+  app.delete("/api/v1/announcements/:id", loadAuthenticated, requireElevatedPin, requireWorkforceAdmin, gate, async (req, res) => {
     try {
       const result = await announcements.remove(req.params.id, req.person.id);
       return res.json({ success: true, ...result });

@@ -117,6 +117,11 @@ export class SupabaseStorageAdapter extends StorageProvider {
     const res = await fetch(`${this.#restBase()}?k=eq.${encodeURIComponent(key)}&select=k,v`, {
       headers: this.#restHeaders()
     });
+    if (!res.ok && res.status === 404) {
+      throw new Error(
+        `SUPABASE_STORAGE_READ_FAILED: HTTP 404 (table "${this.config.table}" not found or not visible — CONFIGURATION_REQUIRED)`
+      );
+    }
     if (!res.ok) throw new Error(`SUPABASE_STORAGE_READ_FAILED: HTTP ${res.status}`);
     const rows = await res.json().catch(() => null);
     if (!Array.isArray(rows) || rows.length === 0) return undefined;
@@ -129,6 +134,16 @@ export class SupabaseStorageAdapter extends StorageProvider {
       headers: this.#restHeaders({ Prefer: "resolution=merge-duplicates" }),
       body: JSON.stringify({ k: key, v: value })
     });
+    // HTTP 404 from PostgREST means the configured table is missing, the
+    // project URL is wrong, or the service role cannot see the table
+    // (missing GRANT / RLS). Surface CONFIGURATION_REQUIRED truthfully so
+    // the UI never pretends storage is operational. Table name only — never
+    // URL, key or row values.
+    if (!res.ok && res.status === 404) {
+      throw new Error(
+        `SUPABASE_STORAGE_WRITE_FAILED: HTTP 404 (table "${this.config.table}" not found or not visible to the configured service key — CONFIGURATION_REQUIRED: create the table / grant access, then retry)`
+      );
+    }
     if (!res.ok) throw new Error(`SUPABASE_STORAGE_WRITE_FAILED: HTTP ${res.status}`);
   }
 

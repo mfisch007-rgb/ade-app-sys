@@ -65,6 +65,7 @@ import { CommunityProgression } from "./community/CommunityProgression.js";
 import { PilotGate } from "./community/PilotGate.js";
 import { PilotRegistry } from "./community/PilotRegistry.js";
 import { ProductRegistry } from "./products/ProductRegistry.js";
+import { ProductSurfaceMatrix } from "./products/ProductSurfaceMatrix.js";
 import { ProductNotificationEngine } from "./notification/ProductNotificationEngine.js";
 import { ResendEmailConnector } from "./notification/ResendEmailConnector.js";
 import { ProcartaExecutionEngine } from "./procarta/ProcartaExecutionEngine.js";
@@ -250,6 +251,10 @@ const productRegistry = new ProductRegistry();
 const connectionFabric = new ConnectionFabric({ connectionManager, productRegistry, capabilityRegistry: CapabilityRegistry, eventBus: kernel?.eventBus });
 const capabilityExchange = new CapabilityExchange({ productRegistry, capabilityRegistry: CapabilityRegistry, connectionFabric });
 const capabilityActivation = new CapabilityActivation({ capabilityRegistry: CapabilityRegistry, editionPolicy, providerStatus: () => UniversalAIGateway.getInstance().getProviderStatus() });
+// Product-surface closure: composes existing authorities only (no new
+// kernel/RBAC/registry). BUILTIN_ECOSYSTEM_CAPABILITIES is declared below;
+// the matrix instance is created after that declaration (see product-surface
+// route) so the canonical catalog list is passed through, not duplicated.
 const learningCandidates = new LearningCandidates({ feedbackIntelligence, capabilityRegistry: CapabilityRegistry, eventBus: kernel?.eventBus });
 const venueRegistry = new VenueRegistry({ store: runtimeConfig, eventBus: kernel?.eventBus });
 const marketDataRegistry = new MarketDataRegistry({ store: runtimeConfig, eventBus: kernel?.eventBus, venueRegistry });
@@ -2392,6 +2397,27 @@ app.get('/api/v1/products', (req, res) => {
     res.json({ success: true, products: productRegistry.listProducts(), variants: productRegistry.getCampaignVariants() });
   } catch (error) {
     res.status(500).json({ success: false, error: "PRODUCTS_FAILED", message: error.message });
+  }
+});
+
+// === PRODUCT-SURFACE CLOSURE ==================================================
+// Unified catalogue -> activation -> entitlement -> role -> route -> nav ->
+// action matrix. Composes existing authorities only; exposes no secrets
+// (names/states/requiredAction only — never env values, keys or tokens).
+app.get('/api/v1/product-surface', (req, res) => {
+  try {
+    const matrix = new ProductSurfaceMatrix({
+      productRegistry,
+      capabilityActivation,
+      connectionFabric,
+      editionPolicy,
+      capabilityRegistry: CapabilityRegistry,
+      storageProvider,
+      builtinCatalog: BUILTIN_ECOSYSTEM_CAPABILITIES
+    });
+    res.json({ success: true, edition: editionPolicy.getEdition(), summary: matrix.summary(), surfaces: matrix.build() });
+  } catch (error) {
+    res.status(500).json({ success: false, error: "PRODUCT_SURFACE_FAILED", message: error.message });
   }
 });
 
