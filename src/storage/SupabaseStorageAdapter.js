@@ -113,16 +113,30 @@ export class SupabaseStorageAdapter extends StorageProvider {
     return `${String(this.config.url).replace(/\/$/, "")}/rest/v1/${this.config.table}`;
   }
 
+  // PostgREST failure bodies carry schema metadata only (code/message/hint
+  // about tables/columns/policies — never row values or credentials).
+  // Including a truncated body turns opaque HTTP statuses (notably 404s from
+  // a missing table/column or a stale schema cache) into exact diagnoses.
+  async #restError(res, fallback) {
+    let body = "";
+    try {
+      const text = await res.text();
+      body = String(text || "").replace(/\s+/g, " ").trim().slice(0, 300);
+    } catch {}
+    return new Error(body ? `${fallback}: HTTP ${res.status} (${body})` : `${fallback}: HTTP ${res.status}`);
+  }
+
   async #restGet(key) {
     const res = await fetch(`${this.#restBase()}?k=eq.${encodeURIComponent(key)}&select=k,v`, {
       headers: this.#restHeaders()
     });
     if (!res.ok && res.status === 404) {
+      const detail = await this.#restError(res, "SUPABASE_STORAGE_READ_FAILED").then((e) => e.message).catch(() => `SUPABASE_STORAGE_READ_FAILED: HTTP ${res.status}`);
       throw new Error(
-        `SUPABASE_STORAGE_READ_FAILED: HTTP 404 (table "${this.config.table}" not found or not visible — CONFIGURATION_REQUIRED)`
+        `${detail} (table "${this.config.table}" not found or not visible — CONFIGURATION_REQUIRED)`
       );
     }
-    if (!res.ok) throw new Error(`SUPABASE_STORAGE_READ_FAILED: HTTP ${res.status}`);
+    if (!res.ok) throw await this.#restError(res, "SUPABASE_STORAGE_READ_FAILED");
     const rows = await res.json().catch(() => null);
     if (!Array.isArray(rows) || rows.length === 0) return undefined;
     return rows[0]?.v;
@@ -140,11 +154,12 @@ export class SupabaseStorageAdapter extends StorageProvider {
     // the UI never pretends storage is operational. Table name only — never
     // URL, key or row values.
     if (!res.ok && res.status === 404) {
+      const detail = await this.#restError(res, "SUPABASE_STORAGE_WRITE_FAILED").then((e) => e.message).catch(() => `SUPABASE_STORAGE_WRITE_FAILED: HTTP ${res.status}`);
       throw new Error(
-        `SUPABASE_STORAGE_WRITE_FAILED: HTTP 404 (table "${this.config.table}" not found or not visible to the configured service key — CONFIGURATION_REQUIRED: create the table / grant access, then retry)`
+        `${detail} (table "${this.config.table}" not found or not visible to the configured service key — CONFIGURATION_REQUIRED: create the table / grant access, then retry)`
       );
     }
-    if (!res.ok) throw new Error(`SUPABASE_STORAGE_WRITE_FAILED: HTTP ${res.status}`);
+    if (!res.ok) throw await this.#restError(res, "SUPABASE_STORAGE_WRITE_FAILED");
   }
 
   async #restDelete(key) {
@@ -152,7 +167,7 @@ export class SupabaseStorageAdapter extends StorageProvider {
       method: "DELETE",
       headers: this.#restHeaders()
     });
-    if (!res.ok) throw new Error(`SUPABASE_STORAGE_DELETE_FAILED: HTTP ${res.status}`);
+    if (!res.ok) throw await this.#restError(res, "SUPABASE_STORAGE_DELETE_FAILED");
   }
 
   async #restList(prefix = "") {
@@ -160,7 +175,7 @@ export class SupabaseStorageAdapter extends StorageProvider {
       ? `?k=like.${encodeURIComponent(prefix)}*&select=k,v&order=k.asc`
       : `?select=k,v&order=k.asc`;
     const res = await fetch(`${this.#restBase()}${q}`, { headers: this.#restHeaders() });
-    if (!res.ok) throw new Error(`SUPABASE_STORAGE_LIST_FAILED: HTTP ${res.status}`);
+    if (!res.ok) throw await this.#restError(res, "SUPABASE_STORAGE_LIST_FAILED");
     const rows = await res.json().catch(() => []);
     return (Array.isArray(rows) ? rows : []).map((row) => ({ key: row.k, value: row.v }));
   }
