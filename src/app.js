@@ -1137,7 +1137,7 @@ app.get('/api/v1/attention', security.requireLevel(2), (req,res)=>{
     const pilots = pilotRegistry.list().slice(-50).reverse();
     const parts = partners.list().slice(-50).reverse();
     const conns = connectionManager.list().slice(-50).reverse();
-    const cases = caseManager.list().slice(-20);
+    const cases = visibleCases(false).cases.slice(-20);
     const notifs = (()=>{ try{ return notificationEngine.getRecentEvents(50); }catch{ return []; }})();
     const stats = {
       intakes: intakes.length,
@@ -1153,7 +1153,18 @@ app.get('/api/v1/attention', security.requireLevel(2), (req,res)=>{
   }catch(e){ res.status(500).json({success:false, error:'ATTENTION_FAILED', message:e.message}); }
 });
 app.post('/api/v1/intake/:channel',requireDurableStorage,(req,res)=>{ try { const result=intake.ingest(req.params.channel,req.body||{},{source:req.body?.source||req.params.channel,authenticated:Boolean(req.headers.authorization)}); logEvent('INTAKE',`Created ${result.case.id} from ${req.params.channel}`); res.status(201).json(result); } catch(e){res.status(400).json({success:false,error:e.message});} });
-app.get('/api/v1/cases', security.requireAuth(),(req,res)=>res.json({success:true,count:caseManager.list().length,cases:caseManager.list()}));
+// Demonstration runs persist cases with source DEMO_ORCHESTRATOR. Human
+// operational views exclude them by default so synthetic demo actors never
+// pollute Founder/Worker case lists; ?includeDemo=true opts back in and the
+// demo result still deep-links via GET /cases/:id. No second store, no flags.
+const DEMO_CASE_SOURCE = "DEMO_ORCHESTRATOR";
+function visibleCases(includeDemo){
+  const all = caseManager.list();
+  if (String(includeDemo).toLowerCase() === "true") return { cases: all, demoExcluded: 0 };
+  const human = all.filter((c) => c?.source !== DEMO_CASE_SOURCE);
+  return { cases: human, demoExcluded: all.length - human.length };
+}
+app.get('/api/v1/cases', security.requireAuth(),(req,res)=>{ const { cases, demoExcluded } = visibleCases(req.query.includeDemo); res.json({success:true,count:cases.length,cases,demoExcluded}); });
 app.post('/api/v1/cases/:id/process', security.requireAuth(),requireDurableStorage,async(req,res)=>{try{const result=await engagementOrchestrator.process(req.params.id,req.body||{});res.json({success:true,case:result});}catch(e){res.status(e.message==='CASE_NOT_FOUND'?404:400).json({success:false,error:e.message});}});
 app.post('/api/v1/cases/:id/execute', security.requireAuth(),requireDurableStorage,async(req,res)=>{try{const result=await engagementOrchestrator.executeCase(req.params.id);res.json({success:true,case:result});}catch(e){res.status(e.message==='CASE_NOT_FOUND'?404:400).json({success:false,error:e.message});}});
 app.post('/api/v1/cases/:id/feedback', security.requireAuth(),requireDurableStorage,async(req,res)=>{try{const result=await engagementOrchestrator.ingestFeedback(req.params.id,req.body||{});res.json({success:true,case:result});}catch(e){res.status(e.message==='CASE_NOT_FOUND'?404:400).json({success:false,error:e.message});}});
@@ -1161,7 +1172,7 @@ app.get('/api/v1/cases/:id/transitions', security.requireAuth(),(req,res)=>{cons
 app.get('/api/v1/cases/:id', security.requireAuth(),(req,res)=>{const c=caseManager.get(req.params.id); if(!c)return res.status(404).json({success:false,error:'CASE_NOT_FOUND'}); res.json({success:true,case:c});});
 app.patch('/api/v1/cases/:id', security.requireAuth(),requireDurableStorage,(req,res)=>{const c=caseManager.update(req.params.id,req.body||{}); if(!c)return res.status(404).json({success:false,error:'CASE_NOT_FOUND'}); res.json({success:true,case:c});});
 
-app.get('/api/v1/admin/overview', security.requireLevel(2),(req,res)=>res.json({success:true,channels:channels.list(),connections:connectionManager.list(),partners:partners.list(),cases:caseManager.list(),settings:runtimeConfig.read()}));
+app.get('/api/v1/admin/overview', security.requireLevel(2),(req,res)=>{ const { cases, demoExcluded } = visibleCases(req.query.includeDemo); res.json({success:true,channels:channels.list(),connections:connectionManager.list(),partners:partners.list(),cases,demoCasesExcluded:demoExcluded,settings:runtimeConfig.read()}); });
 app.get('/api/v1/admin/channels', security.requireLevel(2),(req,res)=>res.json({success:true,channels:channels.list()}));
 app.patch('/api/v1/admin/channels/:id', security.requireLevel(2),requireDurableStorage,(req,res)=>{const c=channels.set(req.params.id,req.body||{}); runtimeConfig.write('channels',req.params.id,c); res.json({success:true,channel:c});});
 app.get('/api/v1/admin/connections', security.requireLevel(2),(req,res)=>res.json({success:true,connections:connectionManager.list()}));
@@ -2418,6 +2429,30 @@ app.get('/api/v1/product-surface', (req, res) => {
     res.json({ success: true, edition: editionPolicy.getEdition(), summary: matrix.summary(), surfaces: matrix.build() });
   } catch (error) {
     res.status(500).json({ success: false, error: "PRODUCT_SURFACE_FAILED", message: error.message });
+  }
+});
+
+// Storage diagnostics (read-only probe, never writes). Distinguishes
+// "not configured" from "configured but unreachable" (e.g. PostgREST 404 =
+// table missing/invisible) so the exact SUPABASE_STORAGE_* failure can be
+// surfaced with its fix instead of a generic error. L2-gated; no secrets.
+app.get('/api/v1/admin/storage/verify', security.requireLevel(2), async (req, res) => {
+  try {
+    const provider = storageProvider?.constructor?.name || "UNKNOWN";
+    const configErr = typeof storageProvider?.configurationError === "function"
+      ? storageProvider.configurationError()
+      : null;
+    if (configErr) {
+      return res.json({ success: true, configured: false, provider, probe: "NOT_RUN", error: "STORAGE_NOT_CONFIGURED", message: String(configErr.message || configErr) });
+    }
+    try {
+      await storageProvider.list("__ade_verify_probe__");
+    } catch (e) {
+      return res.json({ success: true, configured: true, provider, probe: "FAILED", error: "STORAGE_PROBE_FAILED", message: String(e?.message || e), hint: "No data was written by this check. For HTTP 404: create the configured table / grant access, then retry." });
+    }
+    res.json({ success: true, configured: true, provider, probe: "OK", hint: "Read probe succeeded; no data was written by this check." });
+  } catch (error) {
+    res.status(500).json({ success: false, error: "STORAGE_VERIFY_FAILED", message: error.message });
   }
 });
 

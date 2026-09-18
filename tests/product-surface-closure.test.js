@@ -308,3 +308,77 @@ test("workspace: privileged actions are gated in UI and truthfully labelled (no 
   // Management controls that need secrets (password/PIN reset prompts) stay in /admin; workspace exposes only real endpoints.
   assert.ok(!html.includes("/reset-password',{"), "workspace must not half-wire password resets");
 });
+
+test("connective: duplicate homepage section removed, palette/media/cases/storage surfaces wired", () => {
+  const html = fs.readFileSync(path.resolve("public/index.html"), "utf8");
+  assert.equal((html.match(/h\('p',null,'Register your interest to progress to Pilot or Enterprise\.'\)/g) || []).length, 0, "duplicate HOME register block still present");
+  for (const marker of [
+    "palSearch", "/api/command/search", "SERVER CATALOG", "palRunServer",
+    "media-request-form", "/api/v1/media/request", "REQUEST LOGGED",
+    "Include demos", "includeDemo", "DEMO · synthetic", "demoExcluded",
+    "/api/v1/admin/storage/verify", "STORAGE VERIFY", "READ-ONLY PROBE",
+    "ws-module-", "ws-panel", "tableScroll"
+  ]) {
+    assert.ok(html.includes(marker), `connective surface missing: ${marker}`);
+  }
+});
+
+test("connective: PIN elevation revokes the base token (single live session)", { timeout: 90000 }, async (t) => {
+  const { request } = await bootRoutes(t);
+  await request(null, "POST", "/api/v1/workforce/provision-founder", {
+    fullName: "Session Founder", username: "sessfounder", password: "SessPass!1", pin: "121212"
+  });
+  const login = await (await request(null, "POST", "/api/v1/account/login", { username: "sessfounder", password: "SessPass!1" })).json();
+  const base = login.token;
+  assert.ok((await request(base, "GET", "/api/v1/account/session")).status === 200);
+  const elev = await (await request(base, "POST", "/api/v1/account/pin", { pin: "121212" })).json();
+  assert.equal(elev.elevated, true);
+  const stale = await request(base, "GET", "/api/v1/account/session");
+  assert.equal(stale.status, 401, "base token must be revoked after elevation");
+  assert.equal((await request(elev.token, "GET", "/api/v1/account/session")).status, 200);
+});
+
+test("connective: demo cases excluded from human views, available on opt-in", { timeout: 120000 }, async (t) => {
+  const { app, kernelReady } = await import(pathToFileURL(path.resolve("src/app.js")).href);
+  await kernelReady;
+  const { default: IdentityOnboarding } = await import(pathToFileURL(path.resolve("src/kernel/IdentityOnboarding.js")).href);
+  const server = createServer(app);
+  await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+  t.after(() => new Promise((resolve) => server.close(resolve)));
+  const base = `http://127.0.0.1:${server.address().port}`;
+  const tok = IdentityOnboarding.getInstance().issueSession({ subject: "ct-op", tier: "COMMUNITY", level: 2, persona: "OPERATOR" }).token;
+  const H = tok ? { Authorization: `Bearer ${tok}` } : {};
+  const scenarios = await (await fetch(`${base}/api/v1/demo/scenarios`)).json();
+  assert.ok((scenarios.scenarios || []).length > 0, "no demo scenarios");
+  const run = await (await fetch(`${base}/api/v1/demo/run`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ scenarioId: scenarios.scenarios[0].id, input: { prompt: "connective test", type: "DEMO" } }) })).json();
+  assert.equal(run.success, true);
+  const def = await (await fetch(`${base}/api/v1/cases`, { headers: H })).json();
+  assert.equal(def.success, true);
+  assert.ok(!(def.cases || []).some((c) => c.source === "DEMO_ORCHESTRATOR"), "demo case leaked into default view");
+  assert.ok(Number(def.demoExcluded || 0) >= 1, "demoExcluded not reported");
+  const opt = await (await fetch(`${base}/api/v1/cases?includeDemo=true`, { headers: H })).json();
+  assert.ok((opt.cases || []).some((c) => c.source === "DEMO_ORCHESTRATOR"), "opt-in view missing demo case");
+  if (run.demo && run.demo.caseId) {
+    const deep = await (await fetch(`${base}/api/v1/cases/${run.demo.caseId}`, { headers: H })).json();
+    assert.equal(deep.success, true, "demo result caseId must stay directly addressable");
+  }
+});
+
+test("connective: storage verify is read-only and truthful; backend search serves the palette", { timeout: 120000 }, async (t) => {
+  const { app, kernelReady } = await import(pathToFileURL(path.resolve("src/app.js")).href);
+  await kernelReady;
+  const { default: IdentityOnboarding } = await import(pathToFileURL(path.resolve("src/kernel/IdentityOnboarding.js")).href);
+  const server = createServer(app);
+  await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+  t.after(() => new Promise((resolve) => server.close(resolve)));
+  const base = `http://127.0.0.1:${server.address().port}`;
+  const tok = IdentityOnboarding.getInstance().issueSession({ subject: "ct-op2", tier: "COMMUNITY", level: 2, persona: "OPERATOR" }).token;
+  const probe = await (await fetch(`${base}/api/v1/admin/storage/verify`, { headers: { Authorization: `Bearer ${tok}` } })).json();
+  assert.equal(probe.success, true);
+  assert.ok(["OK", "FAILED"].includes(probe.probe) || probe.probe === "NOT_RUN", "unexpected probe state");
+  assert.ok(String(probe.hint || "").toLowerCase().includes("no data was written"), "probe must disclose no-write");
+  const search = await (await fetch(`${base}/api/command/search?q=procarta`)).json();
+  assert.equal(search.success, true);
+  assert.ok(Array.isArray(search.commands) && search.commands.length > 0, "backend search empty");
+  assert.ok(search.commands.every((c) => c.action && c.label), "search hit missing action/label");
+});

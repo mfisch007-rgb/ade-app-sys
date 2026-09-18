@@ -18,7 +18,74 @@
  */
 
 const FOREX_STATES = Object.freeze(["WATCH", "PRE-ALERT", "SETUP", "CONFIRMED", "INVALIDATED", "PAPER_EXECUTED", "CLOSED", "NO_TRADE"]);
-const BINARY_STATES = Object.freeze(["WATCH", "PRE-ALERT", "SETUP", "CONFIRMED_CALL", "CONFIRMED_PUT", "INVALIDATED", "PAPER", "EXPIRED", "RESULT", "NO_TRADE"]);
+const BINARY_STATES = Object.freeze(["WATCH", "PRE-ALERT", "SETUP", "CONFIRMED_CALL", "CONFIRMED_PUT", "INVALIDATED", "PAPER", "EXPIRED", "RESULT", "NO_TRADE", "REJECTED_BROKER_MANIPULATION"]);
+
+// Binary Manipulation Defense Layer — mandatory anti-manipulation rules that
+// run BEFORE any binary direction/edge evaluation.
+//  1) Minimum Pip Edge Threshold (default 2.5 pips): expected price delta at
+//     expiration must clear broker ±1 pip closing manipulation.
+//  2) Candle Stale & Tick Latency Guard (15s window): tick stalls / liquidity
+//     drops near entry/expiry cutoffs flag BROKER_TICK_STALL.
+//  3) Independent Feed Validation (default 0.8 pips): broker feed vs spot feed
+//     (OANDA/LMAX style) wick deviation flags MANIPULATED_FEED.
+// Failures collapse to state REJECTED_BROKER_MANIPULATION with explicit rationale.
+const BINARY_DEFENSE_DEFAULTS = Object.freeze({
+  minPipEdge: 2.5,
+  maxWickDeviationPips: 0.8,
+  tickStallWindowMs: 15000,
+  maxTickGapMs: 5000,
+  minTicksNearCutoff: 3,
+  spotMatchToleranceMs: 2000
+});
+const BINARY_MANIPULATION_FLAGS = Object.freeze(["INSUFFICIENT_PIP_EDGE", "BROKER_TICK_STALL", "MANIPULATED_FEED"]);
+
+function pipSizeFor(symbol, override) {
+  const o = Number(override);
+  if (Number.isFinite(o) && o > 0) return o;
+  const s = String(symbol || "").toUpperCase();
+  if (s.includes("JPY")) return 0.01;
+  if (/(XAU|GOLD|XAG|SILVER|BTC|ETH|CRYPTO)/.test(s)) return 0.1;
+  if (/(US30|NAS100|SPX|SP500|GER40|UK100|INDICE|INDEX)/.test(s)) return 0.1;
+  return 0.0001;
+}
+
+function tickPrice(t) {
+  if (t === null || t === undefined || typeof t !== "object") return null;
+  return num(t.price ?? t.p ?? t.bid ?? t.ask ?? t.c ?? t.close);
+}
+
+function sanitizeTicks(input) {
+  if (!Array.isArray(input)) return { error: "TICKS_INVALID: expected an array of {t, price} ticks." };
+  const out = [];
+  for (const t of input) {
+    const ts = Number(t?.t);
+    const px = tickPrice(t);
+    if (!Number.isFinite(ts) || px === null) {
+      return { error: "TICKS_INVALID: each tick requires numeric t and price/bid/ask." };
+    }
+    out.push({ t: ts, price: px });
+  }
+  out.sort((a, b) => a.t - b.t);
+  return { ticks: out };
+}
+
+function sanitizeSpotCandles(input) {
+  if (!Array.isArray(input) || input.length < 1) {
+    return { error: "SPOT_CANDLES_REQUIRED: at least 1 OHLC spot candle is required." };
+  }
+  const out = [];
+  for (const c of input) {
+    const o = num(c.o), h = num(c.h), l = num(c.l), cl = num(c.c);
+    if (o === null || h === null || l === null || cl === null) {
+      return { error: "SPOT_CANDLES_INVALID: non-numeric OHLC values." };
+    }
+    if (!(h >= l && h >= Math.max(o, cl) && l <= Math.min(o, cl))) {
+      return { error: "SPOT_CANDLES_INVALID: candle violates h>=l, h>=max(o,c), l<=min(o,c)." };
+    }
+    out.push({ t: c.t ?? null, o, h, l, c: cl });
+  }
+  return { candles: out };
+}
 
 function num(v) {
   const n = Number(v);
@@ -111,7 +178,12 @@ export class FounderSignalEngine {
       minRiskReward: num(config.minRiskReward) ?? 1.5,
       confirmConfidence: num(config.confirmConfidence) ?? 0.6,
       maxCandleAgeMs: num(config.maxCandleAgeMs) ?? 15 * 60 * 1000,
-      paperBalance: num(config.paperBalance) ?? 10000
+      paperBalance: num(config.paperBalance) ?? 10000,
+      minBinaryPipEdge: num(config.minBinaryPipEdge) ?? BINARY_DEFENSE_DEFAULTS.minPipEdge,
+      maxBrokerWickDeviationPips: num(config.maxBrokerWickDeviationPips) ?? BINARY_DEFENSE_DEFAULTS.maxWickDeviationPips,
+      tickStallWindowMs: num(config.tickStallWindowMs) ?? BINARY_DEFENSE_DEFAULTS.tickStallWindowMs,
+      maxTickGapMs: num(config.maxTickGapMs) ?? BINARY_DEFENSE_DEFAULTS.maxTickGapMs,
+      minTicksNearCutoff: Number.isInteger(config.minTicksNearCutoff) ? config.minTicksNearCutoff : BINARY_DEFENSE_DEFAULTS.minTicksNearCutoff
     };
     this._state = this._hydrate();
   }
@@ -289,8 +361,215 @@ export class FounderSignalEngine {
     };
   }
 
-  analyzeBinary({ pair, marketType = "REGULAR", candles, timeframe = "M5", now = Date.now() } = {}) {
-    const symbol = String(pair || "").trim().toUpperCase();
+  _tickCutoffCheck(ticks, cutoffAt, { windowMs, maxGapMs, minTicks }) {
+    const start = cutoffAt - windowMs;
+    const windowTicks = ticks.filter((t) => t.t >= start && t.t <= cutoffAt);
+    if (windowTicks.length === 0) {
+      return {
+        passed: false, code: "BROKER_TICK_STALL",
+        detail: `No broker ticks within ${Math.round(windowMs / 1000)}s of cutoff ${new Date(cutoffAt).toISOString()} (stall/liquidity drop).`,
+        ticksInWindow: 0, maxGapMs: null
+      };
+    }
+    if (windowTicks.length < minTicks) {
+      return {
+        passed: false, code: "BROKER_TICK_STALL",
+        detail: `Liquidity drop: only ${windowTicks.length} tick(s) within ${Math.round(windowMs / 1000)}s of cutoff (minimum ${minTicks}). Flagged BROKER_TICK_STALL.`,
+        ticksInWindow: windowTicks.length, maxGapMs: null
+      };
+    }
+    let maxGap = 0;
+    for (let i = 1; i < windowTicks.length; i += 1) {
+      maxGap = Math.max(maxGap, windowTicks[i].t - windowTicks[i - 1].t);
+    }
+    // Gap from first tick in window to window start, and from last tick to cutoff,
+    // both count: a stall right at the cutoff (frozen feed) must be caught.
+    maxGap = Math.max(maxGap, windowTicks[0].t - start, cutoffAt - windowTicks[windowTicks.length - 1].t);
+    if (maxGap > maxGapMs) {
+      return {
+        passed: false, code: "BROKER_TICK_STALL",
+        detail: `Tick stall: ${Math.round(maxGap)}ms gap within ${Math.round(windowMs / 1000)}s of cutoff exceeds ${maxGapMs}ms. Flagged BROKER_TICK_STALL.`,
+        ticksInWindow: windowTicks.length, maxGapMs: Math.round(maxGap)
+      };
+    }
+    return { passed: true, code: null, detail: `Tick flow healthy: ${windowTicks.length} ticks, max gap ${Math.round(maxGap)}ms.`, ticksInWindow: windowTicks.length, maxGapMs: Math.round(maxGap) };
+  }
+
+  // UNUSED legacy draft of the defense checks — the live mandatory layer is evaluated
+  // inline in analyzeBinary (see below). Kept for documentation only; NOT called.
+  // eslint-disable-next-line no-unused-vars
+  _evaluateBinaryDefenseLegacy({ symbol, last, momentum, pipSize, thresholds, brokerTicksInput, spotTicksInput, spotCandlesInput, spotPriceInput, entryCutoff, expiryCutoff }) {
+    // 1) Minimum Pip Edge Threshold (legacy draft)
+    let expectedDeltaPrice;
+    let expectedSource;
+    const explicitPips = null;
+    {
+      expectedDeltaPrice = Math.abs(momentum);
+      expectedSource = "momentum-5bar";
+    }
+    // Allow explicit pips override to win deterministically (used by tests/config).
+    if (explicitPips !== null && Number.isFinite(explicitPips)) {
+      expectedDeltaPrice = Math.abs(explicitPips) * pipSize;
+      expectedSource = "explicit-expectedDeltaPips";
+    }
+    const expectedDeltaPips = pipSize > 0 ? expectedDeltaPrice / pipSize : 0;
+    const pipEdge = {
+      evaluated: true,
+      pipSize,
+      minPipEdge: thresholds.minPipEdge,
+      expectedDeltaPrice: +expectedDeltaPrice.toFixed(7),
+      expectedDeltaPips: +expectedDeltaPips.toFixed(3),
+      source: expectedSource,
+      passed: expectedDeltaPips >= thresholds.minPipEdge,
+      code: expectedDeltaPips >= thresholds.minPipEdge ? null : "INSUFFICIENT_PIP_EDGE",
+      detail: expectedDeltaPips >= thresholds.minPipEdge
+        ? `Pip edge OK: expected ${expectedDeltaPips.toFixed(2)} pips >= minimum ${thresholds.minPipEdge} pips.`
+        : `Insufficient pip edge: expected ${expectedDeltaPips.toFixed(2)} pips < minimum ${thresholds.minPipEdge} pips. ±1 pip broker closing manipulation could flip the outcome.`
+    };
+
+    // 2) Candle Stale & Tick Latency Guard (15s window around cutoffs)
+    let tickLatency;
+    if (brokerTicksInput === undefined || brokerTicksInput === null) {
+      tickLatency = { evaluated: false, passed: true, skipped: true, code: null, detail: "No broker ticks supplied; tick-latency guard unvalidated (skipped, not a pass).", cutoffs: { entryCutoff, expiryCutoff } };
+    } else {
+      const st = sanitizeTicks(brokerTicksInput);
+      if (st.error) {
+        tickLatency = { evaluated: true, passed: false, skipped: false, code: "BROKER_TICK_STALL", detail: `BROKER_TICK_STALL: ${st.error}`, cutoffs: { entryCutoff, expiryCutoff } };
+      } else {
+        const entryCheck = this._tickCutoffCheck(st.ticks, entryCutoff, { windowMs: thresholds.tickStallWindowMs, maxGapMs: thresholds.maxTickGapMs, minTicks: thresholds.minTicksNearCutoff });
+        const expiryCheck = this._tickCutoffCheck(st.ticks, expiryCutoff, { windowMs: thresholds.tickStallWindowMs, maxGapMs: thresholds.maxTickGapMs, minTicks: thresholds.minTicksNearCutoff });
+        const failed = !entryCheck.passed ? { ...entryCheck, cutoff: "ENTRY" } : (!expiryCheck.passed ? { ...expiryCheck, cutoff: "EXPIRY" } : null);
+        tickLatency = {
+          evaluated: true, passed: failed === null, skipped: false,
+          code: failed ? "BROKER_TICK_STALL" : null,
+          detail: failed ? `${failed.detail} [${failed.cutoff} cutoff]` : `Tick latency OK at ENTRY and EXPIRY cutoffs (${thresholds.tickStallWindowMs / 1000}s window).`,
+          windowMs: thresholds.tickStallWindowMs, maxTickGapMs: thresholds.maxTickGapMs, minTicksNearCutoff: thresholds.minTicksNearCutoff,
+          entry: entryCheck, expiry: expiryCheck,
+          cutoffs: { entryCutoff, expiryCutoff }
+        };
+      }
+    }
+
+    // 3) Independent Feed Validation (broker vs spot, e.g. OANDA/LMAX)
+    let feedValidation;
+    const hasSpotCandles = spotCandlesInput !== undefined && spotCandlesInput !== null;
+    const hasSpotTicks = spotTicksInput !== undefined && spotTicksInput !== null;
+    const hasSpotPrice = spotPriceInput !== undefined && spotPriceInput !== null && num(spotPriceInput) !== null;
+    if (!hasSpotCandles && !hasSpotTicks && !hasSpotPrice) {
+      feedValidation = { evaluated: false, passed: true, skipped: true, code: null, state: "UNVALIDATED", detail: "No independent spot feed supplied; feed validation unvalidated (skipped, not a pass)." };
+    } else if (hasSpotCandles) {
+      const sc = sanitizeSpotCandles(spotCandlesInput);
+      if (sc.error) {
+        feedValidation = { evaluated: true, passed: false, skipped: false, code: "MANIPULATED_FEED", state: "MANIPULATED_FEED", detail: `MANIPULATED_FEED: ${sc.error}` };
+      } else {
+        const spotLast = sc.candles[sc.candles.length - 1];
+        const dH = Math.abs(last.h - spotLast.h);
+        const dL = Math.abs(last.l - spotLast.l);
+        const dC = Math.abs(last.c - spotLast.c);
+        const maxDev = Math.max(dH, dL, dC);
+        const maxDevPips = pipSize > 0 ? maxDev / pipSize : 0;
+        const wickDev = Math.max(dH, dL);
+        const wickDevPips = pipSize > 0 ? wickDev / pipSize : 0;
+        const passed = maxDevPips <= thresholds.maxWickDeviationPips;
+        feedValidation = {
+          evaluated: true, passed, skipped: false,
+          code: passed ? null : "MANIPULATED_FEED",
+          state: passed ? "FEED_OK" : "MANIPULATED_FEED",
+          detail: passed
+            ? `Feed validation OK: max broker-vs-spot deviation ${maxDevPips.toFixed(2)} pips <= ${thresholds.maxWickDeviationPips} pips.`
+            : `MANIPULATED_FEED: broker wick deviation ${wickDevPips.toFixed(2)} pips (max ${maxDevPips.toFixed(2)} pips) exceeds ${thresholds.maxWickDeviationPips} pips vs independent spot feed.`,
+          pipSize, maxDeviationPips: +maxDevPips.toFixed(3), wickDeviationPips: +wickDevPips.toFixed(3),
+          brokerRef: { h: last.h, l: last.l, c: last.c }, spotRef: { h: spotLast.h, l: spotLast.l, c: spotLast.c }
+        };
+      }
+    } else if (hasSpotTicks) {
+      const sb = sanitizeTicks(spotTicksInput);
+      const bb = brokerTicksInput !== undefined && brokerTicksInput !== null ? sanitizeTicks(brokerTicksInput) : null;
+      if (sb.error) {
+        feedValidation = { evaluated: true, passed: false, skipped: false, code: "MANIPULATED_FEED", state: "MANIPULATED_FEED", detail: `MANIPULATED_FEED: spot ticks rejected: ${sb.error}` };
+      } else if (bb && bb.error) {
+        feedValidation = { evaluated: true, passed: false, skipped: false, code: "MANIPULATED_FEED", state: "MANIPULATED_FEED", detail: `MANIPULATED_FEED: broker ticks rejected: ${bb.error}` };
+      } else {
+        const tol = thresholds.spotMatchToleranceMs;
+        let maxDev = 0;
+        let pairs = 0;
+        const brokerRef = bb && !bb.error && bb.ticks.length ? bb.ticks : [{ t: entryCutoff, price: last.c }];
+        for (const bt of brokerRef) {
+          let best = null;
+          for (const s of sb.ticks) {
+            const gap = Math.abs(s.t - bt.t);
+            if (gap <= tol && (best === null || gap < best.gap)) best = { gap, tick: s };
+          }
+          if (best) { pairs += 1; maxDev = Math.max(maxDev, Math.abs(bt.price - best.tick.price)); }
+        }
+        if (pairs === 0) {
+          // No time-aligned pairs: fall back to last-price comparison (deterministic).
+          const brokerLast = brokerRef[brokerRef.length - 1].price;
+          const spotLast = sb.ticks[sb.ticks.length - 1].price;
+          maxDev = Math.abs(brokerLast - spotLast);
+        }
+        const maxDevPips = pipSize > 0 ? maxDev / pipSize : 0;
+        const passed = maxDevPips <= thresholds.maxWickDeviationPips;
+        feedValidation = {
+          evaluated: true, passed, skipped: false,
+          code: passed ? null : "MANIPULATED_FEED",
+          state: passed ? "FEED_OK" : "MANIPULATED_FEED",
+          detail: passed
+            ? `Feed validation OK: broker-vs-spot tick deviation ${maxDevPips.toFixed(2)} pips <= ${thresholds.maxWickDeviationPips} pips (${pairs} aligned pairs).`
+            : `MANIPULATED_FEED: broker-vs-spot tick deviation ${maxDevPips.toFixed(2)} pips exceeds ${thresholds.maxWickDeviationPips} pips (${pairs} aligned pairs).`,
+          pipSize, maxDeviationPips: +maxDevPips.toFixed(3), alignedPairs: pairs
+        };
+      }
+    } else {
+      const spotPx = num(spotPriceInput);
+      const brokerPx = last.c;
+      const dev = Math.abs(brokerPx - spotPx);
+      const devPips = pipSize > 0 ? dev / pipSize : 0;
+      const passed = devPips <= thresholds.maxWickDeviationPips;
+      feedValidation = {
+        evaluated: true, passed, skipped: false,
+        code: passed ? null : "MANIPULATED_FEED",
+        state: passed ? "FEED_OK" : "MANIPULATED_FEED",
+        detail: passed
+          ? `Feed validation OK: broker ${brokerPx} vs spot ${spotPx} = ${devPips.toFixed(2)} pips <= ${thresholds.maxWickDeviationPips} pips.`
+          : `MANIPULATED_FEED: broker ${brokerPx} vs independent spot ${spotPx} = ${devPips.toFixed(2)} pips exceeds ${thresholds.maxWickDeviationPips} pips.`,
+        pipSize, maxDeviationPips: +devPips.toFixed(3), brokerRef: brokerPx, spotRef: spotPx
+      };
+    }
+
+    const failed = [];
+    if (!pipEdge.passed) failed.push(pipEdge.code);
+    if (!tickLatency.passed) failed.push(tickLatency.code);
+    if (!feedValidation.passed) failed.push(feedValidation.code);
+    return { passed: failed.length === 0, failed, pipEdge, tickLatency, feedValidation, pipSize, thresholds };
+  }
+
+  _rejectedBinary({ symbol, marketType, timeframe, manipulation, rationale, defense, zScore = null, extra = {} }) {
+    const reason = `REJECTED_BROKER_MANIPULATION: ${rationale}`;
+    try { this._audit?.("BINARY_REJECTED_MANIPULATION", { instrument: symbol, manipulation, rationale }); } catch {}
+    return {
+      instrument: symbol, market: "BINARY", marketType, timeframe: String(timeframe).toUpperCase(),
+      state: "REJECTED_BROKER_MANIPULATION",
+      direction: null,
+      manipulation,
+      manipulationFlag: manipulation,
+      feedState: defense?.feedValidation?.state || (manipulation === "MANIPULATED_FEED" ? "MANIPULATED_FEED" : manipulation),
+      rationale, reason,
+      confidence: 0, confidencePercent: 0, quality: qualityRating(0),
+      zScore,
+      defense,
+      evidence: {
+        candles: extra.candles ?? null,
+        atr: extra.atr ?? null,
+        threshold: extra.threshold ?? null,
+        manipulation,
+        dataWarning: "Binary signal rejected by mandatory Binary Manipulation Defense Layer before edge evaluation. No broker is connected; this is paper-mode protection, not a live block."
+      }
+    };
+  }
+
+  analyzeBinary({ pair, instrument, marketType = "REGULAR", candles, timeframe = "M5", now = Date.now(), pipSize, expectedDeltaPips, projectedExpiryPrice, expectedMove, brokerTicks, brokerFeed, spotTicks, spotFeed, spotCandles, spotPrice, spotClose, entryCutoffAt, expiryAt, defense = {} } = {}) {
+    const symbol = String(pair ?? instrument ?? "").trim().toUpperCase();
     if (!symbol) return this._noTrade("INSTRUMENT_REQUIRED", "Pair symbol is required.", { market: "BINARY" });
     const mt = String(marketType || "REGULAR").toUpperCase() === "OTC" ? "OTC" : "REGULAR";
     const clean = sanitizeCandles(candles);
@@ -310,25 +589,202 @@ export class FounderSignalEngine {
     const z = sd === 0 ? 0 : (last.c - mean) / sd;
     const threshold = mt === "OTC" ? 2.5 : 2.0;
     const momentum = last.c - closes[closes.length - 6];
+    const volPct = (a / last.c) * 100;
+    const baseMin = { M1: 1, M5: 5, M15: 15, H1: 30 }[String(timeframe).toUpperCase()] ?? 5;
+    const estimatedExpiryMin = Math.max(1, Math.round(baseMin * (volPct > 0.2 ? 1 : 2)));
+
+    // ---- Mandatory Binary Manipulation Defense Layer (before any signal evaluation) ----
+    const dObj = (defense && typeof defense === "object") ? defense : {};
+    const resolvedPipSize = pipSizeFor(symbol, num(pipSize) ?? num(dObj.pipSize) ?? null);
+    const thresholds = {
+      minPipEdge: num(dObj.minPipEdge) ?? num(this.config.minBinaryPipEdge) ?? BINARY_DEFENSE_DEFAULTS.minPipEdge,
+      maxWickDeviationPips: num(dObj.maxWickDeviationPips) ?? num(this.config.maxBrokerWickDeviationPips) ?? BINARY_DEFENSE_DEFAULTS.maxWickDeviationPips,
+      tickStallWindowMs: num(dObj.tickStallWindowMs) ?? num(this.config.tickStallWindowMs) ?? BINARY_DEFENSE_DEFAULTS.tickStallWindowMs,
+      maxTickGapMs: num(dObj.maxTickGapMs) ?? num(this.config.maxTickGapMs) ?? BINARY_DEFENSE_DEFAULTS.maxTickGapMs,
+      minTicksNearCutoff: Number.isInteger(dObj.minTicksNearCutoff) ? dObj.minTicksNearCutoff : this.config.minTicksNearCutoff,
+      spotMatchToleranceMs: num(dObj.spotMatchToleranceMs) ?? BINARY_DEFENSE_DEFAULTS.spotMatchToleranceMs
+    };
+    const brokerTicksInput = brokerTicks ?? brokerFeed ?? dObj.brokerTicks ?? dObj.brokerFeed ?? null;
+    const hasExplicitBrokerTicks = brokerTicks !== undefined || brokerFeed !== undefined || dObj.brokerTicks !== undefined || dObj.brokerFeed !== undefined;
+    const spotTicksInput = spotTicks ?? spotFeed ?? dObj.spotTicks ?? dObj.spotFeed ?? null;
+    const spotCandlesInput = spotCandles ?? dObj.spotCandles ?? null;
+    const spotPriceRaw = spotPrice ?? spotClose ?? dObj.spotPrice ?? dObj.spotClose ?? null;
+    const spotPriceInput = spotPriceRaw === undefined || spotPriceRaw === null ? null : spotPriceRaw;
+    // Explicit expected-move overrides (deterministic testing + caller projections).
+    // NOTE: num(null) === 0, so raw null/undefined must be checked BEFORE num().
+    const explicitPipsRaw = expectedDeltaPips ?? dObj.expectedDeltaPips ?? null;
+    const explicitPips = (explicitPipsRaw === undefined || explicitPipsRaw === null) ? null : num(explicitPipsRaw);
+    const projectedRaw = projectedExpiryPrice ?? expectedMove ?? dObj.projectedExpiryPrice ?? dObj.expectedMove ?? null;
+    const projectedNum = (projectedRaw === undefined || projectedRaw === null) ? null : num(projectedRaw);
+    let expectedDeltaPrice;
+    let expectedSource;
+    if (explicitPips !== null && Number.isFinite(explicitPips)) {
+      expectedDeltaPrice = Math.abs(explicitPips) * resolvedPipSize;
+      expectedSource = "explicit-expectedDeltaPips";
+    } else if (projectedNum !== null && Number.isFinite(projectedNum)) {
+      expectedDeltaPrice = Math.abs(projectedNum - last.c);
+      expectedSource = "projectedExpiryPrice";
+    } else {
+      expectedDeltaPrice = Math.abs(momentum);
+      expectedSource = "momentum-5bar";
+    }
+    const expectedDeltaPipsNum = resolvedPipSize > 0 ? expectedDeltaPrice / resolvedPipSize : 0;
+    const pipEdge = {
+      evaluated: true,
+      pipSize: resolvedPipSize,
+      minPipEdge: thresholds.minPipEdge,
+      expectedDeltaPrice: +expectedDeltaPrice.toFixed(7),
+      expectedDeltaPips: +expectedDeltaPipsNum.toFixed(3),
+      source: expectedSource,
+      passed: expectedDeltaPipsNum >= thresholds.minPipEdge,
+      code: expectedDeltaPipsNum >= thresholds.minPipEdge ? null : "INSUFFICIENT_PIP_EDGE",
+      detail: expectedDeltaPipsNum >= thresholds.minPipEdge
+        ? `Pip edge OK: expected ${expectedDeltaPipsNum.toFixed(2)} pips >= minimum ${thresholds.minPipEdge} pips.`
+        : `Insufficient pip edge: expected ${expectedDeltaPipsNum.toFixed(2)} pips < minimum ${thresholds.minPipEdge} pips. ±1 pip broker closing manipulation could flip the outcome.`
+    };
+
+    const entryCutoffRaw = entryCutoffAt ?? dObj.entryCutoffAt ?? null;
+    const expiryCutoffRaw = expiryAt ?? dObj.expiryAt ?? null;
+    const defaultEntryCutoff = (entryCutoffRaw === undefined || entryCutoffRaw === null ? null : num(entryCutoffRaw)) ?? (now + 2 * 60 * 1000);
+    const defaultExpiryCutoff = (expiryCutoffRaw === undefined || expiryCutoffRaw === null ? null : num(expiryCutoffRaw)) ?? (now + estimatedExpiryMin * 60 * 1000);
+
+    let tickLatency;
+    if (!hasExplicitBrokerTicks || brokerTicksInput === null) {
+      tickLatency = { evaluated: false, passed: true, skipped: true, code: null, detail: "No broker ticks supplied; tick-latency guard unvalidated (skipped, not a pass).", windowMs: thresholds.tickStallWindowMs, maxTickGapMs: thresholds.maxTickGapMs, minTicksNearCutoff: thresholds.minTicksNearCutoff, cutoffs: { entryCutoff: defaultEntryCutoff, expiryCutoff: defaultExpiryCutoff } };
+    } else {
+      const st = sanitizeTicks(brokerTicksInput);
+      if (st.error) {
+        tickLatency = { evaluated: true, passed: false, skipped: false, code: "BROKER_TICK_STALL", detail: `BROKER_TICK_STALL: ${st.error}`, cutoffs: { entryCutoff: defaultEntryCutoff, expiryCutoff: defaultExpiryCutoff } };
+      } else {
+        const entryCheck = this._tickCutoffCheck(st.ticks, defaultEntryCutoff, { windowMs: thresholds.tickStallWindowMs, maxGapMs: thresholds.maxTickGapMs, minTicks: thresholds.minTicksNearCutoff });
+        const expiryCheck = this._tickCutoffCheck(st.ticks, defaultExpiryCutoff, { windowMs: thresholds.tickStallWindowMs, maxGapMs: thresholds.maxTickGapMs, minTicks: thresholds.minTicksNearCutoff });
+        const failed = !entryCheck.passed ? { ...entryCheck, cutoff: "ENTRY" } : (!expiryCheck.passed ? { ...expiryCheck, cutoff: "EXPIRY" } : null);
+        tickLatency = {
+          evaluated: true, passed: failed === null, skipped: false,
+          code: failed ? "BROKER_TICK_STALL" : null,
+          detail: failed ? `${failed.detail} [${failed.cutoff} cutoff]` : `Tick latency OK at ENTRY and EXPIRY cutoffs (${Math.round(thresholds.tickStallWindowMs / 1000)}s window).`,
+          windowMs: thresholds.tickStallWindowMs, maxTickGapMs: thresholds.maxTickGapMs, minTicksNearCutoff: thresholds.minTicksNearCutoff,
+          entry: entryCheck, expiry: expiryCheck,
+          cutoffs: { entryCutoff: defaultEntryCutoff, expiryCutoff: defaultExpiryCutoff }
+        };
+      }
+    }
+
+    let feedValidation;
+    const hasSpotCandles = spotCandlesInput !== undefined && spotCandlesInput !== null;
+    const hasSpotTicks = spotTicksInput !== undefined && spotTicksInput !== null;
+    const hasSpotPrice = spotPriceInput !== undefined && spotPriceInput !== null && num(spotPriceInput) !== null;
+    if (!hasSpotCandles && !hasSpotTicks && !hasSpotPrice) {
+      feedValidation = { evaluated: false, passed: true, skipped: true, code: null, state: "UNVALIDATED", detail: "No independent spot feed supplied; feed validation unvalidated (skipped, not a pass)." };
+    } else if (hasSpotCandles) {
+      const sc = sanitizeSpotCandles(spotCandlesInput);
+      if (sc.error) {
+        feedValidation = { evaluated: true, passed: false, skipped: false, code: "MANIPULATED_FEED", state: "MANIPULATED_FEED", detail: `MANIPULATED_FEED: ${sc.error}` };
+      } else {
+        const spotLast = sc.candles[sc.candles.length - 1];
+        const dH = Math.abs(last.h - spotLast.h);
+        const dL = Math.abs(last.l - spotLast.l);
+        const dC = Math.abs(last.c - spotLast.c);
+        const maxDev = Math.max(dH, dL, dC);
+        const maxDevPips = resolvedPipSize > 0 ? maxDev / resolvedPipSize : 0;
+        const wickDev = Math.max(dH, dL);
+        const wickDevPips = resolvedPipSize > 0 ? wickDev / resolvedPipSize : 0;
+        const passed = maxDevPips <= thresholds.maxWickDeviationPips;
+        feedValidation = {
+          evaluated: true, passed, skipped: false,
+          code: passed ? null : "MANIPULATED_FEED",
+          state: passed ? "FEED_OK" : "MANIPULATED_FEED",
+          detail: passed
+            ? `Feed validation OK: max broker-vs-spot deviation ${maxDevPips.toFixed(2)} pips <= ${thresholds.maxWickDeviationPips} pips.`
+            : `MANIPULATED_FEED: broker wick deviation ${wickDevPips.toFixed(2)} pips (max ${maxDevPips.toFixed(2)} pips) exceeds ${thresholds.maxWickDeviationPips} pips vs independent spot feed.`,
+          pipSize: resolvedPipSize, maxDeviationPips: +maxDevPips.toFixed(3), wickDeviationPips: +wickDevPips.toFixed(3),
+          brokerRef: { h: last.h, l: last.l, c: last.c }, spotRef: { h: spotLast.h, l: spotLast.l, c: spotLast.c }
+        };
+      }
+    } else if (hasSpotTicks) {
+      const sb = sanitizeTicks(spotTicksInput);
+      const bb = hasExplicitBrokerTicks && brokerTicksInput !== null ? sanitizeTicks(brokerTicksInput) : { ticks: [{ t: defaultEntryCutoff, price: last.c }] };
+      if (sb.error) {
+        feedValidation = { evaluated: true, passed: false, skipped: false, code: "MANIPULATED_FEED", state: "MANIPULATED_FEED", detail: `MANIPULATED_FEED: spot ticks rejected: ${sb.error}` };
+      } else if (bb.error) {
+        feedValidation = { evaluated: true, passed: false, skipped: false, code: "MANIPULATED_FEED", state: "MANIPULATED_FEED", detail: `MANIPULATED_FEED: broker ticks rejected: ${bb.error}` };
+      } else {
+        const tol = thresholds.spotMatchToleranceMs;
+        let maxDev = 0;
+        let pairs = 0;
+        const brokerRef = bb.ticks.length ? bb.ticks : [{ t: defaultEntryCutoff, price: last.c }];
+        for (const bt of brokerRef) {
+          let best = null;
+          for (const s of sb.ticks) {
+            const gap = Math.abs(s.t - bt.t);
+            if (gap <= tol && (best === null || gap < best.gap)) best = { gap, tick: s };
+          }
+          if (best) { pairs += 1; maxDev = Math.max(maxDev, Math.abs(bt.price - best.tick.price)); }
+        }
+        if (pairs === 0) {
+          const brokerLast = brokerRef[brokerRef.length - 1].price;
+          const spotLast = sb.ticks[sb.ticks.length - 1].price;
+          maxDev = Math.abs(brokerLast - spotLast);
+        }
+        const maxDevPips = resolvedPipSize > 0 ? maxDev / resolvedPipSize : 0;
+        const passed = maxDevPips <= thresholds.maxWickDeviationPips;
+        feedValidation = {
+          evaluated: true, passed, skipped: false,
+          code: passed ? null : "MANIPULATED_FEED",
+          state: passed ? "FEED_OK" : "MANIPULATED_FEED",
+          detail: passed
+            ? `Feed validation OK: broker-vs-spot tick deviation ${maxDevPips.toFixed(2)} pips <= ${thresholds.maxWickDeviationPips} pips (${pairs} aligned pairs).`
+            : `MANIPULATED_FEED: broker-vs-spot tick deviation ${maxDevPips.toFixed(2)} pips exceeds ${thresholds.maxWickDeviationPips} pips (${pairs} aligned pairs).`,
+          pipSize: resolvedPipSize, maxDeviationPips: +maxDevPips.toFixed(3), alignedPairs: pairs
+        };
+      }
+    } else {
+      const spotPx = num(spotPriceInput);
+      const brokerPx = last.c;
+      const dev = Math.abs(brokerPx - spotPx);
+      const devPips = resolvedPipSize > 0 ? dev / resolvedPipSize : 0;
+      const passed = devPips <= thresholds.maxWickDeviationPips;
+      feedValidation = {
+        evaluated: true, passed, skipped: false,
+        code: passed ? null : "MANIPULATED_FEED",
+        state: passed ? "FEED_OK" : "MANIPULATED_FEED",
+        detail: passed
+          ? `Feed validation OK: broker ${brokerPx} vs spot ${spotPx} = ${devPips.toFixed(2)} pips <= ${thresholds.maxWickDeviationPips} pips.`
+          : `MANIPULATED_FEED: broker ${brokerPx} vs independent spot ${spotPx} = ${devPips.toFixed(2)} pips exceeds ${thresholds.maxWickDeviationPips} pips.`,
+        pipSize: resolvedPipSize, maxDeviationPips: +devPips.toFixed(3), brokerRef: brokerPx, spotRef: spotPx
+      };
+    }
+
+    const defenseSummary = { passed: pipEdge.passed && tickLatency.passed && feedValidation.passed, failed: [], pipEdge, tickLatency, feedValidation, pipSize: resolvedPipSize, thresholds, cutoffs: { entryCutoff: defaultEntryCutoff, expiryCutoff: defaultExpiryCutoff } };
+    if (!pipEdge.passed) defenseSummary.failed.push(pipEdge.code);
+    if (!tickLatency.passed) defenseSummary.failed.push(tickLatency.code);
+    if (!feedValidation.passed) defenseSummary.failed.push(feedValidation.code);
+
+    if (!defenseSummary.passed) {
+      const first = defenseSummary.failed[0];
+      const rationale = [pipEdge, tickLatency, feedValidation].filter((c) => c.passed === false).map((c) => c.detail).join(" ");
+      return this._rejectedBinary({ symbol, marketType: mt, timeframe, manipulation: first, rationale, defense: defenseSummary, zScore: +z.toFixed(2), extra: { candles: cs.length, atr: +a.toFixed(5), threshold } });
+    }
+
+    // ---- Signal evaluation (only reached when defense passes) ----
     let direction = null;
     const factors = [];
     if (z <= -threshold && momentum > 0) { direction = "CALL"; factors.push(`z=${z.toFixed(2)}<=${-threshold}`, "up-momentum"); }
     else if (z >= threshold && momentum < 0) { direction = "PUT"; factors.push(`z=${z.toFixed(2)}>=${threshold}`, "down-momentum"); }
     const confidence = direction ? Math.min(0.85, 0.4 + Math.abs(z - (direction === "CALL" ? -threshold : threshold)) * 0.08 + 0.1) : 0;
-    const volPct = (a / last.c) * 100;
-    const baseMin = { M1: 1, M5: 5, M15: 15, H1: 30 }[String(timeframe).toUpperCase()] ?? 5;
-    const estimatedExpiryMin = Math.max(1, Math.round(baseMin * (volPct > 0.2 ? 1 : 2)));
     if (!direction) {
-      return { instrument: symbol, market: "BINARY", marketType: mt, state: "WATCH", direction: null, zScore: +z.toFixed(2), reason: "No confirmed edge. Watching.", evidence: { candles: cs.length, atr: +a.toFixed(5), threshold } };
+      return { instrument: symbol, market: "BINARY", marketType: mt, state: "WATCH", direction: null, zScore: +z.toFixed(2), reason: "No confirmed edge. Watching.", defense: defenseSummary, manipulation: "NONE", evidence: { candles: cs.length, atr: +a.toFixed(5), threshold } };
     }
     const state = confidence >= this.config.confirmConfidence ? (direction === "CALL" ? "CONFIRMED_CALL" : "CONFIRMED_PUT") : "PRE-ALERT";
     const confRounded = +confidence.toFixed(2);
     return {
       instrument: symbol, market: "BINARY", marketType: mt, state, direction,
       timeframe: String(timeframe).toUpperCase(),
-      entryWindow: { from: new Date(now).toISOString(), until: new Date(now + 2 * 60 * 1000).toISOString(), note: "Next 2 minutes on the connected platform clock." },
+      entryWindow: { from: new Date(now).toISOString(), until: new Date(defaultEntryCutoff).toISOString(), note: "Next 2 minutes on the connected platform clock." },
       expiry: { estimatedMinutes: estimatedExpiryMin, label: "ESTIMATED EXPIRY", note: "Estimate from volatility/timeframe only. Actual platform expiry must be confirmed on the broker platform — no broker is connected." },
       zScore: +z.toFixed(2), confidence: confRounded, confidencePercent: qualityRating(confRounded).percent, quality: qualityRating(confRounded), factors,
+      defense: defenseSummary,
+      manipulation: "NONE",
       invalidation: `Opposite ${(direction === "CALL" ? "PUT" : "CALL")} confirmation or |z| < 1.0 before entry window closes.`,
       preAlert: state === "PRE-ALERT" ? { triggered: true, why: "Edge forming below confirmation threshold.", expiresAt: new Date(now + this.config.cooldownMs).toISOString() } : { triggered: false },
       evidence: { candles: cs.length, atr: +a.toFixed(5), threshold, otc: mt === "OTC" }
@@ -544,5 +1000,5 @@ export class FounderSignalEngine {
   }
 }
 
-export { FOREX_STATES, BINARY_STATES, EXECUTION_MODES, EXECUTION_STYLES };
+export { FOREX_STATES, BINARY_STATES, EXECUTION_MODES, EXECUTION_STYLES, BINARY_DEFENSE_DEFAULTS, BINARY_MANIPULATION_FLAGS, pipSizeFor };
 export default FounderSignalEngine;

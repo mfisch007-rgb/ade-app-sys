@@ -209,6 +209,12 @@ export function registerIdentityRoutes({
     if (!valid) {
       return res.status(403).json({ success: false, error: "INVALID_PIN" });
     }
+    // Single live session: the presented base token is revoked as the
+    // elevated token is issued, so elevation never leaves two valid
+    // sessions behind. Failure to revoke never blocks elevation itself.
+    try {
+      if (req.token) identity.revokeSession(req.token);
+    } catch {}
     const session = issueWorkforceSession(req.person, { pinVerified: true });
     return res.status(200).json({
       success: true,
