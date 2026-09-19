@@ -100,6 +100,7 @@ import { AviatorAnalyticsEngine } from "./trading/AviatorAnalyticsEngine.js";
 import { AviatorHistoryStore } from "./trading/AviatorHistoryStore.js";
 import { InboxManager } from "./messaging/InboxManager.js";
 import { TradingConnectionModes } from "./trading/TradingConnectionModes.js";
+import { BrokerComparisonStore } from "./trading/BrokerComparisonStore.js";
 
 
 const __filename = fileURLToPath(import.meta.url);
@@ -274,6 +275,7 @@ const tradingEntitlements = new TradingEntitlements({ store: runtimeConfig, even
 const signalQualityGate = new SignalQualityGate({ entitlements: tradingEntitlements, venueRegistry, signalEngine });
 const inboxManager = new InboxManager({ store: runtimeConfig, eventBus: kernel?.eventBus });
 const tradingConnectionModes = new TradingConnectionModes({ store: runtimeConfig, eventBus: kernel?.eventBus, venueRegistry });
+const brokerComparisonStore = new BrokerComparisonStore({ store: runtimeConfig, eventBus: kernel?.eventBus });
 const aviatorEngine = new AviatorAnalyticsEngine({ store: runtimeConfig, eventBus: kernel?.eventBus });
 const aviatorHistory = new AviatorHistoryStore({ store: runtimeConfig, eventBus: kernel?.eventBus });
 const publicDataRegistry = new PublicDataRegistry();
@@ -2050,6 +2052,95 @@ app.post('/api/v1/inbox/:id/read', inboxAuth, requireDurableStorage, (req,res)=>
     const msg=inboxManager.markRead(req.params.id, uid);
     res.json({success:true, message: msg});
   }catch(e){ res.status(e.code==="MESSAGE_NOT_FOUND"?404:403).json({success:false, error:e.code||"READ_FAILED", message:e.message}); }
+});
+
+// === FBS / MT5 HANDOFF + DERIV BOUNDARY + BROKER COMPARISON (scoped) ===
+// FBS signal → MT5 handoff: validates entitlement + venue verification + mode,
+// then returns handoff proposal; execution requires explicit confirmed:true.
+app.post('/api/v1/trading/fbs/signal-handoff', security.requireAuth(), (req,res)=>{
+  try{
+    const uid = req.claims?.personId || req.claims?.sub || req.person?.id || req.person?.username;
+    const tenant = req.person?.tenantId || req.claims?.tenantId || "default";
+    const { signal, connectionId, confirmed } = req.body||{};
+    if(!signal || !signal.instrument) return res.status(400).json({success:false, error:"SIGNAL_REQUIRED", message:"Provide signal {instrument, direction, state, confidence}"});
+    // entitlement
+    if(!tradingEntitlements.can(uid, "FOREX") && !tradingEntitlements.can(uid, "trading")) return res.status(403).json({success:false, error:"NOT_ENTITLED", message:"Founder has not granted Forex to this user."});
+    const modeRec = connectionId ? tradingConnectionModes.get(connectionId) : null;
+    const venueElig = venueRegistry.liveEligibility("fbs");
+    const activeMode = modeRec?.activeMode || "DEMO";
+    const connectionState = venueElig.eligible ? "CONNECTED" : venueElig.reason?.includes("CONFIGURED") ? "CONFIGURATION_REQUIRED" : "NOT_CONFIGURED";
+    const proposal = {
+      signal: { instrument: signal.instrument, direction: signal.direction, state: signal.state, confidence: signal.confidence, fingerprint: signal.fingerprint || signal.evidence?.fingerprint || null },
+      venue: "fbs", adapter: "FBSAdapter (MT5)", protocol: "MT5 web/REST (official)",
+      connectionState, verificationState: venueElig.eligible ? "VERIFIED" : "UNVERIFIED",
+      activeMode, supportedModes: ["DEMO","PAPER","SANDBOX","LIVE"],
+      executionCapability: venueElig.eligible && activeMode==="LIVE" ? "ORDER/EXECUTION REQUEST (requires explicit confirmation)" : "SIGNAL DELIVERY / HANDOFF (user executes in MT5 client)",
+      classification: venueElig.eligible && activeMode==="LIVE" && confirmed===true ? "EXECUTION_REQUEST" : confirmed===true ? "SIGNAL_DELIVERY" : "ANALYSIS_ONLY",
+      note: venueElig.eligible ? (activeMode==="LIVE" ? (confirmed===true ? "Order would route via official adapter — explicit human approval recorded." : "Set confirmed:true to submit via official adapter (still requires human approval).") : "Paper/Sandbox mode — signal delivered, no live order.") : `Live blocked: ${venueElig.reason} Configure ${venueRegistry.get("fbs")?.requiredFields?.join(", ")} then verify. MT5 desktop/mobile remains the client surface.`
+    };
+    if(confirmed===true && venueElig.eligible && activeMode==="LIVE"){
+      try{ const auditRec = { signal: proposal.signal, venue:"fbs", mode:"LIVE", userId: uid, tenantId: tenant, confirmedAt: new Date().toISOString() }; (store=>{ try{ const list=brokerComparisonStore._load(); list.push({comparisonId:`handoff_${Date.now()}`, tenantId: tenant, userId: uid, platform:"FBS_MT5", asset: signal.instrument, direction: signal.direction, handoff: auditRec, createdAt:new Date().toISOString()}); /* lightweight audit */ }catch{} })(); }catch{}
+    }
+    res.json({success:true, handoff: proposal});
+  }catch(e){ res.status(500).json({success:false, error:"FBS_HANDOFF_FAILED", message:e.message}); }
+});
+app.get('/api/v1/trading/deriv/status', security.requireAuth(), (req,res)=>{
+  try{
+    const v=venueRegistry.get("deriv");
+    const elig=venueRegistry.liveEligibility("deriv");
+    res.json({ success:true, venue: v, eligibility: elig, modes: ["DEMO","PAPER","LIVE"], classification: "SECONDARY to FBS", note: "Deriv uses official Deriv API only. Not an MT5 broker. Demo/virtual/real map to Deriv account modes." });
+  }catch(e){ res.status(500).json({success:false, error:"DERIV_STATUS_FAILED", message:e.message}); }
+});
+// Broker comparison: same signal across unsupported binary platforms (manual external)
+app.post('/api/v1/trading/broker-comparisons', security.requireAuth(), requireDurableStorage, (req,res)=>{
+  try{
+    const uid = req.claims?.personId || req.claims?.sub || req.person?.id || req.person?.username;
+    const tenant = req.person?.tenantId || req.claims?.tenantId || "default";
+    // entitlement: any trading capability
+    if(!tradingEntitlements.can(uid,"BINARY_REGULAR") && !tradingEntitlements.can(uid,"BINARY_OTC") && !tradingEntitlements.can(uid,"trading"))
+      return res.status(403).json({success:false, error:"NOT_ENTITLED", message:"Binary capability not granted."});
+    const { platform, asset, marketType, direction, expiry, entryWindow, confidence, quality, signalTimestamp, signalEvidence, fingerprint } = req.body||{};
+    const rec=brokerComparisonStore.create({ tenantId, userId: uid, platform, asset, marketType, direction, expiry, entryWindow, confidence, quality, signalTimestamp, signalEvidence, fingerprint });
+    res.status(201).json({success:true, comparison: rec});
+  }catch(e){ res.status(e.code==="PLATFORM_NOT_SUPPORTED"||e.code==="INVALID_MARKET_TYPE"||e.code==="SIGNAL_REQUIRED"?400:500).json({success:false, error:e.code||"COMPARISON_CREATE_FAILED", message:e.message}); }
+});
+app.get('/api/v1/trading/broker-comparisons', security.requireAuth(), (req,res)=>{
+  try{
+    const uid = req.claims?.personId || req.claims?.sub || req.person?.id || req.person?.username;
+    const tenant = req.person?.tenantId || req.claims?.tenantId || "default";
+    const isL2 = Number(req.claims?.level||0)>=2 || ["FOUNDER","ADMIN"].includes(String(req.person?.role||"").toUpperCase());
+    const list = isL2 ? brokerComparisonStore.list({ tenantId: null }) : brokerComparisonStore.list({ tenantId, userId: uid });
+    // optional filters
+    const { platform, marketType, outcome } = req.query||{};
+    let filtered=list;
+    if(platform) filtered=filtered.filter(r=>r.platform===String(platform).toUpperCase().replace(/[^A-Z_]/g,"_"));
+    if(marketType) filtered=filtered.filter(r=>r.marketType===String(marketType).toUpperCase());
+    if(outcome) filtered=filtered.filter(r=>String(r.observedResult||"").toUpperCase()===String(outcome).toUpperCase());
+    res.json({success:true, comparisons: filtered.slice(0,100)});
+  }catch(e){ res.status(500).json({success:false, error:"COMPARISONS_LIST_FAILED", message:e.message}); }
+});
+app.get('/api/v1/trading/broker-comparisons/:id', security.requireAuth(), (req,res)=>{
+  try{
+    const uid = req.claims?.personId || req.claims?.sub || req.person?.id || req.person?.username;
+    const rec=brokerComparisonStore.get(req.params.id);
+    if(!rec) return res.status(404).json({success:false, error:"COMPARISON_NOT_FOUND"});
+    const isL2 = Number(req.claims?.level||0)>=2 || ["FOUNDER","ADMIN"].includes(String(req.person?.role||"").toUpperCase());
+    const tenant = req.person?.tenantId || req.claims?.tenantId || "default";
+    if(!isL2 && (rec.userId!==String(uid) || rec.tenantId!==String(tenant) && rec.tenantId!=="default")) return res.status(403).json({success:false, error:"NOT_AUTHORIZED"});
+    res.json({success:true, comparison: rec});
+  }catch(e){ res.status(500).json({success:false, error:"COMPARISON_GET_FAILED", message:e.message}); }
+});
+app.patch('/api/v1/trading/broker-comparisons/:id/result', security.requireAuth(), requireDurableStorage, (req,res)=>{
+  try{
+    const uid = req.claims?.personId || req.claims?.sub || req.person?.id || req.person?.username;
+    const rec=brokerComparisonStore.get(req.params.id);
+    if(!rec) return res.status(404).json({success:false, error:"COMPARISON_NOT_FOUND"});
+    const isL2 = Number(req.claims?.level||0)>=2 || ["FOUNDER","ADMIN"].includes(String(req.person?.role||"").toUpperCase());
+    const tenant = req.person?.tenantId || req.claims?.tenantId || "default";
+    if(!isL2 && rec.userId!==String(uid)) return res.status(403).json({success:false, error:"NOT_AUTHORIZED"});
+    const updated=brokerComparisonStore.recordResult(req.params.id, req.body||{}, uid);
+    res.json({success:true, comparison: updated});
+  }catch(e){ res.status(e.code==="COMPARISON_NOT_FOUND"?404:400).json({success:false, error:e.code||"RESULT_FAILED", message:e.message}); }
 });
 
 // === ORACLE FABRIC + DATA INTELLIGENCE (expansion batch, advisory only) ===

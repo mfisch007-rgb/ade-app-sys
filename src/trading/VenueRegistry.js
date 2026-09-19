@@ -20,9 +20,11 @@
  *   BLOCKED with REQUIRED_HUMAN_ACTION.
  */
 
-const VENUE_KINDS = Object.freeze(["BINARY_BROKER", "GAMING_BOOKIE"]);
+const VENUE_KINDS = Object.freeze(["BINARY_BROKER", "GAMING_BOOKIE", "FOREX_BROKER"]);
 
 const SEED_VENUES = Object.freeze([
+  { id: "fbs", name: "FBS (MT4/MT5)", kind: "FOREX_BROKER", authMethods: ["API_TOKEN", "MT5_CREDENTIALS"], requiredFields: ["FBS_API_TOKEN", "FBS_MT5_LOGIN", "FBS_MT5_SERVER"], note: "Forex via FBS — official MT5 web/REST path. MT5 desktop/mobile is the client surface; ADE connects via official broker protocol only. Credentials via env, LIVE only if VERIFIED." },
+  { id: "deriv", name: "Deriv", kind: "FOREX_BROKER", authMethods: ["API_TOKEN"], requiredFields: ["DERIV_API_TOKEN"], note: "Secondary — official Deriv API only. Demo/virtual/real modes map to Deriv account modes. Not an MT5 broker." },
   { id: "pocket-option", name: "Pocket Option", kind: "BINARY_BROKER", authMethods: ["API_TOKEN"], requiredFields: ["POCKET_OPTION_API_TOKEN"], note: "Official API only; no credential harvesting." },
   { id: "iq-option", name: "IQ Option", kind: "BINARY_BROKER", authMethods: ["API_TOKEN"], requiredFields: ["IQ_OPTION_API_TOKEN"], note: "Official API only." },
   { id: "expert-option", name: "ExpertOption", kind: "BINARY_BROKER", authMethods: ["API_TOKEN"], requiredFields: ["EXPERT_OPTION_API_TOKEN"], note: "Official API only." },

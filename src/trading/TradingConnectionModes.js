@@ -33,8 +33,12 @@ export class TradingConnectionModes {
   _supportedFor(venueId){
     const v=this.venueRegistry?.get?.(venueId);
     if(!v) return ["DEMO","PAPER"];
-    // Binary brokers support SANDBOX only if noted; default PAPER+DEMO+LIVE (LIVE gated by VERIFIED)
     const k=String(v.kind||"");
+    if(k==="FOREX_BROKER") {
+      // FBS MT4/MT5 primary: DEMO/PAPER/SANDBOX/LIVE where adapter supports; Deriv: DEMO/PAPER/LIVE
+      if(String(venueId).toLowerCase()==="fbs") return ["DEMO","PAPER","SANDBOX","LIVE"];
+      return ["DEMO","PAPER","LIVE"];
+    }
     if(k==="BINARY_BROKER") return ["DEMO","PAPER","SANDBOX","LIVE"];
     if(k==="GAMING_BOOKIE") return ["DEMO","PAPER"];
     return ["DEMO","PAPER","LIVE"];
