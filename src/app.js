@@ -98,6 +98,8 @@ import { Bet9jaAdapter } from "./trading/adapters/Bet9jaAdapter.js";
 import { SportyBetAdapter } from "./trading/adapters/SportyBetAdapter.js";
 import { AviatorAnalyticsEngine } from "./trading/AviatorAnalyticsEngine.js";
 import { AviatorHistoryStore } from "./trading/AviatorHistoryStore.js";
+import { InboxManager } from "./messaging/InboxManager.js";
+import { TradingConnectionModes } from "./trading/TradingConnectionModes.js";
 
 
 const __filename = fileURLToPath(import.meta.url);
@@ -270,6 +272,8 @@ const bet9jaAdapter = new Bet9jaAdapter(); marketDataRegistry.registerAdapter(be
 const sportyBetAdapter = new SportyBetAdapter(); marketDataRegistry.registerAdapter(sportyBetAdapter);
 const tradingEntitlements = new TradingEntitlements({ store: runtimeConfig, eventBus: kernel?.eventBus });
 const signalQualityGate = new SignalQualityGate({ entitlements: tradingEntitlements, venueRegistry, signalEngine });
+const inboxManager = new InboxManager({ store: runtimeConfig, eventBus: kernel?.eventBus });
+const tradingConnectionModes = new TradingConnectionModes({ store: runtimeConfig, eventBus: kernel?.eventBus, venueRegistry });
 const aviatorEngine = new AviatorAnalyticsEngine({ store: runtimeConfig, eventBus: kernel?.eventBus });
 const aviatorHistory = new AviatorHistoryStore({ store: runtimeConfig, eventBus: kernel?.eventBus });
 const publicDataRegistry = new PublicDataRegistry();
@@ -832,6 +836,11 @@ app.get('/api/v1/health', (req, res) => {
     status: "OK",
     service: "ADE-APEX EOS",
     time: new Date().toISOString(),
+    build: {
+      commit: process.env.VERCEL_GIT_COMMIT_SHA || process.env.GIT_COMMIT || "8ba45a4",
+      vercelSha: process.env.VERCEL_GIT_COMMIT_SHA || null,
+      commitShort: String(process.env.VERCEL_GIT_COMMIT_SHA || "8ba45a4").slice(0,7)
+    },
     runtime: {
       alive: true,
       uptimeSeconds: Math.floor(process.uptime())
@@ -1894,8 +1903,8 @@ app.get('/api/v1/admin/trading/entitlements', security.requireLevel(2), (req, re
 
 app.post('/api/v1/admin/trading/entitlements', security.requireLevel(2), requireDurableStorage, (req, res) => {
   try {
-    const { userId, trading, gaming } = req.body || {};
-    const rec = tradingEntitlements.grant(userId, { trading, gaming, grantedBy: req.identity?.sub || "founder" });
+    const { userId, trading, gaming, capabilities, modes } = req.body || {};
+    const rec = tradingEntitlements.grant(userId, { trading, gaming, capabilities, modes, grantedBy: req.identity?.sub || "founder" });
     res.status(201).json({ success: true, entitlement: rec });
   } catch (error) {
     res.status(400).json({ success: false, error: error.code || "ENTITLEMENT_GRANT_FAILED", message: error.message });
@@ -1925,6 +1934,122 @@ app.post('/api/v1/trading/auto-mode', security.requireLevel(2), (req, res) => {
   } catch (error) {
     res.status(500).json({ success: false, error: "AUTO_MODE_FAILED", message: error.message });
   }
+});
+
+// === TRADING CONNECTION MODES (explicit mode contract, surrounding only) ===
+app.get('/api/v1/trading/connection-modes', security.requireAuth(), (req, res) => {
+  try {
+    const uid = req.claims?.personId || req.claims?.sub || req.person?.id || null;
+    const tenant = req.person?.tenantId || req.claims?.tenantId || "default";
+    // L2 sees all; others see own scoped
+    const isL2 = Number(req.claims?.level||0) >=2 || ["FOUNDER","ADMIN"].includes(String(req.person?.role||"").toUpperCase());
+    const list = isL2 ? tradingConnectionModes.list({ tenantId: null }) : tradingConnectionModes.list({ userId: uid, tenantId });
+    res.json({ success: true, modes: list, isL2 });
+  } catch (e){ res.status(500).json({success:false, error:"CONNECTION_MODES_FAILED", message:e.message}); }
+});
+app.post('/api/v1/trading/connection-modes', security.requireLevel(2), requireDurableStorage, (req, res) => {
+  try {
+    const rec = tradingConnectionModes.upsert({ ...req.body, requestedBy: req.identity?.sub || req.person?.username || "founder" });
+    res.status(201).json({ success: true, mode: rec });
+  } catch (e){ res.status(400).json({success:false, error:e.code||"CONNECTION_MODE_FAILED", message:e.message}); }
+});
+app.patch('/api/v1/trading/connection-modes/:id', security.requireLevel(2), requireDurableStorage, (req, res) => {
+  try {
+    const rec = tradingConnectionModes.setMode(req.params.id, req.body?.activeMode, { requestedBy: req.identity?.sub || req.person?.username || "founder" });
+    res.json({ success: true, mode: rec });
+  } catch (e){ res.status(e.code==="CONNECTION_NOT_FOUND"?404:400).json({success:false, error:e.code||"MODE_UPDATE_FAILED", message:e.message}); }
+});
+app.post('/api/v1/trading/connection-modes/:id/verify', security.requireLevel(2), (req, res) => {
+  try { res.json({ success: true, mode: tradingConnectionModes.verify(req.params.id) }); }
+  catch(e){ res.status(e.code==="CONNECTION_NOT_FOUND"?404:400).json({success:false, error:e.code||"VERIFY_FAILED", message:e.message}); }
+});
+app.get('/api/v1/trading/entitlements/me', security.requireAuth(), (req, res) => {
+  try {
+    const uid = req.claims?.personId || req.claims?.sub || req.person?.id || req.person?.username;
+    const ent = tradingEntitlements.get(uid);
+    const modes = tradingConnectionModes.list({ userId: uid });
+    res.json({ success: true, entitlement: ent, modes, userId: uid });
+  } catch(e){ res.status(500).json({success:false, error:"ENTITLEMENT_ME_FAILED", message:e.message}); }
+});
+
+// === INBOX (user-to-user messaging, same-tenant, persisted) ===
+function inboxAuth(req,res,next){
+  const h=String(req.get("authorization")||"");
+  if(!h.startsWith("Bearer ")) return res.status(401).json({success:false, error:"Authentication required"});
+  try{
+    const claims=security.identity.verifySession(h.slice(7));
+    req.inboxClaims=claims;
+    // resolve person for tenant + name
+    const pid=claims.personId || claims.sub;
+    workforce.getPersonRecord(pid).then(p=>{ req.inboxPerson=p; next(); }).catch(()=>{ req.inboxPerson={ id:pid, username:String(pid), tenantId: String(claims.tenantId||"default") }; next(); });
+  }catch(e){ return res.status(401).json({success:false, error:e.message}); }
+}
+app.post('/api/v1/inbox/send', inboxAuth, requireDurableStorage, async (req,res)=>{
+  try{
+    const senderId=req.inboxClaims.personId || req.inboxClaims.sub;
+    const senderName=req.inboxPerson?.username || String(senderId);
+    const tenantId=req.inboxPerson?.tenantId || req.inboxClaims.tenantId || "default";
+    const { recipientId, subject, body, threadId, replyTo } = req.body||{};
+    // tenant check: recipient must be same tenant (lookup)
+    let recipientTenant="default";
+    try{ const rp=await workforce.getPersonRecord(String(recipientId)); recipientTenant=String(rp?.tenantId||"default"); }catch{ recipientTenant=tenantId; }
+    if(String(recipientTenant)!==String(tenantId) && String(tenantId)!=="default") return res.status(403).json({success:false, error:"CROSS_TENANT_BLOCKED"});
+    const msg=inboxManager.send({ senderId, senderName, recipientId, subject, body, threadId, replyTo, tenantId });
+    res.status(201).json({success:true, message: msg});
+  }catch(e){ res.status(e.code==="BODY_REQUIRED"||e.code==="RECIPIENT_REQUIRED"?400:400).json({success:false, error:e.code||"INBOX_SEND_FAILED", message:e.message}); }
+});
+app.get('/api/v1/inbox', inboxAuth, (req,res)=>{
+  try{
+    const uid=req.inboxClaims.personId || req.inboxClaims.sub;
+    const tenant=req.inboxPerson?.tenantId || req.inboxClaims.tenantId || null;
+    res.json({success:true, messages: inboxManager.inboxFor(uid, {tenantId: tenant!=="default"?tenant:null}), unread: inboxManager.unreadCount(uid, {tenantId: tenant!=="default"?tenant:null})});
+  }catch(e){ res.status(500).json({success:false, error:"INBOX_READ_FAILED", message:e.message}); }
+});
+app.get('/api/v1/inbox/sent', inboxAuth, (req,res)=>{
+  try{
+    const uid=req.inboxClaims.personId || req.inboxClaims.sub;
+    const tenant=req.inboxPerson?.tenantId || req.inboxClaims.tenantId || null;
+    res.json({success:true, messages: inboxManager.sentFor(uid, {tenantId: tenant!=="default"?tenant:null})});
+  }catch(e){ res.status(500).json({success:false, error:"INBOX_SENT_FAILED", message:e.message}); }
+});
+app.get('/api/v1/inbox/unread-count', inboxAuth, (req,res)=>{
+  try{
+    const uid=req.inboxClaims.personId || req.inboxClaims.sub;
+    res.json({success:true, unread: inboxManager.unreadCount(uid)});
+  }catch(e){ res.status(500).json({success:false, error:"UNREAD_FAILED", message:e.message}); }
+});
+app.get('/api/v1/inbox/thread/:id', inboxAuth, (req,res)=>{
+  try{
+    const uid=req.inboxClaims.personId || req.inboxClaims.sub;
+    const thread=inboxManager.thread(req.params.id);
+    // auth: participant must be sender or recipient of at least one msg in thread
+    const isParticipant=thread.some(m=>m.senderId===String(uid)||m.recipientId===String(uid));
+    if(thread.length && !isParticipant) return res.status(403).json({success:false, error:"NOT_AUTHORIZED"});
+    res.json({success:true, thread});
+  }catch(e){ res.status(500).json({success:false, error:"THREAD_FAILED", message:e.message}); }
+});
+app.post('/api/v1/inbox/thread/:id/reply', inboxAuth, requireDurableStorage, async (req,res)=>{
+  try{
+    const uid=req.inboxClaims.personId || req.inboxClaims.sub;
+    const senderName=req.inboxPerson?.username || String(uid);
+    const tenantId=req.inboxPerson?.tenantId || req.inboxClaims.tenantId || "default";
+    const thread=inboxManager.thread(req.params.id);
+    if(!thread.length) return res.status(404).json({success:false, error:"THREAD_NOT_FOUND"});
+    const isParticipant=thread.some(m=>m.senderId===String(uid)||m.recipientId===String(uid));
+    if(!isParticipant) return res.status(403).json({success:false, error:"NOT_AUTHORIZED"});
+    // recipient is the other participant of last message
+    const last=thread[thread.length-1];
+    const recipientId = last.senderId===String(uid) ? last.recipientId : last.senderId;
+    const msg=inboxManager.send({ senderId: uid, senderName, recipientId, subject: `Re: ${last.subject}`, body: req.body?.body, threadId: req.params.id, replyTo: last.messageId, tenantId });
+    res.status(201).json({success:true, message: msg});
+  }catch(e){ res.status(400).json({success:false, error:e.code||"REPLY_FAILED", message:e.message}); }
+});
+app.post('/api/v1/inbox/:id/read', inboxAuth, requireDurableStorage, (req,res)=>{
+  try{
+    const uid=req.inboxClaims.personId || req.inboxClaims.sub;
+    const msg=inboxManager.markRead(req.params.id, uid);
+    res.json({success:true, message: msg});
+  }catch(e){ res.status(e.code==="MESSAGE_NOT_FOUND"?404:403).json({success:false, error:e.code||"READ_FAILED", message:e.message}); }
 });
 
 // === ORACLE FABRIC + DATA INTELLIGENCE (expansion batch, advisory only) ===
