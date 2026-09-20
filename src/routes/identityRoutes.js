@@ -76,7 +76,19 @@ export function registerIdentityRoutes({
     try {
       person = await workforce.getPersonRecord(personId);
     } catch {
-      return res.status(401).json({ success: false, error: "PERSON_NOT_FOUND" });
+      // Shared bridge fallback: token carries username (sub) when personId is missing or stale.
+      // Try username lookup so FOUNDER/ADMIN/OPERATOR/ANALYST/VIEWER all resolve via same bridge.
+      if (claims.sub && claims.sub !== personId) {
+        try {
+          const byName = await workforce.getPersonByUsername(claims.sub);
+          if (byName) person = byName;
+          else return res.status(401).json({ success: false, error: "PERSON_NOT_FOUND" });
+        } catch {
+          return res.status(401).json({ success: false, error: "PERSON_NOT_FOUND" });
+        }
+      } else {
+        return res.status(401).json({ success: false, error: "PERSON_NOT_FOUND" });
+      }
     }
     if (person.status !== "ACTIVE") {
       return res.status(403).json({ success: false, error: "ACCOUNT_NOT_ACTIVE", status: person.status });
