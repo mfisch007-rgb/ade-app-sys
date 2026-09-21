@@ -120,6 +120,25 @@ export class WorkforceManager {
     return this.#ready || this.initialize();
   }
 
+  async #refreshState() {
+    try {
+      const fresh = await this.store.get(STORE_KEY, null);
+      if (
+        fresh !== null &&
+        typeof fresh === "object" &&
+        typeof fresh.persons === "object" &&
+        typeof fresh.agents === "object"
+      ) {
+        this.#state = fresh;
+      }
+    } catch {}
+  }
+
+  async #ensureFreshState() {
+    await this.whenReady();
+    await this.#refreshState();
+  }
+
   async #persist() {
     await this.store.set(STORE_KEY, this.#state);
   }
@@ -174,38 +193,38 @@ export class WorkforceManager {
   }
 
   async listPersons() {
-    await this.whenReady();
+    await this.#ensureFreshState();
     return Object.values(this.#state.persons)
       .map(redact)
       .sort((a, b) => b.createdAt.localeCompare(a.createdAt) || a.username.localeCompare(b.username));
   }
 
   async getPerson(id) {
-    await this.whenReady();
+    await this.#ensureFreshState();
     return redact(this.#getPerson(id));
   }
 
   async getPersonRecord(id) {
-    await this.whenReady();
+    await this.#ensureFreshState();
     return { ...this.#getPerson(id) };
   }
 
   async getPersonByUsername(username) {
-    await this.whenReady();
+    await this.#ensureFreshState();
     const normalized = String(username || "").trim().toLowerCase();
     const person = Object.values(this.#state.persons).find(
-      (p) => p.username.toLowerCase() === normalized
+      (p) => p.username && p.username.toLowerCase() === normalized
     );
     return person ? { ...person } : null;
   }
 
   async personCount() {
-    await this.whenReady();
+    await this.#ensureFreshState();
     return Object.keys(this.#state.persons).length;
   }
 
   async provisionFounder({ fullName, username, password, pin } = {}) {
-    await this.whenReady();
+    await this.#ensureFreshState();
     const count = Object.keys(this.#state.persons).length;
     if (count > 0) {
       throw new Error("FOUNDER_ALREADY_PROVISIONED");
@@ -241,7 +260,7 @@ export class WorkforceManager {
   }
 
   async invite({ fullName, role = "OPERATOR", expiresInDays = DEFAULT_INVITE_WINDOW_DAYS, createdBy = null } = {}) {
-    await this.whenReady();
+    await this.#ensureFreshState();
     this.#assertFullName(fullName);
     const normalizedRole = String(role || "").toUpperCase();
     if (!isValidRole(normalizedRole) || normalizedRole === "FOUNDER") {
@@ -284,7 +303,7 @@ export class WorkforceManager {
   }
 
   async acceptInvitation({ code, fullName, username, password, pin } = {}) {
-    await this.whenReady();
+    await this.#ensureFreshState();
     if (!code) throw new Error("INVITATION_CODE_REQUIRED");
     this.#assertFullName(fullName);
     const normalizedUsername = this.#assertUsernameAvailable(username);
@@ -314,28 +333,38 @@ export class WorkforceManager {
   }
 
   async authenticate(username, password) {
-    await this.whenReady();
-    const person = await this.getPersonByUsername(username);
-    if (!person) {
+    await this.#ensureFreshState();
+    const normalized = String(username || "").trim().toLowerCase();
+    let storedId = null;
+    let stored = null;
+    for (const [id, p] of Object.entries(this.#state.persons)) {
+      if (p.username && p.username.toLowerCase() === normalized) {
+        storedId = id;
+        stored = p;
+        break;
+      }
+    }
+    if (!stored) {
       this.#audit("AUTHENTICATION_FAILED", { username: String(username || "") });
       return null;
     }
-    if (this.#effectiveStatus(person) !== "ACTIVE") {
-      this.#audit("AUTHENTICATION_FAILED", { subject: person.username, reason: "ACCOUNT_NOT_ACTIVE" });
+    if (this.#effectiveStatus(stored) !== "ACTIVE") {
+      this.#audit("AUTHENTICATION_FAILED", { subject: stored.username, reason: "ACCOUNT_NOT_ACTIVE" });
       return null;
     }
-    if (!verify(password, person.passwordHash)) {
-      this.#audit("AUTHENTICATION_FAILED", { subject: person.username, reason: "INVALID_PASSWORD" });
+    if (!verify(password, stored.passwordHash)) {
+      this.#audit("AUTHENTICATION_FAILED", { subject: stored.username, reason: "INVALID_PASSWORD" });
       return null;
     }
-    person.lastLoginAt = new Date().toISOString();
+    stored.lastLoginAt = new Date().toISOString();
+    stored.updatedAt = stored.lastLoginAt;
     await this.#persist();
-    this.#audit("WORKFORCE_LOGIN", { subject: person.username, role: person.role, personId: person.id });
-    return redact(person);
+    this.#audit("WORKFORCE_LOGIN", { subject: stored.username, role: stored.role, personId: stored.id });
+    return redact(stored);
   }
 
   async verifyPin(personId, pin) {
-    await this.whenReady();
+    await this.#ensureFreshState();
     const person = this.#getPerson(personId);
     if (this.#effectiveStatus(person) !== "ACTIVE") return false;
     const valid = verify(pin, person.pinHash);
@@ -350,15 +379,18 @@ export class WorkforceManager {
   }
 
   async verifyRecoveryCode(username, code) {
-    await this.whenReady();
-    const person = await this.getPersonByUsername(username);
+    await this.#ensureFreshState();
+    const normalized = String(username || "").trim().toLowerCase();
+    const person = Object.values(this.#state.persons).find(
+      (p) => p.username && p.username.toLowerCase() === normalized
+    );
     if (!person) return false;
     if (this.#effectiveStatus(person) !== "ACTIVE") return false;
     return verify(code, person.recoveryHashes.find((c) => verify(code, c)) || null);
   }
 
   async rotateRecoveryCodes(personId, actorId = null) {
-    await this.whenReady();
+    await this.#ensureFreshState();
     const person = this.#getPerson(personId);
     if (actorId && actorId !== person.id) {
       const actor = this.#getPerson(actorId);
@@ -382,7 +414,7 @@ export class WorkforceManager {
   }
 
   async changePassword(personId, currentPassword, newPassword) {
-    await this.whenReady();
+    await this.#ensureFreshState();
     const person = this.#getPerson(personId);
     if (!verify(currentPassword, person.passwordHash)) {
       throw new Error("CURRENT_PASSWORD_INVALID");
@@ -397,7 +429,7 @@ export class WorkforceManager {
   }
 
   async changePin(personId, currentPassword, newPin) {
-    await this.whenReady();
+    await this.#ensureFreshState();
     const person = this.#getPerson(personId);
     if (!verify(currentPassword, person.passwordHash)) {
       throw new Error("CURRENT_PASSWORD_INVALID");
@@ -412,7 +444,7 @@ export class WorkforceManager {
   }
 
   async imposePin(personId, actorId, newPin) {
-    await this.whenReady();
+    await this.#ensureFreshState();
     const person = this.#getPerson(personId);
     const actor = actorId ? this.#getPerson(actorId) : null;
     if (person.id === (actor?.id ?? null)) {
@@ -428,7 +460,7 @@ export class WorkforceManager {
   }
 
   async resetPassword(personId, actorId, newPassword) {
-    await this.whenReady();
+    await this.#ensureFreshState();
     const person = this.#getPerson(personId);
     const actor = actorId ? this.#getPerson(actorId) : null;
     if (person.id === (actor?.id ?? null)) {
@@ -444,8 +476,10 @@ export class WorkforceManager {
   }
 
   async recoverPassword(username, recoveryCode, newPassword) {
-    await this.whenReady();
-    const person = await this.getPersonByUsername(username);
+    await this.#ensureFreshState();
+    const person = Object.values(this.#state.persons).find(
+      (p) => p.username && String(username || "").trim().toLowerCase() === p.username.toLowerCase()
+    );
     if (!person) throw new Error("RECOVERY_FAILED");
     if (this.#effectiveStatus(person) !== "ACTIVE") throw new Error("ACCOUNT_NOT_ACTIVE");
     this.#assertPasswordStrength(newPassword);
@@ -462,7 +496,7 @@ export class WorkforceManager {
   }
 
   async changeRole(personId, newRole, actorId) {
-    await this.whenReady();
+    await this.#ensureFreshState();
     const person = this.#getPerson(personId);
     const actor = actorId ? this.#getPerson(actorId) : null;
     if (person.role === "FOUNDER") throw new Error("FOUNDER_PROTECTED");
@@ -479,7 +513,7 @@ export class WorkforceManager {
   }
 
   async setStatus(personId, status, actorId) {
-    await this.whenReady();
+    await this.#ensureFreshState();
     const person = this.#getPerson(personId);
     const actor = actorId ? this.#getPerson(actorId) : null;
     if (person.role === "FOUNDER") throw new Error("FOUNDER_PROTECTED");
@@ -494,7 +528,7 @@ export class WorkforceManager {
   }
 
   async setExpiry(personId, accessExpiryAt, actorId) {
-    await this.whenReady();
+    await this.#ensureFreshState();
     const person = this.#getPerson(personId);
     const actor = actorId ? this.#getPerson(actorId) : null;
     if (person.role === "FOUNDER") throw new Error("FOUNDER_PROTECTED");
@@ -513,7 +547,7 @@ export class WorkforceManager {
   }
 
   async createAgent({ name, purpose, createdBy = null } = {}) {
-    await this.whenReady();
+    await this.#ensureFreshState();
     if (typeof name !== "string" || name.trim().length < 2) {
       throw new Error("INVALID_AGENT_NAME");
     }
@@ -534,7 +568,7 @@ export class WorkforceManager {
   }
 
   async updateAgent(agentId, patch, actorId = null) {
-    await this.whenReady();
+    await this.#ensureFreshState();
     const agent = this.#state.agents[agentId];
     if (!agent) throw new Error("AGENT_NOT_FOUND");
     if (typeof patch.name === "string" && patch.name.trim().length >= 2) {
@@ -556,7 +590,7 @@ export class WorkforceManager {
   }
 
   async markAgentUsed(agentId) {
-    await this.whenReady();
+    await this.#ensureFreshState();
     const agent = this.#state.agents[agentId];
     if (!agent) return null;
     agent.lastUsedAt = new Date().toISOString();
@@ -564,7 +598,7 @@ export class WorkforceManager {
   }
 
   async listAgents() {
-    await this.whenReady();
+    await this.#ensureFreshState();
     return Object.values(this.#state.agents).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
   }
 
