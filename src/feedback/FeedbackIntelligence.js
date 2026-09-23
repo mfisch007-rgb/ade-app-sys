@@ -54,12 +54,52 @@ const CATEGORY_PRIORITY_MAP = Object.freeze({
 });
 
 export class FeedbackIntelligence {
-  constructor({ eventBus = EnterpriseEventBus.getInstance() } = {}) {
+  constructor({ eventBus = EnterpriseEventBus.getInstance(), store = null } = {}) {
     this.eventBus = eventBus;
+    this.store = store;
     this.feedbackStore = [];
     this.patterns = new Map();
     this.improvementProposals = [];
     this.maxStoreSize = 5000;
+    this._hydrated = false;
+    this._rehydrate();
+  }
+
+  _rehydrate() {
+    try {
+      const saved = this.store?.readSection?.("feedback");
+      if (Array.isArray(saved) && saved.length) {
+        this.feedbackStore = saved.slice(-this.maxStoreSize);
+        for (const item of this.feedbackStore) this._rebuildPattern(item);
+        this._hydrated = true;
+      }
+    } catch { /* durable store unavailable — remain in-memory */ }
+  }
+
+  _persist() {
+    try {
+      this.store?.writeSection?.("feedback", this.feedbackStore.slice(-this.maxStoreSize));
+    } catch { /* never fail capture on persistence error */ }
+  }
+
+  _rebuildPattern(item) {
+    try {
+      const categoryKey = item.category || "OTHER";
+      if (!this.patterns.has(categoryKey)) {
+        this.patterns.set(categoryKey, {
+          category: categoryKey,
+          count: 0,
+          firstSeen: item.receivedAt,
+          lastSeen: item.receivedAt,
+          affectedFeatures: new Set(),
+          recentItems: []
+        });
+      }
+      const pattern = this.patterns.get(categoryKey);
+      pattern.count++;
+      pattern.lastSeen = item.receivedAt;
+      if (item.feature) pattern.affectedFeatures.add(item.feature);
+    } catch { /* pattern rebuild best-effort */ }
   }
 
   getCategories() {
@@ -91,6 +131,7 @@ export class FeedbackIntelligence {
     const sanitized = this._sanitize(item);
     this.feedbackStore.push(sanitized);
     this._trimStore();
+    this._persist();
 
     this.eventBus.publish("FEEDBACK_CAPTURED", {
       feedbackId: sanitized.id,

@@ -236,7 +236,7 @@ const demoOrchestrator = new DemoOrchestrator({
   feedbackPipeline,
   safety: demoSafety
 });
-const feedbackIntelligence = new FeedbackIntelligence({ eventBus: kernel?.eventBus });
+const feedbackIntelligence = new FeedbackIntelligence({ eventBus: kernel?.eventBus, store: runtimeConfig });
 const mediaRegistry = new MediaRegistry();
 const mediaEngine = new MediaEngine({ eventBus: kernel?.eventBus, mediaRegistry });
 const communityProgression = new CommunityProgression({ eventBus: kernel?.eventBus, store: runtimeConfig });
@@ -1383,9 +1383,22 @@ app.post('/api/v1/features/request', security.requireAuth(), requireDurableStora
       approvedAt: null,
       createdAt: new Date().toISOString()
     };
+    try {
+      const existing = runtimeConfig.readSection("featureRequests") || [];
+      runtimeConfig.writeSection("featureRequests", [...existing, request].slice(-5000));
+    } catch { /* persistence best-effort; response remains authoritative */ }
     res.status(201).json({ success: true, request });
   } catch (error) {
     res.status(400).json({ success: false, error: "FEATURE_REQUEST_FAILED" });
+  }
+});
+
+app.get('/api/v1/features/requests', security.requireAuth(), (req, res) => {
+  try {
+    const requests = runtimeConfig.readSection("featureRequests") || [];
+    res.json({ success: true, requests, total: requests.length });
+  } catch (error) {
+    res.status(500).json({ success: false, error: "FEATURE_REQUESTS_READ_FAILED" });
   }
 });
 

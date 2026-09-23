@@ -12,7 +12,7 @@ export default function TelemetryDashboard({ apiBaseUrl = 'http://localhost:3005
   const [connected, setConnected] = useState(false);
 
   useEffect(() => {
-    const eventSource = new EventSource(`${apiBaseUrl}/api/v1/telemetry`);
+    const eventSource = new EventSource(`${apiBaseUrl}/api/v1/events/stream`);
 
     eventSource.onopen = () => {
       setConnected(true);
@@ -22,6 +22,7 @@ export default function TelemetryDashboard({ apiBaseUrl = 'http://localhost:3005
     eventSource.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data);
+        if (data.type === 'STREAM_CONNECTED' || data.type === ':heartbeat') return;
         if (data.type === 'HEARTBEAT' || data.type === 'TELEMETRY_UPDATE') {
           setMetrics(prev => ({
             ...prev,
