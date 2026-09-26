@@ -76,9 +76,11 @@ export function registerIdentityRoutes({
     try {
       person = await workforce.getPersonRecord(personId);
     } catch {
-      // Shared bridge fallback: token carries username (sub) when personId is missing or stale.
-      // Try username lookup so FOUNDER/ADMIN/OPERATOR/ANALYST/VIEWER all resolve via same bridge.
-      if (claims.sub && claims.sub !== personId) {
+      // Shared bridge fallback: the opaque person id can be missing (tokens
+      // that carry only the username subject) or stale (record re-created).
+      // Fall back to exact username lookup before declaring the miss, so a
+      // valid Founder identity still resolves after reload-like reconstruction.
+      if (claims.sub) {
         try {
           const byName = await workforce.getPersonByUsername(claims.sub);
           if (byName) person = byName;
@@ -217,6 +219,16 @@ export function registerIdentityRoutes({
 
   app.post("/api/v1/account/pin", loadAuthenticated, async (req, res) => {
     const { pin } = req.body || {};
+    // Per-user workforce PIN only. Legacy/bootstrap ADMIN sessions carry no
+    // workforce person record (id null) and must never reach verifyPin —
+    // previously this threw and surfaced as an opaque 500. Truthful 403.
+    if (!req.person || req.person.id == null) {
+      return res.status(403).json({
+        success: false,
+        error: "WORKFORCE_SESSION_REQUIRED",
+        message: "Workforce sign-in required — authenticate with username and password first, then verify the Founder PIN."
+      });
+    }
     const valid = await workforce.verifyPin(req.person.id, pin);
     if (!valid) {
       return res.status(403).json({ success: false, error: "INVALID_PIN" });

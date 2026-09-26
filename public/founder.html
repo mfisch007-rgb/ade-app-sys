@@ -224,7 +224,15 @@ const heroShieldBg='url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/200
   const [token,_setToken]=useState(()=>{try{return sessionStorage.getItem('ade_founder_token')||localStorage.getItem('ade_founder_token')||null}catch{return null}});
   const setToken=(v)=>{_setToken(v);try{if(v){sessionStorage.setItem('ade_founder_token',v);localStorage.setItem('ade_founder_token',v);}else{sessionStorage.removeItem('ade_founder_token');localStorage.removeItem('ade_founder_token');}}catch{}};
   const [identity,setIdentity]=useState(()=>{try{const a=sessionStorage.getItem('ade_founder_identity');const b=localStorage.getItem('ade_founder_identity');const s=a||b;return s?JSON.parse(s):null}catch{return null}});
-  const [sessionMeta,setSessionMeta]=useState(()=>{try{const a=sessionStorage.getItem('ade_founder_session_meta');const b=localStorage.getItem('ade_founder_session_meta');const s=a||b;return s?JSON.parse(s):null}catch{return null}});
+   const [sessionMeta,setSessionMeta]=useState(()=>{try{const a=sessionStorage.getItem('ade_founder_session_meta');const b=localStorage.getItem('ade_founder_session_meta');const s=a||b;return s?JSON.parse(s):null}catch{return null}});
+   // Server-truth auth: serverAuth is set ONLY from GET /api/v1/account/session.
+   // authPhase: 'login' (no token) | 'checking' (validating) | 'failed' (unreachable) | 'pin' (base session, PIN required) | 'active' (validated).
+   const [serverAuth,setServerAuth]=useState(null);
+   const [authPhase,setAuthPhase]=useState(()=>{try{return (sessionStorage.getItem('ade_founder_token')||localStorage.getItem('ade_founder_token'))?'checking':'login'}catch{return 'login'}});
+   const [validateSeq,setValidateSeq]=useState(0);
+   const [loginUser,setLoginUser]=useState('');
+   const [loginPass,setLoginPass]=useState('');
+   const [adminPinMode,setAdminPinMode]=useState(false);
   const [liveEvents,setLiveEvents]=useState([]);
   const [streamState,setStreamState]=useState('DISCONNECTED');
   const _tabInit=(()=>{try{const h=String(window.location.hash||'').replace(/^#\/?/,'');const d=decodeURIComponent(h);if(TABS.includes(d))return d;const s=sessionStorage.getItem('ade_founder_tab')||localStorage.getItem('ade_founder_tab');if(s&&TABS.includes(s))return s;}catch{}return 'OVERVIEW'})();
@@ -292,10 +300,11 @@ const heroShieldBg='url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/200
 
  const notify=m=>{setToast(m);setTimeout(()=>setToast(''),3000)};
 
-  const clearSession=()=>{
-   setToken(null);setIdentity(null);setSessionMeta(null);
-   try{sessionStorage.removeItem('ade_founder_token');localStorage.removeItem('ade_founder_token');sessionStorage.removeItem('ade_founder_identity');localStorage.removeItem('ade_founder_identity');sessionStorage.removeItem('ade_founder_session_meta');localStorage.removeItem('ade_founder_session_meta');sessionStorage.removeItem('ade_founder_tab');localStorage.removeItem('ade_founder_tab');}catch{}
-  };
+   const clearSession=()=>{
+    setToken(null);setIdentity(null);setSessionMeta(null);setServerAuth(null);setAuthPhase('login');setAdminPinMode(false);
+    setWorkforce(null);setAgents([]);
+    try{sessionStorage.removeItem('ade_founder_token');localStorage.removeItem('ade_founder_token');sessionStorage.removeItem('ade_founder_identity');localStorage.removeItem('ade_founder_identity');sessionStorage.removeItem('ade_founder_session_meta');localStorage.removeItem('ade_founder_session_meta');sessionStorage.removeItem('ade_founder_tab');localStorage.removeItem('ade_founder_tab');}catch{}
+   };
 
  const api=useCallback(async(url,opt={})=>{
   const headers={"Content-Type":"application/json",...(opt.headers||{})};
@@ -317,18 +326,57 @@ const heroShieldBg='url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/200
   return d;
  },[token]);
 
- useEffect(()=>{
-  if(!token)return;
-  if(!identity){
-   const cl=decodeClaims(token);
-   if(cl)setIdentity({subject:cl.sub,tier:cl.tier||'COMMUNITY',level:cl.level,persona:cl.persona||'ADMIN',edition:cl.edition||'COMMUNITY'});
-  }
-  if(!sessionMeta&&decodeClaims(token)?.exp)setSessionMeta({expiresAt:Number(decodeClaims(token).exp)*1000,expiresIn:null});
-  const iv=setInterval(()=>{
-   if(sessionMeta?.expiresAt&&Date.now()>=Number(sessionMeta.expiresAt)){clearSession();notify('Session expired — re-authentication required')}
-  },10000);
-  return()=>clearInterval(iv);
- },[token,identity,sessionMeta]);
+  // Boot validation: a stored token proves NOTHING until the server resolves it.
+  // States: checking → active (server person+claims) | login (invalid) | failed (unreachable, token kept for retry).
+  const validateSession=async(tok)=>{
+   const res=await fetch('/api/v1/account/session',{headers:{Authorization:'Bearer '+tok}});
+   const d=await res.json().catch(()=>({}));
+   if(!res.ok){const err=new Error((d&&(d.message||d.error))||('Request failed '+res.status));err.status=res.status;err.code=String((d&&d.error)||'');throw err}
+   return d;
+  };
+  useEffect(()=>{
+   if(!token){setServerAuth(null);setAuthPhase('login');return}
+   let cancelled=false;
+   setAuthPhase('checking');
+   (async()=>{
+    try{
+     const d=await validateSession(token);
+     if(cancelled)return;
+     const person=d.person||null;
+     const claims=d.claims||{};
+     setServerAuth({person,claims});
+     const role=String((person&&person.role)||claims.role||'').toUpperCase();
+     const subj=(person&&person.username)||claims.sub||(decodeClaims(token)||{}).sub||'unknown';
+     setIdentity({subject:subj,role:role||'—',level:(person&&person.level)!=null?person.level:claims.level,tier:claims.tier||'COMMUNITY',persona:String(claims.persona||'').toUpperCase()||'WORKFORCE',edition:claims.edition||'COMMUNITY',pinVerified:claims.pinVerified===true});
+     try{sessionStorage.setItem('ade_founder_identity',JSON.stringify({subject:subj,role}));localStorage.setItem('ade_founder_identity',JSON.stringify({subject:subj,role}));}catch{}
+     setAuthPhase('active');
+    }catch(e){
+     if(cancelled)return;
+     // Authoritative negative: token is valid but no workforce record exists.
+     // Keep the token, surface the genuine state — never a generic error.
+     if(e.code==='PERSON_NOT_FOUND'){
+      setServerAuth({person:null,claims:{}});
+      const cl=decodeClaims(token)||{};
+      setIdentity({subject:cl.sub||'unknown',role:'—',level:cl.level,tier:cl.tier||'COMMUNITY',persona:String(cl.persona||'').toUpperCase()||'WORKFORCE',edition:cl.edition||'COMMUNITY',pinVerified:false});
+      setAuthPhase('active');
+      return;
+     }
+     const authGone=(e.status===401||e.status===403)||/expir|revok|rotation|invalid|missing|unauthor/i.test(String(e.message||''));
+     if(authGone){clearSession();setLoginMsg({type:'err',text:'Session invalid or expired — please sign in again.'});}
+     else{setAuthPhase('failed');setLoginMsg({type:'err',text:'Service unreachable — the server did not answer. Your sign-in is preserved; retry when online.'});}
+    }
+   })();
+   return()=>{cancelled=true};
+  },[token,validateSeq]);
+
+  useEffect(()=>{
+   if(!token)return;
+   if(!sessionMeta&&decodeClaims(token)?.exp)setSessionMeta({expiresAt:Number(decodeClaims(token).exp)*1000,expiresIn:null});
+   const iv=setInterval(()=>{
+    if(sessionMeta?.expiresAt&&Date.now()>=Number(sessionMeta.expiresAt)){clearSession();notify('Session expired — re-authentication required')}
+   },10000);
+   return()=>clearInterval(iv);
+  },[token,sessionMeta]);
 
  useEffect(()=>{
   if(!token)return;
@@ -387,20 +435,54 @@ const heroShieldBg='url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/200
   loadTab();
  },[tab,token,api,auditLimit]);
 
-   const pinLogin=async(pin)=>{
+   // Step 1 — workforce identity: username+password → base (non-elevated) session.
+   const workforceLogin=async()=>{
+    if(loginBusy)return;
+    if(!String(loginUser||'').trim()||!loginPass){setLoginMsg({type:'err',text:'Enter workforce username and password.'});return}
+    setLoginMsg(null);setLoginBusy(true);
+    try{
+     const r=await fetch('/api/v1/account/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:String(loginUser).trim(),password:loginPass})});
+     const d=await r.json().catch(()=>({}));
+     if(!r.ok)throw new Error((d&&(d.message||d.error))||'Invalid credentials');
+     setToken(d.token);
+     if(d.expiresAt){const meta={expiresAt:d.expiresAt,expiresIn:d.expiresIn||null};setSessionMeta(meta);try{sessionStorage.setItem('ade_founder_session_meta',JSON.stringify(meta));localStorage.setItem('ade_founder_session_meta',JSON.stringify(meta));}catch{}}
+     setLoginPass('');
+     setLoginBusy(false);setLoginMsg({type:'ok',text:'✓ Identity verified — enter the six-digit authorization PIN to elevate.'});
+     notify('Identity verified — PIN required');
+    }catch(e){setLoginBusy(false);setLoginMsg({type:'err',text:'✕ '+(e.message||'Invalid credentials')});notify(e.message)}
+   };
+   // Step 2 — per-user step-up: the SIX-DIGIT PIN belonging to the signed-in
+   // workforce identity (checked against that person's record, never the
+   // generic admin hash). Revokes the base token, issues pinVerified session.
+   const founderPin=async(pin)=>{
+    if(loginBusy||!token)return;
+    setLoginMsg(null);setLoginBusy(true);
+    try{
+     const r=await fetch('/api/v1/account/pin',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+token},body:JSON.stringify({pin})});
+     const d=await r.json().catch(()=>({}));
+     if(!r.ok)throw new Error((d&&(d.message||d.error))||'Invalid PIN');
+     setToken(d.token);
+     if(d.expiresAt){const meta={expiresAt:d.expiresAt,expiresIn:d.expiresIn||null};setSessionMeta(meta);try{sessionStorage.setItem('ade_founder_session_meta',JSON.stringify(meta));localStorage.setItem('ade_founder_session_meta',JSON.stringify(meta));}catch{}}
+     setLoginBusy(false);setLoginMsg({type:'ok',text:'✓ SESSION ELEVATED — PIN verified'});
+     notify('SESSION ELEVATED');
+    }catch(e){setLoginBusy(false);setLoginMsg({type:'err',text:'✕ '+(e.message||'Invalid PIN')});notify(e.message)}
+   };
+   // Separate recovery path: the generic pre-generated ADMIN PIN. Yields an
+   // ADMINISTRATOR bootstrap session — explicitly NOT a Founder session.
+   const adminPinLogin=async(pin)=>{
     if(loginBusy)return;
     setLoginMsg(null);setLoginBusy(true);
     try{
      const r=await fetch('/api/v1/auth/pin',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({pin})});
-     const d=await r.json();
-     if(!r.ok)throw new Error(d.error||'Invalid PIN');
+     const d=await r.json().catch(()=>({}));
+     if(!r.ok)throw new Error((d&&(d.message||d.error))||'Invalid PIN');
      setToken(d.token);
      if(d.identity){setIdentity(d.identity);try{sessionStorage.setItem('ade_founder_identity',JSON.stringify(d.identity));localStorage.setItem('ade_founder_identity',JSON.stringify(d.identity));}catch{}}
      if(d.expiresAt){const meta={expiresAt:d.expiresAt,expiresIn:d.expiresIn||null};setSessionMeta(meta);try{sessionStorage.setItem('ade_founder_session_meta',JSON.stringify(meta));localStorage.setItem('ade_founder_session_meta',JSON.stringify(meta));}catch{}}
-    setLoginBusy(false);setLoginMsg({type:'ok',text:'✓ FOUNDER SESSION AUTHENTICATED'});
-    notify('FOUNDER SESSION AUTHENTICATED');
-   }catch(e){setLoginBusy(false);setLoginMsg({type:'err',text:'✕ '+e.message});notify(e.message)}
-  };
+     setLoginBusy(false);setLoginMsg({type:'ok',text:'✓ ADMINISTRATOR SESSION AUTHENTICATED (recovery PIN — not Founder step-up)'});
+     notify('ADMINISTRATOR SESSION AUTHENTICATED');
+    }catch(e){setLoginBusy(false);setLoginMsg({type:'err',text:'✕ '+e.message});notify(e.message)}
+   };
 
  const logout=async()=>{
   try{if(token)await api('/api/v1/auth/revoke',{method:'POST'})}catch{}
@@ -504,44 +586,108 @@ const heroShieldBg='url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/200
 
  const doCreateAnnouncement=async()=>{try{const r=await api('/api/v1/announcements',{method:'POST',body:JSON.stringify(annForm)});if(r){notify('Announcement published');setAnnForm({title:'',body:'',kind:'ANNOUNCEMENT',link:''});const a=await api('/api/v1/announcements/admin');if(a)setAnnouncements(a.announcements||[])}}catch(e){notify(e.message)}};
 
-   // Truthful role derivation — display actual role; server is authoritative. JWT decode is display-only; spoofed localStorage will be rejected by API 401/403 which reverts visibleTabs to minimal.
-   const roleName = (identity && identity.persona === 'ADMIN' ? 'ADMIN' : (identity.role || identity.persona || '').toUpperCase());
-   const _isWorkforceRole=((identity&&identity.persona==='WORKFORCE')?roleName:'FOUNDER'); const _accessRole=roleName||_isWorkforceRole||'FOUNDER';
-   // isFounder allows ADMIN (level>=2) and level>=4 to see all Founder tabs, without mislabeling ADMIN as FOUNDER in pill; also checks workforce roster if available
-   const isFounder=_accessRole==='FOUNDER'||(identity&&Number(identity.level)>=4)||(identity&&identity.persona==='ADMIN'&&Number(identity.level)>=2)||(workforce&&workforce.persons&&identity&&workforce.persons.some(p=>String(p.username).toLowerCase()===String(identity.subject).toLowerCase()&&String(p.role).toUpperCase()==='FOUNDER'));
-  const visibleTabs=(()=>{
-   if(isFounder) return TABS;
-   // strict 5-tier: Admin sees everything except founder-only diagnostics is filtered elsewhere; User sees ops-trimmed; Pilot/Partner isolated
-   const all=TABS.slice();
-   // Partner sees only PARTNERS + OVERVIEW/PILOTS lite — strip internal infra
-   if(_accessRole==='PARTNER') return ['OVERVIEW','PARTNERS','ANNOUNCEMENTS'];
-   if(_accessRole==='PILOT'||_accessRole==='VIEWER') return ['OVERVIEW','PILOTS','PARTNERS','ANNOUNCEMENTS'];
-   // USER (OPERATOR/ANALYST) — no trading/audit/feature internal telemetry
-   if(['OPERATOR','ANALYST','USER'].includes(_accessRole)) return all.filter(t=>!['AUDIT','TRADING','FEATURE CONTROL'].includes(t));
-   return all;
-  })();
+    // Server-truth roles. serverAuth comes ONLY from GET /api/v1/account/session.
+    // A generic ADMIN (recovery-PIN) session NEVER satisfies isFounder.
+    const srvRole=String((serverAuth&&serverAuth.person&&serverAuth.person.role)||(serverAuth&&serverAuth.claims&&serverAuth.claims.role)||'').toUpperCase();
+    const srvPersona=String((serverAuth&&serverAuth.claims&&serverAuth.claims.persona)||'').toUpperCase();
+    const srvLevel=Number((serverAuth&&serverAuth.person&&serverAuth.person.level)!=null?serverAuth.person.level:(serverAuth&&serverAuth.claims&&serverAuth.claims.level))||0;
+    const srvElevated=Boolean(serverAuth&&serverAuth.claims&&serverAuth.claims.pinVerified);
+    const srvNoRecord=Boolean(serverAuth&&!serverAuth.person);
+    const isLegacyAdmin=Boolean(serverAuth&&(srvPersona==='ADMIN'||(!srvPersona&&!(serverAuth.person&&serverAuth.person.id))));
+    const roleName=srvRole||'—';
+    const _accessRole=srvRole||(isLegacyAdmin?'ADMIN':'—');
+    const isFounder=srvPersona==='WORKFORCE'&&srvRole==='FOUNDER';
+   const visibleTabs=(()=>{
+    if(isFounder) return TABS;
+    const all=TABS.slice();
+    // Bootstrap administrator (recovery PIN): everything except trading/feature internals.
+    if(isLegacyAdmin) return all.filter(t=>!['TRADING','FEATURE CONTROL'].includes(t));
+    // Workforce ADMIN: same as bootstrap minus founder-only trading/feature internals.
+    if(_accessRole==='ADMIN') return all.filter(t=>!['TRADING','FEATURE CONTROL'].includes(t));
+    // Partner sees only PARTNERS + OVERVIEW/PILOTS lite — strip internal infra
+    if(_accessRole==='PARTNER') return ['OVERVIEW','PARTNERS','ANNOUNCEMENTS'];
+    if(_accessRole==='PILOT'||_accessRole==='VIEWER') return ['OVERVIEW','PILOTS','PARTNERS','ANNOUNCEMENTS'];
+    // USER (OPERATOR/ANALYST) — no trading/audit/feature internal telemetry
+    if(['OPERATOR','ANALYST','USER'].includes(_accessRole)) return all.filter(t=>!['AUDIT','TRADING','FEATURE CONTROL'].includes(t));
+    return ['OVERVIEW'];
+   })();
   useEffect(()=>{try{if(!TABS.includes(tab)&&!visibleTabs.includes(tab)) _setTab(visibleTabs[0]||'OVERVIEW');}catch{}},[visibleTabs,tab]);
   const B=(label,cls)=>h('span',{className:'badge '+(cls||'muted')},label);
 
-  /* ── Login Gate ── */
- if(!token)return h('div',{className:'app',style:{minHeight:'100vh',display:'grid',placeItems:'center'}},
-  h('div',{className:'authBox',style:{textAlign:'center'}},
-   h('div',{className:'eyebrow'},'AUTOMATED ALPHA ALIPH DIGITAL ECOSYSTEMS'),
-   h('h2',{style:{margin:'14px 0 6px'}},'ADE FOUNDER COMMAND CENTER'),
-   h('p',null,'Enter your founder/admin PIN to access the command center. All sessions are server-authoritative.'),
-   h('form',{onSubmit:e=>{e.preventDefault();if(loginBusy)return;const pin=e.target.elements[0].value;if(pin)pinLogin(pin)}},
-     h('div',{className:'passWrap'},h('input',{className:'authInput',name:'pin',type:showPw.loginPin?'text':'password',inputMode:'numeric',autoComplete:'off',placeholder:'••••••',maxLength:12,disabled:loginBusy}),h('button',{className:'showToggle',type:'button',onClick:()=>setShowPw(s=>({...s,loginPin:!s.loginPin}))},showPw.loginPin?'HIDE':'SHOW')),
-     h('div',{className:'authActions'},h('button',{className:'btn primary',type:'submit',style:{width:'100%'},disabled:loginBusy},loginBusy?'AUTHENTICATING…':'AUTHENTICATE')),
-     loginBusy&&h('div',{className:'authLoading'},h('span',{className:'spinner'}),'Authenticating against the ADE security boundary…'),
+   /* ── Auth Gate: checking → login (identity) → PIN (step-up) → workspace ── */
+  if(authPhase==='checking'||(token&&!serverAuth&&authPhase!=='failed'))return h('div',{className:'app',style:{minHeight:'100vh',display:'grid',placeItems:'center'}},
+   h('div',{className:'authBox',style:{textAlign:'center'}},
+    h('div',{className:'eyebrow'},'AUTOMATED ALPHA ALIPH DIGITAL ECOSYSTEMS'),
+    h('h2',{style:{margin:'14px 0 6px'}},'ADE FOUNDER COMMAND CENTER'),
+    h('div',{className:'authLoading',style:{justifyContent:'center'}},h('span',{className:'spinner'}),'Verifying Founder workforce identity…'),
+    h('p',{className:'formHint',style:{textAlign:'center'}},'Checking the stored session against the server. Nothing is shown until the server answers.')
+   )
+  );
+  if(authPhase==='failed')return h('div',{className:'app',style:{minHeight:'100vh',display:'grid',placeItems:'center'}},
+   h('div',{className:'authBox',style:{textAlign:'center'}},
+    h('div',{className:'eyebrow'},'AUTOMATED ALPHA ALIPH DIGITAL ECOSYSTEMS'),
+    h('h2',{style:{margin:'14px 0 6px'}},'ADE FOUNDER COMMAND CENTER'),
+    h('div',{className:'authStatus err'},'Service unreachable — the server did not answer. Your sign-in is preserved on this device.'),
+    h('div',{className:'authActions',style:{marginTop:12}},h('button',{className:'btn primary',style:{width:'100%'},onClick:()=>{setAuthPhase('checking');setValidateSeq(s=>s+1)}},'RETRY VERIFICATION')),
+    h('div',{className:'authActions',style:{marginTop:8}},h('button',{className:'btn',style:{width:'100%'},onClick:clearSession},'SIGN IN WITH A DIFFERENT IDENTITY')),
+    loginMsg&&h('div',{className:'authStatus '+(loginMsg.type==='ok'?'ok':'err'),style:{marginTop:10}},loginMsg.text)
+   )
+  );
+  // Step 2 — per-user six-digit PIN for the signed-in workforce identity.
+  if(token&&serverAuth&&srvPersona==='WORKFORCE'&&!srvElevated&&!srvNoRecord)return h('div',{className:'app',style:{minHeight:'100vh',display:'grid',placeItems:'center'}},
+   h('div',{className:'authBox',style:{textAlign:'center'}},
+    h('div',{className:'eyebrow'},'AUTOMATED ALPHA ALIPH DIGITAL ECOSYSTEMS'),
+    h('h2',{style:{margin:'14px 0 6px'}},(isFounder?'FOUNDER STEP-UP':'AUTHORIZATION STEP-UP')),
+    h('p',null,'Identity verified as @'+((serverAuth.person&&serverAuth.person.username)||'—')+' ('+(_accessRole||'—')+'). Enter the six-digit authorization PIN belonging to this identity.'),
+    h('form',{onSubmit:e=>{e.preventDefault();if(loginBusy)return;const pin=e.target.elements[0].value;if(pin)founderPin(pin)}},
+     h('div',{className:'passWrap'},h('input',{className:'authInput',name:'pin',type:showPw.loginPin?'text':'password',inputMode:'numeric',autoComplete:'off',placeholder:'••••••',maxLength:6,disabled:loginBusy}),h('button',{className:'showToggle',type:'button',onClick:()=>setShowPw(s=>({...s,loginPin:!s.loginPin}))},showPw.loginPin?'HIDE':'SHOW')),
+     h('div',{className:'authActions'},h('button',{className:'btn primary',type:'submit',style:{width:'100%'},disabled:loginBusy},loginBusy?'VERIFYING…':'VERIFY PIN & ELEVATE')),
+     loginBusy&&h('div',{className:'authLoading'},h('span',{className:'spinner'}),'Verifying PIN against your workforce record…'),
      loginMsg&&h('div',{className:'authStatus '+(loginMsg.type==='ok'?'ok':'err')},loginMsg.text)
     ),
-    h('div',{style:{marginTop:20,paddingTop:16,borderTop:'1px solid var(--line)'}},
-     h('div',{className:'muted',style:{fontSize:10,letterSpacing:0.14,fontWeight:700}},'BUILDING AFRICAN DIGITAL BUSINESS OPERATIONAL SYSTEMS'),
-     h('div',{style:{fontSize:10,color:'var(--faint)',marginTop:6}},h('a',{href:'mailto:Automated_alpha_aliph@yahoo.com'},'Automated_alpha_aliph@yahoo.com')),
-     h('div',{style:{fontSize:10,color:'var(--faint)',marginTop:3}},'WhatsApp + Calls: ',h('a',{href:'tel:+2347038272792'},'+234 (0) 7038272792'),' · Calls Only: ',h('a',{href:'tel:+2347058769114'},'+234 (0) 7058769114'))
-    )
-  )
- );
+    h('div',{className:'authActions',style:{marginTop:10}},h('button',{className:'btn',style:{width:'100%'},onClick:clearSession},'BACK TO SIGN-IN'))
+   )
+  );
+  // Genuine negative: valid session, no workforce record on the server.
+  if(token&&serverAuth&&srvNoRecord)return h('div',{className:'app',style:{minHeight:'100vh',display:'grid',placeItems:'center'}},
+   h('div',{className:'authBox',style:{textAlign:'center'}},
+    h('div',{className:'eyebrow'},'AUTOMATED ALPHA ALIPH DIGITAL ECOSYSTEMS'),
+    h('h2',{style:{margin:'14px 0 6px'}},'ADE FOUNDER COMMAND CENTER'),
+    h('div',{className:'authStatus err'},'✕ Founder workforce identity not provisioned — the server confirms this session has no workforce record.'),
+    h('p',{className:'formHint',style:{textAlign:'center'}},'If this is a first-run system, provision the Founder from the Admin console. Otherwise contact an administrator.'),
+    h('div',{className:'authActions',style:{marginTop:12}},h('button',{className:'btn',style:{width:'100%'},onClick:clearSession},'BACK TO SIGN-IN'))
+   )
+  );
+  if(!token)return h('div',{className:'app',style:{minHeight:'100vh',display:'grid',placeItems:'center'}},
+   h('div',{className:'authBox',style:{textAlign:'center'}},
+    h('div',{className:'eyebrow'},'AUTOMATED ALPHA ALIPH DIGITAL ECOSYSTEMS'),
+    h('h2',{style:{margin:'14px 0 6px'}},'ADE FOUNDER COMMAND CENTER'),
+    adminPinMode
+    ?h('div',null,
+      h('p',null,'Administrator recovery PIN — for bootstrap/recovery only. This creates an ADMINISTRATOR session, not a Founder session.'),
+      h('form',{onSubmit:e=>{e.preventDefault();if(loginBusy)return;const pin=e.target.elements[0].value;if(pin)adminPinLogin(pin)}},
+       h('div',{className:'passWrap'},h('input',{className:'authInput',name:'pin',type:showPw.loginPin?'text':'password',inputMode:'numeric',autoComplete:'off',placeholder:'••••••',maxLength:12,disabled:loginBusy}),h('button',{className:'showToggle',type:'button',onClick:()=>setShowPw(s=>({...s,loginPin:!s.loginPin}))},showPw.loginPin?'HIDE':'SHOW')),
+       h('div',{className:'authActions'},h('button',{className:'btn primary',type:'submit',style:{width:'100%'},disabled:loginBusy},loginBusy?'AUTHENTICATING…':'AUTHENTICATE AS ADMINISTRATOR')),
+       loginBusy&&h('div',{className:'authLoading'},h('span',{className:'spinner'}),'Authenticating against the ADE security boundary…'),
+       loginMsg&&h('div',{className:'authStatus '+(loginMsg.type==='ok'?'ok':'err')},loginMsg.text)
+      ),
+      h('div',{className:'authActions',style:{marginTop:10}},h('button',{className:'btn',style:{width:'100%'},onClick:()=>{setAdminPinMode(false);setLoginMsg(null)}},'BACK TO FOUNDER SIGN-IN'))
+     )
+    :h('div',null,
+      h('p',null,'Step 1 — sign in with your workforce username and password. Step 2 verifies your six-digit Founder PIN.'),
+      h('div',{className:'acctForm',style:{textAlign:'left'}},h('label',{className:'fieldLabel'},'USERNAME'),h('input',{className:'authInput',style:{letterSpacing:'normal',textAlign:'left',fontSize:15},value:loginUser,onChange:e=>setLoginUser(e.target.value),autoComplete:'username',disabled:loginBusy}),h('label',{className:'fieldLabel'},'PASSWORD'),h('input',{className:'authInput',style:{letterSpacing:'normal',textAlign:'left',fontSize:15},type:showPw.loginPw?'text':'password',value:loginPass,onChange:e=>setLoginPass(e.target.value),autoComplete:'current-password',disabled:loginBusy})),
+      h('div',{className:'authActions',style:{marginTop:10}},h('button',{className:'btn primary',style:{width:'100%'},disabled:loginBusy,onClick:workforceLogin},loginBusy?'VERIFYING…':'SIGN IN')),
+      loginBusy&&h('div',{className:'authLoading'},h('span',{className:'spinner'}),'Verifying identity against the ADE security boundary…'),
+      loginMsg&&h('div',{className:'authStatus '+(loginMsg.type==='ok'?'ok':'err')},loginMsg.text),
+      h('div',{className:'authActions',style:{marginTop:10}},h('button',{className:'btn ghost',onClick:()=>{setAdminPinMode(true);setLoginMsg(null)}},'Use administrator recovery PIN instead'))
+     ),
+     h('div',{style:{marginTop:20,paddingTop:16,borderTop:'1px solid var(--line)'}},
+      h('div',{className:'muted',style:{fontSize:10,letterSpacing:0.14,fontWeight:700}},'BUILDING AFRICAN DIGITAL BUSINESS OPERATIONAL SYSTEMS'),
+      h('div',{style:{fontSize:10,color:'var(--faint)',marginTop:6}},h('a',{href:'mailto:Automated_alpha_aliph@yahoo.com'},'Automated_alpha_aliph@yahoo.com')),
+      h('div',{style:{fontSize:10,color:'var(--faint)',marginTop:3}},'WhatsApp + Calls: ',h('a',{href:'tel:+2347038272792'},'+234 (0) 7038272792'),' · Calls Only: ',h('a',{href:'tel:+2347058769114'},'+234 (0) 7058769114'))
+     )
+   )
+  );
 
  const kernStatus=(health?.kernel?.status)||(health?.runtime?.kernel?.status)||(health?.status)||'CONNECTING';
  const kernLive=kernStatus==='ONLINE'||kernStatus==='HEALTHY';
@@ -1204,7 +1350,7 @@ const heroShieldBg='url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/200
     ),
      h('nav',{className:'topNav'},visibleTabs.map(t=>h('button',{key:t,className:tab===t?'active':'',onClick:()=>{setTab(t);setMenuOpen(false)},title:visibleTabs.length!==TABS.length?('Filtered for '+(_accessRole||'role')):''},t))),
     h('div',{className:'topRight'},
-     identity?h('span',{className:'pill',title:'Role: '+(_accessRole||'—')+' · Persona: '+(identity.persona||'—')},'@'+identity.subject+' · '+(_accessRole||identity.persona||'—')+' · L'+identity.level):null,
+     serverAuth?h('span',{className:'pill',title:'Server-validated · Role: '+(_accessRole||'—')+' · Persona: '+(srvPersona||'—')+' · PIN: '+(srvElevated?'verified':'not verified')},'@'+((serverAuth.person&&serverAuth.person.username)||(identity&&identity.subject)||'—')+' · '+(_accessRole||'—')+' · L'+srvLevel+(srvElevated?' · ELEVATED':' · BASE')):null,
      h('span',{className:'pill '+(kernLive?'live':kernStatus==='OFFLINE'?'off':'')},h('i',{className:'dot'}),kernLive?'ONLINE':kernStatus),
      h('button',{className:'btn sm danger',onClick:logout},'⊘ LOGOUT'),
      h('button',{className:'iconBtn hamburger',onClick:()=>setMenuOpen(v=>!v)},menuOpen?'✕':'☰')
@@ -1218,7 +1364,7 @@ const heroShieldBg='url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/200
       h('div',{className:'eyebrow',style:{color:'var(--gold)',fontSize:'10px',letterSpacing:'.22em'}},'AUTOMATED ALPHA ALIPH DIGITAL ECOSYSTEMS'),
       h('h2',{style:{margin:'6px 0 4px',fontSize:'18px',letterSpacing:'-.01em',color:'var(--gold)'}},'ADE FOUNDER COMMAND CENTER'),
       h('p',{style:{margin:0,color:'var(--muted)',fontSize:'12.5px',lineHeight:1.5}},'Building African Digital Business Operational Systems — shield-grade operations, procurement and intelligence.'),
-      h('div',{style:{marginTop:'10px',display:'flex',gap:'8px',flexWrap:'wrap'}},h('span',{className:'badge gold'},'SHIELD SECURED'),h('span',{className:'badge blue'},'FOUNDER AUTHORITY'))
+       h('div',{style:{marginTop:'10px',display:'flex',gap:'8px',flexWrap:'wrap'}},h('span',{className:'badge gold'},'SHIELD SECURED'),h('span',{className:'badge blue'},isFounder?(srvElevated?'FOUNDER AUTHORITY · ELEVATED':'FOUNDER AUTHORITY · BASE SESSION'):isLegacyAdmin?'BOOTSTRAP ADMINISTRATOR':(_accessRole||'—')+' SESSION'))
      ),
      h('div',{style:{position:'relative',width:'96px',height:'96px',flex:'0 0 auto',display:'block'}},
       h('div',{className:'heroOrb',role:'img','aria-label':'ADE shield orb'}),

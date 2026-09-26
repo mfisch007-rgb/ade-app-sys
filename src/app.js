@@ -2931,8 +2931,23 @@ app.get('/founder', (req,res)=>res.sendFile(path.join(__dirname, '../public/foun
 app.get('/market-lab', (req,res)=>res.sendFile(path.join(__dirname, '../public/market-lab.html')));
 app.get('/lab', (req,res)=>res.sendFile(path.join(__dirname, '../public/market-lab.html')));
 
-// Serve Static UI Assets
-app.use(express.static(path.join(__dirname, "../public")));
+// Serve Static UI Assets. Image/font assets are content-addressed by deployment
+// (same path, new bytes per release) and safe to cache immutably — this is what
+// keeps the brand mark rendering instantly on repeat views, Back navigation and
+// mobile reloads. HTML stays no-cache so UI fixes deploy visibly.
+app.use(express.static(path.join(__dirname, "../public"), {
+  maxAge: 0,
+  etag: true,
+  setHeaders(res, filePath) {
+    try {
+      if (/\.(png|jpg|jpeg|gif|svg|webp|ico|woff2?|ttf)$/i.test(String(filePath || ""))) {
+        res.setHeader("Cache-Control", "public, max-age=2592000, immutable");
+      } else if (/\.html?$/i.test(String(filePath || ""))) {
+        res.setHeader("Cache-Control", "no-cache");
+      }
+    } catch {}
+  }
+}));
 
 // Unknown /api/* namespaces (e.g. dead legacy /api/stream, /api/godmode/command,
 // /api/whatsapp/*) must NOT be swallowed by the frontend HTML catch-all below as

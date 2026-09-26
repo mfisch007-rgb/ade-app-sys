@@ -103,8 +103,11 @@ test("H — attachment manifest validation, inline binary rejected", () => {
 
 test("I — deterministic/idempotent identity + serialization", () => {
   const { adapter } = rig();
-  const a = adapter.normalize({ text: MILK, eventId: "evt-1" });
-  const b = adapter.normalize({ text: MILK, eventId: "evt-1" });
+  // Fixed receivedAt: envelope stamps wall-clock time by default, which makes
+  // back-to-back serializations flaky across a millisecond boundary.
+  const fixedAt = "2026-01-15T10:00:00.000Z";
+  const a = adapter.normalize({ text: MILK, eventId: "evt-1", receivedAt: fixedAt });
+  const b = adapter.normalize({ text: MILK, eventId: "evt-1", receivedAt: fixedAt });
   assert.equal(a.idempotencyKey, b.idempotencyKey);
   assert.equal(serializeEventEnvelope(a), serializeEventEnvelope(b));
   assert.ok(deriveIdempotencyKey({ source: "s", sourceType: "TEST", eventId: "e", tenantScope: "d", text: "t" }).startsWith("idem-"));

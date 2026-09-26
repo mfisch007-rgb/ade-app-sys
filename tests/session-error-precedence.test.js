@@ -28,7 +28,7 @@ test("SESSION-PRECEDENCE — grouped guard clears session only when live and aut
 
 test("SESSION-PRECEDENCE — page source contains the explicitly grouped guard", () => {
   assert.ok(
-    html.includes("if(!cancelled&&((e.message||'').includes('Authentication')||(e.message||'').includes('401')))"),
+    html.includes("if(!cancelled&&(msg.includes('Authentication')||msg.includes('401')"),
     "expected grouped catch guard in public/index.html"
   );
   assert.ok(

@@ -110,6 +110,7 @@ export class TestBusinessAdapter extends InjectionAdapter {
       },
       correlationId: input.correlationId || null,
       occurredAt: input.occurredAt || null,
+      receivedAt: input.receivedAt || null,
       payload: {
         text: String(text),
         organization: input.organization || this.defaultOrganization,
