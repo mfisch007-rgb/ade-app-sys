@@ -189,3 +189,31 @@ test("FOUNDER-CLOSURE-10 — logo asset truth: valid PNG, sane weight, stable pa
   }
   assert.ok(read("src/app.js").includes("immutable"), "static image assets must be served immutable");
 });
+
+test("FOUNDER-CLOSURE-11 — password-authenticated self-service PIN set (the stuck-Founder resolution path)", async (t) => {
+  const { request } = await boot(t);
+  const base = await provisionAndLogin(request);
+  // Wrong password cannot change the PIN.
+  const badPw = await request(base, "POST", "/api/v1/account/change-pin", { currentPassword: "WrongPass!9", newPin: "999999" });
+  assert.equal(badPw.status, 401);
+  // Correct password sets a new per-user PIN; the new PIN elevates, the old one does not.
+  const set = await request(base, "POST", "/api/v1/account/change-pin", { currentPassword: FOUNDER.password, newPin: "999999" });
+  assert.equal(set.status, 200);
+  const oldPin = await request(base, "POST", "/api/v1/account/pin", { pin: FOUNDER.pin });
+  assert.equal(oldPin.status, 403);
+  const fresh = await request(null, "POST", "/api/v1/account/login", { username: FOUNDER.username, password: FOUNDER.password });
+  const elevated = await request(fresh.body.token, "POST", "/api/v1/account/pin", { pin: "999999" });
+  assert.equal(elevated.status, 200);
+  assert.equal(elevated.body.elevated, true);
+});
+
+test("FOUNDER-CLOSURE-12 — founder page offers self-service PIN setup; Africa map asset truth", () => {
+  const founder = read("public/founder.html");
+  assert.ok(founder.includes("/api/v1/account/change-pin"), "founder PIN screen must offer password-authenticated PIN setup");
+  assert.ok(founder.includes("Set your own PIN with your password") || founder.includes("SET MY PIN"), "setup affordance must be visible");
+  const index = read("public/index.html");
+  assert.ok(index.includes("src:'/brand-mark.png'") || index.includes('src="/brand-mark.png"'), "public footer must reference the Africa tech-hub map");
+  const buf = fs.readFileSync(path.join(ROOT, "public/brand-mark.png"));
+  assert.ok(buf.length > 10000, "map asset must be non-trivial");
+  assert.ok(buf[0] === 0x89 && buf[1] === 0x50, "map PNG magic bytes required");
+});

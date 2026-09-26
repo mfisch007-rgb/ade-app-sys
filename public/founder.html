@@ -233,6 +233,13 @@ const heroShieldBg='url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/200
    const [loginUser,setLoginUser]=useState('');
    const [loginPass,setLoginPass]=useState('');
    const [adminPinMode,setAdminPinMode]=useState(false);
+   // Self-service PIN set: password-authenticated, same contract as Account.
+   const [showSetPin,setShowSetPin]=useState(false);
+   const [setPw,setSetPw]=useState('');
+   const [setPin1,setSetPin1]=useState('');
+   const [setPin2,setSetPin2]=useState('');
+   const [setPinMsg,setSetPinMsg]=useState(null);
+   const [setPinBusy,setSetPinBusy]=useState(false);
   const [liveEvents,setLiveEvents]=useState([]);
   const [streamState,setStreamState]=useState('DISCONNECTED');
   const _tabInit=(()=>{try{const h=String(window.location.hash||'').replace(/^#\/?/,'');const d=decodeURIComponent(h);if(TABS.includes(d))return d;const s=sessionStorage.getItem('ade_founder_tab')||localStorage.getItem('ade_founder_tab');if(s&&TABS.includes(s))return s;}catch{}return 'OVERVIEW'})();
@@ -467,6 +474,25 @@ const heroShieldBg='url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/200
      notify('SESSION ELEVATED');
     }catch(e){setLoginBusy(false);setLoginMsg({type:'err',text:'✕ '+(e.message||'Invalid PIN')});notify(e.message)}
    };
+   // Self-service: set (or refresh) your own per-user PIN using your workforce
+   // password. Same server contract as Account → POST /api/v1/account/change-pin.
+   // Never touches the generic ADMIN PIN and never resets anyone else's PIN.
+   const selfSetPin=async()=>{
+    if(setPinBusy||!token)return;
+    setSetPinMsg(null);
+    if(!setPw){setSetPinMsg({type:'err',text:'Enter your current workforce password.'});return}
+    if(!/^\d{6}$/.test(setPin1)){setSetPinMsg({type:'err',text:'The new PIN must contain exactly 6 digits.'});return}
+    if(setPin1!==setPin2){setSetPinMsg({type:'err',text:'The two PIN entries do not match.'});return}
+    setSetPinBusy(true);
+    try{
+     const r=await fetch('/api/v1/account/change-pin',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+token},body:JSON.stringify({currentPassword:setPw,newPin:setPin1})});
+     const d=await r.json().catch(()=>({}));
+     if(!r.ok)throw new Error((d&&(d.message||d.error))||'PIN change failed');
+     setSetPw('');setSetPin1('');setSetPin2('');setShowSetPin(false);
+     setSetPinBusy(false);setLoginMsg({type:'ok',text:'✓ Your authorization PIN was set — enter it above to elevate.'});
+     notify('Authorization PIN set');
+    }catch(e){setSetPinBusy(false);setSetPinMsg({type:'err',text:'✕ '+(e.message||'PIN change failed')});notify(e.message)}
+   };
    // Separate recovery path: the generic pre-generated ADMIN PIN. Yields an
    // ADMINISTRATOR bootstrap session — explicitly NOT a Founder session.
    const adminPinLogin=async(pin)=>{
@@ -644,6 +670,17 @@ const heroShieldBg='url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/200
      h('div',{className:'authActions'},h('button',{className:'btn primary',type:'submit',style:{width:'100%'},disabled:loginBusy},loginBusy?'VERIFYING…':'VERIFY PIN & ELEVATE')),
      loginBusy&&h('div',{className:'authLoading'},h('span',{className:'spinner'}),'Verifying PIN against your workforce record…'),
      loginMsg&&h('div',{className:'authStatus '+(loginMsg.type==='ok'?'ok':'err')},loginMsg.text)
+    ),
+    h('div',{style:{marginTop:14,paddingTop:12,borderTop:'1px solid var(--line)'}},
+     h('button',{className:'btn ghost',style:{width:'100%'},onClick:()=>{setShowSetPin(v=>!v);setSetPinMsg(null)}},showSetPin?'Hide PIN setup':'PIN not working? Set your own PIN with your password'),
+     showSetPin&&h('div',{style:{marginTop:10,textAlign:'left'}},
+      h('p',{className:'formHint'},'Your PIN lives only on your workforce record. Enter your current workforce password once, choose a new six-digit PIN, and it takes effect immediately — no administrator involved.'),
+      h('label',{className:'fieldLabel'},'CURRENT WORKFORCE PASSWORD'),h('input',{className:'authInput',style:{letterSpacing:'normal',textAlign:'left',fontSize:15},type:showPw.setPw?'text':'password',value:setPw,onChange:e=>setSetPw(e.target.value),autoComplete:'current-password',disabled:setPinBusy}),
+      h('label',{className:'fieldLabel',style:{marginTop:8}},'NEW SIX-DIGIT PIN'),h('input',{className:'authInput',type:showPw.setPin?'text':'password',inputMode:'numeric',value:setPin1,onChange:e=>setSetPin1(e.target.value),autoComplete:'off',placeholder:'••••••',maxLength:6,disabled:setPinBusy}),
+      h('label',{className:'fieldLabel',style:{marginTop:8}},'CONFIRM NEW PIN'),h('input',{className:'authInput',type:showPw.setPin?'text':'password',inputMode:'numeric',value:setPin2,onChange:e=>setSetPin2(e.target.value),autoComplete:'off',placeholder:'••••••',maxLength:6,disabled:setPinBusy}),
+      h('div',{className:'authActions',style:{marginTop:10}},h('button',{className:'btn primary',style:{width:'100%'},disabled:setPinBusy,onClick:selfSetPin},setPinBusy?'SAVING…':'SET MY PIN')),
+      setPinMsg&&h('div',{className:'authStatus '+(setPinMsg.type==='ok'?'ok':'err')},setPinMsg.text)
+     )
     ),
     h('div',{className:'authActions',style:{marginTop:10}},h('button',{className:'btn',style:{width:'100%'},onClick:clearSession},'BACK TO SIGN-IN'))
    )
