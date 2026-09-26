@@ -12,7 +12,11 @@ export class UnifiedIntakeEngine {
   normalize(channel, payload = {}, meta = {}) {
     const normalizedChannel = String(channel || 'API').toUpperCase();
     if (!CHANNELS.includes(normalizedChannel)) throw new Error(`Unsupported intake channel: ${normalizedChannel}`);
-    const text = payload.text || payload.message || payload.body || payload.request || payload.description || '';
+    const baseText = payload.text || payload.message || payload.body || payload.request || payload.description || '';
+    const bizType = String(payload.businessType || payload.business_type || payload.industry || '').trim();
+    const text = (bizType && !String(baseText).toLowerCase().includes(bizType.toLowerCase()))
+      ? (baseText ? String(baseText) + '. Business type: ' + bizType + '.' : bizType)
+      : baseText;
     const organization = payload.organization || payload.company || payload.businessName || null;
     const contact = payload.contact || { email: payload.email || null, phone: payload.phone || payload.sender || null, name: payload.name || null };
     const request = this.classify(text, payload);
@@ -72,7 +76,10 @@ export class UnifiedIntakeEngine {
     const t = String(text).toLowerCase();
     const systems = ['odoo','sap','erpnext','shopify','salesforce','oracle','dynamics'].filter(x => t.includes(x) || String(payload.systems || '').toLowerCase().includes(x));
     const workflows = ['procurement','inventory','production','finance','sales','crm','hr','warehouse','order management'].filter(x => t.includes(x));
-    const intent = /erp|integration|integrat|workflow|automation|automate|rpa/.test(t) ? 'ENTERPRISE_IMPLEMENTATION' : /assessment|diagnos|audit|scan|inefficien/.test(t) ? 'BUSINESS_ASSESSMENT' : 'GENERAL_INQUIRY';
+    const simulateRequest = /simulat|what-if|what if|scenario model|role-?play/.test(t);
+    const enterpriseKeyword = /erp|integration|integrat|workflow|automation|automate|rpa/.test(t);
+    const enterpriseEvidenced = systems.length > 0 || workflows.length > 0;
+    const intent = simulateRequest ? 'GENERAL_INQUIRY' : (enterpriseKeyword && enterpriseEvidenced) ? 'ENTERPRISE_IMPLEMENTATION' : /assessment|diagnos|audit|scan|inefficien/.test(t) ? 'BUSINESS_ASSESSMENT' : 'GENERAL_INQUIRY';
     const confidence = intent === 'GENERAL_INQUIRY' ? 0.55 : Math.min(0.98, 0.70 + (systems.length * 0.08) + (workflows.length * 0.04));
 
     const hit = (...sig) => sig.some((s) => t.includes(s));
@@ -103,6 +110,7 @@ export class UnifiedIntakeEngine {
     if (delaySignals) evidence.push('Delay and latency language detected in the request.');
     if (integrationSignals) evidence.push('Existing systems or integration language detected.');
     if (wasteSignals) evidence.push('Waste and rework language detected in the request.');
+    if (simulateRequest) evidence.push('A simulation was requested; ADE captured the scenario as assessment input — no workflow simulation was executed.');
     if (!evidence.length) evidence.push('No explicit operational detail beyond the request text was supplied.');
 
     const observation =
@@ -150,7 +158,7 @@ export class UnifiedIntakeEngine {
 
     const signalCount = [area, orgSize, manual, delaySignals, wasteSignals, integrationSignals, communicationSignals, growthSignals].filter(Boolean).length;
     const friction = manual || delaySignals || wasteSignals || integrationSignals;
-    const humanReviewRequired = !area || signalCount < 4 || !friction;
+    const humanReviewRequired = simulateRequest || !area || signalCount < 4 || !friction;
     const assessmentConfidence = humanReviewRequired
       ? Math.min(0.55, 0.35 + signalCount * 0.06)
       : Math.min(0.9, 0.55 + signalCount * 0.07);
@@ -175,13 +183,14 @@ export class UnifiedIntakeEngine {
 
   ingest(channel, payload, meta = {}) {
     const normalized = this.normalize(channel, payload, meta);
+    const honestConfidence = Number(Math.min(normalized.request.confidence, normalized.request.assessment.confidence).toFixed(2));
     const record = this.caseManager.createCase({
       source: normalized.source,
       channel: normalized.channel,
       organization: normalized.organization,
       contact: normalized.contact,
       request: normalized.request,
-      confidence: normalized.request.confidence,
+      confidence: honestConfidence,
       authorization: normalized.authorization,
       nextAction: normalized.request.needsDiscovery ? 'DISCOVERY' : 'HUMAN_REVIEW'
     });

@@ -82,6 +82,10 @@ import { OracleFabric } from "./ai/OracleFabric.js";
 import { PublicDataRegistry } from "./data/PublicDataRegistry.js";
 import { LocalProvider } from "./ai/LocalProvider.js";
 import { LearningCandidates } from "./learning/LearningCandidates.js";
+import { CapabilityRecordStore } from "./capabilities/CapabilityRecordStore.js";
+import { ProviderGate } from "./ingestion/ProviderGate.js";
+import { WhatsAppNumberRegistry } from "./ingestion/WhatsAppNumberRegistry.js";
+import { buildKnobInventory, buildHumanChecklist } from "./ops/OperationalKnobInventory.js";
 import { VenueRegistry } from "./trading/VenueRegistry.js";
 import { TradingEntitlements } from "./trading/TradingEntitlements.js";
 import { SignalQualityGate } from "./trading/SignalQualityGate.js";
@@ -259,6 +263,18 @@ const capabilityActivation = new CapabilityActivation({ capabilityRegistry: Capa
 // the matrix instance is created after that declaration (see product-surface
 // route) so the canonical catalog list is passed through, not duplicated.
 const learningCandidates = new LearningCandidates({ feedbackIntelligence, capabilityRegistry: CapabilityRegistry, eventBus: kernel?.eventBus });
+// Batch 6D-2 — canonical capability + integration-decision records. Durable
+// service over the existing RuntimeConfigStore abstraction; registration and
+// activation stay with CapabilityRegistry/CapabilityActivation. Internal seam
+// only (no routes): comparison remains analysis, activation stays authorized.
+const capabilityRecordStore = new CapabilityRecordStore({ store: runtimeConfig, eventBus: kernel?.eventBus, capabilityRegistry: CapabilityRegistry, capabilityActivation });
+// Batch 10/11 — provider governance singleton. Durable gate states over the
+// existing store abstraction; verification reuses ConnectionManager.test
+// (syntactic only, never live). Routes below are L2-gated; no public surface.
+const providerGate = new ProviderGate({ store: runtimeConfig, eventBus: kernel?.eventBus, connectionManager, recordStore: capabilityRecordStore });
+// Batch 12 — WhatsApp sender-identity registry (metadata only: masked numbers,
+// no credential values, soft-disable preserves history). Never makes anything live.
+const whatsappNumbers = new WhatsAppNumberRegistry({ store: runtimeConfig, eventBus: kernel?.eventBus });
 const venueRegistry = new VenueRegistry({ store: runtimeConfig, eventBus: kernel?.eventBus });
 const marketDataRegistry = new MarketDataRegistry({ store: runtimeConfig, eventBus: kernel?.eventBus, venueRegistry });
 const sportsDataBus = new SportsDataBus({ marketDataRegistry, eventBus: kernel?.eventBus });
@@ -1163,7 +1179,7 @@ app.get('/api/v1/attention', security.requireLevel(2), (req,res)=>{
     res.json({success:true, attention:{intakes,candidates,pilots,partners:parts,connections:conns,cases,notifications:notifs,stats}, time:new Date().toISOString()});
   }catch(e){ res.status(500).json({success:false, error:'ATTENTION_FAILED', message:e.message}); }
 });
-app.post('/api/v1/intake/:channel',requireDurableStorage,(req,res)=>{ try { const result=intake.ingest(req.params.channel,req.body||{},{source:req.body?.source||req.params.channel,authenticated:Boolean(req.headers.authorization)}); logEvent('INTAKE',`Created ${result.case.id} from ${req.params.channel}`); res.status(201).json(result); } catch(e){res.status(400).json({success:false,error:e.message});} });
+app.post('/api/v1/intake/:channel',requireDurableStorage,(req,res)=>{ try { const result=intake.ingest(req.params.channel,req.body||{},{source:req.body?.source||req.params.channel,authenticated:Boolean(req.headers.authorization)}); try { const body=req.body||{}; const q=result?.intake?.request; if(String(body.kind||'').toUpperCase()==='BUSINESS_PROCESS' && q && q.needsDiscovery && Number(q.confidence||0)>=0.6){ communityProgression.captureIntake({type:'USE_CASE',organization:result.intake.organization||'',contactHint:'',useCaseDescription:String(result.intake.text||'').slice(0,5000),currentEdition:editionPolicy.getEdition(),metadata:{procarta:true,caseId:result.case.id,intakeId:result.intake.intakeId,intent:q.intent}}); } } catch(_){} logEvent('INTAKE',`Created ${result.case.id} from ${req.params.channel}`); res.status(201).json(result); } catch(e){res.status(400).json({success:false,error:e.message});} });
 // Demonstration runs persist cases with source DEMO_ORCHESTRATOR. Human
 // operational views exclude them by default so synthetic demo actors never
 // pollute Founder/Worker case lists; ?includeDemo=true opts back in and the
@@ -1184,6 +1200,143 @@ app.get('/api/v1/cases/:id', security.requireAuth(),(req,res)=>{const c=caseMana
 app.patch('/api/v1/cases/:id', security.requireAuth(),requireDurableStorage,(req,res)=>{const c=caseManager.update(req.params.id,req.body||{}); if(!c)return res.status(404).json({success:false,error:'CASE_NOT_FOUND'}); res.json({success:true,case:c});});
 
 app.get('/api/v1/admin/overview', security.requireLevel(2),(req,res)=>{ const { cases, demoExcluded } = visibleCases(req.query.includeDemo); res.json({success:true,channels:channels.list(),connections:connectionManager.list(),partners:partners.list(),cases,demoCasesExcluded:demoExcluded,settings:runtimeConfig.read()}); });
+
+// === PROVIDER / CAPABILITY GOVERNANCE (Batch 10/11, L2) =====================
+// Human-gate controls for provider seams + capability/decision visibility.
+// Writes are durable-gated; secrets are never accepted (shape/presence only).
+const _govTenant = (req) => String(req.query.tenant || "default").slice(0, 80);
+const _govActor = (req) => req.person?.username || req.identity?.subject || req.body?.decidedBy || "admin";
+
+app.get('/api/v1/admin/providers', security.requireLevel(2), (req, res) => {
+  try { res.json({ success: true, providers: providerGate.list({ tenantScope: req.query.tenant || null }) }); }
+  catch (error) { res.status(500).json({ success: false, error: "PROVIDERS_READ_FAILED" }); }
+});
+
+app.post('/api/v1/admin/providers', security.requireLevel(2), requireDurableStorage, (req, res) => {
+  try {
+    const gate = providerGate.register(req.body || {}, { actor: _govActor(req), tenantScope: _govTenant(req) });
+    res.status(201).json({ success: true, provider: gate });
+  } catch (error) { res.status(400).json({ success: false, error: error.code || "PROVIDER_REGISTER_FAILED", message: error.message }); }
+});
+
+app.post('/api/v1/admin/providers/:id/configure', security.requireLevel(2), requireDurableStorage, (req, res) => {
+  try {
+    const gate = providerGate.configure(req.params.id, { ...(req.body || {}), actor: _govActor(req), tenantScope: _govTenant(req) });
+    res.json({ success: true, provider: gate });
+  } catch (error) { res.status(400).json({ success: false, error: error.code || "PROVIDER_CONFIGURE_FAILED", message: error.message }); }
+});
+
+app.post('/api/v1/admin/providers/:id/verify', security.requireLevel(2), requireDurableStorage, async (req, res) => {
+  try {
+    const gate = await providerGate.verify(req.params.id, { actor: _govActor(req), tenantScope: _govTenant(req), connectionId: req.body?.connectionId || null });
+    res.json({ success: true, provider: gate });
+  } catch (error) { res.status(400).json({ success: false, error: error.code || "PROVIDER_VERIFY_FAILED", message: error.message }); }
+});
+
+app.post('/api/v1/admin/providers/:id/enable', security.requireLevel(2), requireDurableStorage, (req, res) => {
+  try {
+    const gate = providerGate.enable(req.params.id, { decidedBy: _govActor(req), reason: req.body?.reason || "", level: 2, tenantScope: _govTenant(req) });
+    res.json({ success: true, provider: gate });
+  } catch (error) { res.status(400).json({ success: false, error: error.code || "PROVIDER_ENABLE_FAILED", message: error.message }); }
+});
+
+app.post('/api/v1/admin/providers/:id/suspend', security.requireLevel(2), requireDurableStorage, (req, res) => {
+  try {
+    const gate = providerGate.suspend(req.params.id, { decidedBy: _govActor(req), reason: req.body?.reason || "", level: 2, tenantScope: _govTenant(req) });
+    res.json({ success: true, provider: gate });
+  } catch (error) { res.status(400).json({ success: false, error: error.code || "PROVIDER_SUSPEND_FAILED", message: error.message }); }
+});
+
+app.get('/api/v1/admin/capability-records', security.requireLevel(2), (req, res) => {
+  try { res.json({ success: true, records: capabilityRecordStore.list({ tenantScope: _govTenant(req) }) }); }
+  catch (error) { res.status(500).json({ success: false, error: "RECORDS_READ_FAILED" }); }
+});
+
+app.get('/api/v1/admin/decisions', security.requireLevel(2), (req, res) => {
+  try { res.json({ success: true, decisions: capabilityRecordStore.listDecisions({ tenantScope: _govTenant(req) }) }); }
+  catch (error) { res.status(500).json({ success: false, error: "DECISIONS_READ_FAILED" }); }
+});
+
+// === OPERATIONS INVENTORY + WHATSAPP NUMBERS (Batch 12, L2) =================
+// One bonded control plane: providers, capabilities, products, channels,
+// PROCARTA, AI, storage, telemetry and the human-action checklist — all read
+// from live singletons, secrets never included.
+app.get('/api/v1/admin/ops-inventory', security.requireLevel(2), (req, res) => {
+  try {
+    const tenant = _govTenant(req);
+    let activationRows = [];
+    try { activationRows = capabilityActivation.assess() || []; } catch {}
+    let products = [];
+    try { products = productRegistry.listProducts() || []; } catch {}
+    let ai = null;
+    try { ai = UniversalAIGateway.getInstance().getProviderStatus() || null; } catch {}
+    let telemetry = null;
+    try {
+      const hist = kernel?.eventBus?.getHistory?.(1) || [];
+      const metrics = kernel?.eventBus?.getMetrics?.() || {};
+      telemetry = {
+        connected: true,
+        eventCount: Number(metrics.totalEvents ?? metrics.eventCount ?? hist.length ?? 0),
+        lastEventAt: hist[0]?.timestamp || hist[0]?.at || null,
+        health: kernel?.status || "UNKNOWN",
+        attentionRequired: null
+      };
+    } catch { telemetry = { connected: false }; }
+    let procarta = null;
+    try {
+      const health = procartaEngine.health() || {};
+      procarta = { status: health.status || "UNKNOWN", executionMode: health.executionMode || null, pilotCandidates: pilotGate.listCandidates().length };
+    } catch {}
+    const inventory = buildKnobInventory({
+      providerGates: providerGate.list({ tenantScope: req.query.tenant || null }),
+      activationRows,
+      products,
+      channels: (() => { try { return channels.list() || []; } catch { return []; } })(),
+      procarta,
+      ai,
+      storage: { provider: String(process.env.ADE_STORAGE_PROVIDER || "local"), configured: (() => { try { return isDurableOperational(); } catch { return false; } })() },
+      telemetry,
+      edition: (() => { try { return editionPolicy.getEdition(); } catch { return "UNKNOWN"; } })()
+    });
+    res.json({ success: true, inventory, checklist: buildHumanChecklist(inventory), tenant });
+  } catch (error) { res.status(500).json({ success: false, error: "OPS_INVENTORY_FAILED" }); }
+});
+
+app.get('/api/v1/admin/whatsapp-numbers', security.requireLevel(2), (req, res) => {
+  try { res.json({ success: true, numbers: whatsappNumbers.list({ tenantScope: req.query.tenant || null }) }); }
+  catch (error) { res.status(500).json({ success: false, error: "NUMBERS_READ_FAILED" }); }
+});
+
+app.post('/api/v1/admin/whatsapp-numbers', security.requireLevel(2), requireDurableStorage, (req, res) => {
+  try {
+    const rec = whatsappNumbers.addNumber({ ...(req.body || {}), actor: _govActor(req) });
+    res.status(201).json({ success: true, number: rec });
+  } catch (error) { res.status(400).json({ success: false, error: error.code || "NUMBER_ADD_FAILED", message: error.message }); }
+});
+
+app.patch('/api/v1/admin/whatsapp-numbers/:id', security.requireLevel(2), requireDurableStorage, (req, res) => {
+  try {
+    const body = req.body || {};
+    let rec = null;
+    if (body.makeDefault) rec = whatsappNumbers.setDefault(req.params.id, { actor: _govActor(req) });
+    else rec = whatsappNumbers.editNumber(req.params.id, { ...body, actor: _govActor(req) });
+    res.json({ success: true, number: rec });
+  } catch (error) { res.status(400).json({ success: false, error: error.code || "NUMBER_UPDATE_FAILED", message: error.message }); }
+});
+
+app.post('/api/v1/admin/whatsapp-numbers/:id/verify', security.requireLevel(2), requireDurableStorage, (req, res) => {
+  try {
+    const rec = whatsappNumbers.verifyNumber(req.params.id, { ...(req.body || {}), actor: _govActor(req) });
+    res.json({ success: true, number: rec });
+  } catch (error) { res.status(400).json({ success: false, error: error.code || "NUMBER_VERIFY_FAILED", message: error.message }); }
+});
+
+app.post('/api/v1/admin/whatsapp-numbers/:id/state', security.requireLevel(2), requireDurableStorage, (req, res) => {
+  try {
+    const rec = whatsappNumbers.setState(req.params.id, req.body?.to || req.body?.state, { actor: _govActor(req), reason: req.body?.reason || "", level: 2 });
+    res.json({ success: true, number: rec });
+  } catch (error) { res.status(400).json({ success: false, error: error.code || "NUMBER_STATE_FAILED", message: error.message }); }
+});
 app.get('/api/v1/admin/channels', security.requireLevel(2),(req,res)=>res.json({success:true,channels:channels.list()}));
 app.patch('/api/v1/admin/channels/:id', security.requireLevel(2),requireDurableStorage,(req,res)=>{const c=channels.set(req.params.id,req.body||{}); runtimeConfig.write('channels',req.params.id,c); res.json({success:true,channel:c});});
 app.get('/api/v1/admin/connections', security.requireLevel(2),(req,res)=>res.json({success:true,connections:connectionManager.list()}));
