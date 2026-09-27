@@ -84,22 +84,26 @@ export class IdentityOnboarding {
     if (!subject) throw new Error("Identity subject is required.");
     const privateKey = this.keyManager.getPrivateKey();
     const now = Math.floor(Date.now() / 1000);
-    let credentialVersion;
+    // The ADMIN credential lifecycle binds ONLY the legacy/bootstrap ADMIN
+    // persona. Workforce sessions (Founder elevation included) carry their
+    // own per-person authority and must never be invalidated by an ADMIN
+    // PIN rotation or lifecycle divergence across instances.
+    const isAdminPersona = String(persona).toUpperCase() === "ADMIN";
+    let credentialVersion = null;
 
-    try {
-      credentialVersion =
-        this.credentialStore.getCredentialVersion();
-    } catch (error) {
-      if (
-        Number(level) >= 2 &&
-        String(persona).toUpperCase() === "ADMIN"
-      ) {
-        throw new Error(
-          "CREDENTIAL_LIFECYCLE_UNAVAILABLE"
-        );
+    if (isAdminPersona) {
+      try {
+        credentialVersion =
+          this.credentialStore.getCredentialVersion();
+      } catch (error) {
+        if (Number(level) >= 2) {
+          throw new Error(
+            "CREDENTIAL_LIFECYCLE_UNAVAILABLE"
+          );
+        }
+
+        credentialVersion = null;
       }
-
-      credentialVersion = null;
     }
 
     const claims = {
@@ -134,7 +138,10 @@ export class IdentityOnboarding {
       );
     }
 
-    if (claims.credentialVersion !== undefined) {
+    // Credential-version enforcement applies ONLY to the legacy ADMIN
+    // persona. Workforce sessions never carry it (see issueSession), and any
+    // legacy workforce token that still does must not die with ADMIN rotation.
+    if (isPrivilegedAdmin && claims.credentialVersion !== undefined) {
       let currentCredentialVersion;
       try {
         currentCredentialVersion = this.credentialStore.getCredentialVersion();

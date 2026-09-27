@@ -221,14 +221,17 @@ const EmptyState=(opts)=>{const title=opts.title||'Nothing here yet';const desc=
 const heroShieldBg='url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' viewBox=\'0 0 100 100\' opacity=\'0.06\'%3E%3Cpath d=\'M50 8 L78 20 V48 C78 64 68 80 50 88 C32 80 22 64 22 48 V20 Z\' fill=\'none\' stroke=\'%23d4a843\' stroke-width=\'2\'/%3E%3C/svg%3E")';
 
  function App(){
-  const [token,_setToken]=useState(()=>{try{return sessionStorage.getItem('ade_founder_token')||localStorage.getItem('ade_founder_token')||null}catch{return null}});
-  const setToken=(v)=>{_setToken(v);try{if(v){sessionStorage.setItem('ade_founder_token',v);localStorage.setItem('ade_founder_token',v);}else{sessionStorage.removeItem('ade_founder_token');localStorage.removeItem('ade_founder_token');}}catch{}};
+  const [token,_setToken]=useState(()=>{try{return sessionStorage.getItem('ade_founder_token')||localStorage.getItem('ade_founder_token')||sessionStorage.getItem('ade_token')||localStorage.getItem('ade_token')||null}catch{return null}});
+  // Founder elevation is mirrored to the shared ade_token key so the Account
+  // & Security surface (which reads ade_token) always reflects the live
+  // server-issued session instead of a stale BASE snapshot.
+  const setToken=(v)=>{_setToken(v);try{if(v){sessionStorage.setItem('ade_founder_token',v);localStorage.setItem('ade_founder_token',v);sessionStorage.setItem('ade_token',v);localStorage.setItem('ade_token',v);}else{sessionStorage.removeItem('ade_founder_token');localStorage.removeItem('ade_founder_token');sessionStorage.removeItem('ade_token');localStorage.removeItem('ade_token');}}catch{}};
   const [identity,setIdentity]=useState(()=>{try{const a=sessionStorage.getItem('ade_founder_identity');const b=localStorage.getItem('ade_founder_identity');const s=a||b;return s?JSON.parse(s):null}catch{return null}});
    const [sessionMeta,setSessionMeta]=useState(()=>{try{const a=sessionStorage.getItem('ade_founder_session_meta');const b=localStorage.getItem('ade_founder_session_meta');const s=a||b;return s?JSON.parse(s):null}catch{return null}});
    // Server-truth auth: serverAuth is set ONLY from GET /api/v1/account/session.
    // authPhase: 'login' (no token) | 'checking' (validating) | 'failed' (unreachable) | 'pin' (base session, PIN required) | 'active' (validated).
    const [serverAuth,setServerAuth]=useState(null);
-   const [authPhase,setAuthPhase]=useState(()=>{try{return (sessionStorage.getItem('ade_founder_token')||localStorage.getItem('ade_founder_token'))?'checking':'login'}catch{return 'login'}});
+   const [authPhase,setAuthPhase]=useState(()=>{try{return (sessionStorage.getItem('ade_founder_token')||localStorage.getItem('ade_founder_token')||sessionStorage.getItem('ade_token')||localStorage.getItem('ade_token'))?'checking':'login'}catch{return 'login'}});
    const [validateSeq,setValidateSeq]=useState(0);
    const [loginUser,setLoginUser]=useState('');
    const [loginPass,setLoginPass]=useState('');
@@ -310,25 +313,31 @@ const heroShieldBg='url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/200
    const clearSession=()=>{
     setToken(null);setIdentity(null);setSessionMeta(null);setServerAuth(null);setAuthPhase('login');setAdminPinMode(false);
     setWorkforce(null);setAgents([]);
-    try{sessionStorage.removeItem('ade_founder_token');localStorage.removeItem('ade_founder_token');sessionStorage.removeItem('ade_founder_identity');localStorage.removeItem('ade_founder_identity');sessionStorage.removeItem('ade_founder_session_meta');localStorage.removeItem('ade_founder_session_meta');sessionStorage.removeItem('ade_founder_tab');localStorage.removeItem('ade_founder_tab');}catch{}
+    try{sessionStorage.removeItem('ade_founder_token');localStorage.removeItem('ade_founder_token');sessionStorage.removeItem('ade_token');localStorage.removeItem('ade_token');sessionStorage.removeItem('ade_founder_identity');localStorage.removeItem('ade_founder_identity');sessionStorage.removeItem('ade_founder_session_meta');localStorage.removeItem('ade_founder_session_meta');sessionStorage.removeItem('ade_founder_tab');localStorage.removeItem('ade_founder_tab');}catch{}
    };
 
  const api=useCallback(async(url,opt={})=>{
   const headers={"Content-Type":"application/json",...(opt.headers||{})};
   if(token)headers.Authorization="Bearer "+token;
   const r=await fetch(url,{...opt,headers});
-  if(r.status===401||r.status===403){
-   if(url!=='/api/v1/auth/pin'){
-    clearSession();
-    notify('Session expired — re-authentication required');
-    return null;
-   }
+  // Session death (401 unauthenticated, or 403 with a token-death code)
+  // discards the stored session. Plain 403 authorization denials
+  // (ELEVATED_PIN_REQUIRED, INSUFFICIENT_AUTHORIZATION, …) prove the token
+  // is VALID but unprivileged — wiping it here destroyed live base and
+  // elevated sessions, so they surface as thrown errors instead.
+  const TOKEN_DEATH=/ACCOUNT_NOT_ACTIVE|ACCESS_EXPIRED|expir|revok|rotation|invalid session|signature|issuer|audience|malformed|credential/i;
+  if(r.status===401&&url!=='/api/v1/auth/pin'){
+   clearSession();
+   notify('Session expired — re-authentication required');
+   return null;
   }
   const d=await r.json().catch(()=>({}));
   if(!r.ok){
    const code=typeof d.error==='string'?d.error:(d.error?.code||'');
    const msg=d.message||(typeof d.error==='object'?d.error?.message:'')||'';
-   throw new Error(msg?(code?code+': '+msg:msg):(code||'Request failed'));
+   const text=msg?(code?code+': '+msg:msg):(code||'Request failed');
+   if(r.status===403&&TOKEN_DEATH.test(text)){clearSession();notify('Session ended — re-authentication required');return null}
+   throw new Error(text);
   }
   return d;
  },[token]);
