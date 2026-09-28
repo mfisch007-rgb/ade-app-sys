@@ -105,13 +105,32 @@ import { AviatorHistoryStore } from "./trading/AviatorHistoryStore.js";
 import { InboxManager } from "./messaging/InboxManager.js";
 import { TradingConnectionModes } from "./trading/TradingConnectionModes.js";
 import { BrokerComparisonStore } from "./trading/BrokerComparisonStore.js";
+import { AwbuliChannelAdapter } from "./injection/AwbuliChannelAdapter.js";
+import { OperationalIntelligencePipeline } from "./injection/OperationalIntelligencePipeline.js";
+import { TestBusinessAdapter } from "./ingestion/InjectionAdapter.js";
+import { InjectionToCaseMapper } from "./ingestion/InjectionToCaseMapper.js";
+
+import {
+  buildAssessmentEvidence, assessmentToIntakeText,
+  DocumentIntakeService, normalizeStructuredRows, translateProcessModel
+} from "./injection/ProcartaInputAdapters.js";
+import WebhookApiAdapter from "./injection/WebhookApiAdapter.js";
+import ExternalConnectorModel from "./injection/ExternalConnectorModel.js";
+import PaymentService from "./payments/PaymentService.js";
+import CommercialEntitlement from "./commerce/CommercialEntitlement.js";
+import DataGovernance from "./governance/DataGovernance.js";
+import ConnectPlatformsBoard from "./connect/ConnectPlatformsBoard.js";
 
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
-app.use(express.json());
+// Capture raw body for HMAC webhook verification (Paystack uses raw bytes);
+// parsed JSON behaviour is unchanged. req.rawBody is server-side only.
+app.use(express.json({
+  verify: (req, _res, buf) => { try { req.rawBody = buf ? buf.toString("utf8") : ""; } catch { req.rawBody = ""; } }
+}));
 app.use(express.urlencoded({ extended: true }));
 
 const security = new HttpSecurityBoundary();
@@ -275,6 +294,41 @@ const providerGate = new ProviderGate({ store: runtimeConfig, eventBus: kernel?.
 // Batch 12 — WhatsApp sender-identity registry (metadata only: masked numbers,
 // no credential values, soft-disable preserves history). Never makes anything live.
 const whatsappNumbers = new WhatsAppNumberRegistry({ store: runtimeConfig, eventBus: kernel?.eventBus });
+// NEXT enablement — canonical operational-intelligence + commercial layer.
+// Additive only: reuses canonical intake/case/event/audit authorities; creates
+// no new bus, engine, registry, or isolation mechanism.
+const dataGovernance = new DataGovernance({ eventBus: kernel?.eventBus });
+const paymentService = new PaymentService({ store: runtimeConfig, secrets, eventBus: kernel?.eventBus, editionPolicy });
+const commercialEntitlement = new CommercialEntitlement({ editionPolicy, paymentService });
+const injectionCaseMapper = new InjectionToCaseMapper({ intake, store: runtimeConfig, eventBus: kernel?.eventBus });
+// Capability routing authority stays with the canonical intake/case layer
+// (InjectionToCaseMapper + UnifiedIntakeEngine). discoverCapabilities is
+// available for supported external evidence classes only — never for free
+// text — so the pipeline runs without a text-discovery hint by design.
+const capabilityDiscovery = null;
+const awbuliChannelAdapter = new AwbuliChannelAdapter({ providerGate });
+const operationalPipeline = new OperationalIntelligencePipeline({
+  adapters: {
+    AWBULI: awbuliChannelAdapter,
+    WHATSAPP: awbuliChannelAdapter,
+    TEST: new TestBusinessAdapter({}),
+    FORM: new TestBusinessAdapter({}),
+    API: new TestBusinessAdapter({}),
+    WEBHOOK: new TestBusinessAdapter({})
+  },
+  caseMapper: injectionCaseMapper,
+  capabilityDiscovery,
+  procarta: null,
+  governance: dataGovernance,
+  eventBus: kernel?.eventBus
+});
+const documentIntake = new DocumentIntakeService({ store: runtimeConfig, eventBus: kernel?.eventBus });
+const webhookApiAdapter = new WebhookApiAdapter({ connectionManager, secrets, eventBus: kernel?.eventBus });
+const externalConnectors = new ExternalConnectorModel({ providerGate, connectionManager, eventBus: kernel?.eventBus });
+const connectBoard = new ConnectPlatformsBoard({
+  connectionManager, providerGate, whatsappNumbers, externalConnectors,
+  paymentService, channels, editionPolicy
+});
 const venueRegistry = new VenueRegistry({ store: runtimeConfig, eventBus: kernel?.eventBus });
 const marketDataRegistry = new MarketDataRegistry({ store: runtimeConfig, eventBus: kernel?.eventBus, venueRegistry });
 const sportsDataBus = new SportsDataBus({ marketDataRegistry, eventBus: kernel?.eventBus });
@@ -1342,6 +1396,186 @@ app.patch('/api/v1/admin/channels/:id', security.requireLevel(2),requireDurableS
 app.get('/api/v1/admin/connections', security.requireLevel(2),(req,res)=>res.json({success:true,connections:connectionManager.list()}));
 app.post('/api/v1/admin/connections', security.requireLevel(2),requireDurableStorage,(req,res)=>{try{res.status(201).json({success:true,connection:connectionManager.upsert(req.body||{})});}catch(e){res.status(400).json({success:false,error:e.message});}});
 app.post('/api/v1/admin/connections/:id/test', security.requireLevel(2),async(req,res)=>res.json(await connectionManager.test(req.params.id)));
+
+// ---------- NEXT: canonical operational-intelligence + commercial routes ----------
+// All state changes are server-authorized (L1/L2), audited, tenant-aware,
+// timestamped and attributable. No new kernel/bus/registry is introduced.
+
+// Connect & Platforms board (aggregate; progressive disclosure via ?detail=1)
+app.get('/api/v1/connect/platforms', security.requireLevel(2), (req, res) => {
+  try { res.json(connectBoard.board({ tenantScope: req.query.tenant || null, detail: String(req.query.detail || "") === "1" })); }
+  catch (e) { res.status(500).json({ success: false, error: "CONNECT_BOARD_FAILED" }); }
+});
+
+// Canonical injection: any registered source -> envelope -> case -> PROCARTA context
+app.post('/api/v1/injection/ingest', security.requireLevel(1), requireDurableStorage, async (req, res) => {
+  try {
+    const result = await operationalPipeline.run({
+      source: req.body?.source || "TEST",
+      input: req.body?.input || {},
+      tenantScope: req.body?.tenantScope || req.query.tenant || "default",
+      actor: req.person?.username || req.identity?.subject || req.body?.actor || "operator",
+      purpose: req.body?.purpose || null
+    });
+    res.status(201).json(result);
+  } catch (e) { res.status(400).json({ success: false, error: e.code || "INJECTION_FAILED", message: e.message }); }
+});
+
+// L1: structured operational assessment -> PROCARTA evidence -> case
+app.post('/api/v1/procarta/assessment', requireDurableStorage, async (req, res) => {
+  try {
+    const tenantScope = String(req.body?.tenantScope || req.query.tenant || "default");
+    const actor = req.person?.username || req.identity?.subject || req.body?.submittedBy || "public";
+    const evidence = buildAssessmentEvidence(req.body || {}, { tenantScope, actor });
+    const text = assessmentToIntakeText(evidence);
+    const result = await operationalPipeline.run({
+      source: "FORM", input: { text, organization: evidence.organization, assessment: { area: evidence.area, confidence: evidence.confidence, evidence: evidence.findings } },
+      tenantScope, actor, purpose: "PROCARTA_ASSESSMENT"
+    });
+    try { kernel?.eventBus?.publish?.("audit.log.created", { category: "PROCARTA", action: "FORM_SUBMITTED", tenantScope, caseId: result.caseId, at: new Date().toISOString() }); } catch {}
+    res.status(201).json({ success: true, evidence, caseId: result.caseId, intakeId: result.intakeId, eventId: result.eventId });
+  } catch (e) { res.status(400).json({ success: false, error: e.code || "ASSESSMENT_FAILED", message: e.message }); }
+});
+
+// L2: controlled document ingestion (metadata + provenance; extraction honest)
+app.post('/api/v1/documents/ingest', security.requireLevel(1), requireDurableStorage, (req, res) => {
+  try {
+    const rec = documentIntake.ingest(req.body || {}, {
+      tenantScope: req.body?.tenantScope || req.query.tenant || "default",
+      actor: req.person?.username || req.identity?.subject || "operator"
+    });
+    res.status(201).json({ success: true, document: rec });
+  } catch (e) { res.status(400).json({ success: false, error: e.code || "DOCUMENT_INGEST_FAILED", message: e.message }); }
+});
+app.get('/api/v1/documents', security.requireLevel(1), (req, res) => {
+  try { res.json({ success: true, documents: documentIntake.list({ tenantScope: req.query.tenant || null }) }); }
+  catch (e) { res.status(500).json({ success: false, error: "DOCUMENT_LIST_FAILED" }); }
+});
+
+// L3: structured data (CSV/JSON rows -> canonical evidence rows)
+app.post('/api/v1/structured/ingest', security.requireLevel(1), requireDurableStorage, async (req, res) => {
+  try {
+    const tenantScope = String(req.body?.tenantScope || req.query.tenant || "default");
+    const actor = req.person?.username || req.identity?.subject || "operator";
+    const rows = normalizeStructuredRows(req.body || {}, { tenantScope });
+    const mapped = [];
+    for (const row of rows.slice(0, 50)) {
+      const r = await operationalPipeline.run({ source: "API", input: { text: row.text, organization: req.body?.organization || null }, tenantScope, actor, purpose: "STRUCTURED_IMPORT" });
+      mapped.push({ index: row.index, caseId: r.caseId, eventId: r.eventId });
+    }
+    res.status(201).json({ success: true, rows: rows.length, mapped });
+  } catch (e) { res.status(400).json({ success: false, error: e.code || "STRUCTURED_INGEST_FAILED", message: e.message }); }
+});
+
+// L4: process-model import translator (no new engine; execution stays existing)
+app.post('/api/v1/process-models/import', security.requireLevel(2), requireDurableStorage, (req, res) => {
+  try {
+    const model = translateProcessModel(req.body || {});
+    try { kernel?.eventBus?.publish?.("audit.log.created", { category: "PROCESS_MODEL", action: "MODEL_IMPORTED", steps: model.steps.length, at: new Date().toISOString() }); } catch {}
+    res.status(201).json({ success: true, model });
+  } catch (e) { res.status(400).json({ success: false, error: e.code || "PROCESS_IMPORT_FAILED", message: e.message }); }
+});
+
+// L5: inbound webhook (connector-authenticated) -> canonical event -> capability
+app.post('/api/v1/webhooks/inbound/:connectorId', requireDurableStorage, async (req, res) => {
+  try {
+    const rawBody = req.rawBody ?? JSON.stringify(req.body || {});
+    const normalized = webhookApiAdapter.inbound({
+      connectorId: req.params.connectorId,
+      tenantScope: req.body?.tenant || req.body?.tenantScope || req.query.tenant || "default",
+      headers: req.headers || {}, rawBody, body: req.body || null
+    });
+    const result = await operationalPipeline.run({
+      source: "WEBHOOK", input: { text: normalized.payload.text, organization: normalized.actor.organization, correlationId: normalized.correlationId },
+      tenantScope: normalized.tenantScope, actor: `webhook:${req.params.connectorId}`, purpose: "WEBHOOK_INBOUND"
+    });
+    res.status(201).json({ success: true, caseId: result.caseId, eventId: result.eventId });
+  } catch (e) {
+    const code = e.code || "WEBHOOK_FAILED";
+    const status = code === "WEBHOOK_AUTH_FAILED" ? 401 : code === "WEBHOOK_RATE_LIMITED" ? 429 : 400;
+    res.status(status).json({ success: false, error: code, message: e.message });
+  }
+});
+
+// L6: extensible ERP/CRM/external-system connector model (no hard-coded vendors)
+app.post('/api/v1/admin/connectors/vendors', security.requireLevel(2), requireDurableStorage, (req, res) => {
+  try {
+    const rec = externalConnectors.registerVendor({ ...(req.body || {}), tenantScope: req.body?.tenantScope || req.query.tenant || "default", actor: req.person?.username || req.identity?.subject || "admin" });
+    res.status(201).json({ success: true, vendor: rec });
+  } catch (e) { res.status(400).json({ success: false, error: e.code || "CONNECTOR_REGISTER_FAILED", message: e.message }); }
+});
+app.get('/api/v1/admin/connectors/vendors', security.requireLevel(2), (req, res) => {
+  try { res.json({ success: true, vendors: externalConnectors.status({ tenantScope: req.query.tenant || null }) }); }
+  catch (e) { res.status(500).json({ success: false, error: "CONNECTOR_LIST_FAILED" }); }
+});
+
+// Commercial entitlement lens (read-only over EditionPolicy)
+app.get('/api/v1/commerce/entitlement', (req, res) => {
+  try { res.json({ success: true, ...commercialEntitlement.snapshot({ tenantScope: req.query.tenant || "default" }) }); }
+  catch (e) { res.status(500).json({ success: false, error: "ENTITLEMENT_READ_FAILED" }); }
+});
+
+// ---- Payments: optional commercial capability (Paystack provider) ----
+// Admin control plane: configure -> verify -> DISABLED/TEST/LIVE + customer-facing OFF/ON.
+app.get('/api/v1/admin/payments/status', security.requireLevel(2), (req, res) => {
+  try { res.json({ success: true, payment: paymentService.status({ tenantScope: req.query.tenant || "default" }) }); }
+  catch (e) { res.status(500).json({ success: false, error: "PAYMENT_STATUS_FAILED" }); }
+});
+app.post('/api/v1/admin/payments/configure', security.requireLevel(2), requireDurableStorage, (req, res) => {
+  try {
+    const out = paymentService.configure({ ...(req.body || {}), tenantScope: req.body?.tenantScope || req.query.tenant || "default", actor: req.person?.username || req.identity?.subject || "admin", reason: req.body?.reason || "payment configured" });
+    res.json({ success: true, payment: out });
+  } catch (e) { res.status(400).json({ success: false, error: e.code || "PAYMENT_CONFIGURE_FAILED", message: e.message }); }
+});
+app.post('/api/v1/admin/payments/verify', security.requireLevel(2), requireDurableStorage, (req, res) => {
+  try {
+    const out = paymentService.verify({ tenantScope: req.body?.tenantScope || req.query.tenant || "default", actor: req.person?.username || req.identity?.subject || "admin" });
+    res.json({ success: true, payment: out });
+  } catch (e) { res.status(400).json({ success: false, error: e.code || "PAYMENT_VERIFY_FAILED", message: e.message }); }
+});
+app.post('/api/v1/admin/payments/state', security.requireLevel(2), requireDurableStorage, (req, res) => {
+  try {
+    const out = paymentService.setState({ tenantScope: req.body?.tenantScope || req.query.tenant || "default", to: req.body?.to || req.body?.state, actor: req.person?.username || req.identity?.subject || "admin", reason: req.body?.reason || "" });
+    res.json({ success: true, payment: out });
+  } catch (e) { res.status(400).json({ success: false, error: e.code || "PAYMENT_STATE_FAILED", message: e.message }); }
+});
+app.post('/api/v1/admin/payments/customer-facing', security.requireLevel(2), requireDurableStorage, (req, res) => {
+  try {
+    const on = req.body?.on === true || String(req.body?.customerFacing || "").toUpperCase() === "ON";
+    const out = paymentService.setCustomerFacing({ tenantScope: req.body?.tenantScope || req.query.tenant || "default", on, actor: req.person?.username || req.identity?.subject || "admin", reason: req.body?.reason || "" });
+    res.json({ success: true, payment: out });
+  } catch (e) { res.status(400).json({ success: false, error: e.code || "PAYMENT_CUSTOMER_FAILED", message: e.message }); }
+});
+// Customer-facing availability gate (public; truthful; never leaks secrets)
+app.get('/api/v1/payments/availability', (req, res) => {
+  try {
+    res.json({
+      success: true,
+      ...paymentService.availability({ tenantScope: req.query.tenant || "default", customerTier: req.query.tier || "COMMUNITY", upgradeRequired: String(req.query.upgrade || "") === "1" })
+    });
+  } catch (e) { res.status(500).json({ success: false, error: "PAYMENT_AVAILABILITY_FAILED" }); }
+});
+// Server-side payment start (enabled state only; secret never leaves server)
+app.post('/api/v1/payments/start', requireDurableStorage, (req, res) => {
+  try {
+    const out = paymentService.startPayment({ ...(req.body || {}), tenantScope: req.body?.tenantScope || req.query.tenant || "default" });
+    res.status(201).json({ success: true, payment: out });
+  } catch (e) { res.status(400).json({ success: false, error: e.code || "PAYMENT_START_FAILED", message: e.message }); }
+});
+// Provider webhook — the ONLY entitlement-mutating path (signature-verified).
+app.post('/api/v1/payments/webhook/paystack', requireDurableStorage, (req, res) => {
+  try {
+    const rawBody = req.rawBody ?? JSON.stringify(req.body || {});
+    const out = paymentService.handleWebhook({
+      tenantScope: req.query.tenant || req.body?.tenant || req.body?.data?.metadata?.tenant || "default",
+      rawBody, signature: req.headers?.["x-paystack-signature"] || "", event: req.body && req.body.event ? req.body : null
+    });
+    res.json(out);
+  } catch (e) {
+    const code = e.code || "PAYMENT_WEBHOOK_FAILED";
+    res.status(code === "PAYSTACK_SIGNATURE_INVALID" ? 401 : 400).json({ success: false, error: code, message: e.message });
+  }
+});
 
 // AWBULI connector status — truthful, never fabricated. Reports the runtime
 // adapter's detection of external config and the in-repo engine's live state.
