@@ -120,6 +120,18 @@ import PaymentService from "./payments/PaymentService.js";
 import CommercialEntitlement from "./commerce/CommercialEntitlement.js";
 import DataGovernance from "./governance/DataGovernance.js";
 import ConnectPlatformsBoard from "./connect/ConnectPlatformsBoard.js";
+import FinancialLedger from "./finance/FinancialLedger.js";
+import { FinancialAdapterRegistry } from "./finance/ProviderAdapterContract.js";
+import { FinancialPipeline } from "./finance/FinancialPipeline.js";
+import ReconciliationEngine from "./finance/ReconciliationEngine.js";
+import BalanceIntelligence from "./finance/BalanceIntelligence.js";
+import SettlementIntelligence from "./finance/SettlementIntelligence.js";
+import RiskSignalEngine from "./finance/RiskSignalEngine.js";
+import InvestigationWorkflow from "./finance/InvestigationWorkflow.js";
+import ProviderHealth from "./finance/ProviderHealth.js";
+import ClaimedPaymentBridge from "./finance/ClaimedPaymentEvidence.js";
+import { buildTransactionIdentity, maskFinancial } from "./finance/FinancialEventModel.js";
+import { DecisionEngine } from "./kernel/SupportingEngines.js";
 
 
 const __filename = fileURLToPath(import.meta.url);
@@ -328,6 +340,24 @@ const externalConnectors = new ExternalConnectorModel({ providerGate, connection
 const connectBoard = new ConnectPlatformsBoard({
   connectionManager, providerGate, whatsappNumbers, externalConnectors,
   paymentService, channels, editionPolicy
+});
+// Financial integrity layer — additive domain capabilities over the existing
+// kernel (EventBus, DecisionEngine, ConfidenceModel, intake/cases, audit,
+// telemetry, tenant model). No second bus/engine/gate/registry.
+const financialLedger = new FinancialLedger({ store: runtimeConfig, eventBus: kernel?.eventBus });
+const financialAdapters = new FinancialAdapterRegistry({ secrets, eventBus: kernel?.eventBus });
+const financeDecisionEngine = new DecisionEngine({});
+const financeRiskEngine = new RiskSignalEngine({ ledger: financialLedger, eventBus: kernel?.eventBus, decisionEngine: financeDecisionEngine, allowFinancialHold: false });
+const financeReconEngine = new ReconciliationEngine({ ledger: financialLedger, eventBus: kernel?.eventBus });
+const financeBalance = new BalanceIntelligence({ ledger: financialLedger, eventBus: kernel?.eventBus });
+const financeSettlement = new SettlementIntelligence({ ledger: financialLedger, eventBus: kernel?.eventBus });
+const financeHealth = new ProviderHealth({ ledger: financialLedger, eventBus: kernel?.eventBus });
+const financeInvestigations = new InvestigationWorkflow({ ledger: financialLedger, eventBus: kernel?.eventBus, intake });
+const financeClaims = new ClaimedPaymentBridge({ ledger: financialLedger, eventBus: kernel?.eventBus, riskEngine: financeRiskEngine });
+const financialPipeline = new FinancialPipeline({
+  adapters: financialAdapters, ledger: financialLedger, riskEngine: financeRiskEngine,
+  reconEngine: financeReconEngine, settlement: financeSettlement, balance: financeBalance,
+  investigations: financeInvestigations, health: financeHealth, eventBus: kernel?.eventBus
 });
 const venueRegistry = new VenueRegistry({ store: runtimeConfig, eventBus: kernel?.eventBus });
 const marketDataRegistry = new MarketDataRegistry({ store: runtimeConfig, eventBus: kernel?.eventBus, venueRegistry });
@@ -1563,18 +1593,205 @@ app.post('/api/v1/payments/start', requireDurableStorage, (req, res) => {
   } catch (e) { res.status(400).json({ success: false, error: e.code || "PAYMENT_START_FAILED", message: e.message }); }
 });
 // Provider webhook — the ONLY entitlement-mutating path (signature-verified).
-app.post('/api/v1/payments/webhook/paystack', requireDurableStorage, (req, res) => {
+// Financial-integrity hardening (additive): the event ALSO flows through the
+// canonical financial pipeline (verify -> normalize -> dedupe -> recon ->
+// risk -> audit). Duplicate deliveries replay safely: entitlement is never
+// double-credited because PaymentService only mutates on first verified
+// processing and the finance layer replays prior outcomes.
+app.post('/api/v1/payments/webhook/paystack', requireDurableStorage, async (req, res) => {
+  const tenantScope = String(req.query.tenant || req.body?.tenant || req.body?.data?.metadata?.tenant || "default").slice(0, 80);
+  const actor = req.person?.username || req.identity?.subject || "provider:paystack";
   try {
     const rawBody = req.rawBody ?? JSON.stringify(req.body || {});
+    const signature = req.headers?.["x-paystack-signature"] || "";
+    let fin = null;
+    try {
+      fin = await financialPipeline.ingestWebhook({ provider: "PAYSTACK", tenantScope, rawBody, signature, actor });
+    } catch (fe) {
+      const fcode = fe.code || "FIN_WEBHOOK_FAILED";
+      if (fcode === "FIN_SIGNATURE_INVALID") {
+        try { financeHealth.record({ provider: "PAYSTACK", tenantScope, event: "SIGNATURE_FAILURE", errorCategory: fcode, actor }); } catch {}
+        return res.status(401).json({ success: false, error: fcode, message: fe.message });
+      }
+      throw fe;
+    }
+    if (fin?.duplicate) {
+      // Replay: financial outcome already recorded AND entitlement already
+      // applied on first delivery — return both without re-executing.
+      return res.json({ success: true, duplicate: true, financial: fin.outcome, entitlement: paymentService.entitlementFor(tenantScope) });
+    }
     const out = paymentService.handleWebhook({
-      tenantScope: req.query.tenant || req.body?.tenant || req.body?.data?.metadata?.tenant || "default",
-      rawBody, signature: req.headers?.["x-paystack-signature"] || "", event: req.body && req.body.event ? req.body : null
+      tenantScope, rawBody, signature, event: req.body && req.body.event ? req.body : null
     });
-    res.json(out);
+    res.json({ ...out, financial: { fingerprint: fin.fingerprint, reconOutcome: fin.reconOutcome, riskBand: fin.riskBand, investigationId: fin.investigationId || null } });
   } catch (e) {
     const code = e.code || "PAYMENT_WEBHOOK_FAILED";
     res.status(code === "PAYSTACK_SIGNATURE_INVALID" ? 401 : 400).json({ success: false, error: code, message: e.message });
   }
+});
+
+// ---------- Financial integrity routes (additive, server-authoritative) ----------
+// Ingest authorized financial data (exports, statements, ERP feeds, provider
+// API data). Signed webhooks must use the provider webhook routes instead.
+app.post('/api/v1/finance/events/ingest', security.requireLevel(1), requireDurableStorage, async (req, res) => {
+  try {
+    const body = req.body || {};
+    const scope = String(body.tenantScope || req.query.tenant || "default").slice(0, 80);
+    const tx = buildTransactionIdentity({
+      provider: body.provider, environment: body.environment || "TEST",
+      providerTxId: body.providerTxId, providerReference: body.providerReference,
+      merchantReference: body.merchantReference, tenantScope: scope,
+      organization: body.organization, currency: body.currency,
+      amount: body.amount, requestedAmount: body.requestedAmount, actualAmount: body.actualAmount,
+      status: body.status || "UNKNOWN", providerStatusRaw: body.providerStatus || body.status,
+      channel: body.channel, customerReference: body.customerReference,
+      source: body.source || "AUTHORIZED_FEED", occurredAt: body.occurredAt,
+      correlationId: body.correlationId, metadata: body.metadata || {},
+      provenanceAdapter: "FINANCE_INGEST_ROUTE", evidenceGrade: body.evidenceGrade || "OBSERVED_FACT"
+    });
+    const out = await financialPipeline.ingestNormalized({
+      transaction: tx, kind: body.kind || "PAYMENT", tenantScope: scope,
+      actor: req.person?.username || req.identity?.subject || "operator",
+      correlationId: body.correlationId || null
+    });
+    res.status(201).json({ success: true, ...maskFinancial(out).value });
+  } catch (e) { res.status(400).json({ success: false, error: e.code || "FIN_INGEST_FAILED", message: e.message }); }
+});
+app.get('/api/v1/finance/transactions', security.requireLevel(1), (req, res) => {
+  try {
+    res.json({
+      success: true,
+      transactions: maskFinancial(financialLedger.listTransactions({
+        tenantScope: req.query.tenant || null, provider: req.query.provider || null,
+        status: req.query.status || null, limit: Math.min(200, Number(req.query.limit) || 100)
+      })).value
+    });
+  } catch (e) { res.status(500).json({ success: false, error: "FIN_LIST_FAILED" }); }
+});
+app.get('/api/v1/finance/transactions/:fingerprint/trace', security.requireLevel(1), (req, res) => {
+  try {
+    res.json({ success: true, trace: financeSettlement.trace(req.params.fingerprint, { tenantScope: req.query.tenant || "default" }) });
+  } catch (e) { res.status(e.code === "TENANT_MISMATCH" ? 403 : 400).json({ success: false, error: e.code || "FIN_TRACE_FAILED", message: e.message }); }
+});
+// Batch / manual / scheduled reconciliation over authorized ledger data.
+app.post('/api/v1/finance/reconciliation/run', security.requireLevel(2), requireDurableStorage, (req, res) => {
+  try {
+    const out = financeReconEngine.runBatch({
+      tenantScope: req.body?.tenantScope || req.query.tenant || "default",
+      actor: req.person?.username || req.identity?.subject || "admin",
+      limit: Math.min(1000, Number(req.body?.limit) || 200)
+    });
+    res.json({ success: true, run: out });
+  } catch (e) { res.status(400).json({ success: false, error: e.code || "FIN_RECON_FAILED", message: e.message }); }
+});
+// Settlements (authorized feed data only — never fabricated).
+app.post('/api/v1/finance/settlements', security.requireLevel(2), requireDurableStorage, (req, res) => {
+  try {
+    const rec = financeSettlement.recordSettlement(req.body || {}, {
+      tenantScope: req.body?.tenantScope || req.query.tenant || "default",
+      actor: req.person?.username || req.identity?.subject || "admin"
+    });
+    res.status(201).json({ success: true, settlement: maskFinancial(rec).value });
+  } catch (e) { res.status(400).json({ success: false, error: e.code || "FIN_SETTLEMENT_FAILED", message: e.message }); }
+});
+app.get('/api/v1/finance/settlements', security.requireLevel(1), (req, res) => {
+  try {
+    res.json({ success: true, settlements: maskFinancial(financialLedger.list("settlements", { tenantScope: req.query.tenant || null })).value });
+  } catch (e) { res.status(500).json({ success: false, error: "FIN_LIST_FAILED" }); }
+});
+// Balance snapshots + expected-balance reconciliation (never manufactures).
+app.post('/api/v1/finance/balances/reconcile', security.requireLevel(2), requireDurableStorage, (req, res) => {
+  try {
+    const out = financeBalance.reconcile({
+      tenantScope: req.body?.tenantScope || req.query.tenant || "default",
+      currency: req.body?.currency || null, openingBalance: req.body?.openingBalance ?? null,
+      reportedBalances: req.body?.reportedBalances || {}, includeUnconfirmed: req.body?.includeUnconfirmed === true,
+      actor: req.person?.username || req.identity?.subject || "admin"
+    });
+    res.json({ success: true, balance: out });
+  } catch (e) { res.status(400).json({ success: false, error: e.code || "FIN_BALANCE_FAILED", message: e.message }); }
+});
+// Risk review (read-only; scoring is deterministic + versioned).
+app.get('/api/v1/finance/risk', security.requireLevel(1), async (req, res) => {
+  try {
+    const txs = financialLedger.listTransactions({ tenantScope: req.query.tenant || null, limit: 200 });
+    const items = [];
+    for (const t of txs.slice(0, 50)) {
+      try {
+        const r = await financeRiskEngine.evaluate(t, { actor: req.person?.username || req.identity?.subject || "operator" });
+        if (r.band !== "NORMAL") items.push(r);
+      } catch {}
+    }
+    res.json({ success: true, signals: items });
+  } catch (e) { res.status(500).json({ success: false, error: "FIN_RISK_FAILED" }); }
+});
+// Investigations (human-in-the-loop; HOLD needs explicit policy + L2, enforced below).
+app.post('/api/v1/finance/investigations', security.requireLevel(2), requireDurableStorage, (req, res) => {
+  try {
+    const inv = financeInvestigations.open({
+      tenantScope: req.body?.tenantScope || req.query.tenant || "default",
+      fingerprint: req.body?.fingerprint || null, riskRecord: req.body?.risk || null,
+      actor: req.person?.username || req.identity?.subject || "admin", reason: req.body?.reason || ""
+    });
+    res.status(201).json({ success: true, investigation: inv });
+  } catch (e) { res.status(400).json({ success: false, error: e.code || "FIN_INVESTIGATION_FAILED", message: e.message }); }
+});
+app.get('/api/v1/finance/investigations', security.requireLevel(1), (req, res) => {
+  try {
+    res.json({ success: true, investigations: financeInvestigations.list({ tenantScope: req.query.tenant || null, state: req.query.state || null }) });
+  } catch (e) { res.status(500).json({ success: false, error: "FIN_LIST_FAILED" }); }
+});
+app.post('/api/v1/finance/investigations/:id/evidence', security.requireLevel(1), requireDurableStorage, (req, res) => {
+  try {
+    const rec = financeInvestigations.attachEvidence(req.params.id, req.body?.evidence || req.body || {}, {
+      tenantScope: req.query.tenant || req.body?.tenantScope || "default",
+      actor: req.person?.username || req.identity?.subject || "operator"
+    });
+    res.json({ success: true, investigation: rec });
+  } catch (e) { res.status(400).json({ success: false, error: e.code || "FIN_EVIDENCE_FAILED", message: e.message }); }
+});
+app.post('/api/v1/finance/investigations/:id/transition', security.requireLevel(2), requireDurableStorage, (req, res) => {
+  try {
+    const to = String(req.body?.to || "").toUpperCase();
+    if ((to === "CONFIRMED") && !req.body?.resolution) {
+      return res.status(400).json({ success: false, error: "FIN_RESOLUTION_REQUIRED", message: "CONFIRMED requires a resolution record." });
+    }
+    const rec = financeInvestigations.transition(req.params.id, to, {
+      tenantScope: req.query.tenant || req.body?.tenantScope || "default",
+      actor: req.person?.username || req.identity?.subject || "admin",
+      reason: req.body?.reason || "", resolution: req.body?.resolution || null
+    });
+    res.json({ success: true, investigation: rec });
+  } catch (e) { res.status(400).json({ success: false, error: e.code || "FIN_TRANSITION_FAILED", message: e.message }); }
+});
+// Provider health + capability discovery (truthful states only).
+app.get('/api/v1/finance/providers', security.requireLevel(2), (req, res) => {
+  try {
+    const scope = req.query.tenant || "default";
+    res.json({
+      success: true,
+      providers: ["PAYSTACK", "FLUTTERWAVE", "INTERSWITCH", "QUICKTELLER", "PAGA"].map((p) => ({
+        ...financialAdapters.discover(p, { tenantScope: scope }),
+        health: financeHealth.report({ provider: p, tenantScope: scope })
+      }))
+    });
+  } catch (e) { res.status(500).json({ success: false, error: "FIN_PROVIDERS_FAILED" }); }
+});
+app.get('/api/v1/finance/providers/compare', security.requireLevel(2), (req, res) => {
+  try {
+    res.json({ success: true, comparison: financeHealth.compare({ tenantScope: req.query.tenant || "default" }) });
+  } catch (e) { res.status(500).json({ success: false, error: "FIN_COMPARE_FAILED" }); }
+});
+// AWBULI claimed-payment bridge (§50): claim -> evidence -> verification, never success.
+app.post('/api/v1/finance/claims/extract', security.requireLevel(1), requireDurableStorage, (req, res) => {
+  try {
+    const out = financeClaims.fromMessage({
+      text: req.body?.text || "", tenantScope: req.body?.tenantScope || req.query.tenant || "default",
+      actor: req.person?.username || req.identity?.subject || "operator",
+      organization: req.body?.organization || null, correlationId: req.body?.correlationId || null
+    });
+    res.status(201).json({ success: true, ...out });
+  } catch (e) { res.status(400).json({ success: false, error: e.code || "FIN_CLAIM_FAILED", message: e.message }); }
 });
 
 // AWBULI connector status — truthful, never fabricated. Reports the runtime
