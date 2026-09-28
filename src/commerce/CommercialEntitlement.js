@@ -43,7 +43,11 @@ const COMMERCIAL_GATES = Object.freeze({
   operationalAssessments: { COMMUNITY: 1, TRIAL: 5, PAID: 50, ENTERPRISE: Infinity },
   documentProcessing: { COMMUNITY: 5, TRIAL: 50, PAID: 1000, ENTERPRISE: Infinity },
   externalConnectors: { COMMUNITY: 0, TRIAL: 2, PAID: 20, ENTERPRISE: Infinity },
-  telemetry: { COMMUNITY: true, TRIAL: true, PAID: true, ENTERPRISE: true }
+  telemetry: { COMMUNITY: true, TRIAL: true, PAID: true, ENTERPRISE: true },
+  branches: { COMMUNITY: 3, TRIAL: 10, PAID: 100, ENTERPRISE: Infinity },
+  aiWorkers: { COMMUNITY: 2, TRIAL: 10, PAID: 100, ENTERPRISE: Infinity },
+  customers: { COMMUNITY: 100, TRIAL: 1000, PAID: 50000, ENTERPRISE: Infinity },
+  fieldTasks: { COMMUNITY: 100, TRIAL: 1000, PAID: 50000, ENTERPRISE: Infinity }
 });
 
 export class CommercialEntitlement {

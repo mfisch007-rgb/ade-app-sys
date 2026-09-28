@@ -132,6 +132,12 @@ import ProviderHealth from "./finance/ProviderHealth.js";
 import ClaimedPaymentBridge from "./finance/ClaimedPaymentEvidence.js";
 import { buildTransactionIdentity, maskFinancial } from "./finance/FinancialEventModel.js";
 import { DecisionEngine } from "./kernel/SupportingEngines.js";
+import OrgUnitRegistry from "./operations/OrgUnitRegistry.js";
+import CustomerRegistry from "./operations/CustomerRegistry.js";
+import FieldTaskRegistry from "./operations/FieldTaskRegistry.js";
+import AgentRegistry from "./operations/AgentRegistry.js";
+import ExperienceStore from "./operations/ExperienceStore.js";
+import AvailabilityMap from "./commerce/AvailabilityMap.js";
 
 
 const __filename = fileURLToPath(import.meta.url);
@@ -359,6 +365,33 @@ const financialPipeline = new FinancialPipeline({
   reconEngine: financeReconEngine, settlement: financeSettlement, balance: financeBalance,
   investigations: financeInvestigations, health: financeHealth, eventBus: kernel?.eventBus
 });
+// Community/MVP operational convergence — additive registries over the existing
+// store/event/case/identity authorities. No new kernel, bus, or engines.
+const orgUnits = new OrgUnitRegistry({ store: runtimeConfig, eventBus: kernel?.eventBus });
+const customers = new CustomerRegistry({ store: runtimeConfig, eventBus: kernel?.eventBus, intake });
+const fieldTasks = new FieldTaskRegistry({ store: runtimeConfig, eventBus: kernel?.eventBus });
+const agentRegistry = new AgentRegistry({ store: runtimeConfig, eventBus: kernel?.eventBus, workforce, capabilityRegistry: CapabilityRegistry });
+const experienceStore = new ExperienceStore({ store: runtimeConfig, eventBus: kernel?.eventBus });
+const availabilityMap = new AvailabilityMap({ editionPolicy, commercialEntitlement, providerGate });
+// Register Community operational capabilities (read-scoped handlers; mutations
+// stay behind L1/L2 routes). Additive; persist like other capabilities.
+try {
+  const CR = CapabilityRegistry.getInstance ? CapabilityRegistry.getInstance() : CapabilityRegistry;
+  const reg = (intent, name, rbacLevel, handler) => {
+    try {
+      CR.registerCapability({ intent, name, handler, rbacLevel, sourceModule: "COMMUNITY_OPERATIONS", tier: "FREE" }, { persist: true });
+    } catch (e) {
+      if (!String(e.message || "").match(/exists|duplicate|already/i)) throw e;
+    }
+  };
+  reg("ORG_UNITS", "Organization units (list/get)", 1, (p) => ({ success: true, units: orgUnits.list({ tenantScope: p?.tenantScope || "default" }) }));
+  reg("CUSTOMERS", "Customers and leads (list/get)", 1, (p) => ({ success: true, customers: customers.list({ tenantScope: p?.tenantScope || "default" }) }));
+  reg("FIELD_TASKS", "Field tasks (list/get)", 1, (p) => ({ success: true, tasks: fieldTasks.list({ tenantScope: p?.tenantScope || "default" }) }));
+  reg("AI_WORKERS", "Bound AI workers (list/get)", 1, (p) => ({ success: true, agents: agentRegistry.list({ tenantScope: p?.tenantScope || "default" }) }));
+  reg("EXPERIENCE_QUERY", "Operational experience (query)", 1, (p) => ({ success: true, experience: experienceStore.query({ tenantScope: p?.tenantScope || "default", capabilityKey: p?.capabilityKey || null }) }));
+} catch (e) {
+  console.error(`[COMMUNITY] capability registration skipped: ${e.message}`);
+}
 const venueRegistry = new VenueRegistry({ store: runtimeConfig, eventBus: kernel?.eventBus });
 const marketDataRegistry = new MarketDataRegistry({ store: runtimeConfig, eventBus: kernel?.eventBus, venueRegistry });
 const sportsDataBus = new SportsDataBus({ marketDataRegistry, eventBus: kernel?.eventBus });
@@ -1792,6 +1825,122 @@ app.post('/api/v1/finance/claims/extract', security.requireLevel(1), requireDura
     });
     res.status(201).json({ success: true, ...out });
   } catch (e) { res.status(400).json({ success: false, error: e.code || "FIN_CLAIM_FAILED", message: e.message }); }
+});
+
+// ---------- Community/MVP operational routes (additive) ----------
+// Organization units: branches, departments, teams (L1 read, L2 write).
+app.post('/api/v1/org/units', security.requireLevel(2), requireDurableStorage, (req, res) => {
+  try {
+    const gate = commercialEntitlement.check({ tenantScope: req.body?.tenantScope || req.query.tenant || "default", capability: "branches", usage: orgUnits.count({ tenantScope: req.body?.tenantScope || req.query.tenant || "default" }) });
+    if (!gate.allowed) return res.status(403).json({ success: false, error: gate.reason || "ENTITLEMENT_GATED", tier: gate.tier });
+    const unit = orgUnits.create({ ...(req.body || {}), tenantScope: req.body?.tenantScope || req.query.tenant || "default", actor: req.person?.username || req.identity?.subject || "admin" });
+    res.status(201).json({ success: true, unit });
+  } catch (e) { res.status(400).json({ success: false, error: e.code || "ORG_CREATE_FAILED", message: e.message }); }
+});
+app.get('/api/v1/org/units', security.requireLevel(1), (req, res) => {
+  try {
+    res.json({ success: true, units: orgUnits.list({ tenantScope: req.query.tenant || null, type: req.query.type || null }) });
+  } catch (e) { res.status(500).json({ success: false, error: "ORG_LIST_FAILED" }); }
+});
+app.get('/api/v1/org/units/:id/ancestry', security.requireLevel(1), (req, res) => {
+  try {
+    res.json({ success: true, ancestry: orgUnits.ancestry(req.params.id, { tenantScope: req.query.tenant || "default" }) });
+  } catch (e) { res.status(400).json({ success: false, error: e.code || "ORG_ANCESTRY_FAILED", message: e.message }); }
+});
+app.post('/api/v1/org/units/:id/status', security.requireLevel(2), requireDurableStorage, (req, res) => {
+  try {
+    const unit = orgUnits.setStatus(req.params.id, String(req.body?.to || "").toUpperCase(), { tenantScope: req.query.tenant || req.body?.tenantScope || "default", actor: req.person?.username || req.identity?.subject || "admin", reason: req.body?.reason || "" });
+    res.json({ success: true, unit });
+  } catch (e) { res.status(400).json({ success: false, error: e.code || "ORG_STATUS_FAILED", message: e.message }); }
+});
+// Customers / leads (L1; deduplicated; CASE opens canonical intake case).
+app.post('/api/v1/customers', security.requireLevel(1), requireDurableStorage, (req, res) => {
+  try {
+    const scope = req.body?.tenantScope || req.query.tenant || "default";
+    const gate = commercialEntitlement.check({ tenantScope: scope, capability: "customers", usage: customers.count({ tenantScope: scope }) });
+    if (!gate.allowed) return res.status(403).json({ success: false, error: gate.reason || "ENTITLEMENT_GATED", tier: gate.tier });
+    const customer = customers.register({ ...(req.body || {}), tenantScope: scope, actor: req.person?.username || req.identity?.subject || "operator" });
+    res.status(201).json({ success: true, customer });
+  } catch (e) { res.status(400).json({ success: false, error: e.code || "CUSTOMER_FAILED", message: e.message }); }
+});
+app.get('/api/v1/customers', security.requireLevel(1), (req, res) => {
+  try {
+    res.json({ success: true, customers: customers.list({ tenantScope: req.query.tenant || null, state: req.query.state || null }) });
+  } catch (e) { res.status(500).json({ success: false, error: "CUSTOMER_LIST_FAILED" }); }
+});
+app.post('/api/v1/customers/:id/transition', security.requireLevel(1), requireDurableStorage, (req, res) => {
+  try {
+    const customer = customers.transition(req.params.id, req.body?.to || "", { tenantScope: req.query.tenant || req.body?.tenantScope || "default", actor: req.person?.username || req.identity?.subject || "operator", reason: req.body?.reason || "", openCase: req.body?.openCase !== false });
+    res.json({ success: true, customer });
+  } catch (e) { res.status(400).json({ success: false, error: e.code || "CUSTOMER_TRANSITION_FAILED", message: e.message }); }
+});
+// Field tasks (L1; assignee-bound transitions; outcomes emit canonical events).
+app.post('/api/v1/field/tasks', security.requireLevel(1), requireDurableStorage, (req, res) => {
+  try {
+    const scope = req.body?.tenantScope || req.query.tenant || "default";
+    const gate = commercialEntitlement.check({ tenantScope: scope, capability: "fieldTasks", usage: fieldTasks.count({ tenantScope: scope }) });
+    if (!gate.allowed) return res.status(403).json({ success: false, error: gate.reason || "ENTITLEMENT_GATED", tier: gate.tier });
+    const task = fieldTasks.create({ ...(req.body || {}), tenantScope: scope, actor: req.person?.username || req.identity?.subject || "operator" });
+    res.status(201).json({ success: true, task });
+  } catch (e) { res.status(400).json({ success: false, error: e.code || "TASK_CREATE_FAILED", message: e.message }); }
+});
+app.get('/api/v1/field/tasks', security.requireLevel(1), (req, res) => {
+  try {
+    res.json({ success: true, tasks: fieldTasks.list({ tenantScope: req.query.tenant || null, state: req.query.state || null, assigneeId: req.query.assignee || null, unitId: req.query.unit || null }) });
+  } catch (e) { res.status(500).json({ success: false, error: "TASK_LIST_FAILED" }); }
+});
+app.post('/api/v1/field/tasks/:id/transition', security.requireLevel(1), requireDurableStorage, (req, res) => {
+  try {
+    const task = fieldTasks.transition(req.params.id, req.body?.to || "", { tenantScope: req.query.tenant || req.body?.tenantScope || "default", actor: req.body?.actor || req.person?.username || req.identity?.subject || "operator", actorKind: req.body?.actorKind || "HUMAN", reason: req.body?.reason || "", outcome: req.body?.outcome || null });
+    res.json({ success: true, task });
+  } catch (e) { res.status(400).json({ success: false, error: e.code || "TASK_TRANSITION_FAILED", message: e.message }); }
+});
+// AI workers: bind existing workforce agent identities (L2), run capability-bound (L1).
+app.post('/api/v1/agents/bind', security.requireLevel(2), requireDurableStorage, async (req, res) => {
+  try {
+    const scope = req.body?.tenantScope || req.query.tenant || "default";
+    const gate = commercialEntitlement.check({ tenantScope: scope, capability: "aiWorkers", usage: agentRegistry.list({ tenantScope: scope }).length });
+    if (!gate.allowed) return res.status(403).json({ success: false, error: gate.reason || "ENTITLEMENT_GATED", tier: gate.tier });
+    const binding = await agentRegistry.bind({ ...(req.body || {}), tenantScope: scope, actor: req.person?.username || req.identity?.subject || "admin" });
+    res.status(201).json({ success: true, binding });
+  } catch (e) { res.status(400).json({ success: false, error: e.code || "AGENT_BIND_FAILED", message: e.message }); }
+});
+app.get('/api/v1/agents', security.requireLevel(1), (req, res) => {
+  try {
+    res.json({ success: true, agents: agentRegistry.list({ tenantScope: req.query.tenant || null }) });
+  } catch (e) { res.status(500).json({ success: false, error: "AGENT_LIST_FAILED" }); }
+});
+app.post('/api/v1/agents/:id/run', security.requireLevel(1), requireDurableStorage, async (req, res) => {
+  try {
+    const run = await agentRegistry.run({ agentId: req.params.id, capability: req.body?.capability || "", input: req.body?.input || {}, tenantScope: req.query.tenant || req.body?.tenantScope || "default", actor: req.person?.username || req.identity?.subject || "operator", triggeringEvent: req.body?.triggeringEvent || null, correlationId: req.body?.correlationId || null, confidence: req.body?.confidence ?? null });
+    res.status(201).json({ success: true, run });
+  } catch (e) { res.status(400).json({ success: false, error: e.code || "AGENT_RUN_FAILED", message: e.message }); }
+});
+app.post('/api/v1/agents/:id/status', security.requireLevel(2), requireDurableStorage, (req, res) => {
+  try {
+    const binding = agentRegistry.setStatus(req.params.id, String(req.body?.to || "").toUpperCase(), { tenantScope: req.query.tenant || req.body?.tenantScope || "default", actor: req.person?.username || req.identity?.subject || "admin", reason: req.body?.reason || "" });
+    res.json({ success: true, binding });
+  } catch (e) { res.status(400).json({ success: false, error: e.code || "AGENT_STATUS_FAILED", message: e.message }); }
+});
+// Experience store (L1 record/query; tenant-scoped reuse).
+app.post('/api/v1/experience', security.requireLevel(1), requireDurableStorage, (req, res) => {
+  try {
+    const rec = experienceStore.record({ ...(req.body || {}), tenantScope: req.body?.tenantScope || req.query.tenant || "default", actor: req.person?.username || req.identity?.subject || "operator" });
+    res.status(201).json({ success: true, experience: rec });
+  } catch (e) { res.status(400).json({ success: false, error: e.code || "EXPERIENCE_FAILED", message: e.message }); }
+});
+app.get('/api/v1/experience', security.requireLevel(1), (req, res) => {
+  try {
+    res.json({ success: true, experience: experienceStore.query({ tenantScope: req.query.tenant || null, capabilityKey: req.query.capability || null, minConfidence: Number(req.query.minConfidence) || 0 }) });
+  } catch (e) { res.status(500).json({ success: false, error: "EXPERIENCE_LIST_FAILED" }); }
+});
+// Unified availability lens (L1): COMMUNITY / EXPERIMENTAL / PROVIDER_REQUIRED / ENTERPRISE.
+app.get('/api/v1/commerce/availability', security.requireLevel(1), (req, res) => {
+  try {
+    const caps = req.query.capabilities ? String(req.query.capabilities).split(",").map((s) => s.trim()).filter(Boolean) : null;
+    const scope = req.query.tenant || "default";
+    res.json({ success: true, availability: caps ? availabilityMap.map(caps, { tenantScope: scope }) : availabilityMap.catalog({ tenantScope: scope }) });
+  } catch (e) { res.status(500).json({ success: false, error: "AVAILABILITY_FAILED" }); }
 });
 
 // AWBULI connector status — truthful, never fabricated. Reports the runtime
