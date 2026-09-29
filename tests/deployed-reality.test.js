@@ -47,6 +47,11 @@ test("shell: elevation wording and Home/Back are explicit", () => {
   assert.ok(founderHtml.includes("window.location.href='/'"), "founder brand returns home");
 });
 
+test("routes: canonical deep links resolve, incl. eventos and product detail", () => {
+  assert.ok(appJs.includes('"/eventos"'), "server alias /eventos");
+  assert.ok(indexHtml.includes("'/eventos':'Community'"), "client resolves /eventos per matrix authority");
+  assert.ok(indexHtml.includes("indexOf('/products/')===0"), "product detail prefix resolves to Products");
+});
 test("matrix: awbuli/procarta/eventos carry actionable destinations", () => {
   for (const id of ["awbuli", "procarta", "eventos"]) {
     const i = matrixJs.indexOf("id: \"" + id + "\"") >= 0 ? matrixJs.indexOf("id: \"" + id + "\"") : matrixJs.indexOf("id: '" + id + "'");
@@ -56,9 +61,9 @@ test("matrix: awbuli/procarta/eventos carry actionable destinations", () => {
   }
 });
 
-test("asset: tech-hub visual forensics pin the crop defect and fix", () => {
+test("asset: tech-hub visual forensics pin the crop defect, corrupt committed bytes, and fix", () => {
   const buf = fs.readFileSync(new URL("../public/brand-mark.png", import.meta.url));
-  assert.equal(buf.slice(0, 8).toString("hex"), "89504e470d0a1a0a", "valid PNG bytes");
+  assert.equal(buf.slice(0, 8).toString("hex"), "89504e470d0a1a0a", "worktree PNG signature valid (0d byte intact)");
   const w = buf.readUInt32BE(16);
   const h = buf.readUInt32BE(20);
   assert.ok(h > w * 2, "portrait asset (" + w + "x" + h + ") — cover-crop at landscape box was destructive");

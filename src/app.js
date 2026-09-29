@@ -3572,7 +3572,7 @@ const canonicalShell = (req, res) => {
   if (fs.existsSync(indexFile)) return res.sendFile(indexFile);
   res.send(`<!DOCTYPE html><html><head><title>ADE-APEX EOS</title></head><body><h1>ADE-APEX ENTERPRISE OS OPERATIONAL</h1></body></html>`);
 };
-for (const alias of ["/home","/workspace","/procarta","/awbuli","/connect","/connect/platforms","/pilot","/community","/partners","/signin","/join","/how-it-works","/architecture","/products","/product-theater","/try-ade","/feedback","/account","/command-center","/operations","/operations/live","/workflows","/workforce","/invitations","/ai-workers","/knowledge","/decisions","/payments","/commerce","/financial","/audit","/notifications","/settings","/markets","/markets/forex","/markets/binary","/markets/binary/regular","/markets/binary/otc","/gaming","/gaming/aviator","/sports"]) {
+for (const alias of ["/home","/workspace","/procarta","/awbuli","/eventos","/connect","/connect/platforms","/pilot","/community","/partners","/signin","/join","/how-it-works","/architecture","/products","/product-theater","/try-ade","/feedback","/account","/command-center","/operations","/operations/live","/workflows","/workforce","/invitations","/ai-workers","/knowledge","/decisions","/payments","/commerce","/financial","/audit","/notifications","/settings","/markets","/markets/forex","/markets/binary","/markets/binary/regular","/markets/binary/otc","/gaming","/gaming/aviator","/sports"]) {
   app.get(alias, canonicalShell);
 }
 
