@@ -1296,7 +1296,7 @@ app.get('/api/v1/attention', security.requireLevel(2), (req,res)=>{
     res.json({success:true, attention:{intakes,candidates,pilots,partners:parts,connections:conns,cases,notifications:notifs,stats}, time:new Date().toISOString()});
   }catch(e){ res.status(500).json({success:false, error:'ATTENTION_FAILED', message:e.message}); }
 });
-app.post('/api/v1/intake/:channel',requireDurableStorage,(req,res)=>{ try { const result=intake.ingest(req.params.channel,req.body||{},{source:req.body?.source||req.params.channel,authenticated:Boolean(req.headers.authorization)}); try { const body=req.body||{}; const q=result?.intake?.request; if(String(body.kind||'').toUpperCase()==='BUSINESS_PROCESS' && q && q.needsDiscovery && Number(q.confidence||0)>=0.6){ communityProgression.captureIntake({type:'USE_CASE',organization:result.intake.organization||'',contactHint:'',useCaseDescription:String(result.intake.text||'').slice(0,5000),currentEdition:editionPolicy.getEdition(),metadata:{procarta:true,caseId:result.case.id,intakeId:result.intake.intakeId,intent:q.intent}}); } } catch(_){} logEvent('INTAKE',`Created ${result.case.id} from ${req.params.channel}`); res.status(201).json(result); } catch(e){res.status(400).json({success:false,error:e.message});} });
+app.post('/api/v1/intake/:channel',requireDurableStorage,(req,res)=>{ try { const result=intake.ingest(req.params.channel,req.body||{},{source:req.body?.source||req.params.channel,authenticated:Boolean(req.headers.authorization)}); try { const body=req.body||{}; const q=result?.intake?.request; if(String(body.kind||'').toUpperCase()==='BUSINESS_PROCESS' && q && q.needsDiscovery && Number(q.confidence||0)>=0.6){ communityProgression.captureIntake({type:'USE_CASE',organization:result.intake.organization||'',contactHint:'',useCaseDescription:String(result.intake.text||'').slice(0,5000),currentEdition:editionPolicy.getEdition(),metadata:{procarta:true,caseId:result.case.id,intakeId:result.intake.intakeId,intent:q.intent}}); } } catch(_){} logEvent('INTAKE',`Created ${result.case.id} from ${req.params.channel}`); try { const body=req.body||{}; const kind=String(body.kind||'INTEREST').toUpperCase(); const org=String(result?.intake?.organization||body.organization||'').slice(0,120); const intent=String(result?.intake?.request?.intent||body.useCase||body.intent||'').slice(0,200); notificationEngine.generateInternalEvent("notification.request_status",{channel:"INTAKE",kind,caseId:result?.case?.id||null,intakeId:result?.intake?.intakeId||null,organization:org,intent,source:req.params.channel,recommendedAction:"REVIEW",at:new Date().toISOString()}); } catch(_){} res.status(201).json(result); } catch(e){res.status(400).json({success:false,error:e.message});} });
 // Demonstration runs persist cases with source DEMO_ORCHESTRATOR. Human
 // operational views exclude them by default so synthetic demo actors never
 // pollute Founder/Worker case lists; ?includeDemo=true opts back in and the
@@ -3561,6 +3561,20 @@ app.use("/api", (req, res) => {
     path: req.originalUrl
   });
 });
+
+// Canonical experience routes: one meaningful URL per surface. Each alias
+// serves the canonical SPA shell (refresh-safe, deep-linkable, Back/Forward
+// compatible); the client resolves section state from the path on load.
+// No new capability is created here — these are presentation aliases over
+// existing surfaces. Unknown paths still fall through to the SPA fallback.
+const canonicalShell = (req, res) => {
+  const indexFile = path.join(__dirname, "../public/index.html");
+  if (fs.existsSync(indexFile)) return res.sendFile(indexFile);
+  res.send(`<!DOCTYPE html><html><head><title>ADE-APEX EOS</title></head><body><h1>ADE-APEX ENTERPRISE OS OPERATIONAL</h1></body></html>`);
+};
+for (const alias of ["/home","/workspace","/procarta","/awbuli","/connect","/connect/platforms","/pilot","/community","/partners","/signin","/join","/how-it-works","/architecture","/products","/product-theater","/try-ade","/feedback","/account","/command-center","/operations","/operations/live","/workflows","/workforce","/invitations","/ai-workers","/knowledge","/decisions","/payments","/commerce","/financial","/audit","/notifications","/settings","/markets","/markets/forex","/markets/binary","/markets/binary/regular","/markets/binary/otc","/gaming","/gaming/aviator","/sports"]) {
+  app.get(alias, canonicalShell);
+}
 
 app.get("*", (req, res) => {
   // SPA fallback: serve the canonical Community frontend. This preserves
