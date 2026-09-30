@@ -49,6 +49,8 @@ export class TradingEntitlements {
     const id = String(userId || "").trim().slice(0, 120);
     if (!id) { const e = new Error("USER_ID_REQUIRED"); e.code = "USER_ID_REQUIRED"; throw e; }
     const map = this._all();
+    const existingKey = Object.keys(map).find((k) => k.toLowerCase() === id.toLowerCase());
+    const key = existingKey || id;
     const caps = capabilities && typeof capabilities === "object"
       ? {
           BINARY_REGULAR: Boolean(capabilities.BINARY_REGULAR ?? capabilities.binaryRegular ?? trading),
@@ -58,24 +60,38 @@ export class TradingEntitlements {
         }
       : { BINARY_REGULAR: Boolean(trading), BINARY_OTC: Boolean(trading), FOREX: Boolean(trading), GAMING: Boolean(gaming) };
     const normModes = modes && typeof modes === "object" ? modes : null;
-    map[id] = { userId: id, trading: Boolean(trading) || caps.BINARY_REGULAR || caps.FOREX, gaming: Boolean(gaming) || caps.GAMING, capabilities: caps, modes: normModes, grantedBy, grantedAt: new Date().toISOString() };
+    map[key] = { userId: key, trading: Boolean(trading) || caps.BINARY_REGULAR || caps.FOREX, gaming: Boolean(gaming) || caps.GAMING, capabilities: caps, modes: normModes, grantedBy, grantedAt: new Date().toISOString() };
     this._save(map);
-    try { this.eventBus?.publish?.("trading.entitlement.granted", { userId: id, trading: map[id].trading, gaming: map[id].gaming, capabilities: caps }); } catch {}
-    return map[id];
+    try { this.eventBus?.publish?.("trading.entitlement.granted", { userId: key, trading: map[key].trading, gaming: map[key].gaming, capabilities: caps }); } catch {}
+    return map[key];
   }
 
   revoke(userId, { revokedBy = "founder" } = {}) {
     const id = String(userId || "").trim();
     const map = this._all();
-    if (!map[id]) return null;
-    delete map[id];
+    const key = Object.keys(map).find((k) => k.toLowerCase() === id.toLowerCase()) || id;
+    if (!map[key]) return null;
+    delete map[key];
     this._save(map);
-    try { this.eventBus?.publish?.("trading.entitlement.revoked", { userId: id, revokedBy }); } catch {}
-    return { userId: id, revoked: true };
+    try { this.eventBus?.publish?.("trading.entitlement.revoked", { userId: key, revokedBy }); } catch {}
+    return { userId: key, revoked: true };
+  }
+
+  _resolveKey(userId) {
+    const raw = String(userId || "").trim();
+    if (!raw) return "";
+    const map = this._all();
+    if (map[raw]) return raw;
+    const lower = raw.toLowerCase();
+    for (const k of Object.keys(map)) {
+      if (k.toLowerCase() === lower) return k;
+    }
+    return raw;
   }
 
   get(userId) {
-    const rec = this._all()[String(userId || "")];
+    const key = this._resolveKey(userId);
+    const rec = key ? this._all()[key] : null;
     if (rec) {
       // backfill capabilities for legacy records
       if (!rec.capabilities) rec.capabilities = { BINARY_REGULAR: Boolean(rec.trading), BINARY_OTC: Boolean(rec.trading), FOREX: Boolean(rec.trading), GAMING: Boolean(rec.gaming) };

@@ -964,7 +964,7 @@ const heroShieldBg='url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/200
        h('td',null,B(p.status,p.status==='ACTIVE'?'good':p.status==='SUSPENDED'?'bad':'muted')),
        h('td',null,p.email||'—'),
        h('td',null,fmtDate(p.createdAt)),
-       h('td',null,p.accessExpiryAt?fmtDate(p.accessExpiryAt):'—'),
+        h('td',null,p.status==='INVITED'?(p.invitationExpiresAt?fmtDate(p.invitationExpiresAt)+(p.invitationRemainingMs!=null?' ('+Math.max(0,Math.ceil(p.invitationRemainingMs/86400000))+'d left)':''):'—'):(p.accessExpiryAt?fmtDate(p.accessExpiryAt):'—')),
        h('td',null,h('div',{className:'actions'},
         p.role!=='FOUNDER'&&h('button',{className:'btn sm',onClick:()=>doPromote(p.id,ROLES[Math.min(ROLES.indexOf(p.role)+1,ROLES.length-1)])},'↑ Promote'),
         p.role!=='VIEWER'&&h('button',{className:'btn sm',onClick:()=>doDemote(p.id,ROLES[Math.max(ROLES.indexOf(p.role)-1,0)])},'↓ Demote'),

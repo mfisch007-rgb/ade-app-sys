@@ -72,8 +72,8 @@ export function SecurityChallengeModal({ isOpen, onClose, onSuccess }) {
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-box glass-panel" onClick={e => e.stopPropagation()} style={{ maxWidth: '420px', textAlign: 'center' }}>
-        <h3 style={{ color: 'var(--accent-cyan)', marginTop: 0 }}>Level 3 Admin Verification</h3>
-        <p style={{ color: '#8892B0', fontSize: '0.9rem' }}>Enter 6-Digit Founder PIN to unlock restricted capabilities</p>
+        <h3 style={{ color: 'var(--accent-cyan)', marginTop: 0 }}>Administrator Verification (L2)</h3>
+        <p style={{ color: '#8892B0', fontSize: '0.9rem' }}>Enter the 6-digit Admin PIN. Founder PINs use the workforce step-up flow, not this dialog.</p>
 
         <form onSubmit={handleSubmit}>
           <div style={{ display: 'flex', justifyContent: 'center', gap: '10px', margin: '20px 0' }} onPaste={handlePaste}>

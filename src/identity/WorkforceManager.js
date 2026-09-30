@@ -54,6 +54,7 @@ function generateCode(length, alphabet) {
 }
 
 function redact(person) {
+  const inv = person.invitation || null;
   return {
     id: person.id,
     username: person.username,
@@ -61,7 +62,10 @@ function redact(person) {
     role: person.role,
     level: person.level,
     status: person.status,
-    invitationPending: Boolean(person.invitation),
+    invitationPending: Boolean(inv),
+    invitationCreatedAt: inv?.createdAt ?? null,
+    invitationExpiresAt: typeof inv?.expiresAt === "number" ? new Date(inv.expiresAt).toISOString() : (inv?.expiresAt ?? null),
+    invitationRemainingMs: typeof inv?.expiresAt === "number" ? Math.max(0, inv.expiresAt - Date.now()) : null,
     accessExpiryAt: person.accessExpiryAt ?? null,
     credentialVersion: person.credentialVersion,
     lastLoginAt: person.lastLoginAt ?? null,

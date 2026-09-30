@@ -2844,11 +2844,13 @@ app.post('/api/v1/inbox/:id/read', inboxAuth, requireDurableStorage, (req,res)=>
 app.post('/api/v1/trading/fbs/signal-handoff', security.requireAuth(), (req,res)=>{
   try{
     const uid = req.claims?.personId || req.claims?.sub || req.person?.id || req.person?.username;
+    const candidateIds = [req.claims?.personId, req.claims?.sub, req.person?.id, req.person?.username].filter(Boolean);
+    const entitled = (feat) => candidateIds.some((id) => { try { return tradingEntitlements.can(id, feat); } catch { return false; } });
     const tenant = req.person?.tenantId || req.claims?.tenantId || "default";
     const { signal, connectionId, confirmed } = req.body||{};
     if(!signal || !signal.instrument) return res.status(400).json({success:false, error:"SIGNAL_REQUIRED", message:"Provide signal {instrument, direction, state, confidence}"});
-    // entitlement
-    if(!tradingEntitlements.can(uid, "FOREX") && !tradingEntitlements.can(uid, "trading")) return res.status(403).json({success:false, error:"NOT_ENTITLED", message:"Founder has not granted Forex to this user."});
+    // entitlement (alias-aware: grant may be recorded under username while session presents personId, or vice versa)
+    if(!entitled("FOREX") && !entitled("trading")) return res.status(403).json({success:false, error:"NOT_ENTITLED", message:"Founder has not granted Forex to this user."});
     const modeRec = connectionId ? tradingConnectionModes.get(connectionId) : null;
     const venueElig = venueRegistry.liveEligibility("fbs");
     const activeMode = modeRec?.activeMode || "DEMO";
@@ -2879,9 +2881,11 @@ app.get('/api/v1/trading/deriv/status', security.requireAuth(), (req,res)=>{
 app.post('/api/v1/trading/broker-comparisons', security.requireAuth(), requireDurableStorage, (req,res)=>{
   try{
     const uid = req.claims?.personId || req.claims?.sub || req.person?.id || req.person?.username;
+    const candidateIds = [req.claims?.personId, req.claims?.sub, req.person?.id, req.person?.username].filter(Boolean);
+    const entitled = (feat) => candidateIds.some((id) => { try { return tradingEntitlements.can(id, feat); } catch { return false; } });
     const tenant = req.person?.tenantId || req.claims?.tenantId || "default";
     // entitlement: any trading capability
-    if(!tradingEntitlements.can(uid,"BINARY_REGULAR") && !tradingEntitlements.can(uid,"BINARY_OTC") && !tradingEntitlements.can(uid,"trading"))
+    if(!entitled("BINARY_REGULAR") && !entitled("BINARY_OTC") && !entitled("trading"))
       return res.status(403).json({success:false, error:"NOT_ENTITLED", message:"Binary capability not granted."});
     const { platform, asset, marketType, direction, expiry, entryWindow, confidence, quality, signalTimestamp, signalEvidence, fingerprint } = req.body||{};
     const rec=brokerComparisonStore.create({ tenantId, userId: uid, platform, asset, marketType, direction, expiry, entryWindow, confidence, quality, signalTimestamp, signalEvidence, fingerprint });
