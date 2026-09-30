@@ -6,7 +6,7 @@
 <meta name="description" content="ADE Founder Command Center — comprehensive dashboard for ADE Founder/Admin operations.">
 <link rel="icon" type="image/png" href="/ADE-LOGO.png">
 <link rel="apple-touch-icon" href="/ADE-LOGO.png">
-<title>ADE FOUNDER COMMAND CENTER</title>
+<title>ADE ADVANCED FOUNDER CONTROLS</title>
 <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
 <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
 <style>
@@ -666,7 +666,7 @@ const heroShieldBg='url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/200
   if(authPhase==='checking'||(token&&!serverAuth&&authPhase!=='failed'))return h('div',{className:'app',style:{minHeight:'100vh',display:'grid',placeItems:'center'}},
    h('div',{className:'authBox',style:{textAlign:'center'}},
     h('div',{className:'eyebrow'},'AUTOMATED ALPHA ALIPH DIGITAL ECOSYSTEMS'),
-    h('h2',{style:{margin:'14px 0 6px'}},'ADE FOUNDER COMMAND CENTER'),
+    h('h2',{style:{margin:'14px 0 6px'}},'ADE ADVANCED FOUNDER CONTROLS'),
     h('div',{className:'authLoading',style:{justifyContent:'center'}},h('span',{className:'spinner'}),'Verifying Founder workforce identity…'),
     h('p',{className:'formHint',style:{textAlign:'center'}},'Checking the stored session against the server. Nothing is shown until the server answers.')
    )
@@ -674,7 +674,7 @@ const heroShieldBg='url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/200
   if(authPhase==='failed')return h('div',{className:'app',style:{minHeight:'100vh',display:'grid',placeItems:'center'}},
    h('div',{className:'authBox',style:{textAlign:'center'}},
     h('div',{className:'eyebrow'},'AUTOMATED ALPHA ALIPH DIGITAL ECOSYSTEMS'),
-    h('h2',{style:{margin:'14px 0 6px'}},'ADE FOUNDER COMMAND CENTER'),
+    h('h2',{style:{margin:'14px 0 6px'}},'ADE ADVANCED FOUNDER CONTROLS'),
     h('div',{className:'authStatus err'},'Service unreachable — the server did not answer. Your sign-in is preserved on this device.'),
     h('div',{className:'authActions',style:{marginTop:12}},h('button',{className:'btn primary',style:{width:'100%'},onClick:()=>{setAuthPhase('checking');setValidateSeq(s=>s+1)}},'RETRY VERIFICATION')),
     h('div',{className:'authActions',style:{marginTop:8}},h('button',{className:'btn',style:{width:'100%'},onClick:clearSession},'SIGN IN WITH A DIFFERENT IDENTITY')),
@@ -711,7 +711,7 @@ const heroShieldBg='url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/200
   if(token&&serverAuth&&srvNoRecord)return h('div',{className:'app',style:{minHeight:'100vh',display:'grid',placeItems:'center'}},
    h('div',{className:'authBox',style:{textAlign:'center'}},
     h('div',{className:'eyebrow'},'AUTOMATED ALPHA ALIPH DIGITAL ECOSYSTEMS'),
-    h('h2',{style:{margin:'14px 0 6px'}},'ADE FOUNDER COMMAND CENTER'),
+    h('h2',{style:{margin:'14px 0 6px'}},'ADE ADVANCED FOUNDER CONTROLS'),
     h('div',{className:'authStatus err'},'✕ Founder workforce identity not provisioned — the server confirms this session has no workforce record.'),
     h('p',{className:'formHint',style:{textAlign:'center'}},'If this is a first-run system, provision the Founder from the Admin console. Otherwise contact an administrator.'),
     h('div',{className:'authActions',style:{marginTop:12}},h('button',{className:'btn',style:{width:'100%'},onClick:clearSession},'BACK TO SIGN-IN'))
@@ -720,7 +720,7 @@ const heroShieldBg='url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/200
   if(!token)return h('div',{className:'app',style:{minHeight:'100vh',display:'grid',placeItems:'center'}},
    h('div',{className:'authBox',style:{textAlign:'center'}},
     h('div',{className:'eyebrow'},'AUTOMATED ALPHA ALIPH DIGITAL ECOSYSTEMS'),
-    h('h2',{style:{margin:'14px 0 6px'}},'ADE FOUNDER COMMAND CENTER'),
+    h('h2',{style:{margin:'14px 0 6px'}},'ADE ADVANCED FOUNDER CONTROLS'),
     adminPinMode
     ?h('div',null,
       h('p',null,'Administrator recovery PIN — for bootstrap/recovery only. This creates an ADMINISTRATOR session, not a Founder session.'),
@@ -1405,7 +1405,7 @@ const heroShieldBg='url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/200
    h('div',{className:'topInner'},
      h('div',{className:'brand',onClick:()=>{try{window.location.href='/'}catch{}},title:'ADE home',style:{cursor:'pointer'}},
       h('img',{src:'/ADE-LOGO.png',alt:'ADE',style:{width:38,height:38,objectFit:'contain'}}),
-      h('div',{className:'brandName'},h('strong',null,'FOUNDER COMMAND CENTER'),h('span',null,'AUTOMATED ALPHA ALIPH DIGITAL ECOSYSTEMS'))
+      h('div',{className:'brandName'},h('strong',null,'ADVANCED FOUNDER CONTROLS'),h('span',null,'AUTOMATED ALPHA ALIPH DIGITAL ECOSYSTEMS'))
      ),
      h('nav',{className:'topNav'},visibleTabs.map(t=>h('button',{key:t,className:tab===t?'active':'',onClick:()=>{setTab(t);setMenuOpen(false)},title:visibleTabs.length!==TABS.length?('Filtered for '+(_accessRole||'role')):''},t))),
     h('div',{className:'topRight'},
@@ -1422,7 +1422,7 @@ const heroShieldBg='url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/200
     h('div',{className:'heroCard',style:{padding:'18px 20px',marginBottom:'18px',display:'flex',alignItems:'center',gap:'16px',flexWrap:'wrap'}},
      h('div',{style:{flex:'1 1 260px',position:'relative',zIndex:1,minWidth:'200px'}},
       h('div',{className:'eyebrow',style:{color:'var(--gold)',fontSize:'10px',letterSpacing:'.22em'}},'AUTOMATED ALPHA ALIPH DIGITAL ECOSYSTEMS'),
-      h('h2',{style:{margin:'6px 0 4px',fontSize:'18px',letterSpacing:'-.01em',color:'var(--gold)'}},'ADE FOUNDER COMMAND CENTER'),
+      h('h2',{style:{margin:'6px 0 4px',fontSize:'18px',letterSpacing:'-.01em',color:'var(--gold)'}},'ADE ADVANCED FOUNDER CONTROLS'),
       h('p',{style:{margin:0,color:'var(--muted)',fontSize:'12.5px',lineHeight:1.5}},'Building African Digital Business Operational Systems — shield-grade operations, procurement and intelligence.'),
        h('div',{style:{marginTop:'10px',display:'flex',gap:'8px',flexWrap:'wrap'}},h('span',{className:'badge gold'},'SHIELD SECURED'),h('span',{className:'badge blue'},isFounder?(srvElevated?'FOUNDER AUTHORITY · ELEVATED':'FOUNDER AUTHORITY · BASE SESSION'):isLegacyAdmin?'BOOTSTRAP ADMINISTRATOR':(_accessRole||'—')+' SESSION'))
      ),
@@ -1434,7 +1434,7 @@ const heroShieldBg='url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/200
     h('div',{'data-testid':'founder-nav',style:{display:'flex',alignItems:'center',gap:'8px',flexWrap:'wrap',marginBottom:'14px'}},
      h('button',{className:'btn sm',title:'Back to the previous screen',onClick:()=>{try{if(window.history.length>1)window.history.back();else setTab('OVERVIEW')}catch{setTab('OVERVIEW')}}},'← Back'),
      h('button',{className:'btn sm',title:'Founder workspace home',onClick:()=>setTab('OVERVIEW')},'Home'),
-     h('span',{className:'muted',style:{fontSize:11}},'ADE · Founder Console · '+(tab||'OVERVIEW'))
+     h('span',{className:'muted',style:{fontSize:11}},'ADE · Advanced Founder Controls · '+(tab||'OVERVIEW'))
     ),
     (tabContent[tab]||TAB_OVERVIEW)()
    ),
@@ -1442,7 +1442,7 @@ const heroShieldBg='url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/200
     h('div',{style:{fontSize:10,color:'var(--faint)',letterSpacing:0.12,fontWeight:700}},'AUTOMATED ALPHA ALIPH DIGITAL ECOSYSTEMS'),
     h('div',{style:{fontSize:10,color:'var(--faint)',marginTop:4}},h('a',{href:'mailto:Automated_alpha_aliph@yahoo.com',style:{color:'var(--muted)'}},'Automated_alpha_aliph@yahoo.com')),
     h('div',{style:{fontSize:10,color:'var(--faint)',marginTop:3}},'WhatsApp + Calls: ',h('a',{href:'tel:+2347038272792',style:{color:'var(--muted)'}},'+234 (0) 7038272792'),' · Calls Only: ',h('a',{href:'tel:+2347058769114',style:{color:'var(--muted)'}},'+234 (0) 7058769114')),
-    h('div',{style:{fontSize:9,color:'var(--faint)',marginTop:4,letterSpacing:0.08}},'© '+new Date().getFullYear()+' ADE FOUNDER COMMAND CENTER · ALL RIGHTS RESERVED')
+    h('div',{style:{fontSize:9,color:'var(--faint)',marginTop:4,letterSpacing:0.08}},'© '+new Date().getFullYear()+' ADE ADVANCED FOUNDER CONTROLS · ALL RIGHTS RESERVED')
    ),
   toast&&h('div',{className:'toast'+(toast.indexOf('✓')===0?' ok':toast.indexOf('✕')===0?' err':'')},toast)
  );

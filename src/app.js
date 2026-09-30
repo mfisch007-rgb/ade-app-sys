@@ -66,6 +66,8 @@ import { PilotGate } from "./community/PilotGate.js";
 import { PilotRegistry } from "./community/PilotRegistry.js";
 import { ProductRegistry } from "./products/ProductRegistry.js";
 import { ProductSurfaceMatrix } from "./products/ProductSurfaceMatrix.js";
+import { OperationalGraph } from "./operations/OperationalGraph.js";
+import { ICX_ROLES, ICX_CHANNELS, ICX_MESSAGE_TYPES } from "./kernel/ADE_ICX_Engine.js";
 import { ProductNotificationEngine } from "./notification/ProductNotificationEngine.js";
 import { ResendEmailConnector } from "./notification/ResendEmailConnector.js";
 import { ProcartaExecutionEngine } from "./procarta/ProcartaExecutionEngine.js";
@@ -347,6 +349,17 @@ const connectBoard = new ConnectPlatformsBoard({
   connectionManager, providerGate, whatsappNumbers, externalConnectors,
   paymentService, channels, editionPolicy
 });
+// Universal operational graph spine — adapter/index over the authorities
+// above. No new registry/bus/gate/engine; resolves modules, products,
+// capabilities, routes, RBAC and live state for every role and future product.
+let operationalGraph = null;
+const initOperationalGraph=()=>{ if(operationalGraph) return operationalGraph; operationalGraph = new OperationalGraph({
+  capabilityActivation,
+  capabilityRegistry: CapabilityRegistry,
+  connectBoard, channels, providerGate, whatsappNumbers, editionPolicy,
+  caseManager, workforceManager: workforce, notificationEngine,
+  icxEngine: (() => { try { return kernel?.resolve?.("icx") || null; } catch { return null; } })()
+}); return operationalGraph; };
 // Financial integrity layer — additive domain capabilities over the existing
 // kernel (EventBus, DecisionEngine, ConfidenceModel, intake/cases, audit,
 // telemetry, tenant model). No second bus/engine/gate/registry.
@@ -3395,6 +3408,84 @@ app.get('/api/v1/products', (req, res) => {
     res.json({ success: true, products: productRegistry.listProducts(), variants: productRegistry.getCampaignVariants() });
   } catch (error) {
     res.status(500).json({ success: false, error: "PRODUCTS_FAILED", message: error.message });
+  }
+});
+
+// === UNIVERSAL OPERATIONAL GRAPH ============================================
+// One navigable capability/route/product/RBAC/state spine for every module,
+// product, role and future product. Public with optional identity: a Bearer
+// token (when present and valid) annotates per-node access for that identity;
+// without one the public surface is returned. Never 401s — it is discovery.
+app.get('/api/v1/ops/graph', async (req, res) => {
+  try {
+    const ctx = { role: "PUBLIC", level: 0, elevated: false, authenticated: false, tenant: String(req.query.tenant || "default").slice(0, 80) };
+    try {
+      const header = String(req.get("authorization") || "");
+      const token = header.startsWith("Bearer ") ? header.slice(7) : null;
+      if (token && security?.identity?.verifySession) {
+        const claims = security.identity.verifySession(token);
+        const persona = String(claims.persona || "").toUpperCase();
+        if (persona === "ADMIN" && Number(claims.level) >= 2) {
+          ctx.role = "ADMIN"; ctx.level = Number(claims.level) || 2; ctx.elevated = true; ctx.authenticated = true;
+        } else if (persona === "WORKFORCE") {
+          ctx.authenticated = true;
+          ctx.level = Number(claims.level) || 1;
+          ctx.elevated = claims?.metadata?.pinVerified === true || claims?.pinVerified === true;
+          let role = String(claims?.metadata?.role || "").toUpperCase();
+          if (!role) {
+            try {
+              const person = await workforce.getPersonRecord(claims.personId || claims.sub);
+              role = String(person?.role || "").toUpperCase();
+            } catch {
+              try {
+                const byName = await workforce.getPersonByUsername(claims.sub);
+                role = String(byName?.role || "").toUpperCase();
+              } catch {}
+            }
+          }
+          ctx.role = role || "WORKER";
+        }
+      }
+    } catch {}
+    const matrix = new ProductSurfaceMatrix({
+      productRegistry, capabilityActivation, connectionFabric, editionPolicy,
+      capabilityRegistry: CapabilityRegistry, storageProvider,
+      builtinCatalog: BUILTIN_ECOSYSTEM_CAPABILITIES
+    });
+    initOperationalGraph().deps.productSurfaceMatrix = matrix;
+    res.json(initOperationalGraph().graph(ctx));
+  } catch (error) {
+    res.status(500).json({ success: false, error: "OPERATIONAL_GRAPH_FAILED", message: error.message });
+  }
+});
+
+// ICX truth surface — what the Internal Communication eXperience engine is,
+// what it can do, and where it sits (kernel-internal; Workforce → AI Workers
+// is the canonical human surface; AgentRegistry is the execution binding).
+// L2-gated; counts only, never message content or staff secrets.
+app.get('/api/v1/icx/status', security.requireLevel(2), async (req, res) => {
+  try {
+    let engine = null;
+    try { engine = kernel?.resolve?.("icx") || initOperationalGraph().deps.icxEngine || null; } catch {}
+    const snapshot = (() => { try { return engine?.getSnapshot?.() || null; } catch { return null; } })();
+    const agents = await workforce.listAgents().catch(() => []);
+    res.json({
+      success: true,
+      icx: {
+        implemented: Boolean(engine),
+        meaning: "Internal Communication eXperience — org staff directory, presence, policy-gated messaging and escalation. Not a general AI executor.",
+        engine: "ADE_ICX_Engine (canonical kernel subsystem)",
+        roles: [...ICX_ROLES], channels: [...ICX_CHANNELS], messageTypes: [...ICX_MESSAGE_TYPES],
+        httpExecutionSurface: false,
+        canonicalSurface: "Workforce → AI Workers (this panel) for inspection; execution binds only through AgentRegistry → CapabilityRegistry.",
+        snapshot: snapshot ? { staff: snapshot.staff?.length ?? 0, messages: snapshot.messages?.length ?? 0, escalations: snapshot.escalations?.length ?? 0 } : null,
+        agentIdentities: Array.isArray(agents) ? agents.length : 0,
+        entitlement: "Community: inspection allowed for elevated Founder/Admin/Operator; execution requires capability binding + L1 run grant + daily limits.",
+        requiredAuthority: "L2 + elevated session for inspection; per-capability grant for execution."
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, error: "ICX_STATUS_FAILED", message: error.message });
   }
 });
 

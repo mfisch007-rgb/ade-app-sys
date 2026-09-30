@@ -132,7 +132,7 @@ test("APEX-7 — Founder console exposes HOME, BACK and breadcrumb context", () 
   const founder = readPublic("founder.html");
   assert.ok(founder.includes("data-testid") && founder.includes("founder-nav"), "founder nav strip present");
   assert.ok(founder.includes("← Back"), "BACK control present");
-  assert.ok(founder.includes("ADE · Founder Console ·"), "breadcrumb context present");
+  assert.ok(founder.includes("ADE · Advanced Founder Controls ·"), "breadcrumb context present");
   const index = readPublic("index.html");
   assert.ok(index.includes("← Back") && index.includes("go('Home')"),
     "workspace keeps history-aware BACK plus HOME");
