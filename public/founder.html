@@ -687,8 +687,8 @@ const heroShieldBg='url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/200
     h('div',{className:'eyebrow'},'AUTOMATED ALPHA ALIPH DIGITAL ECOSYSTEMS'),
     h('h2',{style:{margin:'14px 0 6px'}},(isFounder?'FOUNDER STEP-UP':'AUTHORIZATION STEP-UP')),
     h('p',null,'Identity verified as @'+((serverAuth.person&&serverAuth.person.username)||'—')+' ('+(_accessRole||'—')+'). Enter the six-digit authorization PIN belonging to this identity.'),
-    h('form',{onSubmit:e=>{e.preventDefault();if(loginBusy)return;const pin=e.target.elements[0].value;if(pin)founderPin(pin)}},
-     h('div',{className:'passWrap'},h('input',{className:'authInput',name:'pin',type:showPw.loginPin?'text':'password',inputMode:'numeric',autoComplete:'off',placeholder:'••••••',maxLength:6,disabled:loginBusy}),h('button',{className:'showToggle',type:'button',onClick:()=>setShowPw(s=>({...s,loginPin:!s.loginPin}))},showPw.loginPin?'HIDE':'SHOW')),
+    h('form',{name:'founderStepUp',autoComplete:'off',onSubmit:e=>{e.preventDefault();if(loginBusy)return;const pin=e.target.elements['founder-stepup-pin'].value;if(pin)founderPin(pin);try{e.target.reset()}catch{}}},
+     h('div',{className:'passWrap'},h('input',{className:'authInput',id:'founder-stepup-pin',name:'founder-stepup-pin',type:showPw.stepPin?'text':'password',inputMode:'numeric',autoComplete:'one-time-code',placeholder:'••••••',maxLength:6,disabled:loginBusy}),h('button',{className:'showToggle',type:'button',onClick:()=>setShowPw(s=>({...s,stepPin:!s.stepPin}))},showPw.stepPin?'HIDE':'SHOW')),
      h('div',{className:'authActions'},h('button',{className:'btn primary',type:'submit',style:{width:'100%'},disabled:loginBusy},loginBusy?'VERIFYING…':'VERIFY PIN & ELEVATE')),
      loginBusy&&h('div',{className:'authLoading'},h('span',{className:'spinner'}),'Verifying PIN against your workforce record…'),
      loginMsg&&h('div',{className:'authStatus '+(loginMsg.type==='ok'?'ok':'err')},loginMsg.text)
@@ -698,8 +698,8 @@ const heroShieldBg='url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/200
      showSetPin&&h('div',{style:{marginTop:10,textAlign:'left'}},
       h('p',{className:'formHint'},'Your PIN lives only on your workforce record. Enter your current workforce password once, choose a new six-digit PIN, and it takes effect immediately — no administrator involved.'),
       h('label',{className:'fieldLabel'},'CURRENT WORKFORCE PASSWORD'),h('input',{className:'authInput',style:{letterSpacing:'normal',textAlign:'left',fontSize:15},type:showPw.setPw?'text':'password',value:setPw,onChange:e=>setSetPw(e.target.value),autoComplete:'current-password',disabled:setPinBusy}),
-      h('label',{className:'fieldLabel',style:{marginTop:8}},'NEW SIX-DIGIT PIN'),h('input',{className:'authInput',type:showPw.setPin?'text':'password',inputMode:'numeric',value:setPin1,onChange:e=>setSetPin1(e.target.value),autoComplete:'off',placeholder:'••••••',maxLength:6,disabled:setPinBusy}),
-      h('label',{className:'fieldLabel',style:{marginTop:8}},'CONFIRM NEW PIN'),h('input',{className:'authInput',type:showPw.setPin?'text':'password',inputMode:'numeric',value:setPin2,onChange:e=>setSetPin2(e.target.value),autoComplete:'off',placeholder:'••••••',maxLength:6,disabled:setPinBusy}),
+      h('label',{className:'fieldLabel',style:{marginTop:8}},'NEW SIX-DIGIT PIN'),h('input',{className:'authInput',id:'founder-new-pin',name:'founder-new-pin',type:showPw.setPin?'text':'password',inputMode:'numeric',value:setPin1,onChange:e=>setSetPin1(e.target.value),autoComplete:'new-password',placeholder:'••••••',maxLength:6,disabled:setPinBusy}),
+      h('label',{className:'fieldLabel',style:{marginTop:8}},'CONFIRM NEW PIN'),h('input',{className:'authInput',id:'founder-new-pin-confirm',name:'founder-new-pin-confirm',type:showPw.setPin?'text':'password',inputMode:'numeric',value:setPin2,onChange:e=>setSetPin2(e.target.value),autoComplete:'new-password',placeholder:'••••••',maxLength:6,disabled:setPinBusy}),
       h('div',{className:'authActions',style:{marginTop:10}},h('button',{className:'btn primary',style:{width:'100%'},disabled:setPinBusy,onClick:selfSetPin},setPinBusy?'SAVING…':'SET MY PIN')),
       setPinMsg&&h('div',{className:'authStatus '+(setPinMsg.type==='ok'?'ok':'err')},setPinMsg.text)
      )
@@ -724,8 +724,8 @@ const heroShieldBg='url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/200
     adminPinMode
     ?h('div',null,
       h('p',null,'Administrator recovery PIN — for bootstrap/recovery only. This creates an ADMINISTRATOR session, not a Founder session.'),
-      h('form',{onSubmit:e=>{e.preventDefault();if(loginBusy)return;const pin=e.target.elements[0].value;if(pin)adminPinLogin(pin)}},
-       h('div',{className:'passWrap'},h('input',{className:'authInput',name:'pin',type:showPw.loginPin?'text':'password',inputMode:'numeric',autoComplete:'off',placeholder:'••••••',maxLength:12,disabled:loginBusy}),h('button',{className:'showToggle',type:'button',onClick:()=>setShowPw(s=>({...s,loginPin:!s.loginPin}))},showPw.loginPin?'HIDE':'SHOW')),
+      h('form',{name:'adminRecovery',autoComplete:'off',onSubmit:e=>{e.preventDefault();if(loginBusy)return;const pin=e.target.elements['admin-recovery-pin'].value;if(pin)adminPinLogin(pin);try{e.target.reset()}catch{}}},
+       h('div',{className:'passWrap'},h('input',{className:'authInput',id:'admin-recovery-pin',name:'admin-recovery-pin',type:showPw.adminPin?'text':'password',inputMode:'numeric',autoComplete:'one-time-code',placeholder:'••••••',maxLength:12,disabled:loginBusy}),h('button',{className:'showToggle',type:'button',onClick:()=>setShowPw(s=>({...s,adminPin:!s.adminPin}))},showPw.adminPin?'HIDE':'SHOW')),
        h('div',{className:'authActions'},h('button',{className:'btn primary',type:'submit',style:{width:'100%'},disabled:loginBusy},loginBusy?'AUTHENTICATING…':'AUTHENTICATE AS ADMINISTRATOR')),
        loginBusy&&h('div',{className:'authLoading'},h('span',{className:'spinner'}),'Authenticating against the ADE security boundary…'),
        loginMsg&&h('div',{className:'authStatus '+(loginMsg.type==='ok'?'ok':'err')},loginMsg.text)
@@ -1430,6 +1430,11 @@ const heroShieldBg='url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/200
       h('div',{className:'heroOrb',role:'img','aria-label':'ADE shield orb'}),
       h('svg',{viewBox:'0 0 24 24',width:36,height:36,style:{position:'absolute',left:'50%',top:'50%',transform:'translate(-50%,-50%)',filter:'drop-shadow(0 2px 8px rgba(0,0,0,.4))'},fill:'none',stroke:'var(--gold)',strokeWidth:'1.6',strokeLinejoin:'round','aria-hidden':'true'},h('path',{d:'M12 2.8 L18.6 6.2 V11.6 C18.6 15.3 16.4 18.9 12 20.8 C7.6 18.9 5.4 15.3 5.4 11.6 V6.2 Z'}),h('path',{d:'M8.8 12.1 L11 14.3 L15.6 9.4',strokeLinecap:'round',strokeLinejoin:'round'}))
      )
+    ),
+    h('div',{'data-testid':'founder-nav',style:{display:'flex',alignItems:'center',gap:'8px',flexWrap:'wrap',marginBottom:'14px'}},
+     h('button',{className:'btn sm',title:'Back to the previous screen',onClick:()=>{try{if(window.history.length>1)window.history.back();else setTab('OVERVIEW')}catch{setTab('OVERVIEW')}}},'← Back'),
+     h('button',{className:'btn sm',title:'Founder workspace home',onClick:()=>setTab('OVERVIEW')},'Home'),
+     h('span',{className:'muted',style:{fontSize:11}},'ADE · Founder Console · '+(tab||'OVERVIEW'))
     ),
     (tabContent[tab]||TAB_OVERVIEW)()
    ),

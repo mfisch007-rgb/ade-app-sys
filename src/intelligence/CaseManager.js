@@ -159,6 +159,26 @@ export class CaseManager {
     return this.cases.size;
   }
 
+  // Canonical cross-instance refresh. Re-pulls the authoritative case
+  // collection (durable store where configured) before reads/mutations so
+  // every serverless instance serves the same case truth. Never throws —
+  // callers fall back to the in-memory snapshot.
+  async refresh() {
+    try {
+      const loaded =
+        this.store && typeof this.store.readSectionAsync === "function"
+          ? await this.store.readSectionAsync("cases")
+          : this.store?.readSection?.("cases");
+      if (Array.isArray(loaded)) {
+        this.cases.clear();
+        for (const c of loaded) {
+          if (c?.id) this.cases.set(c.id, c);
+        }
+      }
+    } catch (_) {}
+    return this.cases.size;
+  }
+
   persist() {
     try {
       if (typeof this.store?.writeSection === "function") {

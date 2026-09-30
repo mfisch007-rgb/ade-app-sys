@@ -52,6 +52,25 @@ export class RuntimeConfigStore {
     return data[section];
   }
 
+  // Cross-instance-fresh section read. Refreshes the underlying provider
+  // cache where supported (durable mode), then reads. Never throws —
+  // callers fall back to the last-known snapshot instead of failing.
+  async readSectionAsync(section) {
+    try {
+      const storage = this.storage;
+      if (storage && typeof storage.refresh === "function") {
+        await storage.refresh();
+      } else if (storage && typeof storage.read === "function") {
+        await storage.read();
+      }
+    } catch (_) {}
+    try {
+      return this.readSection(section);
+    } catch (_) {
+      return undefined;
+    }
+  }
+
   /**
    * Write an entire top-level section value verbatim while preserving
    * every other section. This is the durable collection-write primitive.

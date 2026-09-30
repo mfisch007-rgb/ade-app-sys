@@ -420,7 +420,7 @@ const oracleFabric = new OracleFabric({
   healthSnapshot: () => ({ kernel: kernel?.status || "UNKNOWN", uptimeSeconds: Math.floor(process.uptime()) }),
   eventBus: kernel?.eventBus
 });
-const notificationEngine = new ProductNotificationEngine({ eventBus: kernel?.eventBus });
+const notificationEngine = new ProductNotificationEngine({ eventBus: kernel?.eventBus, store: runtimeConfig });
 // Canonical server-side transactional email path (Resend via existing
 // notification architecture). Single instance; server routes only; the key
 // is never exposed to client bundles or logs.
@@ -1274,15 +1274,16 @@ app.get('/api/v1/connectivity/market', (req, res) => {
     res.status(500).json({ success: false, error: 'CONNECTIVITY_MARKET_FAILED', message: e.message });
   }
 });
-app.get('/api/v1/attention', security.requireLevel(2), (req,res)=>{
+app.get('/api/v1/attention', security.requireLevel(2), async(req,res)=>{
   try{
+    await refreshCases();
     const intakes = communityProgression.listIntakes().slice(-50).reverse();
     const candidates = pilotGate.listCandidates();
     const pilots = pilotRegistry.list().slice(-50).reverse();
     const parts = partners.list().slice(-50).reverse();
     const conns = connectionManager.list().slice(-50).reverse();
     const cases = visibleCases(false).cases.slice(-20);
-    const notifs = (()=>{ try{ return notificationEngine.getRecentEvents(50); }catch{ return []; }})();
+    const notifs = await notificationEngine.getRecentEventsAsync(50).catch(() => { try { return notificationEngine.getRecentEvents(50); } catch { return []; } });
     const stats = {
       intakes: intakes.length,
       candidates: candidates.length,
@@ -1308,15 +1309,19 @@ function visibleCases(includeDemo){
   const human = all.filter((c) => c?.source !== DEMO_CASE_SOURCE);
   return { cases: human, demoExcluded: all.length - human.length };
 }
-app.get('/api/v1/cases', security.requireAuth(),(req,res)=>{ const { cases, demoExcluded } = visibleCases(req.query.includeDemo); res.json({success:true,count:cases.length,cases,demoExcluded}); });
-app.post('/api/v1/cases/:id/process', security.requireAuth(),requireDurableStorage,async(req,res)=>{try{const result=await engagementOrchestrator.process(req.params.id,req.body||{});res.json({success:true,case:result});}catch(e){res.status(e.message==='CASE_NOT_FOUND'?404:400).json({success:false,error:e.message});}});
-app.post('/api/v1/cases/:id/execute', security.requireAuth(),requireDurableStorage,async(req,res)=>{try{const result=await engagementOrchestrator.executeCase(req.params.id);res.json({success:true,case:result});}catch(e){res.status(e.message==='CASE_NOT_FOUND'?404:400).json({success:false,error:e.message});}});
-app.post('/api/v1/cases/:id/feedback', security.requireAuth(),requireDurableStorage,async(req,res)=>{try{const result=await engagementOrchestrator.ingestFeedback(req.params.id,req.body||{});res.json({success:true,case:result});}catch(e){res.status(e.message==='CASE_NOT_FOUND'?404:400).json({success:false,error:e.message});}});
-app.get('/api/v1/cases/:id/transitions', security.requireAuth(),(req,res)=>{const c=caseManager.get(req.params.id);if(!c)return res.status(404).json({success:false,error:'CASE_NOT_FOUND'});res.json({success:true,status:c.status,allowedTransitions:caseManager.getAllowedTransitions(req.params.id)});});
-app.get('/api/v1/cases/:id', security.requireAuth(),(req,res)=>{const c=caseManager.get(req.params.id); if(!c)return res.status(404).json({success:false,error:'CASE_NOT_FOUND'}); res.json({success:true,case:c});});
-app.patch('/api/v1/cases/:id', security.requireAuth(),requireDurableStorage,(req,res)=>{const c=caseManager.update(req.params.id,req.body||{}); if(!c)return res.status(404).json({success:false,error:'CASE_NOT_FOUND'}); res.json({success:true,case:c});});
+// Canonical-read helper: refresh the case collection from the authoritative
+// store before serving, so every instance (serverless included) converges on
+// the same case truth. Never throws — falls back to the in-memory snapshot.
+const refreshCases = async () => { try { await caseManager.refresh(); } catch (_) {} };
+app.get('/api/v1/cases', security.requireAuth(),async(req,res)=>{ await refreshCases(); const { cases, demoExcluded } = visibleCases(req.query.includeDemo); res.json({success:true,count:cases.length,cases,demoExcluded}); });
+app.post('/api/v1/cases/:id/process', security.requireAuth(),requireDurableStorage,async(req,res)=>{try{await refreshCases();const result=await engagementOrchestrator.process(req.params.id,req.body||{});res.json({success:true,case:result});}catch(e){res.status(e.message==='CASE_NOT_FOUND'?404:400).json({success:false,error:e.message});}});
+app.post('/api/v1/cases/:id/execute', security.requireAuth(),requireDurableStorage,async(req,res)=>{try{await refreshCases();const result=await engagementOrchestrator.executeCase(req.params.id);res.json({success:true,case:result});}catch(e){res.status(e.message==='CASE_NOT_FOUND'?404:400).json({success:false,error:e.message});}});
+app.post('/api/v1/cases/:id/feedback', security.requireAuth(),requireDurableStorage,async(req,res)=>{try{await refreshCases();const result=await engagementOrchestrator.ingestFeedback(req.params.id,req.body||{});res.json({success:true,case:result});}catch(e){res.status(e.message==='CASE_NOT_FOUND'?404:400).json({success:false,error:e.message});}});
+app.get('/api/v1/cases/:id/transitions', security.requireAuth(),async(req,res)=>{await refreshCases();const c=caseManager.get(req.params.id);if(!c)return res.status(404).json({success:false,error:'CASE_NOT_FOUND'});res.json({success:true,status:c.status,allowedTransitions:caseManager.getAllowedTransitions(req.params.id)});});
+app.get('/api/v1/cases/:id', security.requireAuth(),async(req,res)=>{await refreshCases();const c=caseManager.get(req.params.id); if(!c)return res.status(404).json({success:false,error:'CASE_NOT_FOUND'}); res.json({success:true,case:c});});
+app.patch('/api/v1/cases/:id', security.requireAuth(),requireDurableStorage,async(req,res)=>{await refreshCases();const c=caseManager.update(req.params.id,req.body||{}); if(!c)return res.status(404).json({success:false,error:'CASE_NOT_FOUND'}); res.json({success:true,case:c});});
 
-app.get('/api/v1/admin/overview', security.requireLevel(2),(req,res)=>{ const { cases, demoExcluded } = visibleCases(req.query.includeDemo); res.json({success:true,channels:channels.list(),connections:connectionManager.list(),partners:partners.list(),cases,demoCasesExcluded:demoExcluded,settings:runtimeConfig.read()}); });
+app.get('/api/v1/admin/overview', security.requireLevel(2),async(req,res)=>{ await refreshCases(); const { cases, demoExcluded } = visibleCases(req.query.includeDemo); res.json({success:true,channels:channels.list(),connections:connectionManager.list(),partners:partners.list(),cases,demoCasesExcluded:demoExcluded,settings:runtimeConfig.read()}); });
 
 // === PROVIDER / CAPABILITY GOVERNANCE (Batch 10/11, L2) =====================
 // Human-gate controls for provider seams + capability/decision visibility.
@@ -3484,10 +3489,10 @@ app.get('/api/v1/partners', security.requireAuth(), (req, res) => {
 
 // === NOTIFICATION FOUNDATION ================================================
 
-app.get('/api/v1/notifications/recent', (req, res) => {
+app.get('/api/v1/notifications/recent', async (req, res) => {
   try {
     const limit = Math.min(100, Math.max(1, Number(req.query.limit || 50)));
-    res.json({ success: true, events: notificationEngine.getRecentEvents(limit) });
+    res.json({ success: true, events: await notificationEngine.getRecentEventsAsync(limit) });
   } catch (error) {
     res.status(500).json({ success: false, error: "NOTIFICATIONS_FAILED", message: error.message });
   }

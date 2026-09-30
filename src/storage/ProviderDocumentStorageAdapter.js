@@ -69,6 +69,19 @@ export class ProviderDocumentStorageAdapter extends DocumentStorageProvider {
     return this._hydratePromise;
   }
 
+  // Re-pull the authoritative remote document into the local cache.
+  // The sync read contract intentionally serves cache (serverless-safe);
+  // callers that need cross-instance freshness (case lists, notification
+  // feeds) await this first. Never throws — callers fall back to cache.
+  async refresh() {
+    try {
+      const stored = await this.provider.get(this.key);
+      this._cache = clone(stored, this.defaultValue);
+      this._hydrated = true;
+    } catch {}
+    return this._cache;
+  }
+
   #persist(value) {
     this._writeQueue = this._writeQueue
       .then(async () => {

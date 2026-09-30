@@ -14,9 +14,14 @@ export class UnifiedIntakeEngine {
     if (!CHANNELS.includes(normalizedChannel)) throw new Error(`Unsupported intake channel: ${normalizedChannel}`);
     const baseText = payload.text || payload.message || payload.body || payload.request || payload.description || '';
     const bizType = String(payload.businessType || payload.business_type || payload.industry || '').trim();
-    const text = (bizType && !String(baseText).toLowerCase().includes(bizType.toLowerCase()))
-      ? (baseText ? String(baseText) + '. Business type: ' + bizType + '.' : bizType)
-      : baseText;
+    const outcome = String(payload.useCase || payload.use_case || payload.focus || '').trim();
+    const lowerBase = String(baseText).toLowerCase();
+    const bits = [baseText];
+    if (bizType && !lowerBase.includes(bizType.toLowerCase())) bits.push('Business type: ' + bizType + '.');
+    // The stated outcome is first-class evidence (e.g. "cut procurement
+    // delays") — classifying without it silently drops the strongest signal.
+    if (outcome && !lowerBase.includes(outcome.toLowerCase().slice(0, 24))) bits.push('Stated outcome: ' + outcome + '.');
+    const text = bits.filter(Boolean).join(' ');
     const organization = payload.organization || payload.company || payload.businessName || null;
     const contact = payload.contact || { email: payload.email || null, phone: payload.phone || payload.sender || null, name: payload.name || null };
     const request = this.classify(text, payload);
@@ -57,7 +62,12 @@ export class UnifiedIntakeEngine {
   }
 
   _candidateNextStep({ area, integrationSignals, manual, orgSize }) {
-    if (area && integrationSignals) {
+    // Evidence-specific sequencing for goods-flow submissions: establish
+    // inventory visibility first, then trace procurement → supplier →
+    // fulfillment. No failure point is claimed until evidence confirms it.
+    if (area === 'PROCUREMENT' || area === 'INVENTORY') {
+      return `Start with ${area.toLowerCase()} visibility (counts, ownership, hand-offs), then trace inventory → procurement → supplier → fulfillment to isolate the failure point. Claim no failure point until evidence confirms it.`;
+    }    if (area && integrationSignals) {
       return `Connect ${area.toLowerCase()} operations to a single tracked pipeline (ADE operational integration) and assign a named owner.`;
     }
     if (area && manual) {
@@ -84,18 +94,38 @@ export class UnifiedIntakeEngine {
 
     const hit = (...sig) => sig.some((s) => t.includes(s));
     const growthSignals = hit('grow', 'growth', 'scale', 'expansion', 'demand', 'hoping to');
-    const area =
-      hit('customer service', 'customer support', 'customer complaint', 'complaint', 'support desk', 'crm', 'client issues', 'clients complain')
-        ? 'CUSTOMER_OPERATIONS'
-      : (hit('customer', 'customers', 'client') && !growthSignals)
-        ? 'CUSTOMER_OPERATIONS'
-      : hit('finance', 'accounting', 'invoice', 'payroll', 'reconcil', 'payments') ? 'FINANCE'
-      : hit('procurement', 'purchasing', 'purchase order', 'supplier', 'vendor') ? 'PROCUREMENT'
-      : hit('inventory', 'stock', 'warehouse', 'restock') ? 'INVENTORY'
-      : hit('sales', 'orders', 'order management', 'lead', 'marketing') ? 'SALES'
-      : hit('hr', 'recruitment', 'staff', 'workforce') ? 'WORKFORCE'
-      : hit('production', 'manufacturing', 'assembly') ? 'PRODUCTION'
-      : null;
+    // Scored area detection: incidental mentions (e.g. "leads/customers" in a
+    // stock complaint) must not outrank operational domains. Strong
+    // service/complaint language still majors customer operations; otherwise
+    // the highest-scoring domain wins and operational domains win ties.
+    const strongCustomer = hit('customer service', 'customer support', 'customer complaint', 'complaint', 'support desk', 'crm', 'client issues', 'clients complain');
+    const weakCustomer = !growthSignals && hit('customer', 'customers', 'client');
+    const domainScores = [
+      ['PROCUREMENT', ['procurement', 'purchasing', 'purchase order', 'supplier', 'vendor']],
+      ['INVENTORY', ['inventory', 'stock', 'warehouse', 'restock']],
+      ['PRODUCTION', ['production', 'manufacturing', 'assembly']],
+      ['FINANCE', ['finance', 'accounting', 'invoice', 'payroll', 'reconcil', 'payments']],
+      ['SALES', ['sales', 'orders', 'order management', 'lead', 'marketing']],
+      ['WORKFORCE', ['hr', 'recruitment', 'staff', 'workforce']]
+    ].map(([areaName, keywords]) => ({
+      area: areaName,
+      score: keywords.filter((k) => t.includes(k)).length
+    })).filter((e) => e.score > 0);
+    if (weakCustomer) domainScores.push({ area: 'CUSTOMER_OPERATIONS', score: 1, incidental: true });
+    let area = null;
+    let areaSignals = [];
+    if (strongCustomer) {
+      area = 'CUSTOMER_OPERATIONS';
+      areaSignals = [{ area: 'CUSTOMER_OPERATIONS', score: 3, explicit: true }, ...domainScores];
+    } else if (domainScores.length) {
+      const ranked = [...domainScores].sort((a, b) => b.score - a.score);
+      const top = ranked[0].score;
+      const contenders = ranked.filter((e) => e.score === top);
+      // Operational domains precede incidental customer mentions on ties.
+      contenders.sort((a, b) => (b.incidental ? 0 : 1) - (a.incidental ? 0 : 1));
+      area = contenders[0].area;
+      areaSignals = ranked;
+    }
     const manual = hit('manual', 'spreadsheet', 'excel', 'paper', 're-key', 'rekey', 'data entry', 'copy paste', 'double entry', 'handwritten');
     const delaySignals = hit('delay', 'slow', 'late', 'lag', 'behind', 'missed', 'waiting', 'bottleneck', 'queue', 'backlog');
     const wasteSignals = hit('waste', 'rework', 'duplicate', 'error', 'mistakes', 'lost', 'missing', 'repeated');
@@ -105,6 +135,8 @@ export class UnifiedIntakeEngine {
     const orgSize = this.extractOrgSize(payload);
     const evidence = [];
     if (area) evidence.push(`Business area identified: ${area.toLowerCase()}.`);
+    const secondaryAreas = areaSignals.map((e) => e.area).filter((a) => a && a !== area);
+    if (secondaryAreas.length) evidence.push(`Additional signals detected: ${[...new Set(secondaryAreas)].join(', ').toLowerCase()}.`);
     if (orgSize) evidence.push(`Stated scale: ${orgSize.toLowerCase()}.`);
     if (manual) evidence.push('Manual handling references detected in the request.');
     if (delaySignals) evidence.push('Delay and latency language detected in the request.');
@@ -121,7 +153,7 @@ export class UnifiedIntakeEngine {
 
     const bottleneck =
       delaySignals && manual
-        ? 'Manual data handling compounds response delays in the stated workflow — every hand-off introduces re-entry and waiting.'
+        ? 'Manual handling co-occurs with delay language in this submission — a likely friction point. The exact constrained step, owner and mechanism are not established by the evidence; treat as a hypothesis for discovery.'
         : delaySignals
           ? 'Latency signals are present in the workflow, but the specific constraint point (which step, which owner) is not yet isolated.'
           : manual
@@ -136,8 +168,9 @@ export class UnifiedIntakeEngine {
         ? 'No explicit delay was stated, but growth intent implies operations will need to absorb more volume.'
         : 'No quantitative delay was stated in the submission.';
 
+    const wasteHits = ['rework', 'duplicat', 'error', 'mistake', 'lost', 'missing', 'repeat'].filter((s) => t.includes(s));
     const wasteReasoning = wasteSignals
-      ? 'Waste signals (rework, duplication, errors, lost records) were detected — these are the highest-value targets for automation.'
+      ? `Waste language was detected (${wasteHits.join(', ') || 'general waste terms'}) — only the matched terms above are evidenced; treat the rest as discovery questions, not findings.`
       : manual
         ? 'Manual re-entry is a structural waste risk even where losses were not yet observed.'
         : 'No explicit waste or loss language was provided in the submission.';
@@ -162,7 +195,10 @@ export class UnifiedIntakeEngine {
     const assessmentConfidence = humanReviewRequired
       ? Math.min(0.55, 0.35 + signalCount * 0.06)
       : Math.min(0.9, 0.55 + signalCount * 0.07);
-
+    // Confidence semantics: this number measures SIGNAL strength (how much
+    // evidenced language was detected), never root-cause proof. The
+    // deterministic engine cannot establish a root cause — that status is
+    // explicit so no percentage can be misread as causal certainty.
     const assessment = {
       observation: observation,
       bottleneck: bottleneck,
@@ -172,6 +208,11 @@ export class UnifiedIntakeEngine {
       improvement: improvement,
       recommendedNextStep: this._candidateNextStep({ area, integrationSignals, manual, orgSize }),
       confidence: Number(assessmentConfidence.toFixed(2)),
+      signalConfidence: Number(assessmentConfidence.toFixed(2)),
+      evidenceCompleteness: Number(Math.min(1, evidence.length / 6).toFixed(2)),
+      rootCauseStatus: 'NOT_ESTABLISHED',
+      rootCauseNote: 'The deterministic engine identifies signals, never root causes. An operator must confirm the failure point with evidence.',
+      areas: areaSignals.map((e) => ({ area: e.area, score: e.score })),
       evidence,
       humanReviewRequired,
       generatedBy: 'DETERMINISTIC_LINGUISTIC_ANALYSIS',
