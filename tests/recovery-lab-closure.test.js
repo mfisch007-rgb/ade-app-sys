@@ -115,7 +115,18 @@ describe("BINARY LAB CLOSURE", () => {
     const eng = new FounderSignalEngine({});
     // force insufficient edge via explicit 0 pips
     const cs = candles(40,1.1,-0.0008);
-    const blocked = eng.analyzeBinary({ pair:"EURUSD", candles: cs, timeframe:"M5", now: FRESH, expectedDeltaPips: 0.1 });
+    // Enforcement boundary (canonical 8ba45a4 contract, mirrored by
+    // trading-hardening): without defense:{enforce:true} the programmed
+    // decision is preserved and defense stays diagnostics-only — the
+    // insufficient edge must still be evaluated and flagged, never dropped.
+    const diag = eng.analyzeBinary({ pair:"EURUSD", candles: cs, timeframe:"M5", now: FRESH, expectedDeltaPips: 0.1 });
+    const diagOk = diag.state!=="REJECTED_BROKER_MANIPULATION"
+      && diag.defense?.pipEdge?.evaluated===true
+      && diag.defense.pipEdge.passed===false
+      && diag.defense.pipEdge.code==="INSUFFICIENT_PIP_EDGE";
+    assert.ok(report("BINARY DEFENSE (diagnostics-only without enforce)", diagOk, `${diag.state}:pipEdge.evaluated=${diag.defense?.pipEdge?.evaluated}:passed=${diag.defense?.pipEdge?.passed}`));
+    // With explicit enforcement the same feed evidence rejects deterministically.
+    const blocked = eng.analyzeBinary({ pair:"EURUSD", candles: cs, timeframe:"M5", now: FRESH, expectedDeltaPips: 0.1, defense: { enforce: true } });
     const ok = blocked.state==="REJECTED_BROKER_MANIPULATION" && blocked.manipulation==="INSUFFICIENT_PIP_EDGE";
     assert.ok(report("BINARY DEFENSE", ok, blocked.state+":"+(blocked.manipulation||"")));
   });
