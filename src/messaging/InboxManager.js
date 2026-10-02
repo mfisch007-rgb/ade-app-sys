@@ -49,7 +49,10 @@ export class InboxManager {
     if (!sid) { const e=new Error("SENDER_REQUIRED"); e.code="SENDER_REQUIRED"; throw e; }
     if (!rid) { const e=new Error("RECIPIENT_REQUIRED"); e.code="RECIPIENT_REQUIRED"; throw e; }
     if (sid === rid) { const e=new Error("SELF_MESSAGE_NOT_ALLOWED"); e.code="SELF_MESSAGE_NOT_ALLOWED"; throw e; }
-    const subj = String(subject || "").trim().slice(0,200) || "(no subject)";
+    // Subject is required (truthful composition): no silent "(no subject)"
+    // fallback — the composer must state what the message is about.
+    const subj = String(subject || "").trim().slice(0,200);
+    if (!subj) { const e=new Error("SUBJECT_REQUIRED"); e.code="SUBJECT_REQUIRED"; throw e; }
     const b = String(body || "").trim().slice(0,5000);
     if (!b) { const e=new Error("BODY_REQUIRED"); e.code="BODY_REQUIRED"; throw e; }
     const id = uid();

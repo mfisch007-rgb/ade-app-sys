@@ -106,6 +106,7 @@ export class TradingConnectionModes {
     rec.verificationState=rec.connectionState==="CONNECTED"?"VERIFIED":"UNVERIFIED";
     rec.updatedAt=now();
     this._save(map);
+    try{ this.eventBus?.publish?.("trading.connection.mode.verified", { connectionId:String(connectionId), venue:rec.venue, activeMode:rec.activeMode, verificationState:rec.verificationState, timestamp:now() }); }catch{}
     return rec;
   }
 

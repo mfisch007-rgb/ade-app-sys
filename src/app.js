@@ -496,7 +496,20 @@ console.log("[KERNEL ARCHITECTURE] Enterprise Kernel, Plugin Registry & Observat
 // audit ledger. This closes the gap where audit events only lived in memory.
 const auditStore = new AuditStore();
 if (kernel?.eventBus && typeof kernel.eventBus.subscribe === "function") {
-  for (const topic of ["SECURITY_EVENT", "audit.log.created", "AUDIT_LOGS", "SECURITY_AUDIT_LOG"]) {
+  // Operational control topics ride the same durable ledger so every manual,
+  // semi-automated, or administrative trigger is auditable with timestamp,
+  // actor, role, and action details. High-frequency market-data topics stay
+  // memory-only to keep the ledger meaningful.
+  for (const topic of ["SECURITY_EVENT", "audit.log.created", "AUDIT_LOGS", "SECURITY_AUDIT_LOG",
+    "trading.entitlement.granted", "trading.entitlement.revoked",
+    "trading.connection.mode.changed", "trading.connection.mode.verified",
+    "trading.capability.activated", "trading.emergency-stop",
+    "venue.registered", "venue.configured",
+    "broker.comparison.created", "broker.comparison.updated",
+    "gaming.aviator.history.ingested", "gaming.aviator.history.cleared",
+    "CAPABILITY_REGISTERED", "CAPABILITY_UNREGISTERED", "CAPABILITY_REVOKED", "CAPABILITY_RESTORED",
+    "ai.provider.configured", "ai.provider.removed",
+    "integrations.uptimerobot.configured"]) {
     try {
       kernel.eventBus.subscribe(topic, (payload, envelope) => {
         auditStore.append({
@@ -1509,8 +1522,35 @@ app.post('/api/v1/procarta/assessment', requireDurableStorage, async (req, res) 
     const actor = req.person?.username || req.identity?.subject || req.body?.submittedBy || "public";
     const evidence = buildAssessmentEvidence(req.body || {}, { tenantScope, actor });
     const text = assessmentToIntakeText(evidence);
+    // Full operational payload: the authoritative pipeline/case layer (and its
+    // PROCARTA context + DecisionEngine consumers) must see contact, channel,
+    // systems, authorization and business context — not just text+assessment.
+    const body = req.body || {};
     const result = await operationalPipeline.run({
-      source: "FORM", input: { text, organization: evidence.organization, assessment: { area: evidence.area, confidence: evidence.confidence, evidence: evidence.findings } },
+      source: "FORM",
+      input: {
+        text,
+        organization: evidence.organization,
+        channel: "FORM",
+        contact: {
+          organization: evidence.organization || null,
+          email: body.email || body.contactEmail || null,
+          phone: body.phone || body.contactPhone || null,
+          name: body.contactName || body.contact || null
+        },
+        systems: Array.isArray(body.systems) ? body.systems.slice(0, 50) : [],
+        authorization: body.authorization && typeof body.authorization === "object"
+          ? body.authorization
+          : { publicAnalysis: false, connectedSystems: false },
+        industry: evidence.industry || body.industry || body.businessType || null,
+        businessType: body.businessType || evidence.industry || null,
+        orgSize: body.orgSize || null,
+        branches: evidence.branches,
+        employees: evidence.employees,
+        departments: evidence.departments,
+        useCase: body.useCase || body.focus || null,
+        assessment: { area: evidence.area, confidence: evidence.confidence, evidence: evidence.findings }
+      },
       tenantScope, actor, purpose: "PROCARTA_ASSESSMENT"
     });
     try { kernel?.eventBus?.publish?.("audit.log.created", { category: "PROCARTA", action: "FORM_SUBMITTED", tenantScope, caseId: result.caseId, at: new Date().toISOString() }); } catch {}
@@ -2125,6 +2165,16 @@ app.patch('/api/v1/features/:name', loadAuthenticatedWorkforce, requireDurableSt
     if (!req.person || !["FOUNDER", "ADMIN"].includes(req.person.role)) {
       return res.status(403).json({ success: false, error: "INSUFFICIENT_AUTHORIZATION" });
     }
+    // Entitlement switches are elevation-gated: a BASE (password-only) session
+    // must not flip capability toggles even when the role matches. Legacy
+    // bootstrap ADMIN sessions (persona ADMIN, L2+) remain admitted.
+    const elevated =
+      req.claims?.pinVerified === true ||
+      (String(req.claims?.persona || "").toUpperCase() === "ADMIN" &&
+        Number(req.claims?.level || 0) >= 2);
+    if (!elevated) {
+      return res.status(403).json({ success: false, error: "ELEVATED_PIN_REQUIRED" });
+    }
     const feature = featureControlStore.get(req.params.name);
     if (!feature) return res.status(404).json({ success: false, error: "FEATURE_NOT_FOUND" });
     const updates = req.body || {};
@@ -2241,7 +2291,28 @@ app.post('/api/v1/trading/analyze', security.requireLevel(2), (req, res) => {
     const result = kind === "BINARY"
       ? signalEngine.analyzeBinary(body)
       : signalEngine.analyzeForex(body);
-    res.json({ success: true, analysis: result });
+    // Standard signal architecture: configurable quality scoring. Callers may
+    // pass minConfidence (0-1, e.g. 0.8 for an 80%+ filter); the gate verdict
+    // rides alongside the raw analysis and never rewrites engine output.
+    // Default 0.6 preserves the historical gate threshold. No credential or
+    // network activity; pure deterministic filter over the engine result.
+    const rawMin = body.minConfidence ?? body.minConfidencePercent ?? 0.6;
+    const parsed = Number(rawMin) > 1 ? Number(rawMin) / 100 : Number(rawMin);
+    const minConfidence = Number.isFinite(parsed) ? Math.max(0, Math.min(1, parsed)) : 0.6;
+    let signalGate = null;
+    try {
+      signalGate = signalQualityGate.gate(result || {}, {
+        minConfidence,
+        // Alias-aware entitlement subject: the grant may sit under the
+        // username while the session leads with the opaque personId.
+        // requireLevel middleware exposes claims as req.identity.
+        userId: [req.person?.id, req.person?.username, req.claims?.personId, req.claims?.sub, req.identity?.personId, req.identity?.sub].filter(Boolean),
+        feature: String(body.gateFeature || "trading")
+      });
+    } catch (gateError) {
+      signalGate = { pass: false, score: 0, state: "GATE_ERROR", reason: "SIGNAL_GATE_FAILED", requiredAction: gateError?.message || "Gate unavailable." };
+    }
+    res.json({ success: true, analysis: result, signalGate, minConfidence });
   } catch (error) {
     res.status(400).json({ success: false, error: "TRADING_ANALYZE_FAILED", message: error.message });
   }
@@ -2379,7 +2450,18 @@ app.post('/api/v1/trading/live', security.requireLevel(2), requireDurableStorage
 
 app.post('/api/v1/trading/emergency-stop', security.requireLevel(2), requireDurableStorage, (req, res) => {
   try {
-    res.json({ success: true, ...(signalEngine.setEmergencyStop(req.body?.on === true)) });
+    const outcome = signalEngine.setEmergencyStop(req.body?.on === true);
+    try {
+      kernel?.eventBus?.publish?.("trading.emergency-stop", {
+        on: req.body?.on === true,
+        timestamp: new Date().toISOString(),
+        actorId: req.person?.id ?? req.claims?.personId ?? req.claims?.sub ?? null,
+        actor: req.person?.username ?? req.claims?.sub ?? "unknown",
+        role: req.person?.role ?? req.claims?.role ?? null,
+        action: req.body?.on === true ? "EMERGENCY_STOP_ENGAGED" : "EMERGENCY_STOP_RELEASED"
+      });
+    } catch {}
+    res.json({ success: true, ...outcome });
   } catch (error) {
     res.status(400).json({ success: false, error: "EMERGENCY_STOP_FAILED", message: error.message });
   }
@@ -2580,6 +2662,16 @@ app.post('/api/v1/admin/capabilities/:id/activate', security.requireLevel(2), re
     // by an authorized adapter call. External/credential gates are never bypassed.
     const result = capabilityActivation.activate(req.params.id, { handler: null, metadata: { activatedBy: req.identity?.sub || "founder" } });
     if (!result.ok) return res.status(422).json({ success: false, ...result });
+    try {
+      kernel?.eventBus?.publish?.("trading.capability.activated", {
+        capabilityId: req.params.id,
+        timestamp: new Date().toISOString(),
+        actorId: req.person?.id ?? req.claims?.personId ?? req.claims?.sub ?? null,
+        actor: req.person?.username ?? req.claims?.sub ?? req.identity?.sub ?? "founder",
+        role: req.person?.role ?? req.claims?.role ?? null,
+        action: "CAPABILITY_ACTIVATED"
+      });
+    } catch {}
     res.json({ success: true, ...result });
   } catch (error) {
     res.status(500).json({ success: false, error: "ACTIVATION_FAILED", message: error.message });
@@ -2751,8 +2843,12 @@ app.post('/api/v1/trading/connection-modes/:id/verify', security.requireLevel(2)
 });
 app.get('/api/v1/trading/entitlements/me', security.requireAuth(), (req, res) => {
   try {
-    const uid = req.claims?.personId || req.claims?.sub || req.person?.id || req.person?.username;
-    const ent = tradingEntitlements.get(uid);
+    // Alias-aware lookup: the grant may be recorded under the username while
+    // the session presents the opaque personId first (or vice versa).
+    // requireAuth exposes claims as req.identity.
+    const candidates = [req.claims?.personId, req.claims?.sub, req.person?.id, req.person?.username, req.identity?.personId, req.identity?.sub].filter(Boolean);
+    const uid = candidates[0];
+    const ent = tradingEntitlements.get(candidates);
     const modes = tradingConnectionModes.list({ userId: uid });
     res.json({ success: true, entitlement: ent, modes, userId: uid });
   } catch(e){ res.status(500).json({success:false, error:"ENTITLEMENT_ME_FAILED", message:e.message}); }
@@ -2781,8 +2877,12 @@ app.post('/api/v1/inbox/send', inboxAuth, requireDurableStorage, async (req,res)
     try{ const rp=await workforce.getPersonRecord(String(recipientId)); recipientTenant=String(rp?.tenantId||"default"); }catch{ recipientTenant=tenantId; }
     if(String(recipientTenant)!==String(tenantId) && String(tenantId)!=="default") return res.status(403).json({success:false, error:"CROSS_TENANT_BLOCKED"});
     const msg=inboxManager.send({ senderId, senderName, recipientId, subject, body, threadId, replyTo, tenantId });
-    res.status(201).json({success:true, message: msg});
-  }catch(e){ res.status(e.code==="BODY_REQUIRED"||e.code==="RECIPIENT_REQUIRED"?400:400).json({success:false, error:e.code||"INBOX_SEND_FAILED", message:e.message}); }
+    // Truthful delivery envelope: internal ADE store only. The messageId
+    // doubles as the audit correlation id (published on inbox.message.sent
+    // with the same id). External Email/WhatsApp is NOT attempted here —
+    // consult GET /api/v1/email/status for provider configuration state.
+    res.status(201).json({success:true, message: { ...msg, deliveryState: "ACCEPTED_INTERNAL" }, delivery: { state: "ACCEPTED_INTERNAL", scope: "ADE_INTERNAL", auditCorrelationId: msg.messageId, timestamp: msg.createdAt }});
+  }catch(e){ res.status(e.code==="BODY_REQUIRED"||e.code==="RECIPIENT_REQUIRED"||e.code==="SUBJECT_REQUIRED"?400:400).json({success:false, error:e.code||"INBOX_SEND_FAILED", message:e.message}); }
 });
 app.get('/api/v1/inbox', inboxAuth, (req,res)=>{
   try{
@@ -2827,7 +2927,7 @@ app.post('/api/v1/inbox/thread/:id/reply', inboxAuth, requireDurableStorage, asy
     const last=thread[thread.length-1];
     const recipientId = last.senderId===String(uid) ? last.recipientId : last.senderId;
     const msg=inboxManager.send({ senderId: uid, senderName, recipientId, subject: `Re: ${last.subject}`, body: req.body?.body, threadId: req.params.id, replyTo: last.messageId, tenantId });
-    res.status(201).json({success:true, message: msg});
+    res.status(201).json({success:true, message: { ...msg, deliveryState: "ACCEPTED_INTERNAL" }, delivery: { state: "ACCEPTED_INTERNAL", scope: "ADE_INTERNAL", auditCorrelationId: msg.messageId, timestamp: msg.createdAt }});
   }catch(e){ res.status(400).json({success:false, error:e.code||"REPLY_FAILED", message:e.message}); }
 });
 app.post('/api/v1/inbox/:id/read', inboxAuth, requireDurableStorage, (req,res)=>{
@@ -2984,7 +3084,25 @@ async function loadAuthenticatedWorkforce(req, res, next) {
     }
     if (persona === "WORKFORCE") {
       const personId = claims.personId || claims.sub;
-      const person = await workforce.getPersonRecord(personId);
+      let person = null;
+      try {
+        person = await workforce.getPersonRecord(personId);
+      } catch {
+        // Username bridge (mirrors canonical loadAuthenticated in
+        // src/routes/identityRoutes.js): tokens carrying only the username
+        // subject, or a stale opaque id, still resolve to the live record
+        // instead of 401-bouncing an elevated Founder session.
+        if (claims.sub) {
+          try {
+            person = await workforce.getPersonByUsername(claims.sub);
+          } catch {
+            person = null;
+          }
+        }
+        if (!person) {
+          return res.status(401).json({ success: false, error: "PERSON_NOT_FOUND" });
+        }
+      }
       if (!person || person.status !== "ACTIVE") {
         return res.status(403).json({ success: false, error: "ACCOUNT_NOT_ACTIVE" });
       }

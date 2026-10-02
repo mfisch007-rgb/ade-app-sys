@@ -78,15 +78,24 @@ export class TradingEntitlements {
   }
 
   _resolveKey(userId) {
-    const raw = String(userId || "").trim();
-    if (!raw) return "";
+    // Alias-aware: callers may pass a single id OR a candidate array
+    // [personId, username, ...] because grants are recorded under the string
+    // the Founder typed (usually the username) while sessions present the
+    // opaque person id first. First case-insensitive hit wins; miss stays
+    // fail-closed (default deny record).
+    const candidates = Array.isArray(userId) ? userId : [userId];
     const map = this._all();
-    if (map[raw]) return raw;
-    const lower = raw.toLowerCase();
-    for (const k of Object.keys(map)) {
-      if (k.toLowerCase() === lower) return k;
+    for (const candidate of candidates) {
+      const raw = String(candidate || "").trim();
+      if (!raw) continue;
+      if (map[raw]) return raw;
+      const lower = raw.toLowerCase();
+      for (const k of Object.keys(map)) {
+        if (k.toLowerCase() === lower) return k;
+      }
     }
-    return raw;
+    const first = String(candidates.find((c) => String(c || "").trim()) || "").trim();
+    return first;
   }
 
   get(userId) {
@@ -97,7 +106,10 @@ export class TradingEntitlements {
       if (!rec.capabilities) rec.capabilities = { BINARY_REGULAR: Boolean(rec.trading), BINARY_OTC: Boolean(rec.trading), FOREX: Boolean(rec.trading), GAMING: Boolean(rec.gaming) };
       return rec;
     }
-    return { userId: String(userId || ""), trading: false, gaming: false, capabilities: { BINARY_REGULAR: false, BINARY_OTC: false, FOREX: false, GAMING: false }, modes: null };
+    const label = Array.isArray(userId)
+      ? String(userId.find((c) => String(c || "").trim()) || "")
+      : String(userId || "");
+    return { userId: label, trading: false, gaming: false, capabilities: { BINARY_REGULAR: false, BINARY_OTC: false, FOREX: false, GAMING: false }, modes: null };
   }
 
   list() {

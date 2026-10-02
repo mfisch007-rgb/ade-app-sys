@@ -49,7 +49,10 @@ export class SignalQualityGate {
     if (score < minConfidence) {
       return { pass: false, score, state, reason: `BELOW_THRESHOLD: score ${score.toFixed(2)} < ${minConfidence}.`, requiredAction: "Wait for engine CONFIRMED state with sufficient edge; no trade placed." };
     }
-    if (userId && this.entitlements && !this.entitlements.can(userId, feature)) {
+    // An empty candidate array means "no identity supplied" — same as null
+    // (check skipped). A non-empty array is tried alias-by-alias inside can().
+    const hasSubject = Array.isArray(userId) ? userId.some((c) => Boolean(c)) : Boolean(userId);
+    if (hasSubject && this.entitlements && !this.entitlements.can(userId, feature)) {
       return { pass: false, score, state, reason: `NOT_ENTITLED: user lacks '${feature}' grant.`, requiredAction: "Founder enables the feature for this user in the admin dashboard." };
     }
     return { pass: true, score, state, mode: "PAPER_CANDIDATE", note: "Gate passed. Execution stays PAPER unless a VERIFIED venue + entitlement + human approval all hold." };
@@ -64,7 +67,8 @@ export class SignalQualityGate {
     if (!Number.isFinite(target) || target <= 0) {
       return { allowed: false, mode: "MANUAL_ONLY", reason: "TARGET_REQUIRED: set a positive target amount before auto mode.", requiredAction: "Enter target amount (e.g. daily goal); auto stops at target." };
     }
-    if (userId && this.entitlements && !this.entitlements.can(userId, feature)) {
+    const hasSubject = Array.isArray(userId) ? userId.some((c) => Boolean(c)) : Boolean(userId);
+    if (hasSubject && this.entitlements && !this.entitlements.can(userId, feature)) {
       return { allowed: false, mode: "MANUAL_ONLY", reason: `NOT_ENTITLED: '${feature}' not granted to this user.`, requiredAction: "Ask Founder to enable the feature." };
     }
     if (this.signalEngine) {

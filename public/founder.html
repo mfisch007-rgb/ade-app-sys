@@ -474,6 +474,7 @@ const heroShieldBg='url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/200
      const d=await r.json().catch(()=>({}));
      if(!r.ok)throw new Error((d&&(d.message||d.error))||'Invalid credentials');
      setToken(d.token);
+     try{setValidateSeq(s=>s+1)}catch{}
      if(d.expiresAt){const meta={expiresAt:d.expiresAt,expiresIn:d.expiresIn||null};setSessionMeta(meta);try{sessionStorage.setItem('ade_founder_session_meta',JSON.stringify(meta));localStorage.setItem('ade_founder_session_meta',JSON.stringify(meta));}catch{}}
      setLoginPass('');
      setLoginBusy(false);setLoginMsg({type:'ok',text:'✓ Identity verified — enter the six-digit authorization PIN to elevate.'});
@@ -491,6 +492,10 @@ const heroShieldBg='url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/200
      const d=await r.json().catch(()=>({}));
      if(!r.ok)throw new Error((d&&(d.message||d.error))||'Invalid PIN');
      setToken(d.token);
+     // Atomic claims sync: persist elevated claims immediately so role gates
+     // never render stale BASE state; the server revalidation below confirms.
+     try{if(d.person||d.claims||d.identity){setServerAuth(prev=>({person:(d.person||(prev&&prev.person)||null),claims:{...((prev&&prev.claims)||{}),...(d.claims||{}),pinVerified:true}}));setIdentity(prev=>({...((prev)||{}),role:((d.person&&d.person.role)||(prev&&prev.role)||'—'),pinVerified:true}))}}catch{}
+     try{setValidateSeq(s=>s+1)}catch{}
      if(d.expiresAt){const meta={expiresAt:d.expiresAt,expiresIn:d.expiresIn||null};setSessionMeta(meta);try{sessionStorage.setItem('ade_founder_session_meta',JSON.stringify(meta));localStorage.setItem('ade_founder_session_meta',JSON.stringify(meta));}catch{}}
      setLoginBusy(false);setLoginMsg({type:'ok',text:'✓ SESSION ELEVATED — PIN verified'});
      notify('SESSION ELEVATED');
@@ -1114,7 +1119,7 @@ const heroShieldBg='url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/200
        h('td',null,B(c.type||'REST','blue')),
        h('td',null,B(c.authType||'NONE','muted')),
        h('td',{style:{maxWidth:200,overflow:'hidden',textOverflow:'ellipsis'}},c.baseUrl||'—'),
-       h('td',null,B(c.status||'CONFIGURED',c.status==='CONNECTED'?'good':'muted')),
+        h('td',null,B(c.status||'UNKNOWN',c.status==='CONNECTED'?'good':'muted')),
        h('td',null,h('button',{className:'btn sm',onClick:()=>doTestConn(c.id)},connTest?.id===c.id&&connTest?.testing?'Testing...':'⚡ Test'))
 )))
      )):h(EmptyState,{title:'No connections configured',desc:'Connections link ADE to external systems via REST, WEBHOOK or OAUTH2. None exist because no integration has been added yet.',hint:'WHAT: External integrations · WHY EMPTY: no connections yet · WHAT TO DO: Add your first integration above to connect external systems',actionLabel:'Add your first integration above',actionFn:()=>window.scrollTo({top:0,behavior:"smooth"}),iconSize:36}),

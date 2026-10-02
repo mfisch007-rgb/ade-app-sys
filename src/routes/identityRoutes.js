@@ -201,83 +201,113 @@ export function registerIdentityRoutes({
   };
 
   app.post("/api/v1/account/login", authRateLimit(), async (req, res) => {
-    const { username, password } = req.body || {};
-    const person = await workforce.authenticate(username, password);
-    if (!person) {
-      return res.status(401).json({ success: false, error: "INVALID_CREDENTIALS" });
+    try {
+      const { username, password } = req.body || {};
+      const person = await workforce.authenticate(username, password);
+      if (!person) {
+        return res.status(401).json({ success: false, error: "INVALID_CREDENTIALS" });
+      }
+      const session = issueWorkforceSession(person);
+      return res.status(200).json({
+        success: true,
+        token: session.token,
+        expiresIn: session.expiresIn,
+        expiresAt: session.expiresAt,
+        identity: session.identity,
+        person
+      });
+    } catch (error) {
+      return res.status(500).json({ success: false, error: "LOGIN_FAILED" });
     }
-    const session = issueWorkforceSession(person);
-    return res.status(200).json({
-      success: true,
-      token: session.token,
-      expiresIn: session.expiresIn,
-      expiresAt: session.expiresAt,
-      identity: session.identity,
-      person
-    });
   });
 
   app.post("/api/v1/account/pin", loadAuthenticated, async (req, res) => {
-    const { pin } = req.body || {};
-    // Per-user workforce PIN only. Legacy/bootstrap ADMIN sessions carry no
-    // workforce person record (id null) and must never reach verifyPin —
-    // previously this threw and surfaced as an opaque 500. Truthful 403.
-    if (!req.person || req.person.id == null) {
-      return res.status(403).json({
-        success: false,
-        error: "WORKFORCE_SESSION_REQUIRED",
-        message: "Workforce sign-in required — authenticate with username and password first, then verify the Founder PIN."
-      });
-    }
-    const valid = await workforce.verifyPin(req.person.id, pin);
-    if (!valid) {
-      return res.status(403).json({ success: false, error: "INVALID_PIN" });
-    }
-    // Single live session: the presented base token is revoked as the
-    // elevated token is issued, so elevation never leaves two valid
-    // sessions behind. Failure to revoke never blocks elevation itself.
     try {
-      if (req.token) identity.revokeSession(req.token);
-    } catch {}
-    const session = issueWorkforceSession(req.person, { pinVerified: true });
-    return res.status(200).json({
-      success: true,
-      elevated: true,
-      token: session.token,
-      expiresIn: session.expiresIn,
-      expiresAt: session.expiresAt,
-      identity: session.identity
-    });
+      const { pin } = req.body || {};
+      // Per-user workforce PIN only. Legacy/bootstrap ADMIN sessions carry no
+      // workforce person record (id null) and must never reach verifyPin —
+      // previously this threw and surfaced as an opaque 500. Truthful 403.
+      if (!req.person || req.person.id == null) {
+        return res.status(403).json({
+          success: false,
+          error: "WORKFORCE_SESSION_REQUIRED",
+          message: "Workforce sign-in required — authenticate with username and password first, then verify the Founder PIN."
+        });
+      }
+      const valid = await workforce.verifyPin(req.person.id, pin);
+      if (!valid) {
+        return res.status(403).json({ success: false, error: "INVALID_PIN" });
+      }
+      // Single live session: the presented base token is revoked as the
+      // elevated token is issued, so elevation never leaves two valid
+      // sessions behind. Failure to revoke never blocks elevation itself.
+      try {
+        if (req.token) identity.revokeSession(req.token);
+      } catch {}
+      const session = issueWorkforceSession(req.person, { pinVerified: true });
+      // Atomic claims sync: return the redacted person + elevated claims so
+      // clients can persist the token and sync role/level/pinVerified in one
+      // step instead of racing a second session round-trip (prevents 401/403
+      // boots on stale BASE claims). Never leaks hashes (getPerson redacts).
+      let elevatedPerson = null;
+      try {
+        elevatedPerson = await workforce.getPerson(req.person.id);
+      } catch {
+        elevatedPerson = null;
+      }
+      return res.status(200).json({
+        success: true,
+        elevated: true,
+        token: session.token,
+        expiresIn: session.expiresIn,
+        expiresAt: session.expiresAt,
+        identity: session.identity,
+        person: elevatedPerson,
+        claims: {
+          role: elevatedPerson?.role ?? req.person.role,
+          level: elevatedPerson?.level ?? req.person.level,
+          persona: "WORKFORCE",
+          edition: runtimeMode,
+          pinVerified: true
+        }
+      });
+    } catch (error) {
+      return res.status(500).json({ success: false, error: "PIN_VERIFICATION_FAILED" });
+    }
   });
 
   app.get("/api/v1/account/session", loadAuthenticated, async (req, res) => {
-    const persona = String(req.claims?.persona || "").toUpperCase();
-    const person =
-      req.person?.id === null &&
-      persona === "ADMIN" &&
-      Number(req.claims?.level) >= 2
-        ? {
-            id: null,
-            username: String(req.claims.sub || "admin"),
-            fullName: "Legacy Administrator",
-            role: "ADMIN",
-            level: Number(req.claims.level) || 2,
-            status: "ACTIVE",
-            accessExpiryAt: null
-          }
-        : await workforce.getPerson(req.person.id);
-    return res.json({
-      success: true,
-      person,
-      claims: {
-        role: req.claims.role,
-        level: req.claims.level,
-        persona: req.claims.persona,
-        edition: req.claims.edition,
-        pinVerified: req.claims.pinVerified === true
-      },
-      expiresAt: req.claims.exp * 1000
-    });
+    try {
+      const persona = String(req.claims?.persona || "").toUpperCase();
+      const person =
+        req.person?.id === null &&
+        persona === "ADMIN" &&
+        Number(req.claims?.level) >= 2
+          ? {
+              id: null,
+              username: String(req.claims.sub || "admin"),
+              fullName: "Legacy Administrator",
+              role: "ADMIN",
+              level: Number(req.claims.level) || 2,
+              status: "ACTIVE",
+              accessExpiryAt: null
+            }
+          : await workforce.getPerson(req.person.id);
+      return res.json({
+        success: true,
+        person,
+        claims: {
+          role: req.claims.role,
+          level: req.claims.level,
+          persona: req.claims.persona,
+          edition: req.claims.edition,
+          pinVerified: req.claims.pinVerified === true
+        },
+        expiresAt: req.claims.exp * 1000
+      });
+    } catch (error) {
+      return res.status(500).json({ success: false, error: "SESSION_READ_FAILED" });
+    }
   });
 
   app.post("/api/v1/account/logout", loadAuthenticated, (req, res) => {

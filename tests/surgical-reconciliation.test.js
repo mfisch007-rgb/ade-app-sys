@@ -94,15 +94,18 @@ test("surgical: invite window validation rejects bad windows", async (t) => {
 });
 
 // Phase 4: inbox subject/delivery truth + duplicate prevention is client-busy (server creates distinct ids)
-test("surgical: inbox stores subject, defaults no-subject, stays internal", async () => {
+// Subject is REQUIRED (SUBJECT_REQUIRED): composition must state what the
+// message is about — no silent "(no subject)" fallback.
+test("surgical: inbox stores subject, requires subject, stays internal", async () => {
   const store = memSectionStore();
   const inbox = new InboxManager({ store });
   const m1 = inbox.send({ senderId: "alice", senderName: "Alice", recipientId: "bob", subject: "Pilot plan", body: "Hello Bob", tenantId: "default" });
   assert.equal(m1.subject, "Pilot plan");
   assert.equal(m1.status, "UNREAD");
   assert.ok(m1.messageId);
-  const m2 = inbox.send({ senderId: "alice", recipientId: "bob", subject: "", body: "No subject here", tenantId: "default" });
-  assert.equal(m2.subject, "(no subject)");
+  await assert.rejects(async () => inbox.send({ senderId: "alice", recipientId: "bob", subject: "", body: "No subject here", tenantId: "default" }), /SUBJECT_REQUIRED/);
+  await assert.rejects(async () => inbox.send({ senderId: "alice", recipientId: "bob", subject: "   ", body: "Blank subject", tenantId: "default" }), /SUBJECT_REQUIRED/);
+  const m2 = inbox.send({ senderId: "alice", recipientId: "bob", subject: "Second plan", body: "Hello again", tenantId: "default" });
   assert.notEqual(m1.messageId, m2.messageId, "each POST creates a distinct message (client must guard duplicates with busy state)");
   const forBob = inbox.inboxFor("bob");
   assert.equal(forBob.length, 2);
