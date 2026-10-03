@@ -12,6 +12,8 @@ import {
   StructuredJSONLogger,
   ContextMemoryEngine,
   KnowledgeEngine,
+  RuleEngine,
+  ConfidenceEngine,
   DecisionEngine,
   OracleIntelligenceEngine,
   GuardianSecurityEngine,
@@ -155,6 +157,8 @@ export class EnterpriseKernelMaster {
   _registerCoreSubsystems() {
     const memory = new ContextMemoryEngine({ kernel: this });
     const knowledge = new KnowledgeEngine({ kernel: this, memory });
+    const rules = new RuleEngine({ kernel: this });
+    const confidence = new ConfidenceEngine({ kernel: this });
     const decision = new DecisionEngine({
       kernel: this,
       memory,
@@ -177,6 +181,8 @@ export class EnterpriseKernelMaster {
 
     this._registerSubsystem("memory", memory);
     this._registerSubsystem("knowledge", knowledge);
+    this._registerSubsystem("rules", rules);
+    this._registerSubsystem("confidence", confidence);
     this._registerSubsystem("decision", decision);
     this._registerSubsystem("oracle", oracle);
     this._registerSubsystem("guardian", guardian);
@@ -188,6 +194,8 @@ export class EnterpriseKernelMaster {
     this.container.set("memoryEngine", memory);
     this.container.set("contextMemory", memory);
     this.container.set("knowledgeEngine", knowledge);
+    this.container.set("ruleEngine", rules);
+    this.container.set("confidenceEngine", confidence);
     this.container.set("decisionEngine", decision);
     this.container.set("oracleIntelligence", oracle);
     this.container.set("guardianSecurity", guardian);

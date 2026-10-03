@@ -43,6 +43,7 @@ import FeedbackPipeline from "./kernel/FeedbackPipeline.js";
 import CapabilityRegistry from "./core/CapabilityRegistry.js";
 import { executeCapability } from "./core/CapabilityExecutor.js";
 import HttpSecurityBoundary from "./security/HttpSecurityBoundary.js";
+import { SecurityGate as LegacySecurityGate } from "./security/SecurityGate.js";
 import { createStorageProvider } from "./storage/SupabaseStorageAdapter.js";
 import { ProviderDocumentStorageAdapter } from "./storage/ProviderDocumentStorageAdapter.js";
 import { AuditStore } from "./storage/AuditStore.js";
@@ -152,8 +153,32 @@ app.use(express.json({
   verify: (req, _res, buf) => { try { req.rawBody = buf ? buf.toString("utf8") : ""; } catch { req.rawBody = ""; } }
 }));
 app.use(express.urlencoded({ extended: true }));
+// Minimal cookie parser (no new deps): populates req.cookies so the single
+// session authority accepts the SameSite=Lax session cookie as fallback.
+app.use((req, _res, next) => {
+  try {
+    if (!req.cookies) {
+      const raw = String(req.headers?.cookie || "");
+      const jar = {};
+      for (const part of raw.split(";")) {
+        const idx = part.indexOf("=");
+        if (idx < 0) continue;
+        const k = part.slice(0, idx).trim();
+        const v = part.slice(idx + 1).trim();
+        if (k) { try { jar[k] = decodeURIComponent(v); } catch { jar[k] = v; } }
+      }
+      req.cookies = jar;
+    }
+  } catch {}
+  next();
+});
 
 const security = new HttpSecurityBoundary();
+// Single enforcement authority: HttpSecurityBoundary (IdentityOnboarding
+// sessions). LegacySecurityGate stays wired as a read-only legacy-JWT
+// verifier for audit/diagnostics only — it never grants access on its own.
+// (Instantiated after kernel below to avoid TDZ; eventBus attached lazily.)
+let legacyGate = null;
 
 // Resolve Module Classes / Export Interfaces
 const EnterpriseKernelMaster = KernelModule.EnterpriseKernelMaster || KernelModule.default;
@@ -175,6 +200,7 @@ function resolveSingleton(TargetClass) {
 const kernel = resolveSingleton(EnterpriseKernelMaster);
 const registry = resolveSingleton(PluginRegistry);
 const observatory = resolveSingleton(RuntimeObservatory);
+try { legacyGate = new LegacySecurityGate(process.env.ADE_JWT_SECRET || null, kernel?.eventBus || null); security.legacyGate = legacyGate; } catch {}
 
 // G25 — canonical plugin surface. The kernel's runtime subsystems ARE the
 // platform's live plugins; mirroring them into the canonical PluginRegistry
@@ -599,6 +625,15 @@ app.post("/api/v1/auth/pin", authRateLimit(), async (req, res) => {
       });
     }
 
+    // Single authority: legacy Admin PIN elevation also sets the SameSite=Lax
+    // session cookie atomically with the token response.
+    try {
+      res.cookie("ade_token", session.token, {
+        httpOnly: true, sameSite: "lax", path: "/",
+        secure: String(process.env.VERCEL_ENV || process.env.NODE_ENV || "").toLowerCase() === "production",
+        ...(Number(session?.expiresIn) > 0 ? { maxAge: Math.floor(Number(session.expiresIn) * 1000) } : {})
+      });
+    } catch {}
     return res.status(200).json({
       success: true,
       authLevel: session.identity.level,
@@ -702,6 +737,7 @@ app.post("/api/v1/auth/revoke", security.requireAuth(), (req, res) => {
     ).slice(7);
 
     security.revokeToken(token);
+    try { res.clearCookie("ade_token", { path: "/" }); res.clearCookie("ade_elevated", { path: "/" }); } catch {}
 
     return res.status(200).json({
       success: true,
@@ -1500,6 +1536,41 @@ app.get('/api/v1/connect/platforms', security.requireLevel(2), (req, res) => {
   try { res.json(connectBoard.board({ tenantScope: req.query.tenant || null, detail: String(req.query.detail || "") === "1" })); }
   catch (e) { res.status(500).json({ success: false, error: "CONNECT_BOARD_FAILED" }); }
 });
+// Provider-truth channel & connector states (AWBULI + Connect). Vocabulary is
+// strictly AVAILABLE | CONFIGURATION_REQUIRED | PROVIDER_REQUIRED |
+// NOT_ENTITLED. LIVE is never reported: a venue reads CONNECTED only when
+// liveEligibility() verifies it, otherwise CONFIGURATION_REQUIRED. Read-only
+// projection over existing authorities; no state changes here.
+app.get('/api/v1/connect/channel-states', security.requireLevel(1), (req, res) => {
+  try {
+    const truth = (s) => ["AVAILABLE", "CONFIGURATION_REQUIRED", "PROVIDER_REQUIRED", "NOT_ENTITLED", "CONNECTED"].includes(String(s)) ? String(s) : "CONFIGURATION_REQUIRED";
+    const out = { success: true, vocabulary: ["AVAILABLE", "CONFIGURATION_REQUIRED", "PROVIDER_REQUIRED", "NOT_ENTITLED"], channels: [], connectors: [], venues: [] };
+    try {
+      for (const c of (channels.list?.() || [])) {
+        const configured = Boolean(c?.configured ?? c?.enabled ?? c?.verified);
+        out.channels.push({ id: c?.id || c?.channel || "unknown", label: c?.label || null, state: truth(configured ? "AVAILABLE" : "CONFIGURATION_REQUIRED") });
+      }
+    } catch {}
+    try {
+      for (const c of (connectionManager.list?.() || [])) {
+        const verified = Boolean(c?.verified || c?.connected);
+        out.connectors.push({ id: c?.id || "unknown", state: truth(verified ? "AVAILABLE" : (c?.providerRequired ? "PROVIDER_REQUIRED" : "CONFIGURATION_REQUIRED")) });
+      }
+    } catch {}
+    try {
+      const venues = venueRegistry.list?.() || [];
+      for (const v of venues) {
+        let state = "CONFIGURATION_REQUIRED";
+        try {
+          const elig = venueRegistry.liveEligibility?.(v?.id);
+          state = elig?.eligible ? "CONNECTED" : "CONFIGURATION_REQUIRED";
+        } catch { state = "CONFIGURATION_REQUIRED"; }
+        out.venues.push({ id: v?.id || "unknown", state: truth(state), liveEligible: state === "CONNECTED" });
+      }
+    } catch {}
+    res.json(out);
+  } catch (e) { res.status(500).json({ success: false, error: "CHANNEL_STATES_FAILED", message: e.message }); }
+});
 
 // Canonical injection: any registered source -> envelope -> case -> PROCARTA context
 app.post('/api/v1/injection/ingest', security.requireLevel(1), requireDurableStorage, async (req, res) => {
@@ -1556,6 +1627,73 @@ app.post('/api/v1/procarta/assessment', requireDurableStorage, async (req, res) 
     try { kernel?.eventBus?.publish?.("audit.log.created", { category: "PROCARTA", action: "FORM_SUBMITTED", tenantScope, caseId: result.caseId, at: new Date().toISOString() }); } catch {}
     res.status(201).json({ success: true, evidence, caseId: result.caseId, intakeId: result.intakeId, eventId: result.eventId });
   } catch (e) { res.status(400).json({ success: false, error: e.code || "ASSESSMENT_FAILED", message: e.message }); }
+});
+
+// Public intake visualization: Visual Process Topology Map (SVG) + Bottleneck
+// Loss Equation. Read-only projection over the backend CaseManager — full
+// case execution stays in CaseManager; nothing here mutates state.
+const PROCARTA_STAGES = ["INTAKE", "ASSESS", "DECIDE", "EXECUTE", "FEEDBACK"];
+function procartaTopologyFor(caseRec) {
+  const status = String(caseRec?.status || "INTAKE").toUpperCase();
+  const currentIdx = Math.max(0, PROCARTA_STAGES.indexOf(status) >= 0 ? PROCARTA_STAGES.indexOf(status) : 0);
+  const nodes = PROCARTA_STAGES.map((stage, i) => ({
+    stage,
+    state: i < currentIdx ? "COMPLETE" : i === currentIdx ? "ACTIVE" : "PENDING",
+    x: 20 + i * 150, y: 60
+  }));
+  const edges = PROCARTA_STAGES.slice(1).map((stage, i) => ({ from: PROCARTA_STAGES[i], to: stage }));
+  // Bottleneck Loss Equation: Loss = throughputDrop x valuePerUnit x timeHorizon.
+  // Inputs are caller-supplied estimates; the equation itself is deterministic.
+  return { stages: PROCARTA_STAGES, currentStage: PROCARTA_STAGES[currentIdx], nodes, edges };
+}
+function procartaTopologySvg(topo, caseId) {
+  const nodeSvg = topo.nodes.map((n) => {
+    const fill = n.state === "COMPLETE" ? "#1d7a4f" : n.state === "ACTIVE" ? "#b98a1f" : "#3a4356";
+    return `<g><rect x="${n.x}" y="${n.y}" width="130" height="44" rx="8" fill="${fill}" stroke="#e8e2d4" stroke-width="1.5"/><text x="${n.x + 65}" y="${n.y + 27}" text-anchor="middle" fill="#fff" font-size="12" font-family="sans-serif">${n.stage}</text></g>`;
+  }).join("");
+  const edgeSvg = topo.nodes.slice(1).map((n) => `<line x1="${n.x - 20}" y1="${n.y + 22}" x2="${n.x}" y2="${n.y + 22}" stroke="#8a93a8" stroke-width="2" marker-end="url(#arr)"/>`).join("");
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="790" height="160" role="img" aria-label="PROCARTA process topology for case ${String(caseId || "")}"><defs><marker id="arr" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#8a93a8"/></marker></defs><text x="20" y="24" fill="#e8e2d4" font-size="13" font-family="sans-serif">PROCARTA Topology — case ${String(caseId || "preview")}</text>${edgeSvg}${nodeSvg}</svg>`;
+}
+app.get('/api/v1/procarta/topology', (req, res) => {
+  try {
+    const caseId = String(req.query.caseId || "").trim();
+    let caseRec = null;
+    try { caseRec = caseId ? caseManager.get(caseId) : null; } catch {}
+    const topo = procartaTopologyFor(caseRec);
+    const q = req.query || {};
+    // Bottleneck Loss Equation (estimates in, deterministic math out).
+    const throughputDrop = Number(q.throughputDrop ?? 0);
+    const valuePerUnit = Number(q.valuePerUnit ?? 0);
+    const timeHorizon = Number(q.timeHorizon ?? 0);
+    const bottleneckLoss = (Number.isFinite(throughputDrop) && Number.isFinite(valuePerUnit) && Number.isFinite(timeHorizon))
+      ? { throughputDrop, valuePerUnit, timeHorizon, estimatedLoss: throughputDrop * valuePerUnit * timeHorizon, equation: "Loss = throughputDrop x valuePerUnit x timeHorizon", grade: "ESTIMATE" }
+      : null;
+    const format = String(req.query.format || "json").toLowerCase();
+    if (format === "svg") {
+      res.type("image/svg+xml");
+      return res.send(procartaTopologySvg(topo, caseId || "preview"));
+    }
+    res.json({ success: true, caseId: caseId || null, caseFound: Boolean(caseRec), topology: topo, bottleneckLoss, svg: procartaTopologySvg(topo, caseId || "preview") });
+  } catch (e) { res.status(500).json({ success: false, error: "TOPOLOGY_FAILED", message: e.message }); }
+});
+// Watermarked Executive Dossier Preview: redacted summary only. Full dossier
+// generation/execution stays in the backend CaseManager + DecisionEngine.
+app.get('/api/v1/procarta/dossier/preview', (req, res) => {
+  try {
+    const caseId = String(req.query.caseId || "").trim();
+    let caseRec = null;
+    try { caseRec = caseId ? caseManager.get(caseId) : null; } catch {}
+    if (caseId && !caseRec) return res.status(404).json({ success: false, error: "CASE_NOT_FOUND" });
+    const topo = procartaTopologyFor(caseRec);
+    res.json({
+      success: true, preview: true, watermark: "ADE-APEX PREVIEW — NOT AUTHORITATIVE",
+      caseId: caseId || null,
+      organization: caseRec?.organization || null, status: caseRec?.status || topo.currentStage,
+      currentStage: topo.currentStage, stages: topo.stages,
+      redacted: ["financials", "credentials", "pii"],
+      note: "Preview only. Full case execution remains in the backend CaseManager."
+    });
+  } catch (e) { res.status(500).json({ success: false, error: "DOSSIER_PREVIEW_FAILED", message: e.message }); }
 });
 
 // L2: controlled document ingestion (metadata + provenance; extraction honest)
@@ -1714,7 +1852,11 @@ app.post('/api/v1/payments/webhook/paystack', requireDurableStorage, async (req,
     const out = paymentService.handleWebhook({
       tenantScope, rawBody, signature, event: req.body && req.body.event ? req.body : null
     });
-    res.json({ ...out, financial: { fingerprint: fin.fingerprint, reconOutcome: fin.reconOutcome, riskBand: fin.riskBand, investigationId: fin.investigationId || null } });
+    // Evidence-based transactions: webhook claims stay OBSERVED_FACT until the
+    // provider verification above succeeds (invalid signature already 401'd).
+    // Paystack contract preserved: original fields untouched, evidence added.
+    const evidenceGrade = fin?.outcome?.evidenceGrade || "PROVIDER_CONFIRMED";
+    res.json({ ...out, evidence: { grade: evidenceGrade, rule: "OBSERVED_UNTIL_PROVIDER_VERIFIED" }, financial: { fingerprint: fin.fingerprint, reconOutcome: fin.reconOutcome, riskBand: fin.riskBand, investigationId: fin.investigationId || null } });
   } catch (e) {
     const code = e.code || "PAYMENT_WEBHOOK_FAILED";
     res.status(code === "PAYSTACK_SIGNATURE_INVALID" ? 401 : 400).json({ success: false, error: code, message: e.message });
@@ -2773,13 +2915,21 @@ app.get('/api/v1/trading/venues/:id/eligibility', security.requireLevel(2), (req
 
 app.get('/api/v1/admin/trading/entitlements', security.requireLevel(2), (req, res) => {
   try {
-    res.json({ success: true, entitlements: tradingEntitlements.list() });
+    const list = tradingEntitlements.list();
+    // L3 Founder isolation: Admin L2 sees presence only — private financial
+    // controls (granular capabilities, modes, grantor) stay Founder-private.
+    const level = Number(req.claims?.level ?? req.identity?.level ?? 0);
+    const role = String(req.person?.role || req.claims?.role || "").toUpperCase();
+    const isFounder = level >= 3 || role === "FOUNDER";
+    if (isFounder) return res.json({ success: true, entitlements: list });
+    const redacted = list.map((e) => ({ userId: e.userId, trading: Boolean(e.trading), gaming: Boolean(e.gaming) }));
+    return res.json({ success: true, entitlements: redacted, redacted: true });
   } catch (error) {
     res.status(500).json({ success: false, error: "ENTITLEMENTS_FAILED", message: error.message });
   }
 });
 
-app.post('/api/v1/admin/trading/entitlements', security.requireLevel(2), requireDurableStorage, (req, res) => {
+app.post('/api/v1/admin/trading/entitlements', security.requireLevel(3), requireDurableStorage, (req, res) => {
   try {
     const { userId, trading, gaming, capabilities, modes } = req.body || {};
     const rec = tradingEntitlements.grant(userId, { trading, gaming, capabilities, modes, grantedBy: req.identity?.sub || "founder" });
@@ -2789,7 +2939,7 @@ app.post('/api/v1/admin/trading/entitlements', security.requireLevel(2), require
   }
 });
 
-app.delete('/api/v1/admin/trading/entitlements/:userId', security.requireLevel(2), requireDurableStorage, (req, res) => {
+app.delete('/api/v1/admin/trading/entitlements/:userId', security.requireLevel(3), requireDurableStorage, (req, res) => {
   try {
     res.json({ success: true, ...(tradingEntitlements.revoke(req.params.userId, { revokedBy: req.identity?.sub || "founder" }) || { revoked: false }) });
   } catch (error) {
@@ -2868,9 +3018,9 @@ function inboxAuth(req,res,next){
 }
 app.post('/api/v1/inbox/send', inboxAuth, requireDurableStorage, async (req,res)=>{
   try{
-    const senderId=req.inboxClaims.personId || req.inboxClaims.sub;
+    const senderId=req.inboxClaims?.personId || req.inboxClaims?.sub;
     const senderName=req.inboxPerson?.username || String(senderId);
-    const tenantId=req.inboxPerson?.tenantId || req.inboxClaims.tenantId || "default";
+    const tenantId=req.inboxPerson?.tenantId || req.inboxClaims?.tenantId || "default";
     const { recipientId, subject, body, threadId, replyTo } = req.body||{};
     // tenant check: recipient must be same tenant (lookup)
     let recipientTenant="default";
@@ -2886,27 +3036,27 @@ app.post('/api/v1/inbox/send', inboxAuth, requireDurableStorage, async (req,res)
 });
 app.get('/api/v1/inbox', inboxAuth, (req,res)=>{
   try{
-    const uid=req.inboxClaims.personId || req.inboxClaims.sub;
-    const tenant=req.inboxPerson?.tenantId || req.inboxClaims.tenantId || null;
+    const uid=req.inboxClaims?.personId || req.inboxClaims?.sub;
+    const tenant=req.inboxPerson?.tenantId || req.inboxClaims?.tenantId || null;
     res.json({success:true, messages: inboxManager.inboxFor(uid, {tenantId: tenant!=="default"?tenant:null}), unread: inboxManager.unreadCount(uid, {tenantId: tenant!=="default"?tenant:null})});
   }catch(e){ res.status(500).json({success:false, error:"INBOX_READ_FAILED", message:e.message}); }
 });
 app.get('/api/v1/inbox/sent', inboxAuth, (req,res)=>{
   try{
-    const uid=req.inboxClaims.personId || req.inboxClaims.sub;
-    const tenant=req.inboxPerson?.tenantId || req.inboxClaims.tenantId || null;
+    const uid=req.inboxClaims?.personId || req.inboxClaims?.sub;
+    const tenant=req.inboxPerson?.tenantId || req.inboxClaims?.tenantId || null;
     res.json({success:true, messages: inboxManager.sentFor(uid, {tenantId: tenant!=="default"?tenant:null})});
   }catch(e){ res.status(500).json({success:false, error:"INBOX_SENT_FAILED", message:e.message}); }
 });
 app.get('/api/v1/inbox/unread-count', inboxAuth, (req,res)=>{
   try{
-    const uid=req.inboxClaims.personId || req.inboxClaims.sub;
+    const uid=req.inboxClaims?.personId || req.inboxClaims?.sub;
     res.json({success:true, unread: inboxManager.unreadCount(uid)});
   }catch(e){ res.status(500).json({success:false, error:"UNREAD_FAILED", message:e.message}); }
 });
 app.get('/api/v1/inbox/thread/:id', inboxAuth, (req,res)=>{
   try{
-    const uid=req.inboxClaims.personId || req.inboxClaims.sub;
+    const uid=req.inboxClaims?.personId || req.inboxClaims?.sub;
     const thread=inboxManager.thread(req.params.id);
     // auth: participant must be sender or recipient of at least one msg in thread
     const isParticipant=thread.some(m=>m.senderId===String(uid)||m.recipientId===String(uid));
@@ -2916,9 +3066,9 @@ app.get('/api/v1/inbox/thread/:id', inboxAuth, (req,res)=>{
 });
 app.post('/api/v1/inbox/thread/:id/reply', inboxAuth, requireDurableStorage, async (req,res)=>{
   try{
-    const uid=req.inboxClaims.personId || req.inboxClaims.sub;
+    const uid=req.inboxClaims?.personId || req.inboxClaims?.sub;
     const senderName=req.inboxPerson?.username || String(uid);
-    const tenantId=req.inboxPerson?.tenantId || req.inboxClaims.tenantId || "default";
+    const tenantId=req.inboxPerson?.tenantId || req.inboxClaims?.tenantId || "default";
     const thread=inboxManager.thread(req.params.id);
     if(!thread.length) return res.status(404).json({success:false, error:"THREAD_NOT_FOUND"});
     const isParticipant=thread.some(m=>m.senderId===String(uid)||m.recipientId===String(uid));
@@ -2932,7 +3082,7 @@ app.post('/api/v1/inbox/thread/:id/reply', inboxAuth, requireDurableStorage, asy
 });
 app.post('/api/v1/inbox/:id/read', inboxAuth, requireDurableStorage, (req,res)=>{
   try{
-    const uid=req.inboxClaims.personId || req.inboxClaims.sub;
+    const uid=req.inboxClaims?.personId || req.inboxClaims?.sub;
     const msg=inboxManager.markRead(req.params.id, uid);
     res.json({success:true, message: msg});
   }catch(e){ res.status(e.code==="MESSAGE_NOT_FOUND"?404:403).json({success:false, error:e.code||"READ_FAILED", message:e.message}); }

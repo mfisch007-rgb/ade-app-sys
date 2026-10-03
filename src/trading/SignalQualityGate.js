@@ -46,6 +46,12 @@ export class SignalQualityGate {
     if (analysis?.state === "REJECTED_BROKER_MANIPULATION" || analysis?.manipulationFlag) {
       return { pass: false, score, state, reason: "MANIPULATION_GUARD: engine rejected the setup; gate blocks execution.", requiredAction: "Stand down; wait for a clean setup." };
     }
+    // Anti-martingale: never scale into a losing streak. Any analysis that
+    // carries a martingale/escalation marker fails closed across manual,
+    // semi-auto and live modes alike.
+    if (analysis?.martingaleFlag === true || String(analysis?.stakePolicy || "").toUpperCase() === "MARTINGALE") {
+      return { pass: false, score, state, reason: "ANTI_MARTINGALE: stake escalation after loss is prohibited; flat stake only.", requiredAction: "Reset to base stake and wait out the cooldown." };
+    }
     if (score < minConfidence) {
       return { pass: false, score, state, reason: `BELOW_THRESHOLD: score ${score.toFixed(2)} < ${minConfidence}.`, requiredAction: "Wait for engine CONFIRMED state with sufficient edge; no trade placed." };
     }
@@ -75,6 +81,17 @@ export class SignalQualityGate {
       try {
         const st = this.signalEngine.getStatus?.();
         if (st?.emergencyStop === true) return { allowed: false, mode: "HALTED", reason: "EMERGENCY_STOP is ON.", requiredAction: "Founder clears emergency-stop." };
+        // Anti-martingale + cooldown enforcement across manual, semi-auto and
+        // live modes: consecutive-loss lockout and active cooldowns halt auto.
+        const risk = st?.risk || {};
+        const losses = Number(risk.consecutiveLosses ?? st?.consecutiveLosses ?? 0);
+        const limit = Number(risk.consecutiveLossLimit ?? st?.consecutiveLossLimit ?? 3);
+        if (Number.isFinite(losses) && Number.isFinite(limit) && losses >= limit) {
+          return { allowed: false, mode: "HALTED", reason: `ANTI_MARTINGALE: ${losses} consecutive losses hit limit ${limit}; stake escalation prohibited.`, requiredAction: "Stand down until the engine cooldown clears; flat stake only on resume." };
+        }
+        if (st?.cooldownActive === true || risk.cooldownActive === true) {
+          return { allowed: false, mode: "HALTED", reason: "COOLDOWN_ACTIVE: signal cooldown is running.", requiredAction: "Wait for the cooldown window to expire." };
+        }
       } catch {}
     }
     if (venueId && this.venueRegistry) {

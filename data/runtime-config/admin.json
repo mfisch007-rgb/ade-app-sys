@@ -2,5 +2,100 @@
   "settings": {},
   "ui": {},
   "channels": {},
-  "policies": {}
+  "policies": {},
+  "marketDataRegistry": [
+    {
+      "providerId": "fbs",
+      "providerName": "FBS",
+      "providerKind": "FOREX_BROKER",
+      "configKeys": [
+        "FBS_API_URL",
+        "FBS_ACCOUNT_ID",
+        "FBS_API_TOKEN",
+        "FBS_MT5_LOGIN",
+        "FBS_MT5_PASSWORD",
+        "FBS_MT5_SERVER",
+        "FBS_WEB_TERMINAL_URL"
+      ],
+      "status": "DISCOVERED"
+    },
+    {
+      "providerId": "pocket-option",
+      "providerName": "Pocket Option",
+      "providerKind": "BINARY_BROKER",
+      "configKeys": [
+        "POCKET_OPTION_API_URL",
+        "POCKET_OPTION_SSID",
+        "POCKET_OPTION_DEMO_SSID",
+        "POCKET_OPTION_WS_URL"
+      ],
+      "status": "DISCOVERED"
+    },
+    {
+      "providerId": "iq-option",
+      "providerName": "IQ Option",
+      "providerKind": "BINARY_BROKER",
+      "configKeys": [
+        "IQ_OPTION_API_URL",
+        "IQ_OPTION_SSID",
+        "IQ_OPTION_WS_URL"
+      ],
+      "status": "DISCOVERED"
+    },
+    {
+      "providerId": "expert-option",
+      "providerName": "ExpertOption",
+      "providerKind": "BINARY_BROKER",
+      "configKeys": [
+        "EXPERT_OPTION_API_URL",
+        "EXPERT_OPTION_TOKEN"
+      ],
+      "status": "DISCOVERED"
+    },
+    {
+      "providerId": "betpawa",
+      "providerName": "BetPawa",
+      "providerKind": "SPORTSBOOK",
+      "configKeys": [
+        "BETPAWA_API_URL",
+        "BETPAWA_API_KEY",
+        "BETPAWA_FEED_URL"
+      ],
+      "status": "DISCOVERED"
+    },
+    {
+      "providerId": "betking",
+      "providerName": "BetKing",
+      "providerKind": "SPORTSBOOK",
+      "configKeys": [
+        "BETKING_API_URL",
+        "BETKING_API_KEY",
+        "BETKING_B2B_URL",
+        "BETKING_B2B_KEY"
+      ],
+      "status": "DISCOVERED"
+    },
+    {
+      "providerId": "bet9ja",
+      "providerName": "Bet9ja",
+      "providerKind": "SPORTSBOOK",
+      "configKeys": [
+        "BET9JA_API_URL",
+        "BET9JA_API_KEY",
+        "BET9JA_FEED_URL"
+      ],
+      "status": "DISCOVERED"
+    },
+    {
+      "providerId": "sportybet",
+      "providerName": "SportyBet",
+      "providerKind": "SPORTSBOOK",
+      "configKeys": [
+        "SPORTYBET_API_URL",
+        "SPORTYBET_API_KEY",
+        "SPORTYBET_FEED_URL"
+      ],
+      "status": "DISCOVERED"
+    }
+  ]
 }

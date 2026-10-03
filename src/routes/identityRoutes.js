@@ -2,11 +2,19 @@ import { authRateLimit } from "../security/RateLimiter.js";
 
 function parseBearer(req) {
   const header = String(req.get("authorization") || "");
-  if (!header.startsWith("Bearer ")) return null;
-  const token = header.slice(7);
-  if (!token) return null;
-  return token;
+  if (header.startsWith("Bearer ")) {
+    const token = header.slice(7);
+    if (token) return token;
+  }
+  // Single-authority fallback: SameSite=Lax session cookie set at login/PIN.
+  try {
+    const fromCookie = String(req.cookies?.[SESSION_COOKIE_NAME] || req.headers?.["x-ade-token"] || "").trim();
+    if (fromCookie) return fromCookie;
+  } catch {}
+  return null;
 }
+
+const SESSION_COOKIE_NAME = "ade_token";
 
 export function registerIdentityRoutes({
   app,
@@ -23,6 +31,33 @@ export function registerIdentityRoutes({
   const gate = typeof requireDurableStorage === "function" ? requireDurableStorage : (req, res, next) => next();
 
   const elevatedRoles = ["FOUNDER", "ADMIN", "OPERATOR"];
+
+  // Single-authority session cookies: PIN elevation atomically swaps the
+  // session cookie set so a base and an elevated session never coexist.
+  // SameSite=Lax on every session cookie; logout purges all of them.
+  const SESSION_COOKIE = "ade_token";
+  const ELEVATED_COOKIE = "ade_elevated";
+  const cookieOpts = (maxAgeMs) => ({
+    httpOnly: true,
+    sameSite: "lax",
+    secure: String(process.env.VERCEL_ENV || process.env.NODE_ENV || "").toLowerCase() === "production",
+    path: "/",
+    ...(Number.isFinite(maxAgeMs) && maxAgeMs > 0 ? { maxAge: Math.floor(maxAgeMs) } : {})
+  });
+  const setSessionCookies = (res, session, { pinVerified = false } = {}) => {
+    try {
+      const maxAgeMs = Number(session?.expiresIn) > 0 ? Number(session.expiresIn) * 1000 : null;
+      res.cookie(SESSION_COOKIE, session.token, cookieOpts(maxAgeMs));
+      if (pinVerified) res.cookie(ELEVATED_COOKIE, "1", cookieOpts(maxAgeMs));
+      else res.clearCookie(ELEVATED_COOKIE, { path: "/" });
+    } catch {}
+  };
+  const clearSessionCookies = (res) => {
+    try {
+      res.clearCookie(SESSION_COOKIE, { path: "/" });
+      res.clearCookie(ELEVATED_COOKIE, { path: "/" });
+    } catch {}
+  };
 
   function issueWorkforceSession(person, { pinVerified = false, levelOverride = null } = {}) {
     const level = levelOverride ?? person.level;
@@ -208,6 +243,7 @@ export function registerIdentityRoutes({
         return res.status(401).json({ success: false, error: "INVALID_CREDENTIALS" });
       }
       const session = issueWorkforceSession(person);
+      setSessionCookies(res, session, { pinVerified: false });
       return res.status(200).json({
         success: true,
         token: session.token,
@@ -245,6 +281,9 @@ export function registerIdentityRoutes({
         if (req.token) identity.revokeSession(req.token);
       } catch {}
       const session = issueWorkforceSession(req.person, { pinVerified: true });
+      // Atomic elevation: the base cookie is replaced in the same response
+      // that issues the elevated session — never two live cookie sessions.
+      setSessionCookies(res, session, { pinVerified: true });
       // Atomic claims sync: return the redacted person + elevated claims so
       // clients can persist the token and sync role/level/pinVerified in one
       // step instead of racing a second session round-trip (prevents 401/403
@@ -314,6 +353,8 @@ export function registerIdentityRoutes({
     try {
       identity.revokeSession(req.token);
     } catch {}
+    // Purge every session cookie so no stale token survives client-side.
+    clearSessionCookies(res);
     return res.json({ success: true, status: "SESSION_REVOKED" });
   });
 

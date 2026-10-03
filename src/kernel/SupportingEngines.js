@@ -405,6 +405,79 @@ export class DecisionEngine extends EngineBase {
   }
 }
 
+/* --------------------- RULE + CONFIDENCE ----------------------- */
+/* Canonical deterministic policy + scoring engines. Additive: composes the
+   existing KnowledgeEngine/DecisionEngine/EventBus authorities; no new bus,
+   registry, or store. RuleEngine evaluates named predicate rules;
+   ConfidenceEngine bands a 0-1 score into CONFIRMED/REVIEW/REJECTED with the
+   same 0.6/0.8 thresholds used by DecisionEngine and SignalQualityGate. */
+
+export class RuleEngine extends EngineBase {
+  constructor({ kernel = null, rules = {} } = {}) {
+    super({ kernel });
+    this.rules = { ...(rules || {}) };
+    this.evaluationCount = 0;
+    this.lastEvaluation = null;
+  }
+  registerRule(name, predicate) {
+    const key = String(name || "").trim().toUpperCase().slice(0, 80);
+    if (!key) throw new Error("RULE_NAME_REQUIRED");
+    if (typeof predicate !== "function") throw new Error("RULE_PREDICATE_REQUIRED");
+    this.rules[key] = predicate;
+    return { name: key, registered: true };
+  }
+  async evaluate(context = {}, ruleNames = null) {
+    this._assertReady();
+    if (!context || typeof context !== "object") throw new Error("Rule context must be an object.");
+    const selected = Array.isArray(ruleNames) && ruleNames.length
+      ? ruleNames.map((r) => String(r).toUpperCase())
+      : Object.keys(this.rules);
+    const results = {};
+    for (const name of selected) {
+      const fn = this.rules[name];
+      if (typeof fn !== "function") { results[name] = { pass: false, reason: "RULE_NOT_REGISTERED" }; continue; }
+      try {
+        const outcome = await fn(context);
+        results[name] = typeof outcome === "object" && outcome !== null
+          ? { pass: outcome.pass !== false, ...outcome }
+          : { pass: Boolean(outcome) };
+      } catch (e) { results[name] = { pass: false, reason: e?.message || "RULE_EVAL_FAILED" }; }
+    }
+    this.evaluationCount++;
+    const passed = Object.values(results).filter((r) => r.pass === true).length;
+    this.lastEvaluation = { evaluatedAt: new Date().toISOString(), passed, total: selected.length, results: structuredClone(results) };
+    try { this.kernel?.eventBus?.publish?.("rule.evaluated", { passed, total: selected.length }); } catch {}
+    return structuredClone(this.lastEvaluation);
+  }
+  stats() { return { evaluations: this.evaluationCount, rules: Object.keys(this.rules), last: this.lastEvaluation ? structuredClone(this.lastEvaluation) : null }; }
+}
+
+export class ConfidenceEngine extends EngineBase {
+  constructor({ kernel = null, approveThreshold = 0.8, reviewThreshold = 0.6 } = {}) {
+    super({ kernel });
+    this.thresholds = { approve: approveThreshold, review: reviewThreshold };
+    this.scoringCount = 0;
+    this.lastScore = null;
+  }
+  score(value) {
+    this._assertReady();
+    const raw = Number(value?.confidence ?? value?.score ?? value);
+    const confidence = Number.isFinite(raw) ? Math.max(0, Math.min(1, raw > 1 ? raw / 100 : raw)) : 0;
+    const band = confidence >= this.thresholds.approve ? "CONFIRMED"
+      : confidence >= this.thresholds.review ? "REVIEW" : "REJECTED";
+    this.scoringCount++;
+    this.lastScore = { confidence, band, thresholds: { ...this.thresholds }, scoredAt: new Date().toISOString() };
+    return structuredClone(this.lastScore);
+  }
+  actionMode(band = null) {
+    const b = String(band || this.lastScore?.band || "REJECTED").toUpperCase();
+    if (b === "CONFIRMED") return "PROCEED";
+    if (b === "REVIEW") return "HUMAN_REVIEW";
+    return "STAND_DOWN";
+  }
+  stats() { return { scorings: this.scoringCount, thresholds: { ...this.thresholds }, last: this.lastScore ? structuredClone(this.lastScore) : null }; }
+}
+
 /* --------------------------- OTHER ENGINES ------------------------- */
 
 export class OracleIntelligenceEngine extends EngineBase {
