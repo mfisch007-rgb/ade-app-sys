@@ -281,8 +281,10 @@ export function registerIdentityRoutes({
         if (req.token) identity.revokeSession(req.token);
       } catch {}
       const session = issueWorkforceSession(req.person, { pinVerified: true });
-      // Atomic elevation: the base cookie is replaced in the same response
-      // that issues the elevated session — never two live cookie sessions.
+      // Atomic elevation: 'ade_token' (elevated session claims) is maintained
+      // alongside 'ade_elevated' (elevation marker) in the same response so
+      // base claims remain resolvable across page switches without a logout
+      // loop. Single live token: the presented base token is revoked.
       setSessionCookies(res, session, { pinVerified: true });
       // Atomic claims sync: return the redacted person + elevated claims so
       // clients can persist the token and sync role/level/pinVerified in one

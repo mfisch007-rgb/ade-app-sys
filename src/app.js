@@ -49,7 +49,9 @@ import { ProviderDocumentStorageAdapter } from "./storage/ProviderDocumentStorag
 import { AuditStore } from "./storage/AuditStore.js";
 import { TelemetrySSEGateway } from "./telemetry/TelemetrySSEGateway.js";
 import { TelemetryEventHub } from "./telemetry/TelemetryEventHub.js";
-import { authRateLimit } from "./security/RateLimiter.js";
+import { authRateLimit, RateLimiter as _HybridRateLimiter } from "./security/RateLimiter.js";
+import { resolveTenantId as _resolveTenantId, tenantForStore as _tenantForStore, tenantExtractionMiddleware, rbacHydration } from "./middleware/auth.js";
+import { hybridRateLimit as _hybridRateLimit } from "./middleware/rateLimiter.js";
 import { UniversalAIGateway } from "./ai/UniversalAIGateway.js";
 import { WorkforceManager } from "./identity/WorkforceManager.js";
 import { AnnouncementsManager } from "./identity/AnnouncementsManager.js";
@@ -170,6 +172,32 @@ app.use((req, _res, next) => {
       req.cookies = jar;
     }
   } catch {}
+  next();
+});
+
+// Canonical tenant extraction: req.tenantId is ALWAYS defined so trading,
+// inbox and connection-mode handlers never throw
+// CONNECTION_MODES_FAILED: tenantId is not defined. Falls back through
+// person/claims/inbox claims (including `tid` alias) + x-tenant-id header
+// to 'default_tenant' across Guest/Worker/Admin/Founder.
+// (Canonical implementation lives in src/middleware/auth.js; wrappers below
+// preserve existing call sites.)
+function resolveTenantId(req) {
+  try { return _resolveTenantId(req); } catch {}
+  return "default_tenant";
+}
+function tenantForStore(tenant) {
+  try { return _tenantForStore(tenant); } catch {}
+  if (tenant === "default_tenant" || tenant === "default") return "default";
+  return tenant;
+}
+app.use(tenantExtractionMiddleware);
+app.use((req, _res, next) => {
+  try {
+    if (!req.tenantId) req.tenantId = resolveTenantId(req);
+  } catch {
+    try { req.tenantId = "default_tenant"; } catch {}
+  }
   next();
 });
 
@@ -626,13 +654,18 @@ app.post("/api/v1/auth/pin", authRateLimit(), async (req, res) => {
     }
 
     // Single authority: legacy Admin PIN elevation also sets the SameSite=Lax
-    // session cookie atomically with the token response.
+    // session cookies atomically with the token response. Both 'ade_token'
+    // (base session claims) and 'ade_elevated' (elevation marker) are
+    // maintained together so base claims stay accessible across page
+    // switches and the UI can verify elevation without a logout loop.
     try {
-      res.cookie("ade_token", session.token, {
+      const _cookieOpts = {
         httpOnly: true, sameSite: "lax", path: "/",
         secure: String(process.env.VERCEL_ENV || process.env.NODE_ENV || "").toLowerCase() === "production",
         ...(Number(session?.expiresIn) > 0 ? { maxAge: Math.floor(Number(session.expiresIn) * 1000) } : {})
-      });
+      };
+      res.cookie("ade_token", session.token, _cookieOpts);
+      res.cookie("ade_elevated", "1", _cookieOpts);
     } catch {}
     return res.status(200).json({
       success: true,
@@ -1381,7 +1414,25 @@ app.post('/api/v1/cases/:id/execute', security.requireAuth(),requireDurableStora
 app.post('/api/v1/cases/:id/feedback', security.requireAuth(),requireDurableStorage,async(req,res)=>{try{await refreshCases();const result=await engagementOrchestrator.ingestFeedback(req.params.id,req.body||{});res.json({success:true,case:result});}catch(e){res.status(e.message==='CASE_NOT_FOUND'?404:400).json({success:false,error:e.message});}});
 app.get('/api/v1/cases/:id/transitions', security.requireAuth(),async(req,res)=>{await refreshCases();const c=caseManager.get(req.params.id);if(!c)return res.status(404).json({success:false,error:'CASE_NOT_FOUND'});res.json({success:true,status:c.status,allowedTransitions:caseManager.getAllowedTransitions(req.params.id)});});
 app.get('/api/v1/cases/:id', security.requireAuth(),async(req,res)=>{await refreshCases();const c=caseManager.get(req.params.id); if(!c)return res.status(404).json({success:false,error:'CASE_NOT_FOUND'}); res.json({success:true,case:c});});
-app.patch('/api/v1/cases/:id', security.requireAuth(),requireDurableStorage,async(req,res)=>{await refreshCases();const c=caseManager.update(req.params.id,req.body||{}); if(!c)return res.status(404).json({success:false,error:'CASE_NOT_FOUND'}); res.json({success:true,case:c});});
+app.patch('/api/v1/cases/:id', security.requireAuth(),requireDurableStorage,async(req,res)=>{await refreshCases();try{
+  // Canonical case-to-account claim. The account is derived server-side from
+  // the verified session (requireAuth exposes req.identity claims; workforce
+  // routes expose req.person) — any client-supplied accountId is ignored.
+  // No separate /claim route exists by design.
+  if(req.body && req.body.attachToAccount === true){
+    const sess = req.person || req.identity || req.claims || {};
+    const accountId = String(sess.id ?? sess.personId ?? sess.username ?? sess.sub ?? "").trim();
+    if(!accountId) return res.status(401).json({success:false,error:'ACCOUNT_IDENTITY_REQUIRED'});
+    try{
+      const c = caseManager.attachCaseToAccount(req.params.id, accountId, { actor: sess.username || sess.sub || accountId, role: sess.role, level: sess.level });
+      return res.json({success:true,case:c,attached:true,accountId});
+    }catch(e){
+      if(e.message==='CASE_NOT_FOUND') return res.status(404).json({success:false,error:'CASE_NOT_FOUND'});
+      if(e.message==='CASE_ALREADY_ATTACHED') return res.status(403).json({success:false,error:'CASE_ALREADY_ATTACHED',message:'Case is already attached to a different account.'});
+      return res.status(400).json({success:false,error:e.message});
+    }
+  }
+  const c=caseManager.update(req.params.id,req.body||{}); if(!c)return res.status(404).json({success:false,error:'CASE_NOT_FOUND'}); res.json({success:true,case:c});}catch(e){res.status(400).json({success:false,error:e.message});}});
 
 app.get('/api/v1/admin/overview', security.requireLevel(2),async(req,res)=>{ await refreshCases(); const { cases, demoExcluded } = visibleCases(req.query.includeDemo); res.json({success:true,channels:channels.list(),connections:connectionManager.list(),partners:partners.list(),cases,demoCasesExcluded:demoExcluded,settings:runtimeConfig.read()}); });
 
@@ -1541,8 +1592,7 @@ app.get('/api/v1/connect/platforms', security.requireLevel(2), (req, res) => {
 // NOT_ENTITLED. LIVE is never reported: a venue reads CONNECTED only when
 // liveEligibility() verifies it, otherwise CONFIGURATION_REQUIRED. Read-only
 // projection over existing authorities; no state changes here.
-app.get('/api/v1/connect/channel-states', security.requireLevel(1), (req, res) => {
-  try {
+app.get('/api/v1/connect/channel-states', security.requireLevel(1), (req, res) => {  try {
     const truth = (s) => ["AVAILABLE", "CONFIGURATION_REQUIRED", "PROVIDER_REQUIRED", "NOT_ENTITLED", "CONNECTED"].includes(String(s)) ? String(s) : "CONFIGURATION_REQUIRED";
     const out = { success: true, vocabulary: ["AVAILABLE", "CONFIGURATION_REQUIRED", "PROVIDER_REQUIRED", "NOT_ENTITLED"], channels: [], connectors: [], venues: [] };
     try {
@@ -1572,8 +1622,130 @@ app.get('/api/v1/connect/channel-states', security.requireLevel(1), (req, res) =
   } catch (e) { res.status(500).json({ success: false, error: "CHANNEL_STATES_FAILED", message: e.message }); }
 });
 
+// Interactive channel configuration: stores API keys / webhook URLs / secrets
+// via the canonical connection authorities. Secrets are write-only (never
+// returned). Dynamically resolves partner endpoint configs (no hardcoded
+// static profile rules) from the live PartnerRegistry + ConnectPlatformsBoard.
+app.post('/api/v1/connect/channels/configure', security.requireLevel(2), requireDurableStorage, async (req, res) => {
+  try {
+    const channelId = String(req.body?.channelId || req.body?.channel || req.body?.id || "").trim().toUpperCase();
+    if (!channelId) return res.status(400).json({ success: false, error: "CHANNEL_REQUIRED" });
+    const { apiKey, webhookUrl, secret, baseUrl, authType } = req.body || {};
+    const tenant = tenantForStore(resolveTenantId(req));
+    const record = {
+      channelId, tenant,
+      configured: Boolean(apiKey || webhookUrl || secret || baseUrl),
+      authType: authType || (apiKey ? "API_KEY" : "NONE"),
+      baseUrl: baseUrl || webhookUrl || null,
+      webhookUrl: webhookUrl || null,
+      hasApiKey: Boolean(apiKey),
+      hasSecret: Boolean(secret),
+      updatedBy: req.person?.username || req.identity?.sub || "operator",
+      updatedAt: new Date().toISOString()
+    };
+    try {
+      if (typeof channels.set === "function") {
+        channels.set(channelId, { configured: record.configured, enabled: true, baseUrl: record.baseUrl, webhookUrl: record.webhookUrl, authType: record.authType });
+      } else if (typeof channels.register === "function") {
+        try { channels.register(channelId, { label: channelId, inbound: true, configured: record.configured, enabled: true }); } catch {}
+      }
+    } catch {}
+    try {
+      if (apiKey) secrets.setSecret(channelId + "_API_KEY", String(apiKey).slice(0, 500));
+      if (secret) secrets.setSecret(channelId + "_SECRET", String(secret).slice(0, 500));
+      if (webhookUrl) secrets.setSecret(channelId + "_WEBHOOK_URL", String(webhookUrl).slice(0, 500));
+    } catch {}
+    try { kernel?.eventBus?.publish?.("integrations.channel.configured", { channelId, tenant, by: record.updatedBy }); } catch {}
+    // Never echo secret values back.
+    return res.status(200).json({ success: true, channel: channelId, configured: record.configured, authType: record.authType, tenant });
+  } catch (e) { res.status(500).json({ success: false, error: "CHANNEL_CONFIGURE_FAILED", message: e.message }); }
+});
+
+// Dynamic partner endpoint configurations (live registry, never hardcoded).
+app.get('/api/v1/connect/partner-endpoints', security.requireLevel(1), (req, res) => {
+  try {
+    const list = [];
+    try {
+      for (const p of (partners.list?.() || [])) {
+        const caps = Array.isArray(p?.capabilities) ? p.capabilities : [];
+        const eps = Array.isArray(p?.endpoints) ? p.endpoints : (p?.website ? [{ id: p.id + "::website", url: p.website }] : []);
+        list.push({ partnerId: p.id, partner: p.name, status: p.status, channelId: String(p.name || p.id || "").toUpperCase().includes("A2M") ? "PARTNER" : "PARTNER", capabilities: caps, endpoints: eps, url: p.website || null });
+      }
+    } catch {}
+    try {
+      const board = connectBoard.board?.({ tenantScope: req.query.tenant || null }) || null;
+      const plats = board?.platforms || board?.connections || [];
+      for (const pl of plats) {
+        list.push({ partnerId: pl.id || pl.provider, partner: pl.provider || pl.id, status: pl.status || "EVALUATION", channelId: "INTEGRATIONS", capabilities: pl.capabilities || [], endpoints: pl.baseUrl ? [{ id: (pl.id || pl.provider) + "::base", url: pl.baseUrl }] : [], url: pl.baseUrl || null });
+      }
+    } catch {}
+    // Canonical channel ids always present so the UI can render connectors
+    // for EMAIL / AI / INTEGRATIONS / WHATSAPP / Telegram / A2MPro even
+    // before any partner is registered.
+    for (const cid of ["EMAIL", "AI", "INTEGRATIONS", "WHATSAPP", "TELEGRAM", "PARTNER"]) {
+      if (!list.some((e) => e.channelId === cid)) list.push({ partnerId: null, partner: null, status: "CONFIGURATION_REQUIRED", channelId: cid, capabilities: [], endpoints: [], url: null });
+    }
+    res.json({ success: true, endpoints: list });
+  } catch (e) { res.status(500).json({ success: false, error: "PARTNER_ENDPOINTS_FAILED", message: e.message }); }
+});
+
+// AWBULI + PROCARTA dual-mode rate limiting (canonical implementation in
+// src/middleware/rateLimiter.js; wrapper below preserves existing call sites):
+// GUEST/PUBLIC → 5 req/min + monetization/upgrade popup; ADMIN/FOUNDER L2/L3
+// → bypass into UNLIMITED POWER MODE.
+const _publicRateLimiter = new _HybridRateLimiter({ max: 5, windowMs: 60000 });
+function hybridRateLimit(req, res, next) {
+  try {
+    try { if (typeof req?.app?.set === "function") req.app.set("adeSecurity", security); } catch {}
+    try { globalThis.__adeSecurity = globalThis.__adeSecurity || security; } catch {}
+    return _hybridRateLimit(req, res, next);
+  } catch {}
+  if (_publicRateLimiter.attempt(req)) {
+    try { res.setHeader("X-RateLimit-Mode", "LIMITED"); res.setHeader("X-RateLimit-Tier", "PUBLIC_GUEST"); } catch {}
+    return next();
+  }
+  return res.status(429).json({ success: false, error: "RATE_LIMIT_EXCEEDED", tier: "PUBLIC_GUEST", limit: "5 req/min", upgrade: "Upgrade tier or add payment method to raise limits. See /api/v1/payments/availability?tier=PAID&upgrade=1.", popup: "MONETIZATION_UPGRADE", mode: "LIMITED" });
+}
+// Live engagement & trading portal feeds: Forex, Binary, Aviator Engine,
+// Soccer Prediction Feeds. States derive from live venue/entitlement
+// authorities; hybrid rate limiting applies (guest limited, founder unlimited).
+app.get('/api/v1/engagement/live-feeds', security.requireAuth(), hybridRateLimit, (req, res) => {
+  try {
+    const feedState = (venueId) => {
+      try {
+        const elig = venueRegistry.liveEligibility?.(venueId);
+        if (elig?.eligible) return { state: "CONNECTED", note: "Live eligible — verified venue", venue: venueId };
+        const v = venueRegistry.get?.(venueId);
+        if (v?.status === "CONFIGURED") return { state: "CONFIGURATION_REQUIRED", note: "Configured — verification pending", venue: venueId };
+        return { state: "CONFIGURATION_REQUIRED", note: elig?.reason || "Configure venue then verify", venue: venueId };
+      } catch (e) { return { state: "CONFIGURATION_REQUIRED", note: e.message, venue: venueId }; }
+    };
+    const soccer = (() => {
+      try {
+        const venues = (venueRegistry.list?.() || []).filter((v) => String(v?.kind || "").toUpperCase().includes("SPORT") || /bet|sport/i.test(v?.id || ""));
+        const top = venues[0];
+        if (top) return feedState(top.id);
+        return { state: "CONFIGURATION_REQUIRED", note: "No sports venue configured — add via INTEGRATIONS", venue: "soccer" };
+      } catch (e) { return { state: "CONFIGURATION_REQUIRED", note: e.message, venue: "soccer" }; }
+    })();
+    res.json({
+      success: true,
+      feeds: {
+        forex: { ...feedState("fbs"), badge: feedState("fbs").state === "CONNECTED" ? "LIVE" : "SIMULATED", otc: false, gate: "SignalQualityGate" },
+        binary: { ...feedState("pocketoption"), badge: feedState("pocketoption").state === "CONNECTED" ? "LIVE" : "SIMULATED", otc: true, regular: true, gate: "SignalQualityGate" },
+        aviator: (() => { try { const h = aviatorHistory.stats?.() || null; return { state: "AVAILABLE", badge: "SIMULATED", note: "Aviator/Virtual Engine — educational analytics, paper simulation only", venue: "aviator", engine: "AviatorAnalyticsEngine", stats: h }; } catch (e) { return { state: "AVAILABLE", badge: "SIMULATED", note: "Aviator engine ready", venue: "aviator" }; } })(),
+        soccer: { ...soccer, badge: soccer.state === "CONNECTED" ? "LIVE" : "SIMULATED", gate: "SignalQualityGate" },
+        comparison: { state: "AVAILABLE", badge: "SIMULATED", note: "Market Data Comparison — broker comparison store", link: "/api/v1/trading/broker-comparisons" }
+      },
+      signalGate: (() => { try { return signalQualityGate.autoMode?.({}) || { gate: "SignalQualityGate" }; } catch { return { gate: "SignalQualityGate" }; } })(),
+      rateLimit: { mode: res.getHeader?.("X-RateLimit-Mode") || "LIMITED" },
+      timestamp: new Date().toISOString()
+    });
+  } catch (e) { res.status(500).json({ success: false, error: "LIVE_FEEDS_FAILED", message: e.message }); }
+});
+
 // Canonical injection: any registered source -> envelope -> case -> PROCARTA context
-app.post('/api/v1/injection/ingest', security.requireLevel(1), requireDurableStorage, async (req, res) => {
+app.post('/api/v1/injection/ingest', security.requireLevel(1), hybridRateLimit, requireDurableStorage, async (req, res) => {
   try {
     const result = await operationalPipeline.run({
       source: req.body?.source || "TEST",
@@ -1587,7 +1759,7 @@ app.post('/api/v1/injection/ingest', security.requireLevel(1), requireDurableSto
 });
 
 // L1: structured operational assessment -> PROCARTA evidence -> case
-app.post('/api/v1/procarta/assessment', requireDurableStorage, async (req, res) => {
+app.post('/api/v1/procarta/assessment', hybridRateLimit, requireDurableStorage, async (req, res) => {
   try {
     const tenantScope = String(req.body?.tenantScope || req.query.tenant || "default");
     const actor = req.person?.username || req.identity?.subject || req.body?.submittedBy || "public";
@@ -2145,7 +2317,7 @@ app.get('/api/v1/commerce/availability', security.requireLevel(1), (req, res) =>
 
 // AWBULI connector status — truthful, never fabricated. Reports the runtime
 // adapter's detection of external config and the in-repo engine's live state.
-app.get('/api/v1/integrations/awbuli/status', (req, res) => {
+app.get('/api/v1/integrations/awbuli/status', hybridRateLimit, (req, res) => {
   try {
     const adapter = new AwbuliAdapter();
     const status = adapter.status();
@@ -2968,11 +3140,13 @@ app.post('/api/v1/trading/auto-mode', security.requireLevel(2), (req, res) => {
 app.get('/api/v1/trading/connection-modes', security.requireAuth(), (req, res) => {
   try {
     const uid = req.claims?.personId || req.claims?.sub || req.person?.id || null;
-    const tenant = req.person?.tenantId || req.claims?.tenantId || "default";
+    // Canonical tenant fallback: never undefined (resolves CONNECTION_MODES_FAILED).
+    const tenant = resolveTenantId(req);
+    const tenantStore = tenantForStore(tenant);
     // L2 sees all; others see own scoped
     const isL2 = Number(req.claims?.level||0) >=2 || ["FOUNDER","ADMIN"].includes(String(req.person?.role||"").toUpperCase());
-    const list = isL2 ? tradingConnectionModes.list({ tenantId: null }) : tradingConnectionModes.list({ userId: uid, tenantId });
-    res.json({ success: true, modes: list, isL2 });
+    const list = isL2 ? tradingConnectionModes.list({ tenantId: null }) : tradingConnectionModes.list({ userId: uid, tenantId: tenantStore });
+    res.json({ success: true, modes: list, isL2, tenantId: tenant });
   } catch (e){ res.status(500).json({success:false, error:"CONNECTION_MODES_FAILED", message:e.message}); }
 });
 app.post('/api/v1/trading/connection-modes', security.requireLevel(2), requireDurableStorage, (req, res) => {
@@ -3011,21 +3185,27 @@ function inboxAuth(req,res,next){
   try{
     const claims=security.identity.verifySession(h.slice(7));
     req.inboxClaims=claims;
+    // Canonical tenant fallback: claims may lack tenantId/tid (public/guest
+    // tokens) — always resolve to 'default_tenant' instead of undefined.
+    try {
+      req.tenantId = req.tenantId || claims?.tenantId || claims?.tid || "default_tenant";
+    } catch { try { req.tenantId = req.tenantId || "default_tenant"; } catch {} }
     // resolve person for tenant + name
     const pid=claims.personId || claims.sub;
-    workforce.getPersonRecord(pid).then(p=>{ req.inboxPerson=p; next(); }).catch(()=>{ req.inboxPerson={ id:pid, username:String(pid), tenantId: String(claims.tenantId||"default") }; next(); });
+    workforce.getPersonRecord(pid).then(p=>{ req.inboxPerson=p; try { if(!req.tenantId) req.tenantId = p?.tenantId || claims?.tenantId || claims?.tid || "default_tenant"; } catch {} next(); }).catch(()=>{ req.inboxPerson={ id:pid, username:String(pid), tenantId: String(claims.tenantId||claims.tid||"default_tenant") }; try { if(!req.tenantId) req.tenantId = String(claims.tenantId||claims.tid||"default_tenant"); } catch {} next(); });
   }catch(e){ return res.status(401).json({success:false, error:e.message}); }
 }
 app.post('/api/v1/inbox/send', inboxAuth, requireDurableStorage, async (req,res)=>{
   try{
     const senderId=req.inboxClaims?.personId || req.inboxClaims?.sub;
     const senderName=req.inboxPerson?.username || String(senderId);
-    const tenantId=req.inboxPerson?.tenantId || req.inboxClaims?.tenantId || "default";
+    const tenantResolved=req.tenantId || req.inboxPerson?.tenantId || req.inboxClaims?.tenantId || req.inboxClaims?.tid || "default_tenant";
+    const tenantId=tenantForStore(tenantResolved);
     const { recipientId, subject, body, threadId, replyTo } = req.body||{};
     // tenant check: recipient must be same tenant (lookup)
     let recipientTenant="default";
     try{ const rp=await workforce.getPersonRecord(String(recipientId)); recipientTenant=String(rp?.tenantId||"default"); }catch{ recipientTenant=tenantId; }
-    if(String(recipientTenant)!==String(tenantId) && String(tenantId)!=="default") return res.status(403).json({success:false, error:"CROSS_TENANT_BLOCKED"});
+    if(String(recipientTenant)!==String(tenantId) && String(tenantId)!=="default" && String(tenantResolved)!=="default_tenant") return res.status(403).json({success:false, error:"CROSS_TENANT_BLOCKED"});
     const msg=inboxManager.send({ senderId, senderName, recipientId, subject, body, threadId, replyTo, tenantId });
     // Truthful delivery envelope: internal ADE store only. The messageId
     // doubles as the audit correlation id (published on inbox.message.sent
@@ -3037,15 +3217,17 @@ app.post('/api/v1/inbox/send', inboxAuth, requireDurableStorage, async (req,res)
 app.get('/api/v1/inbox', inboxAuth, (req,res)=>{
   try{
     const uid=req.inboxClaims?.personId || req.inboxClaims?.sub;
-    const tenant=req.inboxPerson?.tenantId || req.inboxClaims?.tenantId || null;
-    res.json({success:true, messages: inboxManager.inboxFor(uid, {tenantId: tenant!=="default"?tenant:null}), unread: inboxManager.unreadCount(uid, {tenantId: tenant!=="default"?tenant:null})});
+    const tenant=req.tenantId || req.inboxPerson?.tenantId || req.inboxClaims?.tenantId || req.inboxClaims?.tid || null;
+    const storeTenant = tenant === "default_tenant" ? null : (tenant!=="default"?tenant:null);
+    res.json({success:true, messages: inboxManager.inboxFor(uid, {tenantId: storeTenant}), unread: inboxManager.unreadCount(uid, {tenantId: storeTenant}), tenantId: tenant || "default_tenant"});
   }catch(e){ res.status(500).json({success:false, error:"INBOX_READ_FAILED", message:e.message}); }
 });
 app.get('/api/v1/inbox/sent', inboxAuth, (req,res)=>{
   try{
     const uid=req.inboxClaims?.personId || req.inboxClaims?.sub;
-    const tenant=req.inboxPerson?.tenantId || req.inboxClaims?.tenantId || null;
-    res.json({success:true, messages: inboxManager.sentFor(uid, {tenantId: tenant!=="default"?tenant:null})});
+    const tenant=req.tenantId || req.inboxPerson?.tenantId || req.inboxClaims?.tenantId || req.inboxClaims?.tid || null;
+    const storeTenant = tenant === "default_tenant" ? null : (tenant!=="default"?tenant:null);
+    res.json({success:true, messages: inboxManager.sentFor(uid, {tenantId: storeTenant})});
   }catch(e){ res.status(500).json({success:false, error:"INBOX_SENT_FAILED", message:e.message}); }
 });
 app.get('/api/v1/inbox/unread-count', inboxAuth, (req,res)=>{
@@ -3068,7 +3250,8 @@ app.post('/api/v1/inbox/thread/:id/reply', inboxAuth, requireDurableStorage, asy
   try{
     const uid=req.inboxClaims?.personId || req.inboxClaims?.sub;
     const senderName=req.inboxPerson?.username || String(uid);
-    const tenantId=req.inboxPerson?.tenantId || req.inboxClaims?.tenantId || "default";
+    const tenantResolved=req.tenantId || req.inboxPerson?.tenantId || req.inboxClaims?.tenantId || req.inboxClaims?.tid || "default_tenant";
+    const tenantId=tenantForStore(tenantResolved);
     const thread=inboxManager.thread(req.params.id);
     if(!thread.length) return res.status(404).json({success:false, error:"THREAD_NOT_FOUND"});
     const isParticipant=thread.some(m=>m.senderId===String(uid)||m.recipientId===String(uid));
@@ -3096,7 +3279,7 @@ app.post('/api/v1/trading/fbs/signal-handoff', security.requireAuth(), (req,res)
     const uid = req.claims?.personId || req.claims?.sub || req.person?.id || req.person?.username;
     const candidateIds = [req.claims?.personId, req.claims?.sub, req.person?.id, req.person?.username].filter(Boolean);
     const entitled = (feat) => candidateIds.some((id) => { try { return tradingEntitlements.can(id, feat); } catch { return false; } });
-    const tenant = req.person?.tenantId || req.claims?.tenantId || "default";
+    const tenant = tenantForStore(resolveTenantId(req));
     const { signal, connectionId, confirmed } = req.body||{};
     if(!signal || !signal.instrument) return res.status(400).json({success:false, error:"SIGNAL_REQUIRED", message:"Provide signal {instrument, direction, state, confidence}"});
     // entitlement (alias-aware: grant may be recorded under username while session presents personId, or vice versa)
@@ -3133,7 +3316,7 @@ app.post('/api/v1/trading/broker-comparisons', security.requireAuth(), requireDu
     const uid = req.claims?.personId || req.claims?.sub || req.person?.id || req.person?.username;
     const candidateIds = [req.claims?.personId, req.claims?.sub, req.person?.id, req.person?.username].filter(Boolean);
     const entitled = (feat) => candidateIds.some((id) => { try { return tradingEntitlements.can(id, feat); } catch { return false; } });
-    const tenant = req.person?.tenantId || req.claims?.tenantId || "default";
+    const tenant = tenantForStore(resolveTenantId(req));
     // entitlement: any trading capability
     if(!entitled("BINARY_REGULAR") && !entitled("BINARY_OTC") && !entitled("trading"))
       return res.status(403).json({success:false, error:"NOT_ENTITLED", message:"Binary capability not granted."});
@@ -3145,7 +3328,7 @@ app.post('/api/v1/trading/broker-comparisons', security.requireAuth(), requireDu
 app.get('/api/v1/trading/broker-comparisons', security.requireAuth(), (req,res)=>{
   try{
     const uid = req.claims?.personId || req.claims?.sub || req.person?.id || req.person?.username;
-    const tenant = req.person?.tenantId || req.claims?.tenantId || "default";
+    const tenant = tenantForStore(resolveTenantId(req));
     const isL2 = Number(req.claims?.level||0)>=2 || ["FOUNDER","ADMIN"].includes(String(req.person?.role||"").toUpperCase());
     const list = isL2 ? brokerComparisonStore.list({ tenantId: null }) : brokerComparisonStore.list({ tenantId, userId: uid });
     // optional filters
@@ -3163,7 +3346,7 @@ app.get('/api/v1/trading/broker-comparisons/:id', security.requireAuth(), (req,r
     const rec=brokerComparisonStore.get(req.params.id);
     if(!rec) return res.status(404).json({success:false, error:"COMPARISON_NOT_FOUND"});
     const isL2 = Number(req.claims?.level||0)>=2 || ["FOUNDER","ADMIN"].includes(String(req.person?.role||"").toUpperCase());
-    const tenant = req.person?.tenantId || req.claims?.tenantId || "default";
+    const tenant = tenantForStore(resolveTenantId(req));
     if(!isL2 && (rec.userId!==String(uid) || rec.tenantId!==String(tenant) && rec.tenantId!=="default")) return res.status(403).json({success:false, error:"NOT_AUTHORIZED"});
     res.json({success:true, comparison: rec});
   }catch(e){ res.status(500).json({success:false, error:"COMPARISON_GET_FAILED", message:e.message}); }
@@ -3174,7 +3357,7 @@ app.patch('/api/v1/trading/broker-comparisons/:id/result', security.requireAuth(
     const rec=brokerComparisonStore.get(req.params.id);
     if(!rec) return res.status(404).json({success:false, error:"COMPARISON_NOT_FOUND"});
     const isL2 = Number(req.claims?.level||0)>=2 || ["FOUNDER","ADMIN"].includes(String(req.person?.role||"").toUpperCase());
-    const tenant = req.person?.tenantId || req.claims?.tenantId || "default";
+    const tenant = tenantForStore(resolveTenantId(req));
     if(!isL2 && rec.userId!==String(uid)) return res.status(403).json({success:false, error:"NOT_AUTHORIZED"});
     const updated=brokerComparisonStore.recordResult(req.params.id, req.body||{}, uid);
     res.json({success:true, comparison: updated});
@@ -3896,6 +4079,7 @@ app.post('/api/v1/email/send', security.requireLevel(2), async (req, res) => {
 
 app.get('/admin', (req,res)=>res.sendFile(path.join(__dirname, '../public/admin/index.html')));
 app.get('/founder', (req,res)=>res.sendFile(path.join(__dirname, '../public/founder.html')));
+app.get('/procarta-onboarding', (req,res)=>res.sendFile(path.join(__dirname, '../public/procarta-onboarding.html')));
 app.get('/market-lab', (req,res)=>res.sendFile(path.join(__dirname, '../public/market-lab.html')));
 app.get('/lab', (req,res)=>res.sendFile(path.join(__dirname, '../public/market-lab.html')));
 

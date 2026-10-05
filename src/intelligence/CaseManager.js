@@ -142,6 +142,38 @@ export class CaseManager {
     return current ? allowedTransitions(current.status) : [];
   }
 
+  // Canonical case-to-account linkage. Binds a (possibly public/anonymous)
+  // intake case to the authenticated account that claimed it. The accountId
+  // MUST be derived server-side from the verified session — never accepted
+  // from the client. Idempotent for the owning account; refuses to steal a
+  // case already attached to a different account. Status is untouched.
+  attachCaseToAccount(caseId, accountId, sessionContext = {}) {
+    if (!caseId || typeof caseId !== "string") throw new Error("CASE_ID_REQUIRED");
+    if (!accountId || typeof accountId !== "string") throw new Error("ACCOUNT_ID_REQUIRED");
+    const current = this.get(caseId);
+    if (!current) throw new Error("CASE_NOT_FOUND");
+    if (current.accountId && current.accountId !== accountId) {
+      throw new Error("CASE_ALREADY_ATTACHED");
+    }
+    if (current.accountId === accountId) return current;
+    const now = new Date().toISOString();
+    const actor = sessionContext.actor || sessionContext.username || "ACCOUNT_HOLDER";
+    const next = {
+      ...current,
+      accountId,
+      updatedAt: now,
+      history: [
+        ...(Array.isArray(current.history) ? current.history : []),
+        { from: current.status, to: current.status, reason: "CASE_ATTACHED_TO_ACCOUNT", actor, at: now }
+      ]
+    };
+    this.cases.set(caseId, next);
+    this.persist();
+    this.publish("case.updated", next);
+    this.publish(EngagementEvents.CASE_UPDATED, next);
+    return next;
+  }
+
   reload() {
     try {
       const loaded =

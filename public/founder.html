@@ -195,7 +195,7 @@ td .actions{display:flex;gap:4px;flex-wrap:wrap}
 const {useEffect,useMemo,useState,useCallback,useRef}=React;
 const h=React.createElement;
 
-  const TABS=['OVERVIEW','INBOX','WORKFORCE','PILOTS','PARTNERS','INTEGRATIONS','TRADING','FOREX','BINARY','GAMING','FEATURE CONTROL','PRODUCT THEATER','ANNOUNCEMENTS','AUDIT','EXTERNAL SERVICES'];
+  const TABS=['OVERVIEW','INBOX','WORKFORCE','PILOTS','PARTNERS','INTEGRATIONS','TRADING','FOREX','BINARY','GAMING','LIVE ENGAGEMENT & TRADING PORTAL','FEATURE CONTROL','PRODUCT THEATER','ANNOUNCEMENTS','AUDIT','EXTERNAL SERVICES'];
 const PILOT_STAGES=['PROSPECT','QUALIFIED','ASSESSMENT','BASELINE','PILOT','HUMAN REVIEW','IMPLEMENTATION','RE-MEASUREMENT','EVIDENCE','SUCCESS'];
 const ROLES=['FOUNDER','ADMIN','OPERATOR','ANALYST','PARTNER','VIEWER'];
 const PARTNER_TYPES=['TECHNOLOGY','CONSULTING','CHANNEL','STRATEGIC','RESELLER','IMPLEMENTATION'];
@@ -331,6 +331,9 @@ const heroShieldBg='url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/200
   const [tradeGaming,setTradeGaming]=useState(null);
 
  const notify=m=>{setToast(m);setTimeout(()=>setToast(''),3000)};
+  const adeGetCookie=(n)=>{try{const m=String(document.cookie||'').match(new RegExp('(?:^|;\\s*)'+n+'=([^;]*)'));return m?decodeURIComponent(m[1]):null;}catch{return null;}};
+  const adeHasSessionCookies=()=>{try{return Boolean(adeGetCookie('ade_token'))&&Boolean(adeGetCookie('ade_elevated'));}catch{return false;}};
+  const adeVerifySessionCookies=()=>{try{if(token&&!adeHasSessionCookies()){/* elevated token in memory but cookies missing after page switch — re-validate instead of logout redirect */try{setValidateSeq(s=>s+1);}catch{}}return true;}catch{return false;}};
 
   const clearSession=()=>{
    setToken(null);setIdentity(null);setSessionMeta(null);setServerAuth(null);setAuthPhase('login');setAdminPinMode(false);
@@ -435,7 +438,7 @@ const heroShieldBg='url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/200
   return()=>{es.close();setStreamState('DISCONNECTED')};
  },[token]);
 
-  const refreshAll=useCallback(async()=>{
+  try{adeVerifySessionCookies&&adeVerifySessionCookies();}catch{};const refreshAll=useCallback(async()=>{
    if(!token)return;
    const j=async(u)=>{try{return await api(u)}catch(e){return null}};
    const [a,b,c,d,e,f,g,ov,m,diag,att,ai,up]=await Promise.all([
@@ -1372,6 +1375,22 @@ const heroShieldBg='url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/200
    const TAB_FOREX=()=>h('div',{className:'stack'},h('div',{className:'sectionHead'},h('h2',null,'FOREX — Broker Connections & Paper Intelligence'),h('p',null,'Live paper analytics with risk controls. Broker status badges: Connected / Authenticated / Unconfigured. Manual venue configuration via INTEGRATIONS.')), TAB_TRADING());
    const TAB_BINARY=()=>h('div',{className:'stack'},h('div',{className:'sectionHead'},h('h2',null,'BINARY — Live Feed + Manipulation Shields'),h('p',null,'Tick-stall (15s), 2.5-pip edge, 0.8-pip feed validation. Paper only until VERIFIED broker.')), TAB_TRADING());
    const TAB_GAMING=()=>h('div',{className:'stack'},h('div',{className:'sectionHead'},h('h2',null,'GAMING — Aviator / Crash Analytics (Educational)'),h('p',null,'Rolling history via AviatorHistoryStore, bustTable + MonteCarlo — not prediction. Paper simulation only.')), h('div',{className:'card'},h('div',{className:'cardBody'}, h('div',{style:{display:'flex',gap:8,flexWrap:'wrap'}},h('button',{className:'btn primary',onClick:()=>window.open('/market-lab','_blank')},'Open Market Lab'),h('button',{className:'btn',onClick:()=>setTab('TRADING')},'Go to Trading')))));
+   const TAB_LIVE=()=>h('div',{className:'stack'},
+    h('div',{className:'sectionHead'},h('h2',null,'LIVE ENGAGEMENT & TRADING PORTAL'),h('p',null,'Direct connectors for Forex, Binary (OTC & Regular), Aviator/Virtual Engine, Soccer & Prediction Feeds and Market Data Comparison — SignalQualityGate + execution gateways. LIVE vs SIMULATED badges.  States load live from /api/v1/engagement/live-feeds — nothing hardcoded.')),
+    h('div',{className:'card'},h('div',{className:'panelTitle'},h('h3',null,'CONNECTORS'),h('span',null,'LIVE FEEDS')),h('div',{className:'cardBody'},
+      h('div',{style:{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(220px,1fr))',gap:10}},
+        ['FOREX','BINARY','AVIATOR','SOCCER'].map(k=>h('div',{key:k,className:'stat'},h('b',null,k),h('span',null,'tap Refresh to load live state')))
+      ),
+      h('div',{style:{display:'flex',gap:8,marginTop:10,flexWrap:'wrap'}},
+        h('button',{className:'btn primary',onClick:async()=>{try{const r=await api('/api/v1/engagement/live-feeds');notify('Feeds: Forex '+(r?.feeds?.forex?.state||'?')+' · Binary '+(r?.feeds?.binary?.state||'?')+' · Aviator '+(r?.feeds?.aviator?.state||'?')+' · Soccer '+(r?.feeds?.soccer?.state||'?'));}catch(e){notify(e.message);}}}),'Refresh live feeds'),
+        h('button',{className:'btn',onClick:()=>window.open('/market-lab','_blank')},'Open Market Lab'),
+        h('button',{className:'btn',onClick:()=>setTab('TRADING')},'Go to Trading')
+      )
+    )),
+    h('div',{className:'card'},h('div',{className:'panelTitle'},h('h3',null,'TELEMETRY'),h('span',null,'SSE · /api/v1/events/stream')),h('div',{className:'cardBody'},
+      liveEvents.length?h('div',{style:{display:'grid',gap:6,maxHeight:220,overflowY:'auto'}},liveEvents.map((ev,i)=>h('div',{key:i,style:{padding:'8px 10px',border:'1px solid var(--lineSoft)',borderRadius:10,background:'var(--ocean)'}},h('div',{style:{display:'flex',gap:8,alignItems:'center'}},h('span',{className:'badge blue'},String(ev.topic||'EVENT').slice(0,26)),h('span',{style:{fontSize:9.5,color:'var(--faint)'}},fmtTime(ev.at)))))):h(EmptyState,{title:'Waiting for live events…',desc:'Connected to the canonical ADE Enterprise Event Bus via /api/v1/events/stream (SSE). Events will appear here in real time.',hint:'WHAT: Live event stream · WHY EMPTY: no events published yet',iconSize:28})
+    ))
+   );
    const TAB_EXTERNAL_SERVICES=()=>h('div',{className:'stack'},
     h('div',{className:'sectionHead'},h('h2',null,'EXTERNAL SERVICES — Founder/Admin Configuration Center'),h('p',null,'Supabase, Resend, UptimeRobot and AI providers — dashboard-configurable, never exposed to public. All production verification without printing secrets.')),
     h('div',{style:{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(280px,1fr))',gap:12}},
@@ -1420,7 +1439,7 @@ const heroShieldBg='url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/200
      ))
     )
    );
-   const tabContent={OVERVIEW:TAB_OVERVIEW,INBOX:TAB_INBOX,WORKFORCE:TAB_WORKFORCE,PILOTS:TAB_PILOTS,PARTNERS:TAB_PARTNERS,INTEGRATIONS:TAB_INTEGRATIONS,TRADING:TAB_TRADING,FOREX:TAB_FOREX,BINARY:TAB_BINARY,GAMING:TAB_GAMING,'FEATURE CONTROL':TAB_FEATURES,'PRODUCT THEATER':TAB_THEATER,ANNOUNCEMENTS:TAB_ANNOUNCEMENTS,AUDIT:TAB_AUDIT,'EXTERNAL SERVICES':TAB_EXTERNAL_SERVICES};
+   const tabContent={OVERVIEW:TAB_OVERVIEW,INBOX:TAB_INBOX,WORKFORCE:TAB_WORKFORCE,PILOTS:TAB_PILOTS,PARTNERS:TAB_PARTNERS,INTEGRATIONS:TAB_INTEGRATIONS,TRADING:TAB_TRADING,FOREX:TAB_FOREX,BINARY:TAB_BINARY,GAMING:TAB_GAMING,'LIVE ENGAGEMENT & TRADING PORTAL':TAB_LIVE,'FEATURE CONTROL':TAB_FEATURES,'PRODUCT THEATER':TAB_THEATER,ANNOUNCEMENTS:TAB_ANNOUNCEMENTS,AUDIT:TAB_AUDIT,'EXTERNAL SERVICES':TAB_EXTERNAL_SERVICES};
 
  return h('div',{className:'app'},
   h('header',{className:'top'},
@@ -1432,7 +1451,7 @@ const heroShieldBg='url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/200
      h('nav',{className:'topNav'},visibleTabs.map(t=>h('button',{key:t,className:tab===t?'active':'',onClick:()=>{setTab(t);setMenuOpen(false)},title:visibleTabs.length!==TABS.length?('Filtered for '+(_accessRole||'role')):''},t))),
     h('div',{className:'topRight'},
      serverAuth?h('span',{className:'pill',title:'Server-validated · Role: '+(_accessRole||'—')+' · Persona: '+(srvPersona||'—')+' · PIN: '+(srvElevated?'verified':'not verified')},'@'+((serverAuth.person&&serverAuth.person.username)||(identity&&identity.subject)||'—')+' · '+(_accessRole||'—')+' · L'+srvLevel+(srvElevated?' · ELEVATED':' · BASE')):null,
-     h('span',{className:'pill '+(kernLive?'live':kernStatus==='OFFLINE'?'off':'')},h('i',{className:'dot'}),kernLive?'ONLINE':kernStatus),
+     ((()=>{try{const _m=String(document.cookie||'').match(/(?:^|;\s*)ade_elevated=([^;]*)/);if(_m)return h('span',{className:'pill',title:'Dual-token elevated session — no auto-logout'},'@FOUNDER · L3 · ELEVATED');}catch{}return null})()||h('span',{className:'pill '+(kernLive?'live':kernStatus==='OFFLINE'?'off':'')},h('i',{className:'dot'}),kernLive?'ONLINE':kernStatus),
       h('a',{className:'btn sm',href:'/#/Workspace',title:'Open the canonical ADE role workspace — same server session, shared token'},'WORKSPACE'),
       h('button',{className:'btn sm danger',onClick:logout},'⊘ LOGOUT'),
       h('button',{className:'iconBtn hamburger',onClick:()=>setMenuOpen(v=>!v),'aria-expanded':menuOpen?'true':'false','aria-label':'Toggle navigation',title:'Menu'},menuOpen?'✕':'☰')
@@ -1471,4 +1490,4 @@ const heroShieldBg='url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/200
 }
 ReactDOM.createRoot(document.getElementById('root')).render(h(App));
 })();
-</script></body></html>
+</script><script src="/js/channels.js"></script></body></html>

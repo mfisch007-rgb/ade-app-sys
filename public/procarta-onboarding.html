@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#010C1C">
+<meta name="description" content="ADE-PROCARTA client onboarding — splash, company intake, quotation, signatures, consent and living BPMN map gallery.">
+<link rel="icon" type="image/png" href="/ADE-LOGO.png">
+<link rel="apple-touch-icon" href="/ADE-LOGO.png">
+<title>ADE-PROCARTA — Client Onboarding</title>
+<script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone@7/babel.min.js"></script>
+<style>
+html,body,#root{margin:0;padding:0;min-height:100vh;background:#010C1C}
+.procarta-boot{display:flex;align-items:center;justify-content:center;min-height:100vh;color:#FFD700;font-family:Georgia,serif;letter-spacing:.15em;font-size:13px}
+.procarta-boot .spin{width:18px;height:18px;border-radius:50%;border:2px solid rgba(255,215,0,.25);border-top-color:#FFD700;animation:pspin .8s linear infinite;margin-right:12px}
+@keyframes pspin{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+<div id="root"><div class="procarta-boot"><span class="spin"></span>LOADING ADE-PROCARTA…</div></div>
+<noscript><div style="color:#FFD700;font-family:Georgia,serif;text-align:center;padding:40px">ADE-PROCARTA onboarding requires JavaScript.</div></noscript>
+<!-- Component source: src/components/AdeProcarterContainer.jsx (canonical, ESM).
+     Browser mirror: /js/AdeProcarterContainer.jsx (UMD-adapted import/export only). -->
+<script type="text/babel" data-presets="react" src="/js/AdeProcarterContainer.jsx"></script>
+<script type="text/babel" data-presets="react">
+(function () {
+  function mount() {
+    var C = window.AdeProcarterContainer;
+    if (!C) { setTimeout(mount, 50); return; }
+    ReactDOM.createRoot(document.getElementById("root")).render(React.createElement(C));
+  }
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", mount);
+  } else {
+    mount();
+  }
+})();
+</script>
+</body>
+</html>
