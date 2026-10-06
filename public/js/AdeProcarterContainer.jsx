@@ -384,17 +384,40 @@ function SignaturePad({ label, role, onSave, saved }) {
 }
 
 /* ─── PAYMENT MODAL SYSTEM ──────────────────────────────────── */
+// Canonical billing surface: delegates to ADE's single PaymentService via
+// POST /api/v1/payments/start. Never fabricates confirmation — the modal only
+// reports what the server (PaymentService.availability/startPayment) returns.
+// CLAIMED_UNVERIFIED until a configured provider verifies.
 function PaymentModal({ amount, companyName, onClose, onPaid }) {
   const [tab] = useState("card");
   const [loading, setLoading] = useState(false);
   const [done, setDone] = useState(false);
+  const [notice, setNotice] = useState("");
 
   const simulate = async () => {
     setLoading(true);
-    await new Promise(res => setTimeout(res, 2000));
-    setLoading(false); setDone(true);
-    await fireNotification("PAYMENT_RECEIVED", { company: companyName, amount, currency: activeCurrency.code, gateway: tab });
-    setTimeout(() => onPaid(tab), 1200);
+    setNotice("");
+    try {
+      const r = await fetch("/api/v1/payments/start", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ amount, company: companyName, gateway: tab, currency: activeCurrency.code }),
+      });
+      const j = await r.json().catch(() => null);
+      if (r.ok && (j?.success || j?.payment || j?.authorizationUrl)) {
+        setLoading(false); setDone(true);
+        setNotice(j?.message || "Payment initialized via canonical billing. Complete with provider; entitlement grants on verified webhook only.");
+        await fireNotification("PAYMENT_RECEIVED", { company: companyName, amount, currency: activeCurrency.code, gateway: tab, state: "CLAIMED_UNVERIFIED" });
+        setTimeout(() => onPaid(tab), 1200);
+        return;
+      }
+      setLoading(false);
+      setNotice(`Billing: ${(j?.error || j?.message || `HTTP ${r.status}`)} — no charge made. Claim remains CLAIMED_UNVERIFIED until a configured provider verifies.`);
+    } catch {
+      setLoading(false);
+      setNotice("Billing service unreachable — no charge made. Claim remains CLAIMED_UNVERIFIED.");
+    }
   };
 
   return (
@@ -408,13 +431,14 @@ function PaymentModal({ amount, companyName, onClose, onPaid }) {
         {done ? (
           <div style={{ padding: "40px 20px", textAlign: "center" }}>
             <div style={{ fontSize: 48, marginBottom: 14 }}>✅</div>
-            <div style={{ fontFamily: "Cinzel", fontSize: 16, color: BRAND.success }}>PAYMENT CONFIRMED</div>
-            <div style={{ fontSize: 12, color: BRAND.sub, fontFamily: "Rajdhani" }}>Your process maps are ready for deployment. ADE system updated.</div>
+            <div style={{ fontFamily: "Cinzel", fontSize: 16, color: BRAND.success }}>PAYMENT INITIALIZED (CLAIMED_UNVERIFIED)</div>
+            <div style={{ fontSize: 12, color: BRAND.sub, fontFamily: "Rajdhani" }}>{notice || "Complete with provider; entitlement grants on verified webhook only."}</div>
           </div>
         ) : (
           <div style={{ padding: 20, display: "flex", flexDirection: "column", gap: 14 }}>
             <div style={{ fontSize: 12, color: BRAND.sub }}>Selected Payment Provider: <strong style={{ color: BRAND.gold }}>{tab.toUpperCase()}</strong></div>
-            <button className="btn-g" onClick={simulate} disabled={loading}>{loading ? "PROCESSING TRANSACTIONS..." : `AUTHORIZE PAYMENT OF ${fmt(amount)} →`}</button>
+            {notice && <div style={{ fontSize: 11, color: BRAND.warn, fontFamily: "Rajdhani" }}>{notice}</div>}
+            <button className="btn-g" onClick={simulate} disabled={loading}>{loading ? "CONTACTING CANONICAL BILLING..." : `AUTHORIZE PAYMENT OF ${fmt(amount)} →`}</button>
           </div>
         )}
       </div>
@@ -423,6 +447,10 @@ function PaymentModal({ amount, companyName, onClose, onPaid }) {
 }
 
 /* ─── AI SIMULATION ENGINE (GENERATES FULL ADE MAPS) ─────────── */
+// DETERMINISTIC STRUCTURAL PROJECTION — derives lane/node layout from the
+// submitted form (company/process text) using a fixed template. It is NOT
+// server-measured BPMN and MUST be labeled as projection wherever rendered
+// until replaced by GET /api/v1/procarta/topology?caseId=CASE-2026-* output.
 function generateFallbackMaps(fd) {
   return [
     {
@@ -515,6 +543,16 @@ function ADEProcarta() {
   const [selectedMap, setSelectedMap] = useState(null);
   const [showPayment, setShowPayment] = useState(false);
   const [tapCount, setTapCount] = useState(0);
+  // Canonical case continuity: exact CASE-2026-* id returned by the server
+  // (POST /api/v1/procarta/assessment). Non-authoritative UI hint only; the
+  // server CaseManager remains the authority. Stored under the existing
+  // ade_pending_case key consumed by workspace retrieval.
+  const [caseId, setCaseId] = useState(null);
+  const [projectionNotice, setProjectionNotice] = useState("");
+  // Crown unlock state: display-only. Any privileged action behind the crown
+  // MUST re-verify server-side L3/Founder RBAC per tap — this state never
+  // grants access on its own.
+  const [crownStatus, setCrownStatus] = useState(null);
 
   // Safe client-side dynamic fonts injection
   useEffect(() => {
@@ -527,7 +565,29 @@ function ADEProcarta() {
     }
   }, []);
 
-  const handleTapLogo = () => setTapCount(t => (t + 1) % 5);
+  // Crown 5-tap trigger: counts to 5, then delegates EVERYTHING to the
+  // server. The client never unlocks capability — it only asks the canonical
+  // L2/L3-gated diagnostics endpoint whether the current session carries
+  // Founder authority (cookies ade_token/ade_elevated verified by
+  // HttpSecurityBoundary -> IdentityOnboarding.verifySession server-side).
+  const handleTapLogo = async () => {
+    const next = tapCount + 1;
+    if (next < 5) { setTapCount(next); return; }
+    setTapCount(0);
+    setCrownStatus({ state: "VERIFYING", message: "Verifying Founder authority with server…" });
+    try {
+      const r = await fetch("/api/v1/system/diagnostics", { credentials: "include" });
+      if (r.status === 200) {
+        setCrownStatus({ state: "VERIFIED", message: "SERVER-VERIFIED: session holds L2+ authority. Privileged actions still re-check L3/Founder RBAC per request." });
+      } else if (r.status === 401 || r.status === 403) {
+        setCrownStatus({ state: "DENIED", message: "Server denied elevation (401/403). Sign in with Founder credentials — no client unlock granted." });
+      } else {
+        setCrownStatus({ state: "UNKNOWN", message: `Server responded ${r.status} — no elevation granted.` });
+      }
+    } catch {
+      setCrownStatus({ state: "OFFLINE", message: "Server unreachable — no elevation granted." });
+    }
+  };
   const handleFormNext = () => setScreen("quote");
   const handleQuoteConfirm = (quote) => { setActiveQuote(quote); setScreen("sigs"); };
   const handleSigsComplete = () => setScreen("consent");
@@ -535,10 +595,38 @@ function ADEProcarta() {
   const handleConsentComplete = async () => {
     setScreen("processing");
     await fireNotification("ENGAGEMENT_SUBMITTED", { company: formData.companyName, total: activeQuote?.total });
+    // Canonical intake wiring (additive): submit the REAL public assessment to
+    // the server so a canonical CASE-2026-* record exists in CaseManager. The
+    // visual maps below still render from the local deterministic structural
+    // projection (existing generateFallbackMaps) and are explicitly labeled
+    // as such unless the server returns a live topology for this case.
+    let serverCaseId = null;
+    try {
+      const r = await fetch("/api/v1/procarta/assessment", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          companyName: formData.companyName, regNo: formData.regNo, industry: formData.industry,
+          staffCount: formData.staffCount, processes: formData.processes, painPoints: formData.painPoints,
+          automationGoals: formData.automationGoals, officers: formData.officers, quoteTotal: activeQuote?.total || null,
+        }),
+      });
+      const j = await r.json().catch(() => null);
+      serverCaseId = j?.caseId || j?.assessment?.caseId || j?.case?.id || null;
+      if (serverCaseId) {
+        setCaseId(serverCaseId);
+        try { window.localStorage.setItem("ade_pending_case", serverCaseId); } catch {}
+        setProjectionNotice(`Case ${serverCaseId} recorded server-side. Maps below are a DETERMINISTIC STRUCTURAL PROJECTION from your submitted form — not server-measured BPMN. Live topology: GET /api/v1/procarta/topology?caseId=${encodeURIComponent(serverCaseId)}`);
+      } else {
+        setProjectionNotice("Server assessment unavailable — maps below are a DETERMINISTIC STRUCTURAL PROJECTION from your submitted form data only.");
+      }
+    } catch {
+      setProjectionNotice("Server unreachable — maps below are a DETERMINISTIC STRUCTURAL PROJECTION from your submitted form data only.");
+    }
     setTimeout(() => {
       const fallbacks = generateFallbackMaps(formData);
       setMapsData(fallbacks);
-      setAnalysisText(`System optimization analysis complete for ${formData.companyName}. Operational efficiency projected to increase by up to 38% under ADE automated architecture.`);
+      setAnalysisText(`System optimization analysis complete for ${formData.companyName}${serverCaseId ? ` (case ${serverCaseId})` : ""}. Operational efficiency projected to increase by up to 38% under ADE automated architecture.`);
       setScreen("maps");
     }, 3000);
   };
@@ -556,6 +644,7 @@ function ADEProcarta() {
           <CrownLogo size={92} onClick={handleTapLogo} tapCount={tapCount} />
           <h1 style={{ fontFamily: "Cinzel", fontSize: 38, color: BRAND.gold, marginTop: 16 }}>ADE-PROCARTA v4.0</h1>
           <p style={{ fontFamily: "Rajdhani", fontSize: 14, color: BRAND.sub, letterSpacing: "0.15em", marginBottom: 24 }}>AUTOMATED BUSINESS PROCESS INTELLIGENCE ENGINE</p>
+          {crownStatus && <p style={{ fontFamily: "Share Tech Mono", fontSize: 11, color: crownStatus.state === "VERIFIED" ? BRAND.success : BRAND.warn, maxWidth: 520 }}>{crownStatus.message}</p>}
           <button className="btn-g" onClick={() => setScreen("form")}>BEGIN CLIENT ONBOARDING →</button>
         </div>
       )}
@@ -620,6 +709,12 @@ function ADEProcarta() {
         <div style={{ maxWidth: 1100, margin: "0 auto", padding: 24 }}>
           <TopBar L={<CrownLogo size={32} />} C={<div style={{ fontFamily: "Cinzel", color: BRAND.gold }}>ADE PROCESS INTELLIGENCE GALLERY</div>} R={<button className="btn-g" style={{ padding: "6px 16px" }} onClick={() => setShowPayment(true)}>PAYMENT OPTIONS</button>} />
           <p style={{ margin: "16px 0", color: BRAND.sub, fontFamily: "Rajdhani" }}>{analysisText}</p>
+          {(caseId || projectionNotice) && (
+            <div style={{ margin: "0 0 16px 0", padding: 12, background: hexToRgba(BRAND.blue, 0.08), border: `1px solid ${hexToRgba(BRAND.blue, 0.3)}`, borderRadius: 8, fontFamily: "Share Tech Mono", fontSize: 11, color: BRAND.text }}>
+              {caseId && <div>CASE ID: <strong style={{ color: BRAND.gold }}>{caseId}</strong> (canonical — retrieve via GET /api/v1/cases/{caseId})</div>}
+              {projectionNotice && <div style={{ marginTop: 6, color: BRAND.sub }}>{projectionNotice}</div>}
+            </div>
+          )}
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
             {mapsData.map(map => (
               <div key={map.id} style={{ background: BRAND.surface, border: `1px solid ${BRAND.border}`, borderRadius: 8, padding: 16, cursor: "pointer" }} onClick={() => { setSelectedMap(map); setScreen("detail"); }}>

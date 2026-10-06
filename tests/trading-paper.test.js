@@ -129,3 +129,35 @@ test("trading routes: auth gating + paper lifecycle over HTTP", async () => {
   assert.equal(live.status, 503);
   assert.equal((await live.json()).error, "BROKER_NOT_CONFIGURED");
 });
+
+test("trading routes: SignalQualityGate enforced server-side on paper execution", async () => {
+  const token = opToken();
+  const H = { "Content-Type": "application/json", Authorization: `Bearer ${token}` };
+  const founderToken = IdentityOnboarding.getInstance().issueSession({ subject: "trade-founder", tier: "ENTERPRISE", level: 3, persona: "FOUNDER" }).token;
+  const FH = { "Content-Type": "application/json", Authorization: `Bearer ${founderToken}` };
+  const paper = (payload) => fetch(`${baseUrl}/api/v1/trading/paper`, { method: "POST", headers: H, body: JSON.stringify(payload) });
+  const good = { instrument: "GATEOK", market: "FOREX", state: "CONFIRMED", direction: "LONG", entry: 1.0811, stopLoss: 1.07, tp1: 1.095, confidence: 0.9 };
+  // Unentitled subject is blocked fail-closed (NOT_ENTITLED) before any fill.
+  const denied = await paper({ signal: { ...good, instrument: "GATEDENY" }, riskAmount: 10 });
+  assert.equal(denied.status, 422);
+  assert.equal((await denied.json()).error, "QUALITY_THRESHOLD_BLOCKED");
+  // Founder grants the trading entitlement to the operator subject.
+  const grant = await fetch(`${baseUrl}/api/v1/admin/trading/entitlements`, { method: "POST", headers: FH, body: JSON.stringify({ userId: "trade-test", trading: true }) });
+  assert.equal(grant.status, 201);
+  // Below-threshold quality is blocked fail-closed with a gate verdict.
+  const blocked = await paper({ signal: { ...good, instrument: "GATELOW" }, riskAmount: 10, minConfidence: 0.95 });
+  assert.equal(blocked.status, 422);
+  const blockedBody = await blocked.json();
+  assert.equal(blockedBody.error, "QUALITY_THRESHOLD_BLOCKED");
+  assert.equal(blockedBody.gate.pass, false);
+  // Manipulated feed is blocked even at high nominal confidence.
+  const manip = await paper({ signal: { ...good, instrument: "GATEMANIP", state: "REJECTED_BROKER_MANIPULATION", manipulationFlag: true }, riskAmount: 10 });
+  assert.equal(manip.status, 422);
+  assert.equal((await manip.json()).error, "QUALITY_THRESHOLD_BLOCKED");
+  // Passing signal executes and carries the gate verdict alongside.
+  const ok = await paper({ signal: good, riskAmount: 10 });
+  assert.equal(ok.status, 201);
+  const okBody = await ok.json();
+  assert.equal(okBody.position.executionMode, "PAPER");
+  assert.equal(okBody.signalGate.pass, true);
+});

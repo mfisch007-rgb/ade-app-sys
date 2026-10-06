@@ -200,6 +200,24 @@ app.use((req, _res, next) => {
   }
   next();
 });
+// Canonical tenant-isolation guard: an authenticated server context (identity,
+// person, or claims established by requireAuth/requireLevel/loadAuthenticated)
+// MUST win over any caller-supplied query tenant hint. Unauthenticated public
+// reads keep their explicit ?tenant= catalog behavior. This single-point guard
+// prevents ?tenant= / ?tenantId= from overriding the authenticated context on
+// the ~40 downstream routes that accept a tenant hint for tenantScope.
+app.use((req, _res, next) => {
+  try {
+    const authenticated = Boolean(req?.identity || req?.person || req?.claims?.personId || req?.claims?.sub);
+    if (authenticated && req?.query && (req.query.tenant !== undefined || req.query.tenantId !== undefined)) {
+      const serverTenant = req.tenantId || resolveTenantId(req);
+      req.query.tenant = serverTenant;
+      req.query.tenantId = serverTenant;
+      req.tenantScope = serverTenant;
+    }
+  } catch {}
+  next();
+});
 
 const security = new HttpSecurityBoundary();
 // Single enforcement authority: HttpSecurityBoundary (IdentityOnboarding
@@ -2635,8 +2653,31 @@ app.post('/api/v1/trading/analyze', security.requireLevel(2), (req, res) => {
 app.post('/api/v1/trading/paper', security.requireLevel(2), requireDurableStorage, (req, res) => {
   try {
     const actor = req.identity?.sub || req.identity?.subject || "founder";
-    const record = signalEngine.executePaper({ ...(req.body || {}), actor });
-    res.status(201).json({ success: true, position: record });
+    const body = req.body || {};
+    // Proven integration repair: the canonical SignalQualityGate MUST sit on
+    // the execution path, not just beside /trading/analyze. Fail closed —
+    // a gate rejection or gate outage blocks paper execution (422), exactly
+    // like the engine's own RISK_REJECTED path. Engine risk/cooldown stops
+    // remain enforced inside executePaper; this adds the missing minimum
+    // quality-threshold + manipulation/anti-martingale/entitlement layer.
+    const rawMin = body.minConfidence ?? body.minConfidencePercent ?? 0.6;
+    const parsed = Number(rawMin) > 1 ? Number(rawMin) / 100 : Number(rawMin);
+    const minConfidence = Number.isFinite(parsed) ? Math.max(0, Math.min(1, parsed)) : 0.6;
+    let signalGate = null;
+    try {
+      signalGate = signalQualityGate.gate(body.signal || {}, {
+        minConfidence,
+        userId: [req.person?.id, req.person?.username, req.claims?.personId, req.claims?.sub, req.identity?.personId, req.identity?.sub].filter(Boolean),
+        feature: String(body.gateFeature || "trading")
+      });
+    } catch (gateError) {
+      return res.status(422).json({ success: false, error: "QUALITY_THRESHOLD_BLOCKED", message: "Signal quality gate unavailable — execution blocked fail-closed.", gate: { pass: false, reason: "SIGNAL_GATE_FAILED", requiredAction: gateError?.message || "Gate unavailable." } });
+    }
+    if (!signalGate || signalGate.pass !== true) {
+      return res.status(422).json({ success: false, error: "QUALITY_THRESHOLD_BLOCKED", message: signalGate?.reason || "Signal below minimum quality threshold.", gate: signalGate, minConfidence });
+    }
+    const record = signalEngine.executePaper({ ...body, actor });
+    res.status(201).json({ success: true, position: record, signalGate, minConfidence });
   } catch (error) {
     const code = error.code || "PAPER_EXECUTE_FAILED";
     const status = code === "RISK_REJECTED" ? 422 : code === "DUPLICATE_SUPPRESSED" ? 409 : code === "SIGNAL_NOT_CONFIRMED" ? 400 : code === "BROKER_NOT_CONFIGURED" ? 503 : code === "EXECUTION_STYLE_INVALID" ? 400 : 400;
