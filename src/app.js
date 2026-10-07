@@ -2302,9 +2302,12 @@ app.get('/api/v1/agents', security.requireLevel(1), (req, res) => {
 });
 app.post('/api/v1/agents/:id/run', security.requireLevel(1), requireDurableStorage, async (req, res) => {
   try {
-    const run = await agentRegistry.run({ agentId: req.params.id, capability: req.body?.capability || "", input: req.body?.input || {}, tenantScope: req.query.tenant || req.body?.tenantScope || "default", actor: req.person?.username || req.identity?.subject || "operator", triggeringEvent: req.body?.triggeringEvent || null, correlationId: req.body?.correlationId || null, confidence: req.body?.confidence ?? null });
+    const run = await agentRegistry.run({ agentId: req.params.id, capability: req.body?.capability || "", input: req.body?.input || {}, tenantScope: req.query.tenant || req.body?.tenantScope || "default", actor: req.person?.username || req.identity?.subject || "operator", actorLevel: Number(req.identity?.level ?? req.claims?.level ?? 1), triggeringEvent: req.body?.triggeringEvent || null, correlationId: req.body?.correlationId || null, confidence: req.body?.confidence ?? null });
     res.status(201).json({ success: true, run });
-  } catch (e) { res.status(400).json({ success: false, error: e.code || "AGENT_RUN_FAILED", message: e.message }); }
+  } catch (e) {
+    const status = e.code === "AGENT_RBAC_BLOCKED" || e.code === "AGENT_EDITION_GATED" ? 403 : 400;
+    res.status(status).json({ success: false, error: e.code || "AGENT_RUN_FAILED", message: e.message });
+  }
 });
 app.post('/api/v1/agents/:id/status', security.requireLevel(2), requireDurableStorage, (req, res) => {
   try {
@@ -4123,6 +4126,13 @@ app.get('/founder', (req,res)=>res.sendFile(path.join(__dirname, '../public/foun
 app.get('/procarta-onboarding', (req,res)=>res.sendFile(path.join(__dirname, '../public/procarta-onboarding.html')));
 app.get('/market-lab', (req,res)=>res.sendFile(path.join(__dirname, '../public/market-lab.html')));
 app.get('/lab', (req,res)=>res.sendFile(path.join(__dirname, '../public/market-lab.html')));
+// Role-console deep links: /founder/* and /admin/* serve their own console
+// shells (not the community fallback). Previously e.g. /founder/markets/forex
+// fell through to public/index.html, silently losing Founder context. The
+// client resolves tab state from its own path/hash on load; these are
+// presentation aliases only — no capability or auth behavior changes.
+app.get(/^\/founder(\/.*)?$/, (req,res)=>res.sendFile(path.join(__dirname, '../public/founder.html')));
+app.get(/^\/admin(\/.*)?$/, (req,res)=>res.sendFile(path.join(__dirname, '../public/admin/index.html')));
 
 // Serve Static UI Assets. Image/font assets are content-addressed by deployment
 // (same path, new bytes per release) and safe to cache immutably — this is what

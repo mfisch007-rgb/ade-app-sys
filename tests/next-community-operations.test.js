@@ -110,7 +110,23 @@ test("AGENT-01 agents run only bound capabilities with full attribution", async 
   assert.throws(() => assertTenantVisible("acme", "other"), /TENANT_MISMATCH/);
 });
 
-// EXP-01 experience record/query + loop import + finance resolution ingestion
+// AGENT-02 agent runs enforce the capability's own RBAC via CapabilityExecutor
+test("AGENT-02 agent runs are RBAC-gated per capability, fail closed", async () => {
+  const bus = stubBus();
+  const workforce = {
+    listAgents: async () => [{ id: "ag-9", name: "Gate", status: "ACTIVE" }],
+    markAgentUsed: async () => {}
+  };
+  const caps = {
+    getCapability: (intent) => intent === "GATED_OPS" ? { intent, rbacLevel: 3, handler: async () => ({ success: true }) } : null,
+    listCapabilities: () => [{ intent: "GATED_OPS" }]
+  };
+  const r = new AgentRegistry({ store: stubStore(), eventBus: bus, workforce, capabilityRegistry: caps });
+  await r.bind({ agentId: "ag-9", capabilities: ["GATED_OPS"], tenantScope: "acme", maxRunsPerDay: 5, actor: "admin" });
+  await assert.rejects(() => r.run({ agentId: "ag-9", capability: "GATED_OPS", tenantScope: "acme", actor: "op", actorLevel: 1 }), /AGENT_RBAC_BLOCKED/);
+  const run = await r.run({ agentId: "ag-9", capability: "GATED_OPS", tenantScope: "acme", actor: "founder", actorLevel: 3 });
+  assert.equal(run.success, true);
+});
 test("EXP-01 experience unifies loops, resolutions and manual lessons", () => {
   const bus = stubBus();
   const learned = [];

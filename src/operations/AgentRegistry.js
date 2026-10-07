@@ -12,6 +12,7 @@
 
 import { nowIso } from "../capabilities/CapabilityRecord.js";
 import { assertTenantVisible } from "../governance/DataGovernance.js";
+import { executeCapability } from "../core/CapabilityExecutor.js";
 
 function fail(code, detail) {
   const e = new Error(`${code}${detail ? `: ${detail}` : ""}`);
@@ -137,8 +138,13 @@ export class AgentRegistry {
     return this.runs.filter((r) => r.agentId === agentId && r.tenantScope === tenantScope && String(r.startedAt || r.completedAt || "").slice(0, 10) === day).length;
   }
 
-  /** Execute one capability as the agent. Authorization-bound, fully logged. */
-  async run({ agentId = "", capability = "", input = {}, tenantScope = "default", actor = "SYSTEM", triggeringEvent = null, correlationId = null, confidence = null } = {}) {
+  /** Execute one capability as the agent. Authorization-bound, fully logged.
+   * Execution runs through the canonical CapabilityExecutor boundary, so the
+   * capability's own rbacLevel and edition entitlement are enforced per run
+   * in addition to the binding allow-list, confidence gate and run limits.
+   * actorLevel carries the requesting session's authenticated level
+   * (Infinity = internal/system caller with no session to check). */
+  async run({ agentId = "", capability = "", input = {}, tenantScope = "default", actor = "SYSTEM", actorLevel = Infinity, triggeringEvent = null, correlationId = null, confidence = null } = {}) {
     const scope = String(tenantScope || "default");
     const binding = this.bindings.get(`${scope}::${agentId}`);
     if (!binding) throw fail("AGENT_BINDING_NOT_FOUND", agentId);
@@ -152,15 +158,16 @@ export class AgentRegistry {
     if (!this.capabilityRegistry) throw fail("AGENT_NO_REGISTRY", "capability registry unavailable");
     const startedAt = nowIso();
     let result = null;
-    let handler = null;
     try {
-      handler = this.capabilityRegistry.getCapability?.(intent) || null;
-    } catch {}
-    const exec = handler?.handler || handler?.execute;
-    if (typeof exec !== "function") throw fail("AGENT_HANDLER_MISSING", intent);
-    try {
-      result = await exec({ ...input, _agent: { id: agentId, tenantScope: scope } });
+      const exec = await executeCapability(this.capabilityRegistry, intent, { ...input, _agent: { id: agentId, tenantScope: scope } }, actorLevel);
+      if (!exec.executed) {
+        if (exec.reason === "COMMAND_RBAC_BLOCKED") throw fail("AGENT_RBAC_BLOCKED", `${agentId} run of ${intent} requires level ${exec.requiredLevel}`);
+        if (exec.reason === "EDITION_GATED") throw fail("AGENT_EDITION_GATED", `${intent} not entitled in ${exec.edition} edition`);
+        throw fail("AGENT_HANDLER_MISSING", `${intent}: ${exec.reason}`);
+      }
+      result = exec.result;
     } catch (e) {
+      if (String(e?.code || "").startsWith("AGENT_")) throw e;
       result = { success: false, error: e.message || String(e) };
     }
     const run = {

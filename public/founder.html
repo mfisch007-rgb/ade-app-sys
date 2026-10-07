@@ -261,7 +261,7 @@ const heroShieldBg='url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/200
    const [setPinBusy,setSetPinBusy]=useState(false);
   const [liveEvents,setLiveEvents]=useState([]);
   const [streamState,setStreamState]=useState('DISCONNECTED');
-  const _tabInit=(()=>{try{const h=String(window.location.hash||'').replace(/^#\/?/,'');const d=decodeURIComponent(h);if(TABS.includes(d))return d;const s=sessionStorage.getItem('ade_founder_tab')||localStorage.getItem('ade_founder_tab');if(s&&TABS.includes(s))return s;}catch{}return 'OVERVIEW'})();
+  const _tabInit=(()=>{try{const pk=String(window.location.pathname||'').toLowerCase().replace(/\/+$/,'')||'/';const pathTab=pk.indexOf('/founder/markets/binary')===0?'BINARY':pk.indexOf('/founder/markets/forex')===0?'FOREX':pk.indexOf('/founder/markets/gaming')===0?'GAMING':(pk.indexOf('/founder/markets')===0||pk.indexOf('/founder/trading')===0)?'TRADING':null;if(pathTab&&TABS.includes(pathTab))return pathTab;const h=String(window.location.hash||'').replace(/^#\/?/,'');const d=decodeURIComponent(h);if(TABS.includes(d))return d;const s=sessionStorage.getItem('ade_founder_tab')||localStorage.getItem('ade_founder_tab');if(s&&TABS.includes(s))return s;}catch{}return 'OVERVIEW'})();
   const [tab,_setTab]=useState(_tabInit);
   const setTab=(v)=>{_setTab(v);try{sessionStorage.setItem('ade_founder_tab',v);localStorage.setItem('ade_founder_tab',v);history.pushState({adeTab:v},'',v==='OVERVIEW'?'#/OVERVIEW':'#/'+encodeURIComponent(v));}catch{}};
   useEffect(()=>{const onPop=()=>{try{const h=String(window.location.hash||'').replace(/^#\/?/,'');const d=decodeURIComponent(h);if(TABS.includes(d))_setTab(d);}catch{}};window.addEventListener('popstate',onPop);try{if(!window.location.hash) history.replaceState({adeTab:_tabInit},'', '#/'+encodeURIComponent(_tabInit));}catch{}return()=>window.removeEventListener('popstate',onPop)},[]);
@@ -430,7 +430,7 @@ const heroShieldBg='url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/200
  useEffect(()=>{
   if(!token)return;
   const es=new EventSource('/api/v1/events/stream');
-  es.onopen=()=>setStreamState('CONNECTED');
+  es.onopen=()=>{setStreamState('CONNECTED');try{refreshAll()}catch{}};
   es.onerror=()=>setStreamState('RECONNECTING');
   es.onmessage=(m)=>{let ev;try{ev=JSON.parse(m.data)}catch{return}
    setLiveEvents(prev=>[{topic:ev.topic||ev.type||'EVENT',eventId:ev.eventId,payload:ev.payload,at:ev.meta?.timestamp||ev.timestamp||new Date().toISOString()},...prev].slice(0,20));

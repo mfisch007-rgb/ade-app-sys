@@ -42,7 +42,12 @@ async function main() {
     const boot = await kernel.boot();
     assert.equal(boot.status, "ONLINE");
     assert.equal(kernel.isBooted, true);
-    assert.equal(kernel.subsystems.size, 9);
+    // Canonical manifest mirrors EnterpriseKernelMaster._registerCoreSubsystems.
+    // Assert the explicit name set (not just a count) so subsystem
+    // additions/removals fail loudly instead of drifting silently.
+    const expected = ["memory", "knowledge", "rules", "confidence", "decision", "oracle", "guardian", "notification", "ledger", "workflowEngine", "icx"];
+    assert.deepEqual(Array.from(kernel.subsystems.keys()).sort(), expected.slice().sort());
+    assert.equal(kernel.subsystems.size, expected.length);
     assert.ok(kernel.metrics.bootTimeMs >= 0);
   });
 
