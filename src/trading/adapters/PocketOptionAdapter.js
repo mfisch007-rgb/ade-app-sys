@@ -213,8 +213,13 @@ export class PocketOptionAdapter extends MarketDataAdapter {
   }
 
   liveEligibility() {
-    if (this._ssid) {
-      return { eligible: true, mode: "LIVE_IF_APPROVED", venue: this.providerId, note: "SSID present; requires explicit human approval per order." };
+    // Reconciliation: consult the operator-configured SSID (config/env) as
+    // well as the post-connect session. The prior this._ssid-only check made
+    // the canonical Founder verify pre-check fail closed even when SSID env
+    // was legitimately configured, dead-ending the verify path.
+    const configuredSsid = this._ssid || this.config?.POCKET_OPTION_SSID || this.config?.POCKET_OPTION_DEMO_SSID || process.env.POCKET_OPTION_SSID || process.env.POCKET_OPTION_DEMO_SSID;
+    if (configuredSsid) {
+      return { eligible: true, mode: "LIVE_IF_APPROVED", venue: this.providerId, note: "SSID configured; live handshake via the Founder verify flow plus explicit human approval per order still required." };
     }
     return { eligible: false, mode: "PAPER_ONLY", reason: "No Pocket Option SSID configured." };
   }
@@ -224,7 +229,10 @@ export class PocketOptionAdapter extends MarketDataAdapter {
     if (!elig.eligible) {
       return { success: false, mode: "PAPER", reason: elig.reason, order };
     }
-    return { success: true, mode: "LIVE_IF_APPROVED", order, note: "Order queued for human approval via Pocket Option." };
+    // Fail-closed truthfulness: this adapter transmits no order directly.
+    // A VERIFIED venue, entitlement, and explicit per-order human approval via
+    // the canonical flow are all required before any live transmission.
+    return { success: false, mode: "LIVE_IF_APPROVED", executed: false, order, reason: "No live order transmitted by the adapter. Requires VERIFIED venue, entitlement, and explicit human approval per order." };
   }
 
   _generatePaperCandles(symbol, timeframe, limit) {

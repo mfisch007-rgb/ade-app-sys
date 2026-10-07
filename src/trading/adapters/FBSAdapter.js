@@ -289,8 +289,10 @@ export class FBSAdapter extends MarketDataAdapter {
     if (!elig.eligible) {
       return { success: false, mode: "PAPER", reason: elig.reason, order };
     }
-    // Real execution would go here with explicit human approval
-    return { success: true, mode: "LIVE_IF_APPROVED", order, note: "Order queued for human approval." };
+    // Fail-closed truthfulness: this adapter transmits no order directly.
+    // A VERIFIED venue, entitlement, and explicit per-order human approval via
+    // the canonical flow are all required before any live transmission.
+    return { success: false, mode: "LIVE_IF_APPROVED", executed: false, order, reason: "No live order transmitted by the adapter. Requires VERIFIED venue, entitlement, and explicit human approval per order." };
   }
 }
 

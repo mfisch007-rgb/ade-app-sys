@@ -467,11 +467,18 @@ export class MarketDataAdapter {
 
   async _randDelay(min, max) { await new Promise(r => setTimeout(r, min + Math.random() * (max - min))); }
 
-  // Credential loading (server-side only, from env/config)
+  // Credential loading (server-side only, from env/config).
+  // Reconciliation: the matcher must cover every credential/identity key the
+  // venue adapters actually consume (SSID, MT5 LOGIN, ACCOUNT id, EMAIL for
+  // operator-consented login). The prior token|secret|key|password-only filter
+  // silently dropped FBS_MT5_LOGIN, POCKET_OPTION_SSID, IQ_OPTION_SSID and
+  // operator EMAIL, dead-ending the legitimate env-configured verify path.
+  // Values never leave the server (never logged, never sent to clients).
   loadCredentials() {
     const creds = {};
     for (const [k, v] of Object.entries(this.config)) {
-      if (k.toLowerCase().includes("token") || k.toLowerCase().includes("secret") || k.toLowerCase().includes("key") || k.toLowerCase().includes("password")) {
+      const name = k.toLowerCase();
+      if (name.includes("token") || name.includes("secret") || name.includes("key") || name.includes("password") || name.includes("ssid") || name.includes("login") || name.includes("account") || name.includes("email")) {
         const envVal = process.env[k];
         if (envVal) creds[k] = envVal;
         else if (v) creds[k] = v;
