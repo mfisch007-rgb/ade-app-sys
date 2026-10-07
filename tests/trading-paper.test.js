@@ -161,3 +161,26 @@ test("trading routes: SignalQualityGate enforced server-side on paper execution"
   assert.equal(okBody.position.executionMode, "PAPER");
   assert.equal(okBody.signalGate.pass, true);
 });
+
+test("trading routes: granular FOREX/BINARY/GAMING combos are Founder-granted and revocable", async () => {
+  const op = opToken();
+  const H2 = { "Content-Type": "application/json", Authorization: `Bearer ${op}` };
+  const founderToken = IdentityOnboarding.getInstance().issueSession({ subject: "trade-combo", tier: "ENTERPRISE", level: 3, persona: "FOUNDER" }).token;
+  const FH = { "Content-Type": "application/json", Authorization: `Bearer ${founderToken}` };
+  // L2 cannot grant: Founder L3 only.
+  const denied = await fetch(`${baseUrl}/api/v1/admin/trading/entitlements`, { method: "POST", headers: H2, body: JSON.stringify({ userId: "combo-user", capabilities: { FOREX: true } }) });
+  assert.equal(denied.status, 403);
+  // FOREX ONLY combo: binary and gaming stay denied server-side.
+  const grant = await fetch(`${baseUrl}/api/v1/admin/trading/entitlements`, { method: "POST", headers: FH, body: JSON.stringify({ userId: "combo-user", trading: false, gaming: false, capabilities: { FOREX: true } }) });
+  assert.equal(grant.status, 201);
+  const granted = (await grant.json()).entitlement;
+  assert.equal(granted.capabilities.FOREX, true);
+  assert.equal(granted.capabilities.BINARY_REGULAR, false);
+  assert.equal(granted.capabilities.GAMING, false);
+  // Revoke removes the record entirely (L3 only).
+  const delDenied = await fetch(`${baseUrl}/api/v1/admin/trading/entitlements/combo-user`, { method: "DELETE", headers: H2 });
+  assert.equal(delDenied.status, 403);
+  const del = await fetch(`${baseUrl}/api/v1/admin/trading/entitlements/combo-user`, { method: "DELETE", headers: FH });
+  assert.equal(del.status, 200);
+  assert.equal((await del.json()).revoked, true);
+});
