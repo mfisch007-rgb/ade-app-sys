@@ -112,7 +112,12 @@ test("expansion: venue registry is flexible (no hardcode) and live-gated", () =>
   const before = vr.liveEligibility(added.id);
   assert.equal(before.eligible, false);
   assert.equal(before.mode, "PAPER_ONLY");
-  vr.setConfigured(added.id, { configured: true, verified: true });
+  vr.setConfigured(added.id, { configured: true });
+  // Configuration alone never verifies: eligibility stays fail-closed.
+  assert.equal(vr.liveEligibility(added.id).eligible, false);
+  assert.equal(vr.get(added.id).status, "CONFIGURED");
+  // VERIFIED is granted exclusively by a proven handshake record.
+  vr.recordHandshake(added.id, { method: "TEST_HANDSHAKE", verifiedBy: "test" });
   assert.equal(vr.liveEligibility(added.id).eligible, true);
 });
 

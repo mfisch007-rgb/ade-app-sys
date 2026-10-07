@@ -104,17 +104,39 @@ export class VenueRegistry {
 
   /**
    * Record operator-supplied connection metadata (never a secret value).
-   * configured=true means the operator asserts fields are present; VERIFIED
-   * only after an explicit verify step against the official API.
+   * configured=true means the operator asserts the required fields are
+   * present; it NEVER grants VERIFIED. VERIFIED is granted exclusively by
+   * recordHandshake() after a live adapter check against the official API.
+   * A caller-supplied `verified` flag is ignored fail-closed so verification
+   * can never be self-attested through this path.
    */
-  setConfigured(id, { configured, verified = false, configuredBy = "founder" } = {}) {
+  setConfigured(id, { configured, configuredBy = "founder" } = {}) {
     const v = this.get(id);
     if (!v) { const e = new Error("VENUE_NOT_FOUND"); e.code = "VENUE_NOT_FOUND"; throw e; }
-    v.status = verified ? "VERIFIED" : configured ? "CONFIGURED" : "NOT_CONFIGURED";
+    v.status = configured ? "CONFIGURED" : "NOT_CONFIGURED";
     v.lastConfiguredBy = configuredBy;
     v.lastConfiguredAt = new Date().toISOString();
     this._persist();
     try { this.eventBus?.publish?.("venue.configured", { id: v.id, status: v.status }); } catch {}
+    return { ...v };
+  }
+
+  /**
+   * Record a proven live handshake. Called ONLY by the venue verify flow
+   * after the venue's adapter completes an authenticated connection check.
+   * Never callable with a bare boolean — proof of the check is required.
+   */
+  recordHandshake(id, { method = "ADAPTER_HANDSHAKE", verifiedBy = "founder", detail = "" } = {}) {
+    const v = this.get(id);
+    if (!v) { const e = new Error("VENUE_NOT_FOUND"); e.code = "VENUE_NOT_FOUND"; throw e; }
+    if (!method) { const e = new Error("VENUE_HANDSHAKE_METHOD_REQUIRED"); e.code = "VENUE_HANDSHAKE_METHOD_REQUIRED"; throw e; }
+    v.status = "VERIFIED";
+    v.verifiedAt = new Date().toISOString();
+    v.verifiedBy = String(verifiedBy || "founder").slice(0, 120);
+    v.verificationMethod = String(method).slice(0, 80);
+    if (detail) v.verificationDetail = String(detail).slice(0, 300);
+    this._persist();
+    try { this.eventBus?.publish?.("venue.verified", { id: v.id, method: v.verificationMethod }); } catch {}
     return { ...v };
   }
 

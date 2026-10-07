@@ -2,14 +2,16 @@
  * ADE MARKET DATA ADAPTERS — Index exports for all concrete adapters.
  */
 
-export { FBSAdapter } from "./FBSAdapter.js";
-export { PocketOptionAdapter } from "./PocketOptionAdapter.js";
-export { IQOptionAdapter } from "./IQOptionAdapter.js";
-export { ExpertOptionAdapter } from "./ExpertOptionAdapter.js";
-export { BetPawaAdapter } from "./BetPawaAdapter.js";
-export { BetKingAdapter } from "./BetKingAdapter.js";
-export { Bet9jaAdapter } from "./Bet9jaAdapter.js";
-export { SportyBetAdapter } from "./SportyBetAdapter.js";
+import { FBSAdapter } from "./FBSAdapter.js";
+import { PocketOptionAdapter } from "./PocketOptionAdapter.js";
+import { IQOptionAdapter } from "./IQOptionAdapter.js";
+import { ExpertOptionAdapter } from "./ExpertOptionAdapter.js";
+import { BetPawaAdapter } from "./BetPawaAdapter.js";
+import { BetKingAdapter } from "./BetKingAdapter.js";
+import { Bet9jaAdapter } from "./Bet9jaAdapter.js";
+import { SportyBetAdapter } from "./SportyBetAdapter.js";
+
+export { FBSAdapter, PocketOptionAdapter, IQOptionAdapter, ExpertOptionAdapter, BetPawaAdapter, BetKingAdapter, Bet9jaAdapter, SportyBetAdapter };
 
 // Adapter registry for dynamic loading
 export const ADAPTER_CLASSES = {

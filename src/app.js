@@ -92,6 +92,7 @@ import { ProviderGate } from "./ingestion/ProviderGate.js";
 import { WhatsAppNumberRegistry } from "./ingestion/WhatsAppNumberRegistry.js";
 import { buildKnobInventory, buildHumanChecklist } from "./ops/OperationalKnobInventory.js";
 import { VenueRegistry } from "./trading/VenueRegistry.js";
+import { ADAPTER_CLASSES } from "./trading/adapters/index.js";
 import { TradingEntitlements } from "./trading/TradingEntitlements.js";
 import { SignalQualityGate } from "./trading/SignalQualityGate.js";
 import { MarketDataAdapter } from "./trading/MarketDataAdapter.js";
@@ -1351,8 +1352,13 @@ app.get('/api/v1/venue/:id/eligibility', (req, res) => {
 
 app.post('/api/v1/venue/:id/configure', security.requireLevel(2), (req, res) => {
   try {
-    const { configured, verified } = req.body || {};
-    const result = venueRegistry.setConfigured(req.params.id, { configured, verified, configuredBy: 'founder' });
+    // Verification can never be self-attested: it requires a live handshake
+    // via POST /api/v1/trading/venues/:id/verify (Founder L3).
+    if (req.body?.verified === true) {
+      return res.status(400).json({ success: false, error: "VENUE_VERIFY_REQUIRES_HANDSHAKE", message: "verified:true cannot be asserted. Configure fields here, then verify via POST /api/v1/trading/venues/:id/verify.", verify: `/api/v1/trading/venues/${req.params.id}/verify` });
+    }
+    const { configured } = req.body || {};
+    const result = venueRegistry.setConfigured(req.params.id, { configured, configuredBy: 'founder' });
     res.json({ success: true, venue: result, time: new Date().toISOString() });
   } catch (e) {
     res.status(500).json({ success: false, error: 'VENUE_CONFIGURE_FAILED', message: e.message });
@@ -3114,7 +3120,12 @@ app.post('/api/v1/trading/venues', security.requireLevel(2), requireDurableStora
 
 app.patch('/api/v1/trading/venues/:id', security.requireLevel(2), requireDurableStorage, (req, res) => {
   try {
-    const venue = venueRegistry.setConfigured(req.params.id, { configured: req.body?.configured !== false, verified: req.body?.verified === true, configuredBy: req.identity?.sub || "founder" });
+    // Same trust boundary as POST /api/v1/venue/:id/configure: verification
+    // is proven by handshake only, never asserted in a metadata body.
+    if (req.body?.verified === true) {
+      return res.status(400).json({ success: false, error: "VENUE_VERIFY_REQUIRES_HANDSHAKE", message: "verified:true cannot be asserted. Set configured here, then verify via POST /api/v1/trading/venues/:id/verify.", verify: `/api/v1/trading/venues/${req.params.id}/verify` });
+    }
+    const venue = venueRegistry.setConfigured(req.params.id, { configured: req.body?.configured !== false, configuredBy: req.identity?.sub || "founder" });
     res.json({ success: true, venue });
   } catch (error) {
     res.status(error.code === "VENUE_NOT_FOUND" ? 404 : 400).json({ success: false, error: error.code || "VENUE_UPDATE_FAILED", message: error.message });
@@ -3126,6 +3137,57 @@ app.get('/api/v1/trading/venues/:id/eligibility', security.requireLevel(2), (req
     res.json({ success: true, ...venueRegistry.liveEligibility(req.params.id) });
   } catch (error) {
     res.status(500).json({ success: false, error: "VENUE_ELIGIBILITY_FAILED", message: error.message });
+  }
+});
+
+// Venue verification (Founder L3 only): the ONLY path to VERIFIED status.
+// Performs a live, time-bounded adapter handshake using server-side
+// credentials (env-provided; secret values are never accepted in, echoed
+// by, or stored through this endpoint). No adapter -> PROVIDER_REQUIRED.
+// No credentials -> fail-closed PAPER_ONLY. Failed handshake -> the venue
+// stays CONFIGURED with the exact reason; nothing is auto-upgraded.
+app.post('/api/v1/trading/venues/:id/verify', security.requireLevel(3), requireDurableStorage, async (req, res) => {
+  const actor = req.identity?.sub || req.person?.username || "founder";
+  try {
+    const venue = venueRegistry.get(req.params.id);
+    if (!venue) return res.status(404).json({ success: false, error: "VENUE_NOT_FOUND", message: `Unknown venue ${req.params.id}.` });
+    const AdapterClass = ADAPTER_CLASSES[String(venue.id || "").toLowerCase()];
+    if (!AdapterClass) {
+      return res.status(422).json({ success: false, error: "VENUE_ADAPTER_REQUIRED", venue: venue.id, status: venue.status, message: `No execution adapter is implemented for ${venue.id}. Capability remains PROVIDER_REQUIRED.` });
+    }
+    let adapter = null;
+    try {
+      adapter = new AdapterClass({ eventBus: kernel?.eventBus });
+    } catch (e) {
+      return res.status(422).json({ success: false, error: "VENUE_ADAPTER_INIT_FAILED", venue: venue.id, message: e.message });
+    }
+    const elig = typeof adapter.liveEligibility === "function" ? adapter.liveEligibility() : { eligible: false, reason: "ADAPTER_ELIGIBILITY_UNAVAILABLE" };
+    if (!elig || elig.eligible !== true) {
+      try { await adapter.disconnect?.().catch(() => {}); } catch {}
+      return res.status(422).json({ success: false, error: "VENUE_CREDENTIAL_REQUIRED", venue: venue.id, status: venue.status, mode: "PAPER_ONLY", reason: elig?.reason || elig?.mode || "Adapter reports no usable credentials.", requiredFields: venue.requiredFields || [], requiredAction: `Supply ${(venue.requiredFields || []).join(", ") || "the venue credential"} via server environment, mark the venue CONFIGURED, then verify again.` });
+    }
+    const timeoutMs = Math.max(5000, Math.min(30000, Number(req.body?.timeoutMs) || 20000));
+    let outcome = null;
+    try {
+      outcome = await Promise.race([
+        adapter.connect().then(() => ({ ok: true, connection: adapter.state?.connection || null, authStatus: adapter.state?.authStatus || null })),
+        new Promise((_, reject) => setTimeout(() => reject(Object.assign(new Error("VENUE_HANDSHAKE_TIMEOUT"), { code: "VENUE_HANDSHAKE_TIMEOUT" })), timeoutMs))
+      ]);
+    } catch (e) {
+      outcome = { ok: false, error: e.code || "VENUE_HANDSHAKE_FAILED", message: e.message || String(e) };
+    } finally {
+      try { await adapter.disconnect?.().catch(() => {}); } catch {}
+    }
+    // Only an AUTHENTICATED adapter session proves the handshake. A bare
+    // CONNECTED (public-data) session leaves the venue CONFIGURED.
+    if (!outcome || outcome.ok !== true || outcome.connection !== "AUTHENTICATED") {
+      return res.status(422).json({ success: false, error: outcome?.error || "VENUE_HANDSHAKE_FAILED", venue: venue.id, status: venueRegistry.get(venue.id)?.status || "CONFIGURED", mode: "PAPER_ONLY", reason: outcome?.message || `Handshake did not authenticate (state: ${outcome?.connection || "unknown"}).`, requiredAction: "Check credentials and provider reachability, then verify again." });
+    }
+    const verified = venueRegistry.recordHandshake(venue.id, { method: "ADAPTER_HANDSHAKE", verifiedBy: actor, detail: `connection=${outcome.connection} auth=${outcome.authStatus || "AUTHENTICATED"}` });
+    try { kernel?.eventBus?.publish?.("venue.verify.completed", { id: venue.id, status: "VERIFIED", actor }); } catch {}
+    res.json({ success: true, venue: verified, handshake: { connection: outcome.connection, at: verified.verifiedAt, method: verified.verificationMethod }, note: "Venue VERIFIED for data/handshake. Live execution additionally requires entitlement + per-order human approval." });
+  } catch (e) {
+    res.status(500).json({ success: false, error: "VENUE_VERIFY_FAILED", message: e.message });
   }
 });
 
