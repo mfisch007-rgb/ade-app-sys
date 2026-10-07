@@ -1085,9 +1085,9 @@ app.get('/api/v1/health', (req, res) => {
     service: "ADE-APEX EOS",
     time: new Date().toISOString(),
     build: {
-      commit: process.env.VERCEL_GIT_COMMIT_SHA || process.env.GIT_COMMIT || "8ba45a4",
+      commit: process.env.VERCEL_GIT_COMMIT_SHA || process.env.GIT_COMMIT || "local-unresolved",
       vercelSha: process.env.VERCEL_GIT_COMMIT_SHA || null,
-      commitShort: String(process.env.VERCEL_GIT_COMMIT_SHA || "8ba45a4").slice(0,7)
+      commitShort: String(process.env.VERCEL_GIT_COMMIT_SHA || process.env.GIT_COMMIT || "local-unresolved").slice(0,7)
     },
     runtime: {
       alive: true,
