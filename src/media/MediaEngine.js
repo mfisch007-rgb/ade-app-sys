@@ -244,11 +244,21 @@ export class MediaEngine {
   }
 
   createMediaRequest(params = {}) {
+    // Supported request types (public Media Studio offers video/image/audio/
+    // campaign). Unknown non-empty types are rejected so callers get a real
+    // validation error instead of a silently misclassified request. Missing
+    // type/title stay accepted (recorded as null) to preserve the existing
+    // request-log contract.
+    const SUPPORTED_MEDIA_REQUEST_TYPES = ["video", "image", "audio", "campaign", "3d", "captions"];
+    const rawType = params.type == null ? null : String(params.type).trim().toLowerCase();
+    if (rawType && !SUPPORTED_MEDIA_REQUEST_TYPES.includes(rawType)) {
+      throw new Error(`MEDIA_TYPE_UNSUPPORTED: '${params.type}'. Supported: ${SUPPORTED_MEDIA_REQUEST_TYPES.join(", ")}.`);
+    }
     const requestId = `ADE-MEDIA-${Date.now()}-${crypto.randomBytes(4).toString("hex")}`;
     const request = {
       requestId,
       createdAt: new Date().toISOString(),
-      type: params.type || null,
+      type: rawType || params.type || null,
       title: params.title || null,
       description: params.description || null,
       category: params.category || null,
@@ -265,7 +275,19 @@ export class MediaEngine {
       budget: params.budget || "standard",
       scenes: [],
       status: "CREATED",
-      truthClassification: params.truthClassification || "PLACEHOLDER"
+      truthClassification: params.truthClassification || "PLACEHOLDER",
+      // Truthful pipeline position: CREATED means accepted + recorded only.
+      // QUEUED/PROCESSING require a real queued job; COMPLETED requires a
+      // provider-returned, verified asset. No render provider is configured
+      // (see MEDIA_PROVIDERS above), so new requests are configuration-gated.
+      renderPipeline: {
+        renderingImplemented: false,
+        configurationRequired: true,
+        queuedJobId: null,
+        providerId: null,
+        assetUrl: null,
+        nextStep: "Configure a media render provider, then queue a render job for this request."
+      }
     };
     this.registry.set(requestId, request);
     this.#boundRegistry();

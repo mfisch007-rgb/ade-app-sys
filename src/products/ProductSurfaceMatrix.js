@@ -24,18 +24,21 @@
  * requiredAction from CapabilityActivation/ConnectionFabric, never secrets.
  */
 
-// Frontend hash sections (must match public/index.html SECTION_NAMES).
+// Frontend hash sections: canonical URL slugs (stable identifiers, never
+// display labels). public/index.html SECTION_SLUGS is the client twin of this
+// map; sectionFromHash() there still accepts legacy label hashes for
+// backward-compatible deep links.
 const FRONTEND_ROUTES = Object.freeze({
-  HOME: "#/Home",
-  PRODUCTS: "#/Products",
-  PROCARTA: "#/PROCARTA",
-  THEATER: "#/Product Theater",
-  TRY_ADE: "#/Try ADE",
-  ARCHITECTURE: "#/Architecture",
-  COMMUNITY: "#/Community",
-  FEEDBACK: "#/Feedback",
-  ACCOUNT: "#/Account",
-  COMMAND_CENTER: "#/Command Center",
+  HOME: "#/home",
+  PRODUCTS: "#/products",
+  PROCARTA: "#/procarta",
+  THEATER: "#/product-theater",
+  TRY_ADE: "#/try-ade",
+  ARCHITECTURE: "#/architecture",
+  COMMUNITY: "#/community",
+  FEEDBACK: "#/feedback",
+  ACCOUNT: "#/account",
+  COMMAND_CENTER: "#/command-center",
   ADMIN_CONSOLE: "/admin",
   THEATER_LIVE: "/ade-experience/"
 });
