@@ -6,6 +6,17 @@
 <meta name="description" content="ADE APEX — Autonomous Event-Driven Operations Platform. Community Edition public surface: products, PROCARTA, AWBULI, Product Theater, community and feedback.">
 <link rel="icon" type="image/png" href="/ADE-LOGO.png">
 <link rel="apple-touch-icon" href="/ADE-LOGO.png">
+<link rel="canonical" href="https://ade-apex-community.vercel.app/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="ADE APEX">
+<meta property="og:title" content="ADE APEX — The Digital Operating Layer for African Business">
+<meta property="og:description" content="ADE unifies business operations, intelligence, workflows and people in one enterprise platform. PROCARTA diagnostics, AWBULI automation, workforce, audit and live telemetry.">
+<meta property="og:image" content="/ADE-LOGO.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="ADE APEX — The Digital Operating Layer for African Business">
+<meta name="twitter:description" content="One platform connecting business operations, intelligence, workflows and people.">
+<link rel="stylesheet" href="/ade-design-system.css">
+<script>try{var __adeTheme=null;try{__adeTheme=localStorage.getItem('ade_theme')}catch(e){}if(__adeTheme==='dark'){document.documentElement.setAttribute('data-theme','dark')}}catch(e){}</script>
 <title>ADE APEX — Autonomous Event-Driven Operations Platform</title>
 <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
 <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
@@ -674,7 +685,11 @@ a{color:var(--royal)}
 @media(max-width:640px){.topoScroll svg{min-width:0}.topoCards{display:grid}.topoDesktopOnly{display:none}}
 </style>
 </head>
-<body><div id="root" class="ade-home-responsive"></div>
+<body><a class="ade-skip" href="#root">Skip to main content</a><div id="root" class="ade-home-responsive"></div>
+<button id="adeThemeToggle" class="ade-theme-toggle" type="button" aria-pressed="false" title="Switch to dark theme" aria-label="Toggle color theme" style="position:fixed;right:16px;bottom:16px;z-index:90">◐</button>
+<script src="/js/ade-api-client.js"></script>
+<script src="/js/ade-route-registry.js"></script>
+<script>(function(){var BTN='adeThemeToggle';function paint(){var b=document.getElementById(BTN);if(!b)return;var dark=document.documentElement.getAttribute('data-theme')==='dark';b.setAttribute('aria-pressed',dark?'true':'false');b.textContent=dark?'☀':'◐';b.title=dark?'Switch to light theme':'Switch to dark theme'}try{if(window.ADE&&window.ADE.initTheme){window.ADE.initTheme(BTN)}else{var cur=null;try{cur=localStorage.getItem('ade_theme')}catch(e){}if(cur==='dark')paint();document.getElementById(BTN).addEventListener('click',function(){var dark=document.documentElement.getAttribute('data-theme')==='dark';if(dark){document.documentElement.removeAttribute('data-theme')}else{document.documentElement.setAttribute('data-theme','dark')}try{localStorage.setItem('ade_theme',dark?'light':'dark')}catch(e){}paint()})}}catch(e){}})();</script>
 <script>
 (()=>{
 const {useEffect,useMemo,useState,useCallback}=React; const h=React.createElement;
