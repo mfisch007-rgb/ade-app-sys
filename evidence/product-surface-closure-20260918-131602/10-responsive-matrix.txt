@@ -1,0 +1,8 @@
+10 RESPONSIVE MATRIX (static verification; visual pass explicitly NOT claimed)
+
+Breakpoints in CSS: 1180px, 1024px, 900px, 720px (x2), 520px + prefers-reduced-motion.
+  [PASS] overflow-x:clip on body; max-width:100% fluid guard; --touch:44px, .btn min-height:44px (touch targets).
+  [PASS] .hamburger hidden on desktop, inline-flex under breakpoint; .topNav hidden on mobile; .mobileMenu.open renders visibleNav + EXTERNAL SURFACES; Escape/go() closes.
+  [PASS] productGrid/featureGrid use auto-fit minmax (no fixed-pixel card rows); footer PLATFORM/PRODUCTS/OPERATIONS links present on desktop.
+  [UNVERIFIED] 320/375/390/414/768/1024/1280+ visual rendering: HTTP + static CSS cannot prove no clipped nav, overflow, microscopic text, or overlap. No device lab was run in this pass — recorded honestly as CODE-STATIC PASS / VISUAL UNVERIFIED.
+  Preserved: ADE visual language untouched (no homepage redesign; only matrix card + TIDES button + gate forms added).

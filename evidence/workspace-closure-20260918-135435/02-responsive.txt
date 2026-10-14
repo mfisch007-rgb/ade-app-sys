@@ -1,0 +1,19 @@
+WORKSPACE CLOSURE — RESPONSIVE VERIFICATION
+Stamp: 20260918-135435 | Method: static CSS audit (no device lab — recorded honestly).
+
+Breakpoints present: 1180, 1024, 900, 720 (x2), 520, 480, 430 (new), prefers-reduced-motion.
+Guards: body overflow-x:clip; max-width:100% fluid; grids use repeat(auto-fill,minmax(min(100%,Npx),1fr)) — single column at 320 without page overflow.
+
+Fixes this pass:
+  [PASS] .btn min-height 40px -> 44px at <=520px (touch-target regression removed; asserted by test).
+  [PASS] .mobileMenu.open max-height min(72vh,640px) + overflow-y:auto (long role-aware nav can no longer trap content below the fold).
+  [PASS] .tableScroll wrapper for ALL workspace tables (roster, invites, agents, audit, activation, entitlements, cases, announcements, partners, settings, evidence) — data tables scroll inside the card; page never overflows.
+  [PASS] .wsGrid 190px -> 150px (<=520) -> 1fr 1fr (<=430); .wsMod min-height 44px, wrapping text, no fixed heights (no giant blank spaces; cards size to content).
+  [PASS] topNav keeps overflow-x:auto with hidden scrollbar at 901-1024px (11 items incl. Workspace scroll instead of clipping); hamburger menu <=900px exposes the same visibleNav + external surfaces.
+  [PASS] topMottoLine wraps <=720px; footer stacks 3->2->1 columns.
+
+Per-width static checklist (code-derived, visual UNVERIFIED):
+  320/375/390/430: single/dual-col grids, 44px targets, scrollable tables+menu, no fixed-width elements found in workspace CSS. [PASS-static]
+  768: 2-col heroStats, stacked interactGrid, wrapped motto. [PASS-static]
+  1024/desktop: full nav scroll row, 3-col stats, auto-fit grids. [PASS-static]
+Honest limit: HTTP + static CSS cannot prove rendering; no device lab ran. Recorded as CODE-STATIC PASS / VISUAL UNVERIFIED (same standard as prior pass).

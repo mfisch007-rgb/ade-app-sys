@@ -1,0 +1,13 @@
+FINAL CLOSURE — STORAGE WRITE PROBE + EXACT MANUAL ACTION
+Date: 2026-09-18. Live error (unchanged, re-confirmed this turn via provision probe): PGRST205, table 'public.ade_kv_store' absent from schema cache. Vercel env has SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY + SUPABASE_STORAGE_TABLE + ADE_STORAGE_PROVIDER (names verified, values never read). No Supabase CLI/token/DB password exists in this environment, so the table cannot be created from here — NOT fabricated as done.
+
+Adapter contract (from src/storage/SupabaseStorageAdapter.js): REST/SDK against {SUPABASE_URL}/rest/v1/<SUPABASE_STORAGE_TABLE> with rows {k TEXT PRIMARY KEY, v JSONB}. Repo ships the exact DDL at database/supabase-production-schema.sql lines 1-69 (extensions + ade_set_updated_at() + ade_kv_store + trigger + index + RLS default-deny; service_role bypasses RLS, no extra policy needed).
+
+EXACT MANUAL ACTION (owner, Supabase dashboard -> SQL editor, no secrets involved — file itself states it contains none):
+  Run database/supabase-production-schema.sql lines 1-69 (or the whole file; all statements are IF NOT EXISTS / OR REPLACE).
+  Optional fallback if PostgREST still 404s afterwards: NOTIFY pgrst, 'reload schema';
+DETERMINISTIC VERIFICATION (owner, no credentials needed beyond their Founder session):
+  1. App: Workspace -> Settings -> Run Storage Verify (read probe) -> expect PROBE OK.
+  2. Tick "Include self-cleaning write probe" -> expect stages read/write/readBack/delete all OK + "no residue remains".
+  3. Founder provision/login once -> previously-400 flows go through.
+This release adds the write-probe endpoint + UI + regression test (stages asserted deep-equal on local adapter; probe discloses cleanup). Endpoint is L2-gated; probe key __ade_verify_probe__ namespaced; stale probes deleted before each run.

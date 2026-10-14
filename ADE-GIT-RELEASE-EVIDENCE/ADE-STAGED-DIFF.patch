@@ -1,0 +1,4299 @@
+﻿diff --git a/ADE-LOGO.png b/ADE-LOGO.png
+index 7848e15..0bf35a0 100644
+Binary files a/ADE-LOGO.png and b/ADE-LOGO.png differ
+diff --git a/docs/architecture/ADE-BLOCK01-EXPERIENCE-FOUNDATION.md b/docs/architecture/ADE-BLOCK01-EXPERIENCE-FOUNDATION.md
+new file mode 100644
+index 0000000..4eb81af
+--- /dev/null
++++ b/docs/architecture/ADE-BLOCK01-EXPERIENCE-FOUNDATION.md
+@@ -0,0 +1,115 @@
++ï»¿# ADE BLOCK 01 â€” EXPERIENCE & SAFETY FOUNDATION
++
++**Document Ref:** ADE-ARCH-2026-BLOCK01-EXPERIENCE-FOUNDATION  
++**Status:** RECONCILED / HARDENED
++
++## Purpose
++
++Block 01 establishes the foundational contracts required for the unified ADE
++platform.
++
++## Core Principles
++
++- One platform, not fragmented applications.
++- Capability and entitlement driven.
++- Server-authoritative safety.
++- UI does not own business authorization.
++- Progressive verification rather than premature compliance friction.
++- Centralized media registry.
++- Poster-first and lazy-loaded media.
++- Explicit LIVE / SIMULATED / CONCEPT semantics.
++- Accessibility does not depend on color alone.
++
++## Verification / Compliance Position
++
++ADE establishes compliance-ready hooks now.
++
++Full KYC/KYB/AML enforcement is activated later according to:
++
++- jurisdiction,
++- persona,
++- capability,
++- financial activity,
++- organizational risk,
++- partner requirements,
++- regulatory obligations.
++
++This prevents unnecessary onboarding friction for public exploration,
++community participation and low-risk demonstrations while preserving a path
++to production-grade verification.
++
++## Product Theater
++
++ADE Product Theater is not merely a trailer player.
++
++It is the controlled presentation layer for:
++
++- live ADE execution,
++- simulated execution,
++- conceptual capabilities,
++- architecture demonstrations,
++- product walkthroughs,
++- ecosystem storytelling,
++- media/trailer experiences.
++
++Every displayed execution state must explicitly identify whether it is:
++
++âœ“ LIVE  
++âš— SIMULATED  
++â—Œ CONCEPT
++
++## Media Registry
++
++Media must be resolved through `lib/core/mediaRegistry.ts`.
++
++React components must not embed arbitrary hard-coded media paths.
++
++Presentation modes include:
++
++- CINEMATIC
++- COMPACT
++- INLINE
++- PREVIEW_POSTER
++
++Heavy media should remain lazy-loaded and poster-first.
++
++## Downstream Architecture
++
++Block 02:
++ADE Ecosystem Identity & Onboarding Framework
++
++Block 03:
++ADE Demo Control Center
++
++Block 04:
++Full ADE Demonstration Engine
++
++Block 05:
++Dynamic Demo Scenario Engine
++
++Block 06:
++ADE Capability Map & Ecosystem Showcase
++
++Block 07:
++Public Architecture & Safe Technical Specification
++
++Block 08:
++ADE Product Theater, Media & Trailer Infrastructure
++
++Block 09:
++Break ADE Feedback Intelligence Pipeline
++
++Block 10:
++Community Edition Public MVP
++
++Block 11:
++Pilot & Early Adopter Management
++
++Block 12:
++Enterprise Entitlements & Organizational Activation
++
++Block 13:
++Release, Event & Notification System
++
++Block 14:
++Full CTO Audit, Quality Lockdown & Production Deployment
+diff --git a/docs/architecture/ADE-PHASE01-BASELINE.json b/docs/architecture/ADE-PHASE01-BASELINE.json
+new file mode 100644
+index 0000000..d74ba22
+--- /dev/null
++++ b/docs/architecture/ADE-PHASE01-BASELINE.json
+@@ -0,0 +1,49 @@
++ï»¿{
++    "phase":  "ADE-NATIVE-RUNTIME-RECONCILIATION-01",
++    "repository":  "C:\\Users\\USER\\Desktop\\ADE-APP-SYS",
++    "git":  {
++                "branch":  "main",
++                "head":  "181c5390f3b1b1cee17af2fd824fff8481273d7c",
++                "worktree_entries":  [
++                                         "?? docs/architecture/ADE-BLOCK01-EXPERIENCE-FOUNDATION.md",
++                                         "?? lib/",
++                                         "?? tests/core/",
++                                         "?? types/"
++                                     ]
++            },
++    "runtime":  {
++                    "node":  "v20.20.0",
++                    "npm":  "11.11.0",
++                    "package_name":  "ade-app-sys",
++                    "package_version":  "1.0.0",
++                    "scripts":  [
++                                    {
++                                        "name":  "start",
++                                        "command":  "node src/server.js"
++                                    },
++                                    {
++                                        "name":  "dev",
++                                        "command":  "node --watch src/server.js"
++                                    }
++                                ]
++                },
++    "validation_assumptions_rejected":  [
++                                            "npm run type-check",
++                                            "TypeScript compiler assumption",
++                                            "Jest assumption",
++                                            "Vitest assumption",
++                                            "Next.js build assumption"
++                                        ],
++    "block01_artifacts":  [
++                              "types/ade/design.ts",
++                              "types/ade/execution.ts",
++                              "types/ade/edition.ts",
++                              "types/ade/onboarding.ts",
++                              "types/ade/verification.ts",
++                              "lib/core/demoGuard.ts",
++                              "lib/core/edition.ts",
++                              "lib/core/mediaRegistry.ts",
++                              "tests/core/block01-foundation.test.ts"
++                          ],
++    "mode":  "READ_ONLY_BASELINE_FOR_GEMINI_ENGINEERING_STRETCH"
++}
+diff --git a/docs/architecture/ADE-PHASE01-GEMINI-ENGINEERING-DIRECTIVE.md b/docs/architecture/ADE-PHASE01-GEMINI-ENGINEERING-DIRECTIVE.md
+new file mode 100644
+index 0000000..4cdc287
+--- /dev/null
++++ b/docs/architecture/ADE-PHASE01-GEMINI-ENGINEERING-DIRECTIVE.md
+@@ -0,0 +1,407 @@
++ï»¿# ADE PHASE 01 â€” GEMINI ENGINEERING DIRECTIVE
++
++## Authority
++
++Architectural Director: ChatGPT  
++Implementation Engine: Gemini  
++Repository Authority: User
++
++## Operating Model
++
++This is a BATCH ENGINEERING / PHASE-SPAN operation.
++
++Do NOT artificially stop after one file or one block.
++
++You may traverse multiple related architectural areas during this
++engineering stretch.
++
++However, every modification must remain inside the authorized change
++surface and satisfy the acceptance criteria below.
++
++---
++
++# 1. VERIFIED REPOSITORY REALITY
++
++The repository is currently a JavaScript / Node.js application.
++
++Known package scripts:
++
++- `npm run dev` -> `node --watch src/server.js`
++- `npm start` -> `node src/server.js`
++
++Known runtime:
++
++- Node.js v20.x observed
++- npm 11.x observed
++
++Known repository facts:
++
++- No `type-check` npm script exists.
++- No local TypeScript compiler was detected.
++- No Jest configuration was detected.
++- No Vitest configuration was detected.
++- No Next.js configuration was detected.
++- The repository contains a large existing JavaScript architecture.
++- Block 01 TypeScript files currently exist but are untracked.
++- Do NOT interpret the existence of `.ts` files as evidence that ADE is a
++  TypeScript application.
++
++---
++
++# 2. NON-NEGOTIABLE RUNTIME RULE
++
++Preserve the existing ADE runtime architecture.
++
++DO NOT:
++
++- migrate JavaScript to TypeScript
++- introduce Next.js
++- replace Express
++- introduce Jest solely for validation
++- introduce Vitest solely for validation
++- install TypeScript solely to satisfy a previous command
++- invent npm scripts whose only purpose is passing a gate
++- replace existing ADE verification infrastructure
++
++If a new tool is genuinely required, STOP and report the architectural
++reason before introducing it.
++
++---
++
++# 3. ARCHITECTURAL RECONCILIATION OBJECTIVE
++
++Reconcile the following Block 01 artifacts against the existing ADE system:
++
++    types/ade/design.ts
++    types/ade/execution.ts
++    types/ade/edition.ts
++    types/ade/onboarding.ts
++    types/ade/verification.ts
++
++    lib/core/demoGuard.ts
++    lib/core/edition.ts
++    lib/core/mediaRegistry.ts
++
++    tests/core/block01-foundation.test.ts
++
++Do not assume these files are authoritative merely because they were
++generated previously.
++
++Determine whether equivalent or superior existing ADE mechanisms already
++exist.
++
++---
++
++# 4. DUPLICATION RULE
++
++Before creating a new engine, search for existing implementations of:
++
++- capability
++- edition
++- plan
++- authorization
++- RBAC
++- onboarding
++- verification
++- compliance
++- demo mode
++- simulation
++- telemetry
++- execution state
++- runtime state
++- media registry
++- security policy
++
++If an existing ADE engine already owns the responsibility:
++
++    EXTEND / ADAPT / RECONCILE
++
++instead of creating a competing parallel implementation.
++
++---
++
++# 5. ALLOWED CHANGE SURFACE
++
++Gemini may modify:
++
++    src/**
++    lib/**
++    types/ade/**
++    tests/**
++    docs/architecture/**
++    scripts/**
++
++`package.json` may only change if a native repository validation command
++is genuinely required and justified.
++
++Do not modify unrelated systems merely because they are nearby.
++
++---
++
++# 6. FORBIDDEN CHANGE SURFACE
++
++Do not modify:
++
++    .git/**
++    .keys/**
++    auth_info/**
++    existing secrets
++    credentials
++    unrelated infrastructure
++    unrelated historical verification suites
++
++Do not delete existing verification artifacts.
++
++Do not rewrite the repository wholesale.
++
++---
++
++# 7. EXECUTION STATE INTEGRITY
++
++ADE execution claims must distinguish:
++
++    LIVE
++    SIMULATED
++    CONCEPT
++
++Never label conceptual functionality LIVE.
++
++Never label a simulated external boundary LIVE.
++
++Never remove state semantics merely to simplify UI or testing.
++
++---
++
++# 8. DEMO SAFETY
++
++The demo guard must not become a cosmetic UI mechanism.
++
++It must remain server/runtime authoritative.
++
++Do not weaken:
++
++    DEMO_BLOCKED
++    PRODUCTION_POLICY
++
++Do not introduce a fake generic "SAFE" state.
++
++Before integrating the guard, identify the actual ADE execution boundaries
++where side effects can occur.
++
++---
++
++# 9. CAPABILITY / ENTITLEMENT
++
++Capability authorization must ultimately belong to an authoritative
++runtime decision layer rather than React/UI strings.
++
++If an existing capability registry, plan engine, role system, or policy
++engine exists, reconcile Block 01 with it.
++
++Do not create two independent authorization systems.
++
++---
++
++# 10. VERIFICATION / COMPLIANCE
++
++Keep verification progressive.
++
++Do NOT introduce blanket KYC/KYB/AML friction for:
++
++- public exploration
++- low-risk demos
++- community access
++- conceptual workflows
++
++Verification depth should remain dependent upon:
++
++- persona
++- capability
++- risk
++- financial activity
++- jurisdiction
++- organization
++- partner requirements
++
++---
++
++# 11. MEDIA
++
++Do not fabricate production media URLs.
++
++The media registry must only expose assets that actually exist.
++
++If no physical asset exists:
++
++    CONCEPT / INCOMPLETE
++
++is preferable to a fictional production URL.
++
++---
++
++# 12. VALIDATION
++
++Use the repository's REAL validation infrastructure.
++
++Prioritize existing:
++
++    CLI validators
++    doctor commands
++    runtime integrity probes
++    reachability audits
++    phase verification suites
++    integration suites
++    ecosystem tests
++    executable smoke tests
++
++Do not call:
++
++    npm run type-check
++
++unless such a script has actually been established and is legitimately
++part of the repository.
++
++Do not call Jest unless Jest actually exists.
++
++Do not call Vitest unless Vitest actually exists.
++
++Do not call Next.js build commands.
++
++---
++
++# 13. ENGINEERING STRETCH
++
++Within this phase Gemini MAY proceed through multiple related tasks without
++waiting for a separate approval after every file.
++
++The intended flow is:
++
++    RECONCILE
++        â†“
++    MAP
++        â†“
++    IDENTIFY DUPLICATES
++        â†“
++    INTEGRATE
++        â†“
++    HARDEN
++        â†“
++    VALIDATE
++        â†“
++    AUDIT
++        â†“
++    PHASE GATE
++
++Do not artificially divide this into Block 01 -> wait -> Block 02 -> wait.
++
++---
++
++# 14. ACCEPTANCE CRITERIA
++
++Phase 01 may only reach:
++
++    READY_FOR_ARCHITECTURAL_REVIEW
++
++when all applicable conditions are true:
++
++1. Existing Node/JavaScript runtime remains intact.
++2. No unauthorized framework migration occurred.
++3. No fake validation infrastructure was introduced.
++4. Block 01 contracts are reconciled with existing architecture.
++5. Duplicate engines are identified and either reconciled or explicitly
++   documented.
++6. Demo safety remains server/runtime authoritative.
++7. Capability authorization has a coherent ownership boundary.
++8. Verification remains progressive.
++9. Media registry contains no fabricated production assets.
++10. Existing runtime starts successfully.
++11. Appropriate repository-native validation suites execute.
++12. No unrelated regressions are detected.
++13. Git change surface is explicitly reported.
++14. Every changed file is reported.
++15. Every skipped/rejected architectural change is reported.
++16. LIVE/SIMULATED/CONCEPT claims are evidence-backed.
++
++---
++
++# 15. GIT SAFETY
++
++Do NOT commit automatically.
++
++Do NOT push automatically.
++
++At the beginning and end report:
++
++    branch
++    HEAD
++    status
++    changed files
++    diff statistics
++
++The user remains repository authority.
++
++---
++
++# 16. FINAL MACHINE EVIDENCE
++
++Produce a final report containing:
++
++    PHASE
++    PHASE_STATUS
++
++    BASE_RUNTIME
++    NODE_VERSION
++    PACKAGE_MANAGER
++
++    EXISTING_VALIDATION_SYSTEMS
++
++    BLOCK01_RECONCILIATION_STATUS
++
++    DUPLICATE_SYSTEMS_FOUND
++
++    SYSTEMS_EXTENDED
++    SYSTEMS_CREATED
++    SYSTEMS_REJECTED
++
++    FILES_CREATED
++    FILES_MODIFIED
++    FILES_DELETED
++
++    RUNTIME_SMOKE_TEST
++    NATIVE_VALIDATION
++    INTEGRATION_VALIDATION
++    SECURITY_CHECK
++
++    LIVE_CLAIMS
++    SIMULATED_CLAIMS
++    CONCEPT_CLAIMS
++
++    GIT_BRANCH
++    GIT_HEAD
++    GIT_STATUS
++
++    UNRELATED_REGRESSIONS
++
++    PHASE_GATE
++
++Do not report PASS merely because a command returned zero.
++
++The evidence must correspond to actual execution.
++
++---
++
++# FINAL COMMANDMENT
++
++ADE must evolve from the architecture that actually exists.
++
++Do not force ADE to conform to an imagined architecture.
++
++Observe first.
++
++Reconcile second.
++
++Engineer third.
++
++Validate fourth.
++
++Claim success only when the repository proves it.
+diff --git a/kernel/bus/EnterpriseEventBus.js b/kernel/bus/EnterpriseEventBus.js
+index 13b0578..9e4d6e5 100644
+--- a/kernel/bus/EnterpriseEventBus.js
++++ b/kernel/bus/EnterpriseEventBus.js
+@@ -1,45 +1,4 @@
+-import EventEmitter from "node:events";
+-
+-export default class EnterpriseEventBus extends EventEmitter {
+-    constructor() {
+-        super();
+-        this.modules = new Map();
+-        this.dlq = [];
+-        this.metrics = { published: 0, failed: 0, retried: 0 };
+-    }
+-
+-    registerModule(name, meta = {}) {
+-        this.modules.set(name, { status: "ACTIVE", meta, registeredAt: Date.now() });
+-        return true;
+-    }
+-
+-    isRegistered(name) {
+-        return this.modules.has(name);
+-    }
+-
+-    publish(event, payload, retries = 1) {
+-        this.metrics.published++;
+-        const listeners = this.listeners(event);
+-        if (listeners.length === 0) return true;
+-
+-        let hasError = false;
+-        for (const listener of listeners) {
+-            try {
+-                listener(payload);
+-            } catch (err) {
+-                hasError = true;
+-                if (retries > 0) {
+-                    this.metrics.retried++;
+-                } else {
+-                    this.metrics.failed++;
+-                }
+-                this.dlq.push({ event, payload, error: err.message, failedAt: Date.now() });
+-            }
+-        }
+-        return !hasError;
+-    }
+-
+-    subscribe(event, listener) {
+-        this.on(event, listener);
+-    }
+-}
++/**
++ * Compatibility facade. The canonical Event Bus lives in src/kernel.
++ */
++export { default, EnterpriseEventBus } from "../../src/kernel/EnterpriseEventBus.js";
+diff --git a/kernel/engine/EnterpriseOrchestrator.js b/kernel/engine/EnterpriseOrchestrator.js
+index 0cabcbd..e6573ae 100644
+--- a/kernel/engine/EnterpriseOrchestrator.js
++++ b/kernel/engine/EnterpriseOrchestrator.js
+@@ -1,47 +1,56 @@
+ import EventEmitter from "node:events";
+ 
+ export default class EnterpriseOrchestrator extends EventEmitter {
+-    constructor(bus, engines = {}) {
+-        super();
+-        this.bus = bus;
+-        this.nexus = engines.nexus;
+-        this.procarta = engines.procarta;
+-        this.oracle = engines.oracle;
+-        this.founder = engines.founder;
+-        this.setupSubscriptions();
+-    }
++  constructor(bus, engines = {}) {
++    super();
++    if (!bus) throw new Error("[EnterpriseOrchestrator] Event bus is required.");
++    this.bus = bus;
++    this.nexus = engines.nexus;
++    this.procarta = engines.procarta;
++    this.oracle = engines.oracle;
++    this.founder = engines.founder;
++    this.status = "STOPPED";
++    this.setupSubscriptions();
++  }
++
++  setupSubscriptions() {
++    this.bus.subscribe("customer.registered", async (envelope) => {
++      const payload = envelope?.payload ?? envelope;
++      const risk = this.oracle
++        ? await this.oracle.evaluateRisk(payload)
++        : { score: 0.1 };
++      const workspace = this.procarta
++        ? await this.procarta.createWorkspace(payload.tenantId)
++        : { status: "created" };
++      const wallet = this.nexus
++        ? await this.nexus.initializeWallet(payload.tenantId)
++        : { status: "active" };
+ 
+-    setupSubscriptions() {
+-        this.bus.subscribe("customer.registered", async (payload) => {
+-            const risk = this.oracle ? this.oracle.evaluateRisk(payload) : { score: 0.1 };
+-            const workspace = this.procarta ? this.procarta.createWorkspace(payload.tenantId) : { status: "created" };
+-            const wallet = this.nexus ? this.nexus.initializeWallet(payload.tenantId) : { status: "active" };
+-            
+-            await this.bus.publish("orchestration.completed", {
+-                tenantId: payload.tenantId,
+-                riskScore: risk.score,
+-                workspaceId: workspace.status,
+-                walletStatus: wallet.status,
+-                timestamp: Date.now()
+-            }).catch(err => console.error('[EventBus Async Error]', err));
+-        }).catch(err => console.error('[EventBus Async Error]', err));
+-    }
++      await this.bus.publish("orchestration.completed", {
++        tenantId: payload.tenantId,
++        riskScore: risk.score,
++        workspaceId: workspace.status,
++        walletStatus: wallet.status,
++        timestamp: Date.now()
++      });
++    });
++  }
+ 
+   async boot() {
+-    this.status = 'booting';
+-    if (typeof this.init === 'function') await this.init();
+-    this.status = 'booted';
++    this.status = "booting";
++    if (typeof this.init === "function") await this.init();
++    this.status = "booted";
+   }
+ 
+   async ready() {
+-    this.status = 'ready';
++    this.status = "ready";
+   }
+ 
+   async shutdown() {
+-    this.status = 'shutting_down';
++    this.status = "shutting_down";
+   }
+ 
+   async dispose() {
+-    this.status = 'disposed';
++    this.status = "disposed";
+   }
+ }
+diff --git a/kernel/engine/MasterBoot.js b/kernel/engine/MasterBoot.js
+index 8dfe66b..7856869 100644
+--- a/kernel/engine/MasterBoot.js
++++ b/kernel/engine/MasterBoot.js
+@@ -27,23 +27,7 @@ async function bootSequence() {
+     
+     console.log("[SYSTEM] All core engines online and wired. God-Mode Active.");
+ 
+-  async boot() {
+-    this.status = 'booting';
+-    if (typeof this.init === 'function') await this.init();
+-    this.status = 'booted';
+-  }
+-
+-  async ready() {
+-    this.status = 'ready';
+-  }
+-
+-  async shutdown() {
+-    this.status = 'shutting_down';
+-  }
+-
+-  async dispose() {
+-    this.status = 'disposed';
+-  }
+ }
+ 
++
+ bootSequence().catch(console.error);
+diff --git a/kernel/engine/MemoryEngine.js b/kernel/engine/MemoryEngine.js
+index cb6cfb5..493abf9 100644
+--- a/kernel/engine/MemoryEngine.js
++++ b/kernel/engine/MemoryEngine.js
+@@ -8,7 +8,7 @@ export default class MemoryEngine {
+         this.memoryStore.set(key, value);
+         
+         if (this.bus) {
+-            await this.await bus.publish("memory.remembered", { key, timestamp: Date.now() });
++            await this.bus.publish("memory.remembered", { key, timestamp: Date.now() });
+         }
+     }
+ 
+@@ -16,7 +16,7 @@ export default class MemoryEngine {
+         const existed = this.memoryStore.delete(key);
+         
+         if (existed && this.bus) {
+-            await this.await bus.publish("memory.forgotten", { key, timestamp: Date.now() });
++            await this.bus.publish("memory.forgotten", { key, timestamp: Date.now() });
+         }
+         
+         return existed;
+diff --git a/kernel/engine/OfflineQueueEngine.js b/kernel/engine/OfflineQueueEngine.js
+index 5387e80..d7a8e32 100644
+--- a/kernel/engine/OfflineQueueEngine.js
++++ b/kernel/engine/OfflineQueueEngine.js
+@@ -21,7 +21,7 @@ export default class OfflineQueueEngine {
+         this.queue = [];
+ 
+         if (this.bus) {
+-            await this.await bus.publish("queue.flushed", { count, timestamp: Date.now() });
++            await this.bus.publish("queue.flushed", { count, timestamp: Date.now() });
+         }
+ 
+         return flushedItems;
+diff --git a/kernel/engine/StorageEngine.js b/kernel/engine/StorageEngine.js
+index 2efc1ff..12f4746 100644
+--- a/kernel/engine/StorageEngine.js
++++ b/kernel/engine/StorageEngine.js
+@@ -8,7 +8,7 @@ export default class StorageEngine {
+         this.virtualFS.set(filePath, content);
+ 
+         if (this.bus) {
+-            await this.await bus.publish("storage.written", { path: filePath, sizeBytes: Buffer.byteLength(content || ""), timestamp: Date.now() });
++            await this.bus.publish("storage.written", { path: filePath, sizeBytes: Buffer.byteLength(content || ""), timestamp: Date.now() });
+         }
+ 
+         return true;
+diff --git a/kernel/engine/TaskConfidenceRouter.js b/kernel/engine/TaskConfidenceRouter.js
+index c1c41a2..782caf3 100644
+--- a/kernel/engine/TaskConfidenceRouter.js
++++ b/kernel/engine/TaskConfidenceRouter.js
+@@ -8,7 +8,7 @@ export default class TaskConfidenceRouter {
+     async evaluateTask(taskId, aiConfidenceScore, taskPayload) {
+         if (aiConfidenceScore >= this.threshold) {
+             if (this.bus) {
+-                await this.await bus.publish("task.auto_executed", { taskId, score: aiConfidenceScore });
++                await this.bus.publish("task.auto_executed", { taskId, score: aiConfidenceScore });
+             }
+             return { status: "AUTO_EXECUTED", score: aiConfidenceScore };
+         } else {
+@@ -26,7 +26,7 @@ export default class TaskConfidenceRouter {
+         for (const [taskId, data] of this.pausedTasks.entries()) {
+             if (now - data.lastNotified >= SIX_HOURS) {
+                 if (this.bus) {
+-                    await this.await bus.publish("notification.founder_reminder", { taskId, message: "Task requires Captains attention." });
++                    await this.bus.publish("notification.founder_reminder", { taskId, message: "Task requires Captains attention." });
+                 }
+                 data.lastNotified = now;
+             }
+diff --git a/lib/core/demoGuard.ts b/lib/core/demoGuard.ts
+new file mode 100644
+index 0000000..f358c07
+--- /dev/null
++++ b/lib/core/demoGuard.ts
+@@ -0,0 +1,51 @@
++ï»¿/**
++ * ADE SERVER-AUTHORITATIVE DEMO GUARD
++ */
++
++export type SideEffectType =
++  | 'FINANCIAL_EXECUTION'
++  | 'PRODUCTION_DB_MUTATION'
++  | 'DESTRUCTIVE_DB_OPERATION'
++  | 'REAL_PAYMENT_INITIATION'
++  | 'MESSAGING_SEND_OUTBOUND'
++  | 'EXTERNAL_API_MUTATION'
++  | 'PRODUCTION_WEBHOOK_MUTATION'
++  | 'CREDENTIAL_USAGE'
++  | 'SECRET_BEARING_CALL'
++  | 'DESTRUCTIVE_FILESYSTEM'
++  | 'PRIVILEGED_ADMIN_ACTION'
++  | 'IRREVERSIBLE_OPERATION';
++
++export type PolicyEvaluationMode =
++  | 'DEMO_BLOCKED'
++  | 'DEMO_SIMULATED'
++  | 'DEMO_SANDBOX'
++  | 'PRODUCTION_POLICY';
++
++export function isDemoModeActive(): boolean {
++  return process.env.ADE_DEMO_MODE === 'true';
++}
++
++export function evaluateDemoPolicy(
++  sideEffect: SideEffectType
++): PolicyEvaluationMode {
++
++  if (isDemoModeActive()) {
++    return 'DEMO_BLOCKED';
++  }
++
++  return 'PRODUCTION_POLICY';
++}
++
++export function assertSafeExecution(
++  sideEffect: SideEffectType
++): void {
++
++  const mode = evaluateDemoPolicy(sideEffect);
++
++  if (mode === 'DEMO_BLOCKED') {
++    throw new Error(
++      `[ADE DEMO GUARD] Side-effect '${sideEffect}' is strictly BLOCKED when ADE_DEMO_MODE=true.`
++    );
++  }
++}
+diff --git a/lib/core/edition.ts b/lib/core/edition.ts
+new file mode 100644
+index 0000000..71dcf60
+--- /dev/null
++++ b/lib/core/edition.ts
+@@ -0,0 +1,25 @@
++import type { AdeEdition, AdeCapability } from "../../types/ade/edition.ts";
++import { EDITION_CAPABILITY_MATRIX } from '../../types/ade/edition.ts';
++
++/**
++ * ADE CAPABILITY-ORIENTED ENTITLEMENT RESOLVER
++ *
++ * Identity/Persona
++ *      â†“
++ * Edition / Entitlement
++ *      â†“
++ * Capability
++ *      â†“
++ * Policy Decision
++ */
++
++export function canExecuteCapability(
++  identityContext: { edition: AdeEdition },
++  capability: AdeCapability
++): boolean {
++
++  const allowedCapabilities =
++    EDITION_CAPABILITY_MATRIX[identityContext.edition] || [];
++
++  return allowedCapabilities.includes(capability);
++}
+diff --git a/lib/core/mediaRegistry.ts b/lib/core/mediaRegistry.ts
+new file mode 100644
+index 0000000..e9e5694
+--- /dev/null
++++ b/lib/core/mediaRegistry.ts
+@@ -0,0 +1,69 @@
++ï»¿/**
++ * ADE CENTRAL MEDIA REGISTRY
++ *
++ * Never hard-code media directly into random React components.
++ *
++ * Presentation modes:
++ *   CINEMATIC
++ *   COMPACT
++ *   INLINE
++ *   PREVIEW_POSTER
++ *
++ * Execution semantics:
++ *   LIVE
++ *   SIMULATED
++ *   CONCEPT
++ *
++ * Media assets must be resolved through this registry.
++ */
++
++export type MediaPresentationMode =
++  | 'CINEMATIC'
++  | 'COMPACT'
++  | 'INLINE'
++  | 'PREVIEW_POSTER';
++
++export type MediaExecutionState =
++  | 'LIVE'
++  | 'SIMULATED'
++  | 'CONCEPT';
++
++export interface AdeMediaItem {
++  id: string;
++  title: string;
++  product:
++    | 'ADE-APEX'
++    | 'ADE-PROCARTA'
++    | 'ADE-AWBULI'
++    | 'ADE-NEXUS'
++    | 'ADE-ORACLE'
++    | 'ECOSYSTEM';
++
++  posterUrl: string;
++
++  mediaUrl?: string;
++
++  presentationMode: MediaPresentationMode;
++
++  executionState: MediaExecutionState;
++
++  isLazyLoaded: boolean;
++
++  status:
++    | 'READY'
++    | 'INCOMPLETE'
++    | 'CONCEPT_POSTER';
++}
++
++/**
++ * IMPORTANT:
++ * Only register assets that actually exist.
++ *
++ * The Product Theater / trailer implementation must reconcile
++ * these entries against the physical repository media inventory
++ * before rendering production URLs.
++ */
++export const ADE_MEDIA_REGISTRY: Record<
++  string,
++  AdeMediaItem
++> = {};
+diff --git a/src/adapters/GoogleADKConnector.js b/src/adapters/GoogleADKConnector.js
+index ed2aa8c..8c6c1c1 100644
+--- a/src/adapters/GoogleADKConnector.js
++++ b/src/adapters/GoogleADKConnector.js
+@@ -58,7 +58,7 @@ export class GoogleADKConnector {
+         timestamp: Date.now()
+       };
+       if (this.eventBus && typeof this.eventBus.publish === 'function') {
+-        await this.await eventBus.publish('adk.agent.completed', outputPayload);
++        await this.eventBus.publish('adk.agent.completed', outputPayload);
+       }
+ 
+       return outputPayload;
+@@ -66,7 +66,7 @@ export class GoogleADKConnector {
+       this.logger.error(`[GoogleADKConnector] Failed to dispatch task to agent '${agentId}':`, err);
+       const errorPayload = { correlationId, agentId, error: err.message, status: 'FAILED' };
+       if (this.eventBus && typeof this.eventBus.publish === 'function') {
+-        await this.await eventBus.publish('adk.agent.failed', errorPayload);
++        await this.eventBus.publish('adk.agent.failed', errorPayload);
+       }
+       throw err;
+     }
+@@ -84,7 +84,7 @@ export class GoogleADKConnector {
+       correlationId
+     };
+     if (this.eventBus && typeof this.eventBus.publish === 'function') {
+-      await this.await eventBus.publish('adk.tool.completed', adkToolResponse);
++      await this.eventBus.publish('adk.tool.completed', adkToolResponse);
+     }
+ 
+     return adkToolResponse;
+diff --git a/src/adapters/VertexAIAdapter.js b/src/adapters/VertexAIAdapter.js
+index 00db109..453dc89 100644
+--- a/src/adapters/VertexAIAdapter.js
++++ b/src/adapters/VertexAIAdapter.js
+@@ -58,7 +58,7 @@ export class VertexAIAdapter {
+         timestamp: Date.now()
+       };
+       if (this.eventBus && typeof this.eventBus.publish === 'function') {
+-        await this.await eventBus.publish('vertex.inference.completed', resultPayload);
++        await this.eventBus.publish('vertex.inference.completed', resultPayload);
+       }
+ 
+       return resultPayload;
+@@ -66,7 +66,7 @@ export class VertexAIAdapter {
+       this.logger.error('[VertexAIAdapter] Inference failed:', error);
+       const errorPayload = { correlationId, error: error.message, status: 'FAILED' };
+       if (this.eventBus && typeof this.eventBus.publish === 'function') {
+-        await this.await eventBus.publish('vertex.inference.failed', errorPayload);
++        await this.eventBus.publish('vertex.inference.failed', errorPayload);
+       }
+       throw error;
+     }
+diff --git a/src/cli/ade-validate.js b/src/cli/ade-validate.js
+index 9bba207..3f46275 100644
+--- a/src/cli/ade-validate.js
++++ b/src/cli/ade-validate.js
+@@ -1,90 +1,232 @@
+ /**
+- * ADE-APEX Consolidated Production Validation CLI
+- * Executes comprehensive health checks across all subsystems and outputs platform status.
++ * ADE-APEX Level-3 Production Validator
++ *
++ * Tests behavior, not object existence.
++ *
++ * Gate:
++ * canonical kernel -> real engines -> event bus -> workflow -> telemetry
++ * -> runtime metrics -> failure injection -> shutdown -> restart.
+  */
+-
+-import { EnterpriseKernelMaster } from '../kernel/EnterpriseKernelMaster.js';
+-
+-async function runAdeValidate() {
+-  console.log('================================================================================');
+-  console.log('   ADE-APEX ENTERPRISE PRODUCTION VALIDATION CLI (ade validate)');
+-  console.log('================================================================================');
+-
+-  const kernel = new EnterpriseKernelMaster();
+-  const checks = [];
+-
+-  const recordCheck = (name, status, details = '') => {
+-    checks.push({ name, status, details });
+-    console.log(`${status === 'PASS' ? 'âœ…' : 'âŒ'} ${name.padEnd(20, '.')} [${status}] ${details}`);
+-  };
+-
++import assert from "node:assert/strict";
++import { EnterpriseKernelMaster } from "../kernel/EnterpriseKernelMaster.js";
++import EnterpriseEventBus from "../kernel/EnterpriseEventBus.js";
++
++const results = [];
++const pass = (name, details = "") => {
++  results.push({ name, ok: true, details });
++  console.log(`PASS  ${name.padEnd(38, ".")} [PASS] ${details}`);
++};
++const fail = (name, error) => {
++  results.push({ name, ok: false, details: error?.message || String(error) });
++  console.error(`FAIL  ${name.padEnd(38, ".")} [FAIL] ${error?.message || error}`);
++};
++
++async function check(name, fn) {
+   try {
+-    // 1. Kernel Boot Check
+-    await kernel.boot();
+-    recordCheck('Kernel Boot', 'PASS', `${kernel.subsystems.size} subsystems active in ${kernel.metrics.bootTimeMs}ms`);
+-
+-    // 2. Memory Engine Check
+-    const memory = kernel.resolve('memory');
+-    recordCheck('Memory Engine', 'PASS', 'Context cache operational');
+-
+-    // 3. Knowledge Engine Check
+-    const knowledge = kernel.resolve('knowledge');
+-    recordCheck('Knowledge Engine', 'PASS', 'Vector store index ready');
+-
+-    // 4. Decision Engine Check
+-    const decision = kernel.resolve('decision');
+-    const evalResult = await decision.evaluate({ test: true });
+-    recordCheck('Decision Engine', 'PASS', `Evaluation result: ${evalResult.decision}`);
+-
+-    // 5. Oracle Intelligence Check
+-    const oracle = kernel.resolve('oracle');
+-    recordCheck('Oracle Intelligence', 'PASS', 'Inference routing active');
+-
+-    // 6. Guardian Security Check
+-    const guardian = kernel.resolve('guardian');
+-    const authPass = await guardian.authorize('mock-token');
+-    recordCheck('Guardian Security', 'PASS', `Authorization control: ${authPass}`);
+-
+-    // 7. Workflow & Event Engine Check
+-    const workflow = kernel.resolve('workflowEngine');
+-    const eventBus = kernel.resolve('eventBus');
+-    let eventReceived = false;
+-    eventBus.subscribe('workflow.completed', () => { eventReceived = true; });
+-    
+-    const txResult = await workflow.execute({ id: 'CLI-TEST-01', payload: 'verify' });
+-    recordCheck('Workflow Execution', txResult.status === 'SUCCESS' && eventReceived ? 'PASS' : 'FAIL', 'E2E Transaction & TraceID verified');
+-
+-    // 8. Ledger & Persistence Check
+-    const storage = kernel.resolve('storage');
+-    await storage.save('cli_health_check', { status: 'healthy', timestamp: Date.now() });
+-    const reloaded = await storage.reload('cli_health_check');
+-    recordCheck('Ledger & Persistence', reloaded ? 'PASS' : 'FAIL', 'State disk sync and recovery confirmed');
+-
+-    // 9. Performance & Latency Check
+-    recordCheck('Performance', 'PASS', 'Sub-millisecond event dispatch latency');
+-
+-    // 10. Security Audit Check
+-    recordCheck('Security', 'PASS', 'No un-awaited async publishes or eval/exec violations');
+-
+-    // 11. Plugins Sandbox Check
+-    recordCheck('Plugins', 'PASS', 'Modular registration isolated');
+-
+-    await kernel.shutdown();
+-
+-    // Summary Score
+-    const passedCount = checks.filter(c => c.status === 'PASS').length;
+-    const healthPercentage = ((passedCount / checks.length) * 100).toFixed(1);
+-
+-    console.log('--------------------------------------------------------------------------------');
+-    console.log(`  OVERALL PLATFORM HEALTH: ${healthPercentage}% (${passedCount}/${checks.length} Checks Passed)`);
+-    console.log('================================================================================');
+-
+-    process.exit(passedCount === checks.length ? 0 : 1);
+-  } catch (err) {
+-    console.error('âŒ Validation suite encountered a critical error:', err);
+-    await kernel.shutdown().catch(() => {});
+-    process.exit(1);
++    await fn();
++    pass(name);
++  } catch (error) {
++    fail(name, error);
++  }
++}
++
++async function main() {
++  console.log("================================================================================");
++  console.log(" ADE-APEX LEVEL-3 BEHAVIORAL / FAILURE / RESTART VALIDATION");
++  console.log("================================================================================");
++
++  const bus = new EnterpriseEventBus();
++  const kernel = new EnterpriseKernelMaster({ eventBus: bus });
++
++  await check("Canonical Kernel Boot", async () => {
++    const boot = await kernel.boot();
++    assert.equal(boot.status, "ONLINE");
++    assert.equal(kernel.isBooted, true);
++    assert.equal(kernel.subsystems.size, 8);
++    assert.ok(kernel.metrics.bootTimeMs >= 0);
++  });
++
++  await check("Memory store / retrieve / update / forget", async () => {
++    const memory = kernel.resolve("memory");
++    const created = memory.set("L3", { value: 42 }, { source: "validator" });
++    assert.equal(created.value.value, 42);
++    assert.equal(memory.retrieve("L3").value.value, 42);
++
++    memory.set("L3", { value: 84 });
++    assert.equal(memory.retrieve("L3").value.value, 84);
++    assert.equal(memory.size(), 1);
++
++    assert.equal(memory.forget("L3"), true);
++    assert.equal(memory.retrieve("L3"), null);
++    assert.equal(memory.stats().entries, 0);
++  });
++
++  await check("Knowledge ingest / query / replacement / explain", async () => {
++    const knowledge = kernel.resolve("knowledge");
++    knowledge.ingest("doc-1", "ADE enterprise kernel telemetry workflow");
++    knowledge.ingest("doc-2", "ADE knowledge memory decision policy");
++
++    assert.equal(knowledge.retrieve("doc-1").id, "doc-1");
++    assert.ok(knowledge.query("enterprise telemetry").some(x => x.id === "doc-1"));
++
++    knowledge.ingest("doc-1", "ADE replacement knowledge document");
++    assert.equal(knowledge.query("enterprise telemetry").some(x => x.id === "doc-1"), false);
++    assert.ok(knowledge.query("replacement knowledge").some(x => x.id === "doc-1"));
++
++    const explanation = knowledge.explain("replacement knowledge");
++    assert.equal(explanation.resultCount, 2);
++    assert.ok(explanation.matches.some(x => x.id === "doc-1"));
++  });
++
++  await check("Decision policy / low confidence / validation", async () => {
++    const decision = kernel.resolve("decision");
++
++    const approved = await decision.evaluate({ confidence: 0.95 });
++    const held = await decision.evaluate({ confidence: 0.65 });
++    const rejected = await decision.evaluate({ confidence: 0.2 });
++
++    assert.equal(approved.decision, "APPROVE");
++    assert.equal(held.decision, "HOLD");
++    assert.equal(rejected.decision, "REJECT");
++
++    assert.equal(decision.validateDecision(approved), true);
++    assert.equal(decision.validateDecision(held), true);
++    assert.equal(decision.validateDecision(rejected), true);
++    assert.equal(decision.stats().evaluations, 3);
++  });
++
++  await check("Canonical Event Bus delivery and metrics", async () => {
++    let received = 0;
++    bus.subscribe("l3.event", async payload => {
++      assert.equal(payload.id, "E1");
++      received++;
++    });
++
++    const result = await bus.publish("l3.event", { id: "E1" });
++    assert.equal(result.deliveredCount, 1);
++    assert.equal(received, 1);
++    assert.equal(bus.getMetrics().published >= 1, true);
++    assert.equal(bus.getMetrics().delivered >= 1, true);
++  });
++
++  await check("Event failure isolation + DLQ", async () => {
++    const isolated = new EnterpriseEventBus();
++    let healthyHandlerRan = false;
++
++    isolated.subscribe("failure.test", async () => {
++      throw new Error("intentional-failure");
++    });
++    isolated.subscribe("failure.test", async () => {
++      healthyHandlerRan = true;
++    });
++
++    const result = await isolated.publish("failure.test", { test: true });
++    assert.equal(healthyHandlerRan, true);
++    assert.equal(result.failedCount, 1);
++    assert.equal(isolated.dlq.length, 1);
++    assert.equal(isolated.getMetrics().failed, 1);
++  });
++
++  await check("Workflow -> Event Bus -> Ledger -> Metrics", async () => {
++    const workflow = kernel.resolve("workflowEngine");
++    const ledger = kernel.resolve("ledger");
++    let started = false;
++    let completed = false;
++
++    bus.subscribe("workflow.started", async () => { started = true; });
++    bus.subscribe("workflow.completed", async () => { completed = true; });
++
++    const before = kernel.metrics.workflowExecutions;
++    const result = await workflow.execute({ id: "WF-L3", amount: 100 });
++
++    assert.equal(result.status, "SUCCESS");
++    assert.equal(started, true);
++    assert.equal(completed, true);
++    assert.equal(ledger.size(), 1);
++    assert.equal(kernel.metrics.workflowExecutions, before + 1);
++    assert.equal(kernel.metrics.workflowStarted >= 1, true);
++    assert.equal(kernel.metrics.workflowCompleted >= 1, true);
++  });
++
++  await check("Telemetry receives real kernel events", async () => {
++    const events = kernel.hub.getRecentEvents();
++    assert.ok(Array.isArray(events));
++    assert.ok(events.some(e => e.type === "KERNEL_BOOT_COMPLETE"));
++  });
++
++  await check("Runtime metrics reflect real operations", async () => {
++    const m = kernel.metrics;
++    assert.ok(m.memoryOperations > 0);
++    assert.ok(m.knowledgeOperations > 0);
++    assert.ok(m.decisionsEvaluated >= 3);
++    assert.ok(m.workflowExecutions >= 1);
++    assert.ok(m.eventsPublished > 0);
++    assert.ok(m.eventsDelivered > 0);
++    assert.ok(m.bootTimeMs !== null);
++  });
++
++  await check("Missing dependency fails deterministically", async () => {
++    assert.throws(
++      () => kernel.resolve("definitely-not-registered"),
++      /Unregistered dependency/
++    );
++  });
++
++  await check("Injected subsystem boot failure is surfaced", async () => {
++    const failing = new EnterpriseKernelMaster({
++      eventBus: new EnterpriseEventBus()
++    });
++
++    failing.registerSubsystem("intentionalFailure", {
++      async initialize() {
++        throw new Error("intentional-boot-failure");
++      },
++      async dispose() {}
++    });
++
++    await assert.rejects(
++      () => failing.boot(),
++      /intentional-boot-failure/
++    );
++    assert.equal(failing.status, "FAILED");
++  });
++
++  await check("Shutdown", async () => {
++    const result = await kernel.shutdown();
++    assert.equal(result.status, "OFFLINE");
++    assert.equal(kernel.isBooted, false);
++    assert.equal(kernel.status, "OFFLINE");
++  });
++
++  await check("Restart after clean shutdown", async () => {
++    const before = kernel.metrics.bootCount;
++    const result = await kernel.boot();
++
++    assert.equal(result.status, "ONLINE");
++    assert.equal(kernel.isBooted, true);
++    assert.equal(kernel.metrics.bootCount, before + 1);
++    assert.equal(kernel.metrics.restartCount, 1);
++  });
++
++  await kernel.shutdown();
++
++  const passed = results.filter(x => x.ok).length;
++  const failed = results.length - passed;
++  const health = ((passed / results.length) * 100).toFixed(1);
++
++  console.log("--------------------------------------------------------------------------------");
++  console.log(` LEVEL-3 PLATFORM HEALTH: ${health}% (${passed}/${results.length})`);
++  console.log("================================================================================");
++
++  if (failed) {
++    console.error(`LEVEL-3 VALIDATION FAILED: ${failed} gate(s) failed.`);
++    process.exitCode = 1;
++  } else {
++    console.log("FULL GREEN: behavioral runtime, failure injection, shutdown and restart passed.");
+   }
+ }
+ 
+-runAdeValidate();
+\ No newline at end of file
++main().catch(error => {
++  console.error("CRITICAL VALIDATION FAILURE:", error);
++  process.exitCode = 1;
++});
+diff --git a/src/commands/ledger.js b/src/commands/ledger.js
+index 5727860..2de6aad 100644
+--- a/src/commands/ledger.js
++++ b/src/commands/ledger.js
+@@ -1,7 +1,53 @@
+-const ledger = []
++const ledger = [];
++
++function addEntry(entry = {}) {
++  if (!entry || typeof entry !== "object") {
++    throw new Error("Ledger entry must be an object.");
++  }
++  const record = {
++    id: entry.id || `LEDGER-${Date.now()}-${ledger.length + 1}`,
++    type: entry.type || "GENERAL",
++    amount: Number(entry.amount || 0),
++    item: entry.item || "",
++    notes: entry.notes || "",
++    createdAt: new Date().toISOString()
++  };
++  ledger.push(record);
++  return { ...record };
++}
++
++export function getLedger() {
++  return ledger.map(entry => ({ ...entry }));
++}
++
++export function clearLedger() {
++  const count = ledger.length;
++  ledger.length = 0;
++  return { cleared: count };
++}
+ 
+ export default {
+   name: "ledger",
+   description: "Financial ledger commands",
+-
+-  async execute(sock, msg, args
++  async execute(sock, msg, args = []) {
++    const [command = "list", ...rest] = args;
++    switch (String(command).toLowerCase()) {
++      case "add":
++        return addEntry({
++          type: rest[0] || "GENERAL",
++          amount: rest[1] || 0,
++          item: rest.slice(2).join(" ")
++        });
++      case "list":
++        return getLedger();
++      case "clear":
++        return clearLedger();
++      default:
++        return {
++          success: false,
++          error: `Unknown ledger command: ${command}`,
++          commands: ["add", "list", "clear"]
++        };
++    }
++  }
++};
+diff --git a/src/core/CapabilityRegistry.js b/src/core/CapabilityRegistry.js
+index a972ae9..ce6a863 100644
+--- a/src/core/CapabilityRegistry.js
++++ b/src/core/CapabilityRegistry.js
+@@ -1,18 +1,35 @@
+-ï»¿import KernelEventBus from "./EventBus.js";
++ï»¿/**
++ * ADE-APEX Canonical Capability Registry
++ *
++ * Single authoritative registry for:
++ * - Core capabilities
++ * - Extension capabilities
++ * - Subsystem manifests
++ * - Plan entitlements
++ * - Capability discovery
++ *
++ * Compatibility-first implementation:
++ * preserves the original ADE capability contract while also
++ * exposing the newer register/getAll/search/plan APIs.
++ */
++
++import KernelEventBus from "./EventBus.js";
+ 
+ export class CapabilityRegistry {
+   constructor() {
+     this.eventBus = KernelEventBus.getInstance();
+     this.capabilities = new Map();
+     this.subsystems = new Map();
++
+     this.initCoreCapabilities();
+   }
+ 
+   static getInstance() {
+-    if (!global.__capabilityRegistryInstance) {
+-      global.__capabilityRegistryInstance = new CapabilityRegistry();
++    if (!globalThis.__capabilityRegistryInstance) {
++      globalThis.__capabilityRegistryInstance = new CapabilityRegistry();
+     }
+-    return global.__capabilityRegistryInstance;
++
++    return globalThis.__capabilityRegistryInstance;
+   }
+ 
+   initCoreCapabilities() {
+@@ -20,42 +37,55 @@ export class CapabilityRegistry {
+       intent: "WATCH_ASSET",
+       rbacLevel: 1,
+       sourceModule: "CORE",
+-      handler: (params) => `Subscribed to asset stream: ${params.asset}`
++      handler: (params = {}) =>
++        `Subscribed to asset stream: ${params.asset ?? "UNKNOWN"}`
+     });
+ 
+     this.registerCapability({
+       intent: "TELEMETRY_SSE",
+       rbacLevel: 1,
+       sourceModule: "CORE",
+-      handler: (params) => `Telemetry stream initialized on channel: ${params.channel}`
++      handler: (params = {}) =>
++        `Telemetry stream initialized on channel: ${params.channel ?? "DEFAULT"}`
+     });
+ 
+     this.registerCapability({
+       intent: "UNIVERSAL_AI_GATEWAY",
+       rbacLevel: 1,
+       sourceModule: "CORE",
+-      handler: (params) => `AI Gateway dispatch executed: ${params.prompt}`
++      handler: (params = {}) =>
++        `AI Gateway dispatch executed: ${params.prompt ?? ""}`
+     });
+ 
+     this.registerCapability({
+       intent: "MULTI_STREAM",
+       rbacLevel: 2,
+       sourceModule: "CORE",
+-      handler: (params) => `Multi-stream routing unlocked for ${params.count} streams`
++      handler: (params = {}) =>
++        `Multi-stream routing unlocked for ${params.count ?? 0} streams`
+     });
+ 
+     this.registerCapability({
+       intent: "SYSTEM_SHUTDOWN",
+       rbacLevel: 4,
+       sourceModule: "CORE",
+-      handler: () => `SYSTEM EXECUTION: Core shutdown initiated.`
++      handler: () =>
++        "SYSTEM EXECUTION: Core shutdown initiated."
+     });
+   }
+ 
+-  registerCapability(capabilityOrExtension, intent, handlerOrLevel, rbacLevel = 1) {
++  /**
++   * Original ADE registration contract.
++   */
++  registerCapability(
++    capabilityOrExtension,
++    intent,
++    handlerOrLevel,
++    rbacLevel = 1
++  ) {
+     let cap;
+ 
+-    // Existing Batch 1.2 object contract
++    // Object contract
+     if (
+       capabilityOrExtension &&
+       typeof capabilityOrExtension === "object" &&
+@@ -64,10 +94,12 @@ export class CapabilityRegistry {
+       cap = {
+         ...capabilityOrExtension,
+         rbacLevel: capabilityOrExtension.rbacLevel || 1,
+-        sourceModule: capabilityOrExtension.sourceModule || "EXTERNAL_SUBSYSTEM"
++        sourceModule:
++          capabilityOrExtension.sourceModule || "EXTERNAL_SUBSYSTEM"
+       };
+     }
+-    // Extension convenience contract: registerCapability(extensionId, intent, handler, rbacLevel)
++
++    // Extension convenience contract
+     else if (
+       typeof capabilityOrExtension === "string" &&
+       typeof intent === "string" &&
+@@ -81,9 +113,11 @@ export class CapabilityRegistry {
+         sourceModule: capabilityOrExtension
+       };
+     }
++
+     else {
+       throw new Error(
+-        "Invalid Capability registration: expected object contract or (extensionId, intent, handler, rbacLevel)."
++        "Invalid Capability registration: expected object contract or " +
++        "(extensionId, intent, handler, rbacLevel)."
+       );
+     }
+ 
+@@ -94,8 +128,10 @@ export class CapabilityRegistry {
+     }
+ 
+     const capabilityRecord = {
++      intent: cap.intent,
+       rbacLevel: cap.rbacLevel || 1,
+-      sourceModule: cap.sourceModule || "EXTERNAL_SUBSYSTEM",
++      sourceModule:
++        cap.sourceModule || "EXTERNAL_SUBSYSTEM",
+       extensionId: cap.extensionId || null,
+       handler: cap.handler,
+       registeredAt: new Date().toISOString()
+@@ -103,16 +139,54 @@ export class CapabilityRegistry {
+ 
+     this.capabilities.set(cap.intent, capabilityRecord);
+ 
+-    this.eventBus.publish("CAPABILITY_REGISTERED", {
+-      intent: cap.intent,
+-      rbacLevel: capabilityRecord.rbacLevel,
+-      source: capabilityRecord.sourceModule,
+-      extensionId: capabilityRecord.extensionId
+-    });
++    try {
++      this.eventBus?.publish?.("CAPABILITY_REGISTERED", {
++        intent: cap.intent,
++        rbacLevel: capabilityRecord.rbacLevel,
++        source: capabilityRecord.sourceModule,
++        extensionId: capabilityRecord.extensionId
++      });
++    } catch {
++      // Registry registration must not fail because telemetry/event
++      // publication is unavailable during isolated validation.
++    }
+ 
+     return capabilityRecord;
+   }
+ 
++  /**
++   * New canonical registration alias.
++   */
++  register(key, capabilityData) {
++    if (!key) {
++      throw new Error("Capability key is required.");
++    }
++
++    if (
++      capabilityData &&
++      typeof capabilityData.handler === "function"
++    ) {
++      return this.registerCapability({
++        ...capabilityData,
++        intent: capabilityData.intent || key
++      });
++    }
++
++    const record = {
++      id: key,
++      intent: key,
++      name: capabilityData?.name || key,
++      tier: capabilityData?.tier || "FREE",
++      rbacLevel: capabilityData?.rbacLevel || 1,
++      sourceModule: capabilityData?.sourceModule || "CORE",
++      ...capabilityData
++    };
++
++    this.capabilities.set(key, record);
++
++    return record;
++  }
++
+   verifyCapability(extensionId, intent) {
+     const capability = this.capabilities.get(intent);
+ 
+@@ -120,7 +194,10 @@ export class CapabilityRegistry {
+       return false;
+     }
+ 
+-    if (capability.extensionId && capability.extensionId !== extensionId) {
++    if (
++      capability.extensionId &&
++      capability.extensionId !== extensionId
++    ) {
+       return false;
+     }
+ 
+@@ -132,12 +209,54 @@ export class CapabilityRegistry {
+   }
+ 
+   listCapabilities() {
+-    return Array.from(this.capabilities.entries()).map(([intent, cap]) => ({
+-      intent,
+-      rbacLevel: cap.rbacLevel,
+-      sourceModule: cap.sourceModule,
+-      extensionId: cap.extensionId
+-    }));
++    return Array.from(this.capabilities.entries()).map(
++      ([intent, cap]) => ({
++        intent,
++        rbacLevel: cap.rbacLevel,
++        sourceModule: cap.sourceModule,
++        extensionId: cap.extensionId
++      })
++    );
++  }
++
++  getAll() {
++    return Array.from(this.capabilities.values());
++  }
++
++  search(query) {
++    if (!query) {
++      return this.getAll();
++    }
++
++    const q = String(query).toLowerCase();
++
++    return this.getAll().filter((cap) =>
++      String(cap.id || cap.intent || "")
++        .toLowerCase()
++        .includes(q) ||
++      String(cap.name || "")
++        .toLowerCase()
++        .includes(q)
++    );
++  }
++
++  getPlanCapabilities(planKey) {
++    const plan = String(planKey || "FREE").toUpperCase();
++
++    return this.getAll().filter((cap) => {
++      if (!cap.tier) return true;
++
++      const tier = String(cap.tier).toUpperCase();
++
++      if (plan === "ENTERPRISE") return true;
++      if (plan === "PRO") return tier !== "ENTERPRISE";
++
++      return tier === "FREE";
++    });
++  }
++
++  hasCapability(capabilityId) {
++    return this.capabilities.has(capabilityId);
+   }
+ 
+   registerSubsystem(moduleName, capabilitiesManifest) {
+@@ -159,11 +278,23 @@ export class CapabilityRegistry {
+       capabilityCount: capabilitiesManifest.length
+     });
+ 
+-    this.eventBus.publish("SUBSYSTEM_REGISTERED", {
+-      moduleName,
+-      count: capabilitiesManifest.length
+-    });
++    try {
++      this.eventBus?.publish?.("SUBSYSTEM_REGISTERED", {
++        moduleName,
++        count: capabilitiesManifest.length
++      });
++    } catch {
++      // Non-fatal during isolated validation.
++    }
++
++    return this.subsystems.get(moduleName);
++  }
++
++  getSubsystems() {
++    return Array.from(this.subsystems.entries());
+   }
+ }
+ 
+-export default CapabilityRegistry;
++const canonicalRegistry = CapabilityRegistry.getInstance();
++
++export default canonicalRegistry;
+diff --git a/src/core/EnterpriseKernelMaster.js b/src/core/EnterpriseKernelMaster.js
+index 1a21d7f..8666c18 100644
+--- a/src/core/EnterpriseKernelMaster.js
++++ b/src/core/EnterpriseKernelMaster.js
+@@ -1,84 +1,41 @@
+-ï»¿import KernelEventBus from "./EventBus.js";
+-import CapabilityRegistry from "./CapabilityRegistry.js";
+-import CommunityEditionGuard from "../security/CommunityEditionGuard.js";
+-
+-export class EnterpriseKernelMaster {
+-  constructor() {
+-    this.eventBus = KernelEventBus.getInstance();
+-    this.capabilityRegistry = CapabilityRegistry.getInstance();
+-    this.guard = CommunityEditionGuard.getInstance();
+-    this.isBooted = false;
+-    this.activeSubsystems = new Set();
+-    this.systemState = {
+-      status: "STOPPED",
+-      bootTime: null,
+-      activeConnections: 0,
+-      telemetryChannels: new Set(["SYS_HEALTH", "AUDIT_LOGS", "AI_GATEWAY"])
+-    };
++ï»¿/**
++ * ADE-APEX CORE KERNEL COMPATIBILITY FACADE
++ *
++ * IMPORTANT:
++ * The canonical runtime kernel lives at:
++ *
++ *   ../kernel/EnterpriseKernelMaster.js
++ *
++ * This file MUST NOT implement a second kernel.
++ *
++ * It exists only so legacy/core imports continue to resolve to the
++ * canonical runtime architecture.
++ */
++
++import CanonicalEnterpriseKernelMaster from "../kernel/EnterpriseKernelMaster.js";
++
++export class EnterpriseKernelMaster extends CanonicalEnterpriseKernelMaster {
++
++  constructor(options = {}) {
++    super(options);
+   }
+ 
+   static getInstance() {
+-    if (!global.__enterpriseKernelMasterInstance) {
+-      global.__enterpriseKernelMasterInstance = new EnterpriseKernelMaster();
+-    }
+-    return global.__enterpriseKernelMasterInstance;
+-  }
+-
+-  boot() {
+-    if (this.isBooted) return { status: "ALREADY_RUNNING", state: this.getSystemState() };
+-    
+-    this.isBooted = true;
+-    this.systemState.status = "ONLINE";
+-    this.systemState.bootTime = new Date().toISOString();
+-
+-    const bootPayload = {
+-      event: "KERNEL_BOOT_COMPLETE",
+-      status: "ONLINE",
+-      timestamp: this.systemState.bootTime,
+-      subsystemsLoaded: Array.from(this.activeSubsystems)
+-    };
+-
+-    this.eventBus.publish("KERNEL_STATUS_CHANGE", bootPayload);
+-    this.guard.logAuditEvent({ type: "KERNEL_EVENT", action: "BOOT", status: "SUCCESS" });
+-    return bootPayload;
+-  }
+-
+-  registerSubsystemToKernel(moduleName, capabilitiesManifest) {
+-    this.capabilityRegistry.registerSubsystem(moduleName, capabilitiesManifest);
+-    this.activeSubsystems.add(moduleName);
+-    
+-    this.eventBus.publish("KERNEL_SUBSYSTEM_ATTACHED", {
+-      moduleName,
+-      activeSubsystemsCount: this.activeSubsystems.size
+-    });
++    return CanonicalEnterpriseKernelMaster.getInstance();
+   }
+ 
++  /*
++   * Legacy core API compatibility.
++   */
+   getSystemState() {
+-    return {
+-      isBooted: this.isBooted,
+-      status: this.systemState.status,
+-      bootTime: this.systemState.bootTime,
+-      activeSubsystems: Array.from(this.activeSubsystems),
+-      registeredCapabilitiesCount: this.capabilityRegistry.listCapabilities().length
+-    };
++    return super.getSystemState();
+   }
+ 
+-  shutdown() {
+-    if (!this.isBooted) return { status: "ALREADY_OFFLINE" };
+-    
+-    this.isBooted = false;
+-    this.systemState.status = "OFFLINE";
+-    const timestamp = new Date().toISOString();
+-
+-    const shutdownPayload = {
+-      event: "KERNEL_SHUTDOWN_COMPLETE",
+-      status: "OFFLINE",
+-      timestamp
+-    };
+-
+-    this.eventBus.publish("KERNEL_STATUS_CHANGE", shutdownPayload);
+-    this.guard.logAuditEvent({ type: "KERNEL_EVENT", action: "SHUTDOWN", status: "SUCCESS" });
+-    return shutdownPayload;
++  registerSubsystemToKernel(moduleName, capabilitiesManifest = {}) {
++    return super.registerSubsystemToKernel(
++      moduleName,
++      capabilitiesManifest
++    );
+   }
+ }
+ 
+diff --git a/src/core/EnterpriseMasterOrchestrator.js b/src/core/EnterpriseMasterOrchestrator.js
+index 796d6cd..fd7a3bb 100644
+--- a/src/core/EnterpriseMasterOrchestrator.js
++++ b/src/core/EnterpriseMasterOrchestrator.js
+@@ -1,49 +1,166 @@
+-import { EnterpriseKernelMaster } from '../kernel/EnterpriseKernelMaster.js';
+-import { UniversalEventBus } from './UniversalEventBus.js';
+-import { PluginLifecycleEngine } from './PluginLifecycleEngine.js';
+-import { StrategyMarketplace, GenericForexAdapter } from './BrokerAdapterEngine.js';
+-import { CloudSignalPipelineEngine } from './CloudSignalPipelineEngine.js';
++ï»¿/**
++ * ADE-APEX Enterprise Master Orchestrator
++ *
++ * Orchestration layer only.
++ *
++ * It does not create a second kernel.
++ * It consumes the canonical kernel.
++ */
++
++import { EnterpriseKernelMaster } from "../kernel/EnterpriseKernelMaster.js";
++import { UniversalEventBus } from "./UniversalEventBus.js";
++import { PluginLifecycleEngine } from "./PluginLifecycleEngine.js";
++import {
++  StrategyMarketplace,
++  GenericForexAdapter
++} from "./BrokerAdapterEngine.js";
++import { CloudSignalPipelineEngine } from "./CloudSignalPipelineEngine.js";
+ 
+ export class EnterpriseMasterOrchestrator {
+-  constructor() {
+-    this.kernel = new EnterpriseKernelMaster();
+-    this.eventBus = new UniversalEventBus();
+-    this.pluginOS = new PluginLifecycleEngine();
+-    this.marketplace = new StrategyMarketplace();
+-    this.brokerAdapter = new GenericForexAdapter();
+-    this.cloudPipeline = new CloudSignalPipelineEngine();
++
++  constructor(options = {}) {
++
++    this.kernel =
++      options.kernel ||
++      EnterpriseKernelMaster.getInstance();
++
++    this.eventBus =
++      options.eventBus ||
++      new UniversalEventBus();
++
++    this.pluginOS =
++      options.pluginOS ||
++      new PluginLifecycleEngine();
++
++    this.marketplace =
++      options.marketplace ||
++      new StrategyMarketplace();
++
++    this.brokerAdapter =
++      options.brokerAdapter ||
++      new GenericForexAdapter();
++
++    this.cloudPipeline =
++      options.cloudPipeline ||
++      new CloudSignalPipelineEngine();
++
++    this.status = "STOPPED";
+   }
+ 
+   async bootEcosystem() {
+-    console.log('[MasterOrchestrator] Starting unified ecosystem deployment sequence...');
++
++    console.log(
++      "[MasterOrchestrator] Starting unified ADE ecosystem deployment sequence..."
++    );
++
+     await this.kernel.boot();
+-    await this.brokerAdapter.connect();
+-    console.log('[MasterOrchestrator] All sub-engines connected and bound to Event Bus.');
+-    return { status: 'ONLINE', timestamp: Date.now() };
++
++    try {
++      if (
++        this.brokerAdapter &&
++        typeof this.brokerAdapter.connect === "function"
++      ) {
++        await this.brokerAdapter.connect();
++      }
++    } catch (error) {
++
++      console.warn(
++        "[MasterOrchestrator] Broker adapter unavailable:",
++        error?.message || String(error)
++      );
++    }
++
++    this.status = "ONLINE";
++
++    console.log(
++      "[MasterOrchestrator] All orchestration services bound to canonical kernel."
++    );
++
++    return {
++      status: "ONLINE",
++      timestamp: Date.now(),
++      kernel: this.kernel.getHealth()
++    };
+   }
+ 
+-  async processIncomingWebhookSignal(payload) {
+-    const pipelineRes = await this.cloudPipeline.processCloudSignal(payload);
+-    if (pipelineRes.status !== 'ACCEPTED') return pipelineRes;
++  async processIncomingWebhookSignal(payload = {}) {
++
++    const pipelineRes =
++      await this.cloudPipeline.processCloudSignal(payload);
++
++    if (pipelineRes.status !== "ACCEPTED") {
++      return pipelineRes;
++    }
++
++    const stratRes =
++      this.marketplace.evaluate(
++        "Z_SCORE_ANOMALY",
++        {
++          zScore: pipelineRes.signal.zScore
++        }
++      );
+ 
+-    const stratRes = this.marketplace.evaluate('Z_SCORE_ANOMALY', { zScore: pipelineRes.signal.zScore });
+-    
+     if (stratRes.trigger) {
+-      const execRes = await this.brokerAdapter.executeOrder({
+-        asset: pipelineRes.signal.asset,
+-        amount: 100,
+-        action: pipelineRes.signal.action
+-      });
+-
+-      await this.eventBus.publish('trade:executed', execRes).catch(err => console.error('[EventBus Async Error]', err));
+-      return { status: 'EXECUTED', execution: execRes };
++
++      const execRes =
++        await this.brokerAdapter.executeOrder({
++          asset: pipelineRes.signal.asset,
++          amount: 100,
++          action: pipelineRes.signal.action
++        });
++
++      if (
++        this.eventBus &&
++        typeof this.eventBus.publish === "function"
++      ) {
++        await this.eventBus
++          .publish("trade:executed", execRes)
++          .catch(error =>
++            console.error(
++              "[EventBus Async Error]",
++              error
++            )
++          );
++      }
++
++      return {
++        status: "EXECUTED",
++        execution: execRes
++      };
+     }
+ 
+-    return { status: 'HOLD', reason: 'Strategy trigger threshold not met' };
++    return {
++      status: "HOLD",
++      reason: "Strategy trigger threshold not met"
++    };
+   }
+ 
+   async shutdownEcosystem() {
++
+     await this.kernel.shutdown();
+-    console.log('[MasterOrchestrator] Ecosystem cleanly shutdown.');
++
++    this.status = "STOPPED";
++
++    console.log(
++      "[MasterOrchestrator] Ecosystem cleanly shutdown."
++    );
++
++    return {
++      status: "OFFLINE",
++      timestamp: Date.now()
++    };
++  }
++
++  resolve(name) {
++    return this.kernel.resolve(name);
++  }
++
++  getHealth() {
++    return {
++      status: this.status,
++      kernel: this.kernel.getHealth()
++    };
+   }
+ }
++
++export default EnterpriseMasterOrchestrator;
+diff --git a/src/core/EventBus.js b/src/core/EventBus.js
+index 10db34f..1b23618 100644
+--- a/src/core/EventBus.js
++++ b/src/core/EventBus.js
+@@ -1,28 +1,12 @@
+-ï»¿import { EventEmitter } from "events";
+-
+-export class KernelEventBus extends EventEmitter {
+-  constructor() {
+-    super();
+-    this.setMaxListeners(50);
+-  }
++/**
++ * Compatibility facade for the canonical ADE Enterprise Event Bus.
++ * No second event-bus implementation is permitted.
++ */
++import EnterpriseEventBus from "../kernel/EnterpriseEventBus.js";
+ 
++export class KernelEventBus extends EnterpriseEventBus {
+   static getInstance() {
+-    if (!global.__kernelEventBusInstance) {
+-      global.__kernelEventBusInstance = new KernelEventBus();
+-    }
+-    return global.__kernelEventBusInstance;
+-  }
+-
+-  publish(eventName, payload) {
+-    const eventRecord = {
+-      eventId: `EVT-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
+-      timestamp: new Date().toISOString(),
+-      eventName,
+-      payload
+-    };
+-    this.emit(eventName, eventRecord);
+-    this.emit("*", eventRecord); // Global stream listener
+-    return eventRecord;
++    return EnterpriseEventBus.getInstance();
+   }
+ }
+ 
+diff --git a/src/core/KernelLoader.js b/src/core/KernelLoader.js
+index 9964b9b..881e05f 100644
+--- a/src/core/KernelLoader.js
++++ b/src/core/KernelLoader.js
+@@ -1,112 +1,267 @@
+-import { DIContainer } from './DIContainer.js';
++ï»¿/**
++ * ADE-APEX KernelLoader
++ *
++ * Boot-DAG compatibility/runtime loader.
++ *
++ * The loader manages modular lifecycle.
++ * It does NOT become another EnterpriseKernelMaster.
++ */
++
++import { DIContainer } from "./DIContainer.js";
+ 
+ export class KernelLoader {
+-  constructor({ logger = console, observatory = null } = {}) {
++
++  constructor({
++    logger = console,
++    observatory = null,
++    container = null
++  } = {}) {
++
+     this.logger = logger;
+     this.observatory = observatory;
+-    this.container = new DIContainer();
++
++    this.container =
++      container ||
++      new DIContainer();
++
+     this.modules = new Map();
+     this.bootOrder = [];
+     this.isBooted = false;
++    this.activeProfile = null;
+   }
+ 
+-  registerModule(id, ModuleClass, dependencies = [], profileScope = ['default']) {
+-    this.container.registerFactory(id, (c) => {
+-      const injectedDeps = { id };
+-      for (const depKey of dependencies) {
+-        injectedDeps[depKey] = c.resolve(depKey);
++  registerModule(
++    id,
++    ModuleClass,
++    dependencies = [],
++    profileScope = ["default"]
++  ) {
++
++    if (!id) {
++      throw new Error("[KernelLoader] Module id is required.");
++    }
++
++    if (typeof ModuleClass !== "function") {
++      throw new Error(
++        `[KernelLoader] Module '${id}' must be constructible.`
++      );
++    }
++
++    this.container.registerFactory(
++      id,
++      (c) => {
++
++        const injectedDeps = {
++          id
++        };
++
++        for (const depKey of dependencies) {
++          injectedDeps[depKey] =
++            c.resolve(depKey);
++        }
++
++        return new ModuleClass(injectedDeps);
++      },
++      profileScope
++    );
++
++    this.modules.set(
++      id,
++      {
++        ModuleClass,
++        dependencies: [...dependencies],
++        profileScope: [...profileScope]
+       }
+-      return new ModuleClass(injectedDeps);
+-    }, profileScope);
++    );
+ 
+-    this.modules.set(id, { ModuleClass, dependencies, profileScope });
++    return this;
+   }
+ 
+-  async bootProfile(activeProfile = 'default') {
+-    this.logger.info(`[KernelLoader] Initializing runtime kernel profile: [${activeProfile}]`);
++  resolve(id) {
++    return this.container.resolve(id);
++  }
+ 
+-    // 1. Resolve active DAG nodes for the profile
+-    const activeModuleIds = Array.from(this.modules.entries())
+-      .filter(([_, meta]) => meta.profileScope.includes('*') || meta.profileScope.includes(activeProfile))
+-      .map(([id]) => id);
++  has(id) {
++    return this.container.has(id);
++  }
++
++  async bootProfile(activeProfile = "default") {
++
++    if (this.isBooted) {
++      return {
++        status: "ALREADY_RUNNING",
++        profile: this.activeProfile,
++        bootOrder: this.bootOrder
++      };
++    }
++
++    this.activeProfile = activeProfile;
++
++    this.logger.info(
++      `[KernelLoader] Initializing runtime profile: [${activeProfile}]`
++    );
++
++    const activeModuleIds =
++      Array.from(this.modules.entries())
++        .filter(([_, meta]) =>
++          meta.profileScope.includes("*") ||
++          meta.profileScope.includes(activeProfile)
++        )
++        .map(([id]) => id);
++
++    this.bootOrder =
++      this._topologicalSort(activeModuleIds);
+ 
+-    // 2. Resolve Topological Sort (Boot DAG)
+-    this.bootOrder = this._topologicalSort(activeModuleIds);
+-    this.logger.info(`[KernelLoader] Resolved Boot DAG Order: ${this.bootOrder.join(' -> ')}`);
++    this.logger.info(
++      `[KernelLoader] Boot DAG: ${this.bootOrder.join(" -> ")}`
++    );
+ 
+-    // 3. Sequential Deterministic Boot
+     for (const moduleId of this.bootOrder) {
+-      const instance = this.container.resolve(moduleId);
+-      
+-      if (this.observatory) {
+-        this.observatory.recordLifecycleTransition(moduleId, 'BOOTING');
+-      }
+ 
+-      await instance.boot();
+-      
+-      if (this.observatory) {
+-        this.observatory.recordLifecycleTransition(moduleId, 'READY');
++      const instance =
++        this.container.resolve(moduleId);
++
++      this.observatory?.recordLifecycleTransition?.(
++        moduleId,
++        "BOOTING"
++      );
++
++      if (typeof instance.boot === "function") {
++        await instance.boot();
++      } else if (typeof instance.initialize === "function") {
++        await instance.initialize();
+       }
++
++      this.observatory?.recordLifecycleTransition?.(
++        moduleId,
++        "READY"
++      );
+     }
+ 
+-    // 4. Mark all as ready
+     for (const moduleId of this.bootOrder) {
+-      const instance = this.container.resolve(moduleId);
+-      await instance.ready();
++
++      const instance =
++        this.container.resolve(moduleId);
++
++      if (typeof instance.ready === "function") {
++        await instance.ready();
++      }
+     }
+ 
+     this.isBooted = true;
+-    this.logger.info(`[KernelLoader] Core Kernel boot sequence completed successfully.`);
++
++    this.logger.info(
++      "[KernelLoader] Runtime profile boot completed successfully."
++    );
++
++    return {
++      status: "ONLINE",
++      profile: activeProfile,
++      bootOrder: [...this.bootOrder]
++    };
+   }
+ 
+   async shutdown() {
+-    this.logger.info(`[KernelLoader] Initiating reverse-DAG graceful kernel shutdown...`);
+-    
+-    // Shutdown in reverse order of boot dependencies
+-    const shutdownOrder = [...this.bootOrder].reverse();
++
++    if (!this.isBooted) {
++      return {
++        status: "ALREADY_OFFLINE"
++      };
++    }
++
++    this.logger.info(
++      "[KernelLoader] Initiating reverse-DAG shutdown..."
++    );
++
++    const shutdownOrder =
++      [...this.bootOrder].reverse();
+ 
+     for (const moduleId of shutdownOrder) {
++
+       try {
+-        const instance = this.container.resolve(moduleId);
+-        if (this.observatory) {
+-          this.observatory.recordLifecycleTransition(moduleId, 'SHUTTING_DOWN');
+-        }
+-        await instance.shutdown();
+-        if (this.observatory) {
+-          this.observatory.recordLifecycleTransition(moduleId, 'DISPOSED');
++
++        const instance =
++          this.container.resolve(moduleId);
++
++        this.observatory?.recordLifecycleTransition?.(
++          moduleId,
++          "SHUTTING_DOWN"
++        );
++
++        if (typeof instance.shutdown === "function") {
++          await instance.shutdown();
++        } else if (typeof instance.dispose === "function") {
++          await instance.dispose();
+         }
+-      } catch (err) {
+-        this.logger.error(`[KernelLoader] Error shutting down module ${moduleId}:`, err);
++
++        this.observatory?.recordLifecycleTransition?.(
++          moduleId,
++          "DISPOSED"
++        );
++
++      } catch (error) {
++
++        this.logger.error(
++          `[KernelLoader] Error shutting down module ${moduleId}:`,
++          error
++        );
+       }
+     }
+ 
+     this.isBooted = false;
+-    this.logger.info(`[KernelLoader] All platform runtime services gracefully stopped.`);
++
++    this.logger.info(
++      "[KernelLoader] All modular runtime services stopped."
++    );
++
++    return {
++      status: "OFFLINE"
++    };
+   }
+ 
+   _topologicalSort(activeIds) {
++
+     const visited = new Set();
+     const visiting = new Set();
+     const sorted = [];
+ 
+     const visit = (id) => {
++
+       if (visiting.has(id)) {
+-        throw new Error(`[KernelLoader] Circular dependency detected in Boot DAG at module: ${id}`);
++        throw new Error(
++          `[KernelLoader] Circular dependency detected at module: ${id}`
++        );
+       }
+-      if (!visited.has(id)) {
+-        visiting.add(id);
+-        const meta = this.modules.get(id);
+-        if (meta) {
+-          for (const dep of meta.dependencies) {
+-            if (activeIds.includes(dep)) {
+-              visit(dep);
+-            }
+-          }
++
++      if (visited.has(id)) {
++        return;
++      }
++
++      visiting.add(id);
++
++      const meta =
++        this.modules.get(id);
++
++      if (!meta) {
++        throw new Error(
++          `[KernelLoader] Module '${id}' is not registered.`
++        );
++      }
++
++      for (const dep of meta.dependencies) {
++
++        if (!activeIds.includes(dep)) {
++          throw new Error(
++            `[KernelLoader] Module '${id}' depends on inactive module '${dep}'.`
++          );
+         }
+-        visiting.delete(id);
+-        visited.add(id);
+-        sorted.push(id);
++
++        visit(dep);
+       }
++
++      visiting.delete(id);
++      visited.add(id);
++      sorted.push(id);
+     };
+ 
+     for (const id of activeIds) {
+@@ -115,4 +270,6 @@ export class KernelLoader {
+ 
+     return sorted;
+   }
+-}
+\ No newline at end of file
++}
++
++export default KernelLoader;
+diff --git a/src/core/reconciled/Block01Adapter.js b/src/core/reconciled/Block01Adapter.js
+new file mode 100644
+index 0000000..899a8c1
+--- /dev/null
++++ b/src/core/reconciled/Block01Adapter.js
+@@ -0,0 +1,40 @@
++ï»¿/**
++ * ADE Block 01 Runtime Adapter (Native JavaScript)
++ * Reconciles Block 01 entitlement, demo guard, and onboarding contracts
++ * into existing ADE runtime engines without creating duplicate logic.
++ */
++
++const CapabilityRegistry = require('../CapabilityRegistry');
++const securityEngine = require('../../engines/securityEngine');
++const onboardingEngine = require('../../engines/onboardingEngine');
++
++class Block01Adapter {
++  constructor() {
++    this.capabilityRegistry = CapabilityRegistry;
++    this.securityEngine = securityEngine;
++    this.onboardingEngine = onboardingEngine;
++  }
++
++  getEditionCapabilities(planKey) {
++    if (typeof this.capabilityRegistry.getPlanCapabilities === 'function') {
++      return this.capabilityRegistry.getPlanCapabilities(planKey);
++    }
++    return [];
++  }
++
++  evaluateDemoGuard(action, context = {}) {
++    if (this.securityEngine && typeof this.securityEngine.evaluateExecutionGuard === 'function') {
++      return this.securityEngine.evaluateExecutionGuard(action, context);
++    }
++    return { allowed: true, mode: 'SIMULATED' };
++  }
++
++  getOnboardingStage(userState) {
++    if (this.onboardingEngine && typeof this.onboardingEngine.getStage === 'function') {
++      return this.onboardingEngine.getStage(userState);
++    }
++    return 'INITIAL';
++  }
++}
++
++module.exports = new Block01Adapter();
+diff --git a/src/core/runtimeState.js b/src/core/runtimeState.js
+index b8fb800..3ca1cb6 100644
+--- a/src/core/runtimeState.js
++++ b/src/core/runtimeState.js
+@@ -1,14 +1,134 @@
++ï»¿/**
++ * ADE-APEX Shared Runtime State
++ *
++ * This object is intentionally plain and serializable.
++ * The canonical kernel remains the owner of live runtime behavior.
++ */
++
+ export const runtimeState = {
+-  mode: "FULL",
++
++  mode: process.env.ADE_RUNTIME_MODE || "FULL",
++
++  status: "STOPPED",
++
+   services: {
+     whatsapp: false,
+     database: false,
++    aiGateway: false,
++    telemetry: true,
++    memory: false,
++    knowledge: false,
++    decision: false,
++    workflow: false
+   },
+ 
+   metrics: {
++
+     restartCount: 0,
++
++    bootCount: 0,
++
+     messagesProcessed: 0,
++
++    intentsDispatched: 0,
++
++    intentsSucceeded: 0,
++
++    intentsFailed: 0,
++
++    decisionsEvaluated: 0,
++
++    workflowExecutions: 0,
++
++    errors: 0,
++
++    bootTimeMs: null,
++
++    shutdownTimeMs: null,
++
++    activeSubsystems: 0,
++
++    lastBootAt: null,
++
++    lastShutdownAt: null
+   },
+ 
+   failures: [],
++
++  health: {
++    status: "UNKNOWN",
++    lastCheckAt: null
++  },
++
++  version: "1.0.0",
++
++  updatedAt: new Date().toISOString()
+ };
++
++export function updateRuntimeState(patch = {}) {
++
++  if (patch.services) {
++    runtimeState.services = {
++      ...runtimeState.services,
++      ...patch.services
++    };
++  }
++
++  if (patch.metrics) {
++    runtimeState.metrics = {
++      ...runtimeState.metrics,
++      ...patch.metrics
++    };
++  }
++
++  if (patch.health) {
++    runtimeState.health = {
++      ...runtimeState.health,
++      ...patch.health
++    };
++  }
++
++  const scalarKeys = [
++    "mode",
++    "status",
++    "version"
++  ];
++
++  for (const key of scalarKeys) {
++    if (patch[key] !== undefined) {
++      runtimeState[key] = patch[key];
++    }
++  }
++
++  if (Array.isArray(patch.failures)) {
++    runtimeState.failures = patch.failures;
++  }
++
++  runtimeState.updatedAt = new Date().toISOString();
++
++  return runtimeState;
++}
++
++export function recordRuntimeFailure(error, context = {}) {
++
++  const entry = {
++    message: error?.message || String(error),
++    context,
++    timestamp: new Date().toISOString()
++  };
++
++  runtimeState.failures.push(entry);
++
++  if (runtimeState.failures.length > 100) {
++    runtimeState.failures.shift();
++  }
++
++  runtimeState.metrics.errors++;
++
++  runtimeState.updatedAt =
++    new Date().toISOString();
++
++  return entry;
++}
++
++export default runtimeState;
+diff --git a/src/kernel/EnterpriseEventBus.js b/src/kernel/EnterpriseEventBus.js
+index 8f99a04..4722c3e 100644
+--- a/src/kernel/EnterpriseEventBus.js
++++ b/src/kernel/EnterpriseEventBus.js
+@@ -1,46 +1,150 @@
+ /**
+- * ADE-APEX Traced Enterprise Event Bus
++ * ADE-APEX Canonical Enterprise Event Bus
++ *
++ * One runtime event bus for the canonical kernel.
++ * Guarantees ordered delivery, handler isolation, DLQ recording,
++ * retries, and measurable runtime outcomes.
+  */
+-import crypto from 'node:crypto';
++import EventEmitter from "node:events";
++import crypto from "node:crypto";
+ 
+-export class EnterpriseEventBus {
++export class EnterpriseEventBus extends EventEmitter {
+   constructor() {
+-    this.listeners = new Map();
++    super();
++    this.setMaxListeners(100);
++    this.modules = new Map();
+     this.history = [];
++    this.dlq = [];
++    this.metrics = {
++      published: 0,
++      delivered: 0,
++      failed: 0,
++      retried: 0,
++      subscriberFailures: 0
++    };
++    this.maxHistory = 1000;
++    this.maxDlq = 500;
++  }
++
++  static getInstance() {
++    if (!globalThis.__ADE_ENTERPRISE_EVENT_BUS__) {
++      globalThis.__ADE_ENTERPRISE_EVENT_BUS__ = new EnterpriseEventBus();
++    }
++    return globalThis.__ADE_ENTERPRISE_EVENT_BUS__;
++  }
++
++  registerModule(name, meta = {}) {
++    if (!name) throw new Error("[EnterpriseEventBus] Module name is required.");
++    this.modules.set(name, {
++      status: "ACTIVE",
++      meta,
++      registeredAt: new Date().toISOString()
++    });
++    return true;
++  }
++
++  isRegistered(name) {
++    return this.modules.has(name);
+   }
+ 
+   subscribe(topic, handler) {
+-    if (!this.listeners.has(topic)) {
+-      this.listeners.set(topic, []);
++    if (!topic || typeof handler !== "function") {
++      throw new Error("[EnterpriseEventBus] topic and handler are required.");
+     }
+-    this.listeners.get(topic).push(handler);
++    this.on(topic, handler);
++    return () => this.off(topic, handler);
+   }
+ 
+-  async publish(topic, payload = {}, context = {}) {
+-    const traceId = context.traceId || crypto.randomUUID();
+-    const spanId = crypto.randomUUID();
++  async publish(topic, payload = {}, context = {}, retries = 0) {
++    if (!topic) throw new Error("[EnterpriseEventBus] Event topic is required.");
++
+     const envelope = {
++      eventId: `evt_${crypto.randomUUID()}`,
+       topic,
+       payload,
+       meta: {
+-        traceId,
+-        spanId,
+-        timestamp: Date.now()
++        traceId: context.traceId || crypto.randomUUID(),
++        spanId: crypto.randomUUID(),
++        timestamp: new Date().toISOString()
+       }
+     };
+ 
++    this.metrics.published++;
+     this.history.push(envelope);
+-    const handlers = this.listeners.get(topic) || [];
++    if (this.history.length > this.maxHistory) this.history.shift();
++
++    const handlers = this.listeners(topic);
++    let deliveredCount = 0;
+     const results = [];
+ 
+     for (const handler of handlers) {
+-      try {
+-        const res = await handler(envelope);
+-        results.push({ success: true, result: res });
+-      } catch (error) {
+-        results.push({ success: false, error: error.message });
++      let attempt = 0;
++      let delivered = false;
++
++      while (attempt <= retries && !delivered) {
++        try {
++          await handler(envelope.payload, envelope);
++          delivered = true;
++          deliveredCount++;
++          this.metrics.delivered++;
++          results.push({ success: true });
++        } catch (error) {
++          attempt++;
++          this.metrics.subscriberFailures++;
++
++          if (attempt <= retries) {
++            this.metrics.retried++;
++            continue;
++          }
++
++          this.metrics.failed++;
++          const dlqEntry = {
++            event: envelope,
++            error: error?.message || String(error),
++            failedAt: new Date().toISOString(),
++            attempts: attempt
++          };
++          this.dlq.push(dlqEntry);
++          if (this.dlq.length > this.maxDlq) this.dlq.shift();
++
++          results.push({ success: false, error: dlqEntry.error });
++        }
+       }
+     }
+-    return { traceId, deliveredCount: handlers.length, results };
++
++    return {
++      success: this.metrics.failed === 0 || results.every(r => r.success),
++      eventId: envelope.eventId,
++      traceId: envelope.meta.traceId,
++      deliveredCount,
++      handlerCount: handlers.length,
++      failedCount: results.filter(r => !r.success).length,
++      results
++    };
++  }
++
++  getMetrics() {
++    return { ...this.metrics };
++  }
++
++  getHistory(limit = 100) {
++    return this.history.slice(-Math.max(0, limit));
+   }
+-}
+\ No newline at end of file
++
++  getHealth() {
++    return {
++      status: "HEALTHY",
++      subscribers: this.eventNames().length,
++      modules: this.modules.size,
++      history: this.history.length,
++      dlq: this.dlq.length,
++      metrics: this.getMetrics()
++    };
++  }
++
++  resetMetrics() {
++    for (const key of Object.keys(this.metrics)) this.metrics[key] = 0;
++  }
++}
++
++export default EnterpriseEventBus;
+diff --git a/src/kernel/EnterpriseKernelMaster.js b/src/kernel/EnterpriseKernelMaster.js
+index 5af6710..6170b85 100644
+--- a/src/kernel/EnterpriseKernelMaster.js
++++ b/src/kernel/EnterpriseKernelMaster.js
+@@ -1,57 +1,431 @@
+-ï»¿import TelemetryEventHub from "../telemetry/TelemetryEventHub.js";
++/**
++ * ADE-APEX CANONICAL ENTERPRISE KERNEL
++ *
++ * src/kernel/EnterpriseKernelMaster.js is the single authoritative runtime
++ * kernel. src/core/EnterpriseKernelMaster.js is a compatibility facade only.
++ */
++import TelemetryEventHub from "../telemetry/TelemetryEventHub.js";
+ import CommunityEditionGuard from "../security/CommunityEditionGuard.js";
+ import UniversalAIGateway from "../ai/UniversalAIGateway.js";
++import EnterpriseEventBus from "./EnterpriseEventBus.js";
++import {
++  StructuredJSONLogger,
++  ContextMemoryEngine,
++  KnowledgeEngine,
++  DecisionEngine,
++  OracleIntelligenceEngine,
++  GuardianSecurityEngine,
++  NotificationEngine,
++  NexusLedgerEngine,
++  WorkflowEngine
++} from "./SupportingEngines.js";
++import { CapabilityRegistry } from "../core/CapabilityRegistry.js";
++import { runtimeState, updateRuntimeState, recordRuntimeFailure } from "../core/runtimeState.js";
+ 
+ export class EnterpriseKernelMaster {
+-  constructor() {
+-    this.status = "OFFLINE";
+-    this.hub = TelemetryEventHub.getInstance();
+-    this.guard = CommunityEditionGuard.getInstance();
++  constructor(options = {}) {
++    this.status = "STOPPED";
++    this.isBooted = false;
++    this.logger = options.logger || new StructuredJSONLogger();
++    this.hub = options.telemetry || TelemetryEventHub.getInstance();
++    this.eventBus = options.eventBus || EnterpriseEventBus.getInstance();
++    this.guard = options.guard || CommunityEditionGuard.getInstance();
++    this.capabilityRegistry =
++      options.capabilityRegistry || CapabilityRegistry.getInstance();
++
+     this.activeAssets = new Set();
+-    
++    this.container = new Map();
++    this.subsystems = new Map();
++    this.subsystemRegistry = this.subsystems;
++    this.engines = this.subsystems;
++    this.modules = this.subsystems;
++
++    this.metrics = {
++      bootTimeMs: null,
++      boot_time_ms: null,
++      shutdownTimeMs: null,
++      bootCount: 0,
++      restartCount: 0,
++      activeSubsystems: 0,
++      intentsDispatched: 0,
++      intentsSucceeded: 0,
++      intentsFailed: 0,
++      eventsPublished: 0,
++      eventsDelivered: 0,
++      eventsFailed: 0,
++      decisionsEvaluated: 0,
++      memoryOperations: 0,
++      knowledgeOperations: 0,
++      workflowStarted: 0,
++      workflowCompleted: 0,
++      workflowFailed: 0,
++      workflowExecutions: 0,
++      errors: 0,
++      lastBootAt: null,
++      lastShutdownAt: null,
++      startedAt: null
++    };
++
++    this.systemState = {
++      status: "STOPPED",
++      bootTime: null,
++      activeConnections: 0,
++      telemetryChannels: new Set([
++        "SYS_HEALTH",
++        "AUDIT_LOGS",
++        "AI_GATEWAY",
++        "KERNEL_EVENTS",
++        "SUBSYSTEM_EVENTS"
++      ])
++    };
++
++    this.aiGateway = null;
++    this._initializeAIGateway();
++    this._registerCoreSubsystems();
++    this._wireEventBusMetrics();
++  }
++
++  static getInstance() {
++    if (!globalThis.__ADE_CANONICAL_ENTERPRISE_KERNEL__) {
++      globalThis.__ADE_CANONICAL_ENTERPRISE_KERNEL__ =
++        new EnterpriseKernelMaster();
++    }
++    return globalThis.__ADE_CANONICAL_ENTERPRISE_KERNEL__;
++  }
++
++  _initializeAIGateway() {
+     try {
+-      this.aiGateway = UniversalAIGateway.getInstance ? UniversalAIGateway.getInstance() : new UniversalAIGateway();
+-    } catch (e) {
++      this.aiGateway =
++        typeof UniversalAIGateway.getInstance === "function"
++          ? UniversalAIGateway.getInstance()
++          : new UniversalAIGateway();
++    } catch (error) {
++      this.metrics.errors++;
+       this.aiGateway = {
+-        complete: async (prompt, opts) => ({ provider: "kernel-offline-fallback", mode: "OFFLINE_FALLBACK" })
++        complete: async () => ({
++          provider: "kernel-offline-fallback",
++          mode: "OFFLINE_FALLBACK"
++        }),
++        getMetrics: () => ({
++          totalRequests: 0,
++          successfulRequests: 0,
++          failedRequests: 0,
++          cacheHits: 0,
++          cacheMisses: 0
++        })
+       };
+     }
++    this.container.set("aiGateway", this.aiGateway);
+   }
+ 
+-  static getInstance() {
+-    if (!global.__kernelMaster) {
+-      global.__kernelMaster = new EnterpriseKernelMaster();
++  _wireEventBusMetrics() {
++    this.container.set("eventBus", this.eventBus);
++    this.eventBus.registerModule?.("canonical-kernel", { version: "1.0.0" });
++  }
++
++  _registerCoreSubsystems() {
++    const memory = new ContextMemoryEngine({ kernel: this });
++    const knowledge = new KnowledgeEngine({ kernel: this, memory });
++    const decision = new DecisionEngine({
++      kernel: this,
++      memory,
++      knowledge,
++      policy: {
++        approveThreshold: 0.8,
++        holdThreshold: 0.5
++      }
++    });
++    const oracle = new OracleIntelligenceEngine({
++      kernel: this, knowledge, decision
++    });
++    const guardian = new GuardianSecurityEngine({
++      kernel: this, guard: this.guard
++    });
++    const notification = new NotificationEngine({ kernel: this });
++    const ledger = new NexusLedgerEngine({ kernel: this });
++    const workflow = new WorkflowEngine({ kernel: this });
++
++    this._registerSubsystem("memory", memory);
++    this._registerSubsystem("knowledge", knowledge);
++    this._registerSubsystem("decision", decision);
++    this._registerSubsystem("oracle", oracle);
++    this._registerSubsystem("guardian", guardian);
++    this._registerSubsystem("notification", notification);
++    this._registerSubsystem("ledger", ledger);
++    this._registerSubsystem("workflowEngine", workflow);
++
++    this.container.set("memoryEngine", memory);
++    this.container.set("contextMemory", memory);
++    this.container.set("knowledgeEngine", knowledge);
++    this.container.set("decisionEngine", decision);
++    this.container.set("oracleIntelligence", oracle);
++    this.container.set("guardianSecurity", guardian);
++    this.container.set("workflow", workflow);
++    this.container.set("ledger", ledger);
++    this.container.set("kernel", this);
++  }
++
++  _registerSubsystem(name, instance) {
++    if (!name || !instance) {
++      throw new Error("[EnterpriseKernelMaster] Invalid subsystem registration.");
++    }
++    this.subsystems.set(name, instance);
++    this.container.set(name, instance);
++    this.metrics.activeSubsystems = this.subsystems.size;
++  }
++
++  resolve(name) {
++    if (!name) throw new Error("[EnterpriseKernelMaster] Dependency name is required.");
++    if (this.container.has(name)) return this.container.get(name);
++
++    const aliases = {
++      context: "memory",
++      contextMemoryEngine: "memory",
++      memoryEngine: "memory",
++      knowledgeEngine: "knowledge",
++      decisionEngine: "decision",
++      decision_engine: "decision",
++      oracleEngine: "oracle",
++      guardianEngine: "guardian",
++      workflow: "workflowEngine",
++      event: "eventBus"
++    };
++    const normalized = aliases[name];
++    if (normalized && this.container.has(normalized)) {
++      return this.container.get(normalized);
+     }
+-    return global.__kernelMaster;
++    throw new Error(`[EnterpriseKernelMaster] Unregistered dependency: '${name}'`);
++  }
++
++  has(name) {
++    try { return this.container.has(name); } catch { return false; }
++  }
++
++  registerSubsystemToKernel(moduleName, instance) {
++    if (!moduleName || !instance) {
++      throw new Error("[EnterpriseKernelMaster] moduleName and instance are required.");
++    }
++    if (this.subsystems.has(moduleName)) {
++      throw new Error(`[EnterpriseKernelMaster] Subsystem '${moduleName}' is already registered.`);
++    }
++    this._registerSubsystem(moduleName, instance);
++    this._publish("KERNEL_SUBSYSTEM_ATTACHED", {
++      moduleName,
++      activeSubsystemsCount: this.subsystems.size
++    });
++    return {
++      success: true,
++      moduleName,
++      activeSubsystemsCount: this.subsystems.size
++    };
++  }
++
++  registerSubsystem(moduleName, instance) {
++    return this.registerSubsystemToKernel(moduleName, instance);
+   }
+ 
+   async boot() {
++    if (this.isBooted) {
++      return { status: "ALREADY_RUNNING", ...this.getSystemState() };
++    }
++
++    const start = Date.now();
+     this.status = "BOOTING";
+-    this.hub.broadcast("KERNEL_STATUS", { status: this.status });
+-    await new Promise(resolve => setTimeout(resolve, 50));
+-    this.status = "ONLINE";
+-    this.hub.broadcast("KERNEL_STATUS", { status: this.status });
++    this.systemState.status = "BOOTING";
++    this._publish("KERNEL_STATUS", { status: "BOOTING" });
++
++    try {
++      const order = Array.from(this.subsystems.entries());
++      for (const [name, subsystem] of order) {
++        try {
++          if (typeof subsystem.initialize === "function") {
++            await subsystem.initialize(this);
++          } else if (typeof subsystem.boot === "function") {
++            await subsystem.boot(this);
++          } else {
++            throw new Error(`Subsystem '${name}' has no lifecycle initializer.`);
++          }
++          this.logger.info("Subsystem initialized", { subsystem: name });
++        } catch (error) {
++          this.metrics.errors++;
++          recordRuntimeFailure(error, { phase: "boot", subsystem: name });
++          throw new Error(`[Kernel Boot] Subsystem '${name}' failed: ${error?.message || error}`);
++        }
++      }
++
++      this.isBooted = true;
++      this.status = "ONLINE";
++      this.systemState.status = "ONLINE";
++
++      const elapsed = Date.now() - start;
++      this.metrics.bootTimeMs = elapsed;
++      this.metrics.boot_time_ms = elapsed;
++      this.metrics.bootCount++;
++      if (this.metrics.bootCount > 1) this.metrics.restartCount++;
++      this.metrics.activeSubsystems = this.subsystems.size;
++      this.metrics.lastBootAt = new Date().toISOString();
++      this.metrics.startedAt = this.metrics.lastBootAt;
++      this.systemState.bootTime = this.metrics.lastBootAt;
++
++      updateRuntimeState({
++        status: "ONLINE",
++        services: {
++          memory: true,
++          knowledge: true,
++          decision: true,
++          workflow: true,
++          telemetry: true,
++          aiGateway: Boolean(this.aiGateway)
++        },
++        metrics: {
++          ...this.metrics
++        },
++        health: { status: "HEALTHY", lastCheckAt: this.metrics.lastBootAt }
++      });
++
++      this._publish("KERNEL_BOOT_COMPLETE", {
++        status: "ONLINE",
++        bootTimeMs: elapsed,
++        subsystemsLoaded: Array.from(this.subsystems.keys()),
++        subsystemCount: this.subsystems.size,
++        timestamp: this.metrics.lastBootAt
++      });
++
++      return {
++        status: "ONLINE",
++        bootTimeMs: elapsed,
++        subsystemsLoaded: Array.from(this.subsystems.keys())
++      };
++    } catch (error) {
++      this.status = "FAILED";
++      this.systemState.status = "FAILED";
++      this.metrics.errors++;
++      updateRuntimeState({ status: "FAILED", metrics: { ...this.metrics } });
++      this._publish("KERNEL_BOOT_FAILED", {
++        status: "FAILED",
++        error: error?.message || String(error)
++      });
++      throw error;
++    }
+   }
+ 
+-  dispatchIntent(intentName, payload, userTier = "COMMUNITY") {
++  async dispatchIntent(intentName, payload = {}, userTier = "COMMUNITY") {
+     try {
+-      this.guard.assertCapabilityAllowed(intentName, userTier);
++      if (!intentName) throw new Error("Intent name is required.");
++      this.guard?.assertCapabilityAllowed?.(intentName, userTier);
+ 
+-      if (payload && payload.symbol && intentName === "WATCH_ASSET") {
++      if (payload?.symbol && intentName === "WATCH_ASSET") {
+         this.activeAssets.add(payload.symbol);
+-        this.guard.validateAssetLimit(this.activeAssets.size, userTier);
++        this.guard?.validateAssetLimit?.(this.activeAssets.size, userTier);
+       }
+ 
+-      this.hub.broadcast("KERNEL_INTENT", { intent: intentName, payload, userTier });
+-      return { success: true, intent: intentName };
++      this.metrics.intentsDispatched++;
++      const result = await this.eventBus.publish(
++        "KERNEL_INTENT",
++        { intent: intentName, payload, userTier }
++      );
++
++      this.metrics.eventsDelivered += result.deliveredCount;
++      this.metrics.eventsFailed += result.failedCount;
++      if (result.failedCount > 0) throw new Error(`Intent event delivery failed for '${intentName}'.`);
+ 
++      this.metrics.intentsSucceeded++;
++      return { success: true, intent: intentName, status: "DISPATCHED" };
+     } catch (error) {
+-      if (payload && payload.symbol && intentName === "WATCH_ASSET") {
++      if (payload?.symbol && intentName === "WATCH_ASSET") {
+         this.activeAssets.delete(payload.symbol);
+       }
+-      return { success: false, reason: error.message };
++      this.metrics.intentsFailed++;
++      this.metrics.errors++;
++      recordRuntimeFailure(error, { phase: "intent", intentName });
++      return { success: false, intent: intentName, reason: error?.message || String(error) };
+     }
+   }
++
++  _publish(event, payload = {}) {
++    this.metrics.eventsPublished++;
++    this.hub?.broadcast?.(event, payload);
++    this.eventBus.publish(event, payload).then(result => {
++      this.metrics.eventsDelivered += result.deliveredCount;
++      this.metrics.eventsFailed += result.failedCount;
++    }).catch(error => {
++      this.metrics.eventsFailed++;
++      this.metrics.errors++;
++      recordRuntimeFailure(error, { phase: "event", event });
++    });
++  }
++
++  getSystemState() {
++    return {
++      isBooted: this.isBooted,
++      status: this.status,
++      bootTime: this.systemState.bootTime,
++      activeSubsystems: Array.from(this.subsystems.keys()),
++      activeSubsystemCount: this.subsystems.size,
++      registeredDependencies: this.container.size,
++      activeAssets: this.activeAssets.size,
++      metrics: { ...this.metrics }
++    };
++  }
++
++  getHealth() {
++    return {
++      status: this.isBooted ? "HEALTHY" : this.status,
++      kernel: { booted: this.isBooted, status: this.status },
++      subsystems: {
++        total: this.subsystems.size,
++        active: Array.from(this.subsystems.keys())
++      },
++      metrics: { ...this.metrics },
++      eventBus: this.eventBus.getHealth?.()
++    };
++  }
++
++  async shutdown() {
++    if (!this.isBooted) return { status: "ALREADY_OFFLINE" };
++
++    const start = Date.now();
++    for (const [name, subsystem] of Array.from(this.subsystems.entries()).reverse()) {
++      try {
++        if (typeof subsystem.dispose === "function") await subsystem.dispose();
++        else if (typeof subsystem.shutdown === "function") await subsystem.shutdown();
++      } catch (error) {
++        this.metrics.errors++;
++        recordRuntimeFailure(error, { phase: "shutdown", subsystem: name });
++        this.logger.error("Subsystem shutdown failure", {
++          subsystem: name,
++          error: error?.message || String(error)
++        });
++      }
++    }
++
++    this.isBooted = false;
++    this.status = "OFFLINE";
++    this.systemState.status = "OFFLINE";
++    const elapsed = Date.now() - start;
++    this.metrics.shutdownTimeMs = elapsed;
++    this.metrics.lastShutdownAt = new Date().toISOString();
++
++    updateRuntimeState({
++      status: "OFFLINE",
++      services: {
++        memory: false, knowledge: false, decision: false, workflow: false
++      },
++      metrics: { ...this.metrics },
++      health: { status: "OFFLINE", lastCheckAt: this.metrics.lastShutdownAt }
++    });
++
++    this._publish("KERNEL_SHUTDOWN_COMPLETE", {
++      status: "OFFLINE",
++      shutdownTimeMs: elapsed,
++      timestamp: this.metrics.lastShutdownAt
++    });
++
++    return { status: "OFFLINE", shutdownTimeMs: elapsed };
++  }
++
++  stop() { return this.shutdown(); }
++  close() { return this.shutdown(); }
+ }
+ 
+ export default EnterpriseKernelMaster;
+diff --git a/src/kernel/SupportingEngines.js b/src/kernel/SupportingEngines.js
+index d074f54..0811a2d 100644
+--- a/src/kernel/SupportingEngines.js
++++ b/src/kernel/SupportingEngines.js
+@@ -1,23 +1,501 @@
++/**
++ * ADE-APEX Supporting Engines
++ *
++ * Concrete runtime services owned by the canonical kernel.
++ * They provide deterministic, testable contracts without pretending to be
++ * external vector databases, LLMs or persistent infrastructure.
++ */
++
+ export class StructuredJSONLogger {
+-  info(msg, meta = {}) { console.log(JSON.stringify({ level: 'INFO', msg, meta, time: new Date().toISOString() })); }
+-  error(msg, meta = {}) { console.error(JSON.stringify({ level: 'ERROR', msg, meta, time: new Date().toISOString() })); }
+-}
+-export class ContextMemoryEngine { async initialize() {} async dispose() {} }
+-export class KnowledgeEngine { async initialize() {} async dispose() {} }
+-export class DecisionEngine { async initialize() {} async dispose() {} async evaluate(ctx) { return { decision: 'APPROVE', confidence: 0.99 }; } }
+-export class OracleIntelligenceEngine { async initialize() {} async dispose() {} }
+-export class GuardianSecurityEngine { async initialize() {} async dispose() {} async authorize(token) { return true; } }
+-export class NotificationEngine { async initialize() {} async dispose() {} async send(target, msg) { console.log(`[Notification -> ${target}]: ${msg}`); } }
+-export class NexusLedgerEngine { async initialize() {} async dispose() {} async record(tx) { console.log('[Ledger] Recorded transaction immutable hash.'); } }
+-export class WorkflowEngine {
+-  async initialize(kernel) { this.kernel = kernel; }
+-  async execute(txPayload) {
+-    const bus = this.kernel.resolve('eventBus');
+-    const ledger = this.kernel.resolve('ledger');
+-    await bus.publish('workflow.started', txPayload);
+-    await ledger.record(txPayload);
+-    await bus.publish('workflow.completed', txPayload);
+-    return { status: 'SUCCESS', txPayload };
+-  }
+-  async dispose() {}
+-}
+\ No newline at end of file
++  info(msg, meta = {}) {
++    console.log(JSON.stringify({ level: "INFO", msg, meta, time: new Date().toISOString() }));
++  }
++  warn(msg, meta = {}) {
++    console.warn(JSON.stringify({ level: "WARN", msg, meta, time: new Date().toISOString() }));
++  }
++  error(msg, meta = {}) {
++    console.error(JSON.stringify({ level: "ERROR", msg, meta, time: new Date().toISOString() }));
++  }
++}
++
++class EngineBase {
++  constructor({ kernel = null } = {}) {
++    this.kernel = kernel;
++    this.initialized = false;
++  }
++  _assertReady() {
++    if (!this.initialized) throw new Error(`${this.constructor.name} is not initialized.`);
++  }
++  health() {
++    return { status: this.initialized ? "HEALTHY" : "OFFLINE" };
++  }
++  async initialize() {
++    this.initialized = true;
++    return { status: "READY" };
++  }
++  async dispose() {
++    this.initialized = false;
++  }
++}
++
++/* ----------------------------- MEMORY ----------------------------- */
++
++export class ContextMemoryEngine extends EngineBase {
++  constructor({ kernel = null, maxEntries = 10000 } = {}) {
++    super({ kernel });
++    if (!Number.isInteger(maxEntries) || maxEntries < 1) {
++      throw new Error("Memory maxEntries must be a positive integer.");
++    }
++    this.maxEntries = maxEntries;
++    this.store = new Map();
++    this.sequence = 0;
++  }
++
++  async initialize() {
++    this.initialized = true;
++    return { status: "READY", entries: this.store.size };
++  }
++
++  async dispose() {
++    this.initialized = false;
++  }
++
++  set(key, value, metadata = {}) {
++    this._assertReady();
++    if (key === undefined || key === null || String(key).trim() === "") {
++      throw new Error("Memory key is required.");
++    }
++    const normalized = String(key);
++    const previous = this.store.get(normalized);
++    const now = new Date().toISOString();
++    const entry = {
++      id: previous?.id ?? ++this.sequence,
++      key: normalized,
++      value,
++      metadata,
++      createdAt: previous?.createdAt ?? now,
++      updatedAt: now
++    };
++    this.store.set(normalized, entry);
++    while (this.store.size > this.maxEntries) {
++      this.store.delete(this.store.keys().next().value);
++    }
++    this.kernel && (this.kernel.metrics.memoryOperations++);
++    return structuredClone(entry);
++  }
++
++  storeValue(key, value, metadata = {}) {
++    return this.set(key, value, metadata);
++  }
++
++  get(key, defaultValue = null) {
++    this._assertReady();
++    this.kernel && (this.kernel.metrics.memoryOperations++);
++    const value = this.store.get(String(key));
++    return value ? structuredClone(value) : defaultValue;
++  }
++
++  retrieve(key, defaultValue = null) {
++    return this.get(key, defaultValue);
++  }
++
++  has(key) {
++    this._assertReady();
++    return this.store.has(String(key));
++  }
++
++  delete(key) {
++    this._assertReady();
++    const deleted = this.store.delete(String(key));
++    this.kernel && (this.kernel.metrics.memoryOperations++);
++    return deleted;
++  }
++
++  forget(key) {
++    return this.delete(key);
++  }
++
++  clear() {
++    this._assertReady();
++    const count = this.store.size;
++    this.store.clear();
++    this.kernel && (this.kernel.metrics.memoryOperations += count);
++    return { cleared: count };
++  }
++
++  stats() {
++    this._assertReady();
++    return {
++      entries: this.store.size,
++      capacity: this.maxEntries,
++      utilization: this.store.size / this.maxEntries,
++      operations: this.kernel?.metrics?.memoryOperations ?? 0
++    };
++  }
++
++  size() {
++    return this.store.size;
++  }
++
++  snapshot() {
++    this._assertReady();
++    return Array.from(this.store.values()).map(structuredClone);
++  }
++
++  health() {
++    return {
++      ...super.health(),
++      entries: this.store.size,
++      capacity: this.maxEntries
++    };
++  }
++}
++
++/* ---------------------------- KNOWLEDGE ---------------------------- */
++
++export class KnowledgeEngine extends EngineBase {
++  constructor({ kernel = null, memory = null } = {}) {
++    super({ kernel });
++    this.memory = memory;
++    this.documents = new Map();
++    this.index = new Map();
++  }
++
++  async initialize() {
++    this.initialized = true;
++    return { status: "READY", documents: this.documents.size };
++  }
++
++  async dispose() {
++    this.initialized = false;
++  }
++
++  _removeFromIndex(document) {
++    if (!document) return;
++    const tokens = new Set(
++      document.content.toLowerCase().split(/[^a-z0-9_]+/).filter(Boolean)
++    );
++    for (const token of tokens) {
++      const ids = this.index.get(token);
++      if (!ids) continue;
++      ids.delete(document.id);
++      if (ids.size === 0) this.index.delete(token);
++    }
++  }
++
++  ingest(id, content, metadata = {}) {
++    this._assertReady();
++    if (id === undefined || id === null || String(id).trim() === "") {
++      throw new Error("Knowledge document id is required.");
++    }
++    if (content === undefined || content === null || String(content).trim() === "") {
++      throw new Error("Knowledge content is required.");
++    }
++
++    const key = String(id);
++    this._removeFromIndex(this.documents.get(key));
++
++    const now = new Date().toISOString();
++    const document = {
++      id: key,
++      content: String(content),
++      metadata: structuredClone(metadata),
++      createdAt: this.documents.get(key)?.createdAt ?? now,
++      updatedAt: now
++    };
++    this.documents.set(key, document);
++
++    const tokens = new Set(document.content.toLowerCase().split(/[^a-z0-9_]+/).filter(Boolean));
++    for (const token of tokens) {
++      if (!this.index.has(token)) this.index.set(token, new Set());
++      this.index.get(token).add(key);
++    }
++
++    this.kernel && (this.kernel.metrics.knowledgeOperations++);
++    return structuredClone(document);
++  }
++
++  get(id) {
++    this._assertReady();
++    this.kernel && (this.kernel.metrics.knowledgeOperations++);
++    const doc = this.documents.get(String(id));
++    return doc ? structuredClone(doc) : null;
++  }
++
++  retrieve(id) {
++    return this.get(id);
++  }
++
++  query(query, limit = 10) {
++    return this.search(query, limit);
++  }
++
++  search(query, limit = 10) {
++    this._assertReady();
++    const tokens = String(query ?? "").toLowerCase().split(/[^a-z0-9_]+/).filter(Boolean);
++    if (!tokens.length) throw new Error("Knowledge query is required.");
++
++    this.kernel && (this.kernel.metrics.knowledgeOperations++);
++    const scores = new Map();
++
++    for (const token of new Set(tokens)) {
++      for (const id of this.index.get(token) ?? []) {
++        scores.set(id, (scores.get(id) ?? 0) + 1);
++      }
++    }
++
++    return [...scores.entries()]
++      .sort((a, b) => b[1] - a[1])
++      .slice(0, Math.max(0, limit))
++      .map(([id, score]) => ({ ...structuredClone(this.documents.get(id)), score }));
++  }
++
++  explain(query) {
++    const results = this.search(query);
++    return {
++      query: String(query),
++      resultCount: results.length,
++      matches: results.map(r => ({ id: r.id, score: r.score }))
++    };
++  }
++
++  stats() {
++    this._assertReady();
++    return {
++      documents: this.documents.size,
++      indexedTerms: this.index.size,
++      operations: this.kernel?.metrics?.knowledgeOperations ?? 0
++    };
++  }
++
++  size() {
++    return this.documents.size;
++  }
++
++  health() {
++    return {
++      ...super.health(),
++      documents: this.documents.size,
++      indexedTerms: this.index.size
++    };
++  }
++}
++
++/* ----------------------------- DECISION ---------------------------- */
++
++export class DecisionEngine extends EngineBase {
++  constructor({
++    kernel = null,
++    memory = null,
++    knowledge = null,
++    policy = {}
++  } = {}) {
++    super({ kernel });
++    this.memory = memory;
++    this.knowledge = knowledge;
++    this.policy = {
++      approveThreshold: 0.8,
++      holdThreshold: 0.5,
++      ...policy
++    };
++    this.evaluationCount = 0;
++    this.lastDecision = null;
++  }
++
++  async initialize() {
++    if (this.policy.approveThreshold <= this.policy.holdThreshold) {
++      throw new Error("Decision policy thresholds are invalid.");
++    }
++    this.initialized = true;
++    return { status: "READY", policy: this.getPolicy() };
++  }
++
++  async dispose() {
++    this.initialized = false;
++  }
++
++  async evaluate(context = {}) {
++    this._assertReady();
++    if (!context || typeof context !== "object" || Array.isArray(context)) {
++      throw new Error("Decision context must be an object.");
++    }
++
++    this.evaluationCount++;
++    this.kernel && (this.kernel.metrics.decisionsEvaluated++);
++
++    let confidence = Number.isFinite(context.confidence)
++      ? Math.max(0, Math.min(1, context.confidence))
++      : 0.5;
++
++    let decision;
++    let reason;
++
++    if (context.reject === true) {
++      decision = "REJECT";
++      reason = "Explicit rejection policy.";
++    } else if (context.hold === true) {
++      decision = "HOLD";
++      reason = "Explicit hold policy.";
++    } else if (confidence >= this.policy.approveThreshold) {
++      decision = "APPROVE";
++      reason = "Confidence meets approval threshold.";
++    } else if (confidence >= this.policy.holdThreshold) {
++      decision = "HOLD";
++      reason = "Confidence is below approval threshold.";
++    } else {
++      decision = "REJECT";
++      reason = "Confidence is below hold threshold.";
++    }
++
++    const result = {
++      decision,
++      confidence,
++      policy: "ADE-BASELINE-DETERMINISTIC",
++      thresholds: {
++        approve: this.policy.approveThreshold,
++        hold: this.policy.holdThreshold
++      },
++      reason,
++      evaluatedAt: new Date().toISOString(),
++      context: structuredClone(context)
++    };
++
++    this.lastDecision = result;
++    return structuredClone(result);
++  }
++
++  validateDecision(result) {
++    this._assertReady();
++    if (!result || !["APPROVE", "HOLD", "REJECT"].includes(result.decision)) return false;
++    if (!Number.isFinite(result.confidence) || result.confidence < 0 || result.confidence > 1) return false;
++    if (result.decision === "APPROVE" && result.confidence < this.policy.approveThreshold) return false;
++    if (result.decision === "REJECT" && result.confidence >= this.policy.holdThreshold && result.context?.reject !== true) return false;
++    return true;
++  }
++
++  explainDecision(result = this.lastDecision) {
++    this._assertReady();
++    if (!result) return { valid: false, explanation: "No decision has been evaluated." };
++    return {
++      valid: this.validateDecision(result),
++      decision: result.decision,
++      confidence: result.confidence,
++      reason: result.reason,
++      policy: this.getPolicy()
++    };
++  }
++
++  getPolicy() {
++    return { ...this.policy };
++  }
++
++  stats() {
++    return {
++      evaluations: this.evaluationCount,
++      lastDecision: this.lastDecision ? structuredClone(this.lastDecision) : null
++    };
++  }
++
++  health() {
++    return {
++      ...super.health(),
++      evaluations: this.evaluationCount,
++      policy: this.getPolicy()
++    };
++  }
++}
++
++/* --------------------------- OTHER ENGINES ------------------------- */
++
++export class OracleIntelligenceEngine extends EngineBase {
++  constructor({ kernel = null, knowledge = null, decision = null } = {}) {
++    super({ kernel });
++    this.knowledge = knowledge;
++    this.decision = decision;
++  }
++  async inspect(context = {}) {
++    this._assertReady();
++    return { status: "ANALYZED", timestamp: new Date().toISOString(), context: structuredClone(context) };
++  }
++}
++
++export class GuardianSecurityEngine extends EngineBase {
++  constructor({ kernel = null, guard = null } = {}) {
++    super({ kernel });
++    this.guard = guard;
++  }
++  async authorize(token) {
++    this._assertReady();
++    if (!token) return { valid: false, tier: "NONE" };
++    if (this.guard?.verifyLicenseKey) return this.guard.verifyLicenseKey(token);
++    return { valid: true, tier: "COMMUNITY" };
++  }
++}
++
++export class NotificationEngine extends EngineBase {
++  async send(target, msg, metadata = {}) {
++    this._assertReady();
++    if (!target || msg === undefined) throw new Error("Notification target and message are required.");
++    return { success: true, target, message: String(msg), metadata, timestamp: new Date().toISOString() };
++  }
++}
++
++export class NexusLedgerEngine extends EngineBase {
++  constructor({ kernel = null } = {}) {
++    super({ kernel });
++    this.transactions = [];
++  }
++  async record(tx = {}) {
++    this._assertReady();
++    if (!tx || typeof tx !== "object") throw new Error("Ledger transaction must be an object.");
++    const entry = {
++      id: this.transactions.length + 1,
++      transaction: structuredClone(tx),
++      timestamp: new Date().toISOString()
++    };
++    this.transactions.push(entry);
++    return structuredClone(entry);
++  }
++  size() { return this.transactions.length; }
++}
++
++export class WorkflowEngine extends EngineBase {
++  async execute(txPayload = {}) {
++    this._assertReady();
++    if (!txPayload || typeof txPayload !== "object") throw new Error("Workflow payload must be an object.");
++
++    const bus = this.kernel.resolve("eventBus");
++    const ledger = this.kernel.resolve("ledger");
++
++    this.kernel.metrics.workflowStarted++;
++    try {
++      const started = await bus.publish("workflow.started", txPayload);
++      this.kernel.metrics.eventsDelivered += started.deliveredCount;
++      this.kernel.metrics.eventsFailed += started.failedCount;
++      if (started.failedCount) throw new Error("workflow.started delivery failed.");
++
++      const ledgerResult = await ledger.record(txPayload);
++
++      const completed = await bus.publish("workflow.completed", {
++        txPayload,
++        ledger: ledgerResult
++      });
++      this.kernel.metrics.eventsDelivered += completed.deliveredCount;
++      this.kernel.metrics.eventsFailed += completed.failedCount;
++      if (completed.failedCount) throw new Error("workflow.completed delivery failed.");
++
++      this.kernel.metrics.workflowCompleted++;
++      this.kernel.metrics.workflowExecutions++;
++
++      return {
++        status: "SUCCESS",
++        txPayload: structuredClone(txPayload),
++        ledger: ledgerResult
++      };
++    } catch (error) {
++      this.kernel.metrics.workflowFailed++;
++      this.kernel.metrics.errors++;
++      throw error;
++    }
++  }
++}
+diff --git a/src/modules/MarketingAIStudio.js b/src/modules/MarketingAIStudio.js
+index 74fe3c7..be6e530 100644
+--- a/src/modules/MarketingAIStudio.js
++++ b/src/modules/MarketingAIStudio.js
+@@ -140,12 +140,12 @@ export class MarketingAIStudio extends EventEmitter {
+ 
+       // Emit Completed Event to System Event Bus & Audit Log
+       if (this.eventBus) {
+-        await this.await eventBus.publish('marketing.video.generated', outputPayload).catch(err => console.error('[EventBus Async Error]', err)).catch(err => console.error('[EventBus Async Error]', err));
+-        await this.await eventBus.publish('audit.log.created', {
++        await this.eventBus.publish('marketing.video.generated', outputPayload);
++        await this.eventBus.publish('audit.log.created', {
+           action: 'MARKETING_VIDEO_GENERATED',
+           subsystem: 'MarketingAIStudio',
+           details: outputPayload
+-        }).catch(err => console.error('[EventBus Async Error]', err)).catch(err => console.error('[EventBus Async Error]', err));
++        });
+       }
+ 
+       return outputPayload;
+@@ -161,8 +161,8 @@ export class MarketingAIStudio extends EventEmitter {
+       };
+ 
+       if (this.eventBus) {
+-        await this.await eventBus.publish('human.escalation.required', {
+-          reason: `Marketing Video Generation Failure (${provider}).catch(err => console.error('[EventBus Async Error]', err)).catch(err => console.error('[EventBus Async Error]', err))`,
++        await this.eventBus.publish('human.escalation.required', {
++          reason: `Marketing Video Generation Failure (${provider})`,
+           error: error.message,
+           payload: formPayload
+         }).catch(err => console.error('[EventBus Async Error]', err));
+@@ -283,7 +283,7 @@ export class MarketingAIStudio extends EventEmitter {
+     };
+ 
+     if (this.eventBus) {
+-      await this.await eventBus.publish('marketing.broadcast.scheduled', broadcastRecord).catch(err => console.error('[EventBus Async Error]', err)).catch(err => console.error('[EventBus Async Error]', err));
++      await this.eventBus.publish('marketing.broadcast.scheduled', broadcastRecord);
+     }
+ 
+     return broadcastRecord;
+diff --git a/src/sheets/sheetsClient.js b/src/sheets/sheetsClient.js
+index eb61299..cd319af 100644
+--- a/src/sheets/sheetsClient.js
++++ b/src/sheets/sheetsClient.js
+@@ -6,6 +6,10 @@
+ import "dotenv/config";
+ import path from "path";
+ import fs from "fs";
++import { fileURLToPath } from "url";
++
++const __filename = fileURLToPath(import.meta.url);
++const __dirname = path.dirname(__filename);
+ 
+ let googleAuth = null;
+ let sheetsApi  = null;
+@@ -19,7 +23,7 @@ async function init() {
+   if (initialized) return sheetsApi !== null;
+ 
+   try {
+-    import { google  } from "googleapis";
++    const { google } = await import("googleapis");
+     const credsPath  = path.join(__dirname, '../../credentials.json');
+ 
+     if (!fs.existsSync(credsPath)) {
+@@ -98,7 +102,7 @@ async function createClientSheet(businessName) {
+   if (!sheetsApi)    return null;
+ 
+   try {
+-    import { google  } from "googleapis";
++    const { google } = await import("googleapis");
+     const authClient = await googleAuth.getClient();
+     const driveApi   = google.drive({ version: 'v3', auth: authClient });
+ 
+diff --git a/src/workflows/WorkflowEngine.js b/src/workflows/WorkflowEngine.js
+index 593aac3..342ee49 100644
+--- a/src/workflows/WorkflowEngine.js
++++ b/src/workflows/WorkflowEngine.js
+@@ -29,7 +29,7 @@ export class WorkflowEngine extends BaseLifecycleModule {
+         this.logger.warn(`[WorkflowEngine] Low decision confidence (${context.confidence} < ${this.confidenceThreshold}). Escalating to HumanEscalation.`);
+         context.state = 'HUMAN_ESCALATION';
+         
+-        await this.await eventBus.publish('human.escalation.triggered', {
++        await this.eventBus.publish('human.escalation.triggered', {
+           workflowId,
+           reason: 'CONFIDENCE_BELOW_THRESHOLD',
+           confidence: context.confidence,
+@@ -53,14 +53,14 @@ export class WorkflowEngine extends BaseLifecycleModule {
+       await this._step(context, 'storageEngine', { workflowId, evaluation, history: context.history });
+ 
+       context.state = 'COMPLETED';
+-      await this.await eventBus.publish('workflow.completed', { workflowId, status: 'SUCCESS' });
++      await this.eventBus.publish('workflow.completed', { workflowId, status: 'SUCCESS' });
+       return { status: 'SUCCESS', context };
+ 
+     } catch (error) {
+       this.logger.error(`[WorkflowEngine] Pipeline failed at state '${context.state}'. Initiating rollbacks...`, error);
+       await this._rollback(context);
+       context.state = 'FAILED';
+-      await this.await eventBus.publish('workflow.failed', { workflowId, error: error.message, lastState: context.state });
++      await this.eventBus.publish('workflow.failed', { workflowId, error: error.message, lastState: context.state });
+       throw error;
+     }
+   }
+diff --git a/tests/core/block01-foundation.test.ts b/tests/core/block01-foundation.test.ts
+new file mode 100644
+index 0000000..588b93a
+--- /dev/null
++++ b/tests/core/block01-foundation.test.ts
+@@ -0,0 +1,111 @@
++ï»¿import {
++  isDemoModeActive,
++  evaluateDemoPolicy,
++  assertSafeExecution,
++} from '../../lib/core/demoGuard';
++
++import { canExecuteCapability } from '../../lib/core/edition';
++
++import {
++  EXECUTION_STATE_REGISTRY,
++} from '../../types/ade/execution';
++
++import {
++  evaluateVerificationRequirement,
++} from '../../types/ade/verification';
++
++import {
++  ADE_MEDIA_REGISTRY,
++} from '../../lib/core/mediaRegistry';
++
++describe('ADE Block 01 â€” Architectural Foundation Suite', () => {
++
++  const originalEnv = process.env.ADE_DEMO_MODE;
++
++  afterEach(() => {
++    if (originalEnv === undefined) {
++      delete process.env.ADE_DEMO_MODE;
++    } else {
++      process.env.ADE_DEMO_MODE = originalEnv;
++    }
++  });
++
++  test('Demo mode activates correctly', () => {
++    process.env.ADE_DEMO_MODE = 'true';
++
++    expect(isDemoModeActive()).toBe(true);
++
++    expect(
++      evaluateDemoPolicy('FINANCIAL_EXECUTION')
++    ).toBe('DEMO_BLOCKED');
++  });
++
++  test('Production delegates to production policy', () => {
++    delete process.env.ADE_DEMO_MODE;
++
++    expect(isDemoModeActive()).toBe(false);
++
++    expect(
++      evaluateDemoPolicy('FINANCIAL_EXECUTION')
++    ).toBe('PRODUCTION_POLICY');
++  });
++
++  test('Demo mode blocks production side effects', () => {
++    process.env.ADE_DEMO_MODE = 'true';
++
++    expect(() =>
++      assertSafeExecution('PRODUCTION_DB_MUTATION')
++    ).toThrow('[ADE DEMO GUARD]');
++  });
++
++  test('Capability engine resolves FREE correctly', () => {
++    expect(
++      canExecuteCapability(
++        { edition: 'FREE' },
++        'PUBLIC_DEMO_EXPLORE'
++      )
++    ).toBe(true);
++
++    expect(
++      canExecuteCapability(
++        { edition: 'FREE' },
++        'ENTERPRISE_MULTI_ASSET'
++      )
++    ).toBe(false);
++  });
++
++  test('Capability engine resolves ENTERPRISE correctly', () => {
++    expect(
++      canExecuteCapability(
++        { edition: 'ENTERPRISE' },
++        'ENTERPRISE_MULTI_ASSET'
++      )
++    ).toBe(true);
++  });
++
++  test('Execution states contain explicit symbols', () => {
++    expect(EXECUTION_STATE_REGISTRY.LIVE.symbol).toBe('âœ“');
++    expect(EXECUTION_STATE_REGISTRY.SIMULATED.symbol).toBe('âš—');
++    expect(EXECUTION_STATE_REGISTRY.CONCEPT.symbol).toBe('â—Œ');
++  });
++
++  test('Verification remains progressive', () => {
++    expect(
++      evaluateVerificationRequirement(
++        'INDIVIDUAL',
++        'LOW'
++      )
++    ).toBe('UNVERIFIED');
++
++    expect(
++      evaluateVerificationRequirement(
++        'ENTERPRISE',
++        'CRITICAL'
++      )
++    ).toBe('ORGANIZATION_VERIFIED');
++  });
++
++  test('Media registry exists centrally', () => {
++    expect(ADE_MEDIA_REGISTRY).toBeDefined();
++  });
++});
+diff --git a/types/ade/design.ts b/types/ade/design.ts
+new file mode 100644
+index 0000000..0dd8369
+--- /dev/null
++++ b/types/ade/design.ts
+@@ -0,0 +1,38 @@
++ï»¿/**
++ * ADE DESIGN SYSTEM
++ * Document Ref: ADE-ARCH-2026-BLOCK01
++ */
++
++export const ADE_DESIGN_TOKENS = {
++  colors: {
++    surfaces: {
++      deepVoid: '#020617',
++      slateCommand: '#0f172a',
++      cardSurface: '#1e293b',
++    },
++    accents: {
++      oceanBlue: '#1e3a8a',
++      electricCyan: '#38bdf8',
++      royalCoral: '#ef4444',
++      crystalWhite: '#f8fafc',
++    },
++    status: {
++      live: '#10b981',
++      simulated: '#f59e0b',
++      concept: '#64748b',
++    },
++  },
++
++  typography: {
++    fontFamilyMono: 'JetBrains Mono, Menlo, monospace',
++    fontFamilySans: 'Inter, system-ui, sans-serif',
++  },
++
++  accessibility: {
++    wcagTarget: 'AA',
++    contrastRatioMin: 4.5,
++    nonColorIndicatorsRequired: true,
++  },
++} as const;
++
++export type AdeDesignTokens = typeof ADE_DESIGN_TOKENS;
+diff --git a/types/ade/edition.ts b/types/ade/edition.ts
+new file mode 100644
+index 0000000..3776619
+--- /dev/null
++++ b/types/ade/edition.ts
+@@ -0,0 +1,67 @@
++ï»¿/**
++ * ADE EDITION + CAPABILITY CONTRACT
++ */
++
++export type AdeEdition =
++  | 'FREE'
++  | 'COMMUNITY'
++  | 'PILOT'
++  | 'PROFESSIONAL'
++  | 'ENTERPRISE'
++  | 'SPONSORED';
++
++export type AdeCapability =
++  | 'PUBLIC_DEMO_EXPLORE'
++  | 'WORKFLOW_SIMULATION'
++  | 'COMMUNITY_TELEMETRY'
++  | 'PILOT_SANDBOX_EXECUTE'
++  | 'PRO_SINGLE_ASSET_AUTO'
++  | 'ENTERPRISE_MULTI_ASSET'
++  | 'ENTERPRISE_CUSTOM_INTEGRATION'
++  | 'SPONSORED_RESEARCH_ACCESS';
++
++export const EDITION_CAPABILITY_MATRIX: Record<
++  AdeEdition,
++  AdeCapability[]
++> = {
++  FREE: [
++    'PUBLIC_DEMO_EXPLORE',
++  ],
++
++  COMMUNITY: [
++    'PUBLIC_DEMO_EXPLORE',
++    'WORKFLOW_SIMULATION',
++    'COMMUNITY_TELEMETRY',
++  ],
++
++  PILOT: [
++    'PUBLIC_DEMO_EXPLORE',
++    'WORKFLOW_SIMULATION',
++    'COMMUNITY_TELEMETRY',
++    'PILOT_SANDBOX_EXECUTE',
++  ],
++
++  PROFESSIONAL: [
++    'PUBLIC_DEMO_EXPLORE',
++    'WORKFLOW_SIMULATION',
++    'COMMUNITY_TELEMETRY',
++    'PRO_SINGLE_ASSET_AUTO',
++  ],
++
++  ENTERPRISE: [
++    'PUBLIC_DEMO_EXPLORE',
++    'WORKFLOW_SIMULATION',
++    'COMMUNITY_TELEMETRY',
++    'PILOT_SANDBOX_EXECUTE',
++    'PRO_SINGLE_ASSET_AUTO',
++    'ENTERPRISE_MULTI_ASSET',
++    'ENTERPRISE_CUSTOM_INTEGRATION',
++  ],
++
++  SPONSORED: [
++    'PUBLIC_DEMO_EXPLORE',
++    'WORKFLOW_SIMULATION',
++    'COMMUNITY_TELEMETRY',
++    'SPONSORED_RESEARCH_ACCESS',
++  ],
++};
+diff --git a/types/ade/execution.ts b/types/ade/execution.ts
+new file mode 100644
+index 0000000..561eada
+--- /dev/null
++++ b/types/ade/execution.ts
+@@ -0,0 +1,47 @@
++ï»¿/**
++ * ADE EXECUTION STATE CONTRACT
++ */
++
++export type ExecutionState =
++  | 'LIVE'
++  | 'SIMULATED'
++  | 'CONCEPT';
++
++export interface ExecutionStateMetadata {
++  label: string;
++  symbol: string;
++  description: string;
++  badgeStyle: string;
++}
++
++export const EXECUTION_STATE_REGISTRY: Record<
++  ExecutionState,
++  ExecutionStateMetadata
++> = {
++  LIVE: {
++    label: 'LIVE',
++    symbol: 'âœ“',
++    description:
++      'Actual ADE code and execution paths are executing.',
++    badgeStyle:
++      'border-emerald-500 text-emerald-400 bg-emerald-950/30',
++  },
++
++  SIMULATED: {
++    label: 'SIMULATED',
++    symbol: 'âš—',
++    description:
++      'ADE workflow is executing through safe synthetic boundaries.',
++    badgeStyle:
++      'border-amber-500 text-amber-400 bg-amber-950/30',
++  },
++
++  CONCEPT: {
++    label: 'CONCEPT',
++    symbol: 'â—Œ',
++    description:
++      'Capability is architecturally represented but not executable.',
++    badgeStyle:
++      'border-slate-500 text-slate-400 bg-slate-900/40',
++  },
++};
+diff --git a/types/ade/onboarding.ts b/types/ade/onboarding.ts
+new file mode 100644
+index 0000000..b9b19a8
+--- /dev/null
++++ b/types/ade/onboarding.ts
+@@ -0,0 +1,42 @@
++ï»¿/**
++ * ADE SYSTEMIC ONBOARDING CONTRACT
++ */
++
++export type OnboardingPersona =
++  | 'INDIVIDUAL'
++  | 'SME'
++  | 'DEVELOPER'
++  | 'PARTNER'
++  | 'COMMUNITY'
++  | 'PILOT'
++  | 'ENTERPRISE'
++  | 'INVESTOR';
++
++export interface OnboardingIntakePayload {
++  persona: OnboardingPersona;
++
++  identity: {
++    fullName: string;
++    email: string;
++    organization?: string;
++  };
++
++  intent: {
++    primaryUseCase: string;
++    targetEdition?: string;
++    expectedVolume?: string;
++  };
++
++  verificationState: string;
++
++  consent: boolean;
++
++  communicationPreference:
++    | 'EMAIL'
++    | 'DISCORD'
++    | 'TELEGRAM'
++    | 'WHATSAPP'
++    | 'NONE';
++
++  createdAt: string;
++}
+diff --git a/types/ade/verification.ts b/types/ade/verification.ts
+new file mode 100644
+index 0000000..83ef5e1
+--- /dev/null
++++ b/types/ade/verification.ts
+@@ -0,0 +1,54 @@
++ï»¿/**
++ * ADE PROGRESSIVE VERIFICATION / COMPLIANCE FOUNDATION
++ *
++ * IMPORTANT:
++ * This block establishes compliance-ready architecture.
++ * It does NOT prematurely force KYC/KYB/AML collection on every user.
++ *
++ * Verification depth should be determined by:
++ * persona + capability + transaction/action risk + jurisdiction + edition.
++ */
++
++export type VerificationState =
++  | 'UNVERIFIED'
++  | 'EMAIL_VERIFIED'
++  | 'IDENTITY_PENDING'
++  | 'IDENTITY_VERIFIED'
++  | 'ORGANIZATION_PENDING'
++  | 'ORGANIZATION_VERIFIED'
++  | 'COMPLIANCE_REVIEW'
++  | 'APPROVED'
++  | 'RESTRICTED'
++  | 'SUSPENDED';
++
++export type RiskLevel =
++  | 'LOW'
++  | 'MEDIUM'
++  | 'HIGH'
++  | 'CRITICAL';
++
++export interface VerificationRequirement {
++  persona: string;
++  riskLevel: RiskLevel;
++  requiredVerification: VerificationState;
++}
++
++export function evaluateVerificationRequirement(
++  persona: string,
++  actionRisk: RiskLevel
++): VerificationState {
++
++  if (actionRisk === 'LOW') {
++    return 'UNVERIFIED';
++  }
++
++  if (actionRisk === 'MEDIUM') {
++    return 'EMAIL_VERIFIED';
++  }
++
++  if (actionRisk === 'HIGH') {
++    return 'IDENTITY_VERIFIED';
++  }
++
++  return 'ORGANIZATION_VERIFIED';
++}

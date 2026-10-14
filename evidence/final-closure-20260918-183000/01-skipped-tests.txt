@@ -1,0 +1,12 @@
+FINAL CLOSURE — THE 3 SKIPPED TESTS (individually identified, executed, dispositioned)
+Date: 2026-09-18. Full suite reports 3 skipped ONLY because data/admin-credential.json exists locally.
+
+1. "G18.A — unproven PIN auth returns 503 AUTH_NOT_CONFIGURED (never 500)"
+   File: tests/g17-g21-completion.test.js:124. Skip condition: ADE_ADMIN_PIN_HASH set OR data/admin-credential.json exists (reason: "cannot prove first-run state").
+2. "FIX2 — canonical level-2 auth round-trip: login → protected 200 → revoke → 401"
+   File: tests/g25-phase4-reconciliation.test.js:159. Skip condition: !authBootstrap (reason: "credential is already configured in this environment; positive flow not safe to bootstrap").
+3. "G26.19 — local runtime smoke: authenticated command executes PROCARTA over HTTP"
+   File: tests/procarta/g26-procarta-vertical-slice.test.js:578. Skip condition: !authBootstrap (reason: "credential already configured in env; positive HTTP flow not safe to bootstrap").
+
+Disposition for all three: (a) intentionally non-destructive/environment-gated — each guard protects first-run state or existing credentials; none indicates missing coverage or a product defect.
+Safe execution performed: credential file (230 bytes, SHA256 recorded) moved aside to temp (byte backup kept), the 3 files run in isolation -> 59/59 PASS, 0 skipped, 0 failed; file restored and hash re-verified byte-identical (DAFDFF52...B3F72, 230 bytes). Net mutation: zero. No skip->run edits were made; guards left intact.

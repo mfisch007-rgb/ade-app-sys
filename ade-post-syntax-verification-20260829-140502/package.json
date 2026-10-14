@@ -1,0 +1,20 @@
+{
+  "name": "ade-app-sys",
+  "version": "1.0.0",
+  "type": "module",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js",
+    "test": "node --test tests/acceptance.test.js",
+    "validate": "node src/cli/ade-validate.js",
+    "build:community": "node scripts/build-community.mjs",
+    "verify:release": "node tests/release-verification.test.js"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "dotenv": "^16.6.1",
+    "express": "^4.19.2",
+    "jsonwebtoken": "^9.0.3"
+  }
+}

@@ -1,0 +1,105 @@
+﻿
+============================================================
+src\capabilities\CapabilityActivation.js
+============================================================
+FILE_EXISTS = True
+ENABLED = False
+CONFIGURED = True
+ENTITLEMENT = False
+CATALOG = True
+ROLE = False
+WORKFORCE = False
+PROVISION = False
+INVITATION = False
+SUSPEND = False
+REVOKE = True
+EXPIRY = False
+STORAGE = False
+VERIFICATION = True
+NAVIGATION = True
+ROUTES = False
+AUDIT = False
+
+============================================================
+src\storage\SupabaseStorageAdapter.js
+============================================================
+FILE_EXISTS = True
+ENABLED = False
+CONFIGURED = True
+ENTITLEMENT = False
+CATALOG = False
+ROLE = False
+WORKFORCE = False
+PROVISION = False
+INVITATION = False
+SUSPEND = False
+REVOKE = False
+EXPIRY = False
+STORAGE = False
+VERIFICATION = False
+NAVIGATION = False
+ROUTES = False
+AUDIT = True
+
+============================================================
+src\identity\WorkforceManager.js
+============================================================
+FILE_EXISTS = True
+ENABLED = False
+CONFIGURED = False
+ENTITLEMENT = False
+CATALOG = False
+ROLE = True
+WORKFORCE = True
+PROVISION = True
+INVITATION = True
+SUSPEND = True
+REVOKE = True
+EXPIRY = True
+STORAGE = False
+VERIFICATION = True
+NAVIGATION = False
+ROUTES = False
+AUDIT = True
+
+============================================================
+src\config\supabaseClient.js
+============================================================
+FILE_EXISTS = True
+ENABLED = False
+CONFIGURED = False
+ENTITLEMENT = False
+CATALOG = False
+ROLE = False
+WORKFORCE = False
+PROVISION = False
+INVITATION = False
+SUSPEND = False
+REVOKE = False
+EXPIRY = False
+STORAGE = False
+VERIFICATION = False
+NAVIGATION = False
+ROUTES = False
+AUDIT = False
+
+============================================================
+public\index.html
+============================================================
+FILE_EXISTS = True
+ENABLED = False
+CONFIGURED = True
+ENTITLEMENT = False
+CATALOG = False
+ROLE = True
+WORKFORCE = True
+PROVISION = True
+INVITATION = True
+SUSPEND = True
+REVOKE = True
+EXPIRY = True
+STORAGE = False
+VERIFICATION = True
+NAVIGATION = True
+ROUTES = True
+AUDIT = True

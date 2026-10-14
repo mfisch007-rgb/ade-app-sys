@@ -1,0 +1,34 @@
+07 CONFIGURATION STATE MATRIX (DECLARED vs CONFIGURED vs VERIFIED vs ENABLED vs ENTITLED vs AUTHORIZED vs VISIBLE vs USABLE)
+
+Semantics enforced:
+  DECLARED = code/catalog entry exists. CONFIGURED = required credential/record present. VERIFIED = transport/policy proof (grip 100, bridgeVerified, L2 verify call).
+  ENABLED (edition-entitled) = EditionPolicy available=true for the intent in the current edition. ENTITLED (user) = TradingEntitlements.can or workforce role grant.
+  AUTHORIZED = session level/role + PIN elevation passes the route guard. VISIBLE = rendered for the role. USABLE = full chain to result.
+
+  [ACTIVATED] ade-platform: activation=ACTIVATED | entitled-role=PUBLIC | visible-route=#/Products
+  [ACTIVATED] procarta: activation=ACTIVATED | entitled-role=PUBLIC_INTAKE + L2_OPERATOR_OPS | visible-route=#/PROCARTA
+  [CONFIGURATION_REQUIRED] awbuli: activation=EXTERNAL_CREDENTIAL_REQUIRED | entitled-role=PUBLIC_DEMO + OPERATOR_BRIDGE | visible-route=#/Product Theater
+  [ACTIVATED] oracle: activation=ACTIVATED | entitled-role=AUTHENTICATED_COMMAND_CENTER | visible-route=#/Command Center
+  [CONFIGURATION_REQUIRED] nexus: activation=PREVIEW | entitled-role=PUBLIC_DISCOVERY | visible-route=#/Community
+  [CONFIGURATION_REQUIRED] eventos: activation=PREVIEW | entitled-role=PUBLIC_DISCOVERY | visible-route=#/Community
+  [AVAILABLE] founders-circle: activation=AVAILABLE | entitled-role=PUBLIC_REQUEST_ACCESS | visible-route=#/Community
+  [AVAILABLE] market-circle: activation=AVAILABLE | entitled-role=PUBLIC_JOIN | visible-route=#/Community
+  [FUTURE] tides: activation=PREVIEW | entitled-role=PUBLIC_CONTACT | visible-route=#/Community
+  [ACTIVATED] aibos: activation=ACTIVATED | entitled-role=PUBLIC_ARCHITECTURE | visible-route=#/Architecture
+  [FUTURE] biz-watch: activation=PREVIEW | entitled-role=PUBLIC_LEARN | visible-route=#/Products
+  [EXPERIMENTAL] fraud-watch: activation=PREVIEW | entitled-role=PUBLIC_LEARN | visible-route=#/Products
+  [PREVIEW] agriculture: activation=PREVIEW | entitled-role=PUBLIC_EXPLORE | visible-route=#/Products
+  [ROADMAP] gov-ngo: activation=PREVIEW | entitled-role=PUBLIC_EXPLORE | visible-route=#/Community
+  [AVAILABLE] workforce: activation=PREVIEW | entitled-role=FOUNDER_ADMIN_OPERATOR_ELEVATED | visible-route=/admin
+  [AVAILABLE] account-security: activation=PREVIEW | entitled-role=WORKFORCE_MEMBER | visible-route=#/Account
+  [AVAILABLE] announcements: activation=PREVIEW | entitled-role=PUBLIC_READ + ELEVATED_WRITE | visible-route=#/Home
+  [AVAILABLE] audit: activation=PREVIEW | entitled-role=FOUNDER_ADMIN_OPERATOR_ELEVATED | visible-route=/admin
+  [AVAILABLE] pilot: activation=AVAILABLE | entitled-role=PUBLIC_REGISTER | visible-route=#/Community
+  [AVAILABLE] partner: activation=AVAILABLE | entitled-role=PUBLIC_REGISTER | visible-route=#/Community
+  [AVAILABLE] connections: activation=PREVIEW | entitled-role=AUTHENTICATED_READ | visible-route=#/Products
+  [AVAILABLE] storage: activation=PREVIEW | entitled-role=SERVER_SIDE (no client credential) | visible-route=#/Architecture
+  [AVAILABLE] try-ade: activation=AVAILABLE | entitled-role=PUBLIC | visible-route=#/Try ADE
+  [AVAILABLE] feedback: activation=AVAILABLE | entitled-role=PUBLIC | visible-route=#/Feedback
+
+Counts: {"ACTIVATED":4,"CONFIGURATION_REQUIRED":3,"AVAILABLE":12,"FUTURE":2,"EXPERIMENTAL":1,"PREVIEW":1,"ROADMAP":1}
+UI rule: CONFIGURATION_REQUIRED shows the requiredAction text + routes to the legitimate configuration/intake path; secrets never exposed (matrix carries names/states only).

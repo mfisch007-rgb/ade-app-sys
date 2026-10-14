@@ -1,0 +1,20 @@
+FINAL CLOSURE — RELEASE PROOF (commit 3752eb8, deployed a9m96x0zx)
+Date: 2026-09-18 ~18:3x WAT. Previous evidence dirs (connective-tissue-*, workspace-*, product-surface-*) stand unchanged.
+
+STORAGE 404 — EXACT ROOT CAUSE, proven live after this release's diagnostic improvement:
+  Re-probed POST /api/v1/workforce/provision-founder (temp identity, zero writes performed, nothing to clean):
+  -> 400 SUPABASE_STORAGE_WRITE_FAILED: HTTP 404 ({"code":"PGRST205","details":null,"hint":null,"message":"Could not find the table 'public.ade_kv_store' in the schema cache"}) (table "ade_kv_store" ... CONFIGURATION_REQUIRED...)
+  Verdict: table public.ade_kv_store DOES NOT EXIST (or is invisible) in the Supabase project. Reads appear to "work" only because boot-time store loads swallow failures into empty in-memory defaults (WorkforceManager/CaseManager initialize pattern); every persist fails. Production is therefore amnesiac across cold starts + write-blocked. No code change can fix this; it is a one-time owner step:
+  Supabase dashboard -> SQL editor -> run as owner:
+    CREATE TABLE IF NOT EXISTS public.ade_kv_store (k TEXT PRIMARY KEY, v JSONB);
+    GRANT ALL ON public.ade_kv_store TO service_role;
+    NOTIFY pgrst, 'reload schema';
+  Then in-app: Workspace -> Settings -> Run Storage Verify (expect PROBE OK) -> provision/login once. No secrets are or were exposed; error bodies carry schema metadata only.
+
+RELEASE DEPLOYMENT: vercel deploy --prod (CLI output lost to a local timeout, server-side completed) -> ade-apex-community-a9m96x0zx, READY/production, api/index.js. Canonical alias verified AFTER cutover:
+  /api/v1/health 200 OK, kernel HEALTHY, 9 subsystems, uptime 329s.
+  /api/v1/product-surface 200 x24 COMMUNITY. Homepage + all prior markers unchanged (no UI in this release).
+  Deployed commit matches GitHub HEAD: local main 3752eb8 == origin/main 3752eb8; deployment created after push; health timestamp post-dates push.
+
+FINAL GATES on released tree: validate 13/13; build PASS (1549 files, sha 3d526d42); full npm test 328 (325 pass, 0 fail, 3 skipped); closure 15/15; trading 41/41; public-ux 5/5; inline/app/identity/storage node --check PASS; knob audit 49/49 API targets live, 47/47 modules cased, 28/28 renderers; fabrication scan clean.
+Behavioral E2E on identical tree (ephemeral): ProCarta execute->candidate->approve(201)->verdict(201)->PROMOTED; intake->process->feedback->read-back; media request->concept->generate(201 CREATED)->gallery; pilot registry; oracle lexical 200; data-sources 6; World Bank live GDP check; durability write->restart x2->read-back (2 intakes survive).

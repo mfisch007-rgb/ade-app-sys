@@ -450,3 +450,39 @@ body[data-theme="dark"] .heroMain {
   body .hero { grid-template-columns: 1fr; }
   body .orb { min-height: 190px; }
 }
+
+/* Rotating prompts: readable static list when motion is reduced.
+   (Must come after the global reduced-motion rule so `animation:none` wins
+   and the absolutely-positioned rotating items become a plain list.) */
+@media (prefers-reduced-motion: reduce) {
+  body .suggestion-carousel { min-height: 0; }
+  body .suggestion-text {
+    position: static; opacity: 1; animation: none; transform: none;
+    display: flex; margin: 0 0 10px; padding: 10px 12px;
+    border: 1px solid var(--lineSoft, rgba(6, 26, 64, 0.08));
+    border-radius: 10px; background: rgba(255, 255, 255, 0.7);
+  }
+  body .suggestion-text:last-child { margin-bottom: 0; }
+  body .orb::before { animation: none; }
+}
+
+/* Product directory: live-state legend + detail furniture */
+body .state-legend {
+  display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
+  font-size: 11.5px; color: var(--muted, #5a6a85);
+}
+body .awbuli-check { list-style: none; margin: 10px 0 0; padding: 0; display: grid; gap: 8px; }
+body .awbuli-check li {
+  display: flex; gap: 10px; align-items: flex-start; font-size: 12.5px;
+  line-height: 1.55; padding: 9px 12px;
+  border: 1px solid var(--lineSoft, rgba(6, 26, 64, 0.08));
+  border-radius: 11px; background: rgba(255, 255, 255, 0.65);
+}
+[data-theme="dark"] body .awbuli-check li { background: rgba(255, 255, 255, 0.04); }
+body .awbuli-check .mark {
+  flex: none; width: 22px; height: 22px; border-radius: 50%;
+  display: inline-grid; place-items: center; font-size: 12px; font-weight: 800;
+}
+body .awbuli-check .mark.ok { background: rgba(18, 144, 106, 0.14); color: var(--ade-good); }
+body .awbuli-check .mark.pending { background: rgba(197, 138, 22, 0.14); color: var(--ade-warn); }
+body .what-does-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); gap: 14px; }

@@ -109,10 +109,37 @@ before(async () => {
       resolve();
     });
   });
+  // Deterministic isolation: reset only this suite's own trading state
+  // (actor trade-test + its entitlement) so repeated runs start clean.
+  // Pre-existing records for other actors/sections are never touched.
+  await resetTradeTestState().catch(() => {});
 });
 after(async () => {
+  // Teardown only this suite's own state; never deletes pre-existing data.
+  await resetTradeTestState().catch(() => {});
   if (server) await new Promise((r) => server.close(r));
 });
+
+// Close any OPEN paper positions for actor trade-test and revoke its
+// entitlement, using only existing server contracts (no file writes).
+async function resetTradeTestState() {
+  const op = opToken();
+  const H = { Authorization: `Bearer ${op}` };
+  const founderToken = IdentityOnboarding.getInstance().issueSession({ subject: "trade-teardown", tier: "ENTERPRISE", level: 3, persona: "FOUNDER" }).token;
+  const FH = { Authorization: `Bearer ${founderToken}` };
+  try {
+    const ledger = await (await fetch(`${baseUrl}/api/v1/trading/ledger?actor=trade-test`, { headers: H })).json().catch(() => null);
+    const rows = (ledger && ledger.positions) || [];
+    for (const p of rows) {
+      if (p && p.executionState === "FILLED" && !p.closedAt) {
+        await fetch(`${baseUrl}/api/v1/trading/paper/${encodeURIComponent(p.id)}/close`, { method: "POST", headers: { ...H, "Content-Type": "application/json" }, body: JSON.stringify({ outcome: "TEARDOWN" }) }).catch(() => null);
+      }
+    }
+  } catch {}
+  try {
+    await fetch(`${baseUrl}/api/v1/admin/trading/entitlements/trade-test`, { method: "DELETE", headers: FH }).catch(() => null);
+  } catch {}
+}
 
 test("trading routes: auth gating + paper lifecycle over HTTP", async () => {
   assert.equal((await fetch(`${baseUrl}/api/v1/trading/status`)).status, 401);

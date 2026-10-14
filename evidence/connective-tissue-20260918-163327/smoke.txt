@@ -1,0 +1,33 @@
+PASS health 200 G현 kernel=HEALTHY
+PASS homepage 200+markers G현 len=192549
+PASS product-surface 200x24 G현 counts={"ACTIVATED":4,"CONFIGURATION_REQUIRED":3,"AVAILABLE":12,"FUTURE":2,"EXPERIMENTAL":1,"PREVIEW":1,"ROADMAP":1}
+PASS founder provision 201 G현 @smokechief
+PASS login 200
+PASS pin elevate
+PASS session+role
+PASS invite 201
+PASS accept 201 G현 id=WRF-00002-2F4A3D96
+PASS workforce list G현 persons=2
+PASS suspend
+PASS activate
+PASS agent create 201
+PASS announcement publish
+PASS announcement read
+PASS audit read G현 entries=11
+PASS activation map
+PASS cases list
+PASS partners catalog
+PASS progression
+PASS notifications
+PASS operator login
+PASS operator elevate
+PASS operator CAN invite (role permits)
+PASS logout
+PASS founder L2 admin/overview (no PIN)
+PASS founder L2 entitlements (no PIN)
+PASS founder storage verify (no PIN) G현 probe=OK
+PASS demo case excluded by default G현 excluded=1
+PASS demo case visible on opt-in
+PASS demo case deep-link
+PASS backend search G현 hits=2
+PASS media request receipt G현 ADE-MEDIA-1789745611699-8613c196

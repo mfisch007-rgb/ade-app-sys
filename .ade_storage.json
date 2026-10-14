@@ -1,0 +1,28 @@
+{
+  "ade:workforce:v1": {
+    "persons": {
+      "WRF-00001-124A8F91": {
+        "id": "WRF-00001-124A8F91",
+        "username": "govmulf8z2q",
+        "fullName": "Gov Admin",
+        "role": "FOUNDER",
+        "level": 3,
+        "status": "ACTIVE",
+        "passwordHash": "$2a$10$TMRct53vnWlCcQ7KPAioD.j/3oNuzmacNmcz3fleDlNDBmbQf11Wu",
+        "pinHash": "$2a$10$pzfh2zOLTE8IpEQT9cqeLuurOazlUCeYp9yNM9JGAFl/xqsdbEuNC",
+        "recoveryHashes": [],
+        "invitation": null,
+        "accessExpiryAt": null,
+        "credentialVersion": 1,
+        "createdAt": "2026-09-28T15:48:02.894Z",
+        "createdBy": null,
+        "lastLoginAt": "2026-09-28T15:48:03.503Z",
+        "updatedAt": "2026-09-28T15:48:03.736Z",
+        "note": "Founder",
+        "lastPinAt": "2026-09-28T15:48:03.736Z"
+      }
+    },
+    "agents": {},
+    "seq": 1
+  }
+}

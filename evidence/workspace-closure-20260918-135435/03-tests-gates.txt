@@ -1,0 +1,13 @@
+WORKSPACE CLOSURE — TEST & GATE SUMMARY
+Stamp: 20260918-135435
+
+npm run validate: 13/13 PASS (LEVEL-3 100.0% behavioral/failure/restart).
+npm run build:community: PASS (1530 files, sha256 27428478ed9e399cc781a4751e4fe93d22ec4dbd3fbbc8c9f9a019ab72338c41).
+tests/product-surface-closure.test.js: 11/11 PASS (7 prior + 4 workspace: module presence per role, action/API closure + UI states, mobile nav + targets, privilege gating honesty).
+Scoped regression batch (48/48 PASS): closure 11 + identity-routes + workforce-manager + identity-auth + announcements-manager + production-safety + production-boundaries + supabase-storage-adapter.
+tests/public-ux.test.js: 5/5 PASS (repaired 2 pre-existing failures within scope: added truthful data-testid try-community to the TRY ADE COMMUNITY button; added Degree-of-Connection-Grip tooltip to the grip panel — no copy/design change).
+Inline homepage JS: node --check PASS (also caught and fixed a latent paren imbalance in the prior-pass surface-matrix card + one in the new workforce table).
+Ephemeral smoke (temp-CWD server, closed gracefully): 26/26 PASS — health HEALTHY, homepage 200 with all markers, product-surface 200x24, founder provision->login->elevate->session->invite->accept->list(2)->suspend->activate->agent->announce->audit(10 entries)->activation->cases->partners->progression->notifications->operator login/elevate/invite->logout.
+Live fabric note: nexus/eventos grip (and thus PREVIEW vs CONFIGURATION_REQUIRED) depends on CWD-resolved engine evidence — honest derivation, varies temp-CWD vs repo-CWD.
+
+Secrets: matrix + smoke JSON scanned (no Bearer eyJ, no secret-key material); no PIN/password/token printed anywhere in evidence or code.

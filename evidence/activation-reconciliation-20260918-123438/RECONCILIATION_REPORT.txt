@@ -1,0 +1,60 @@
+﻿ADE ACTIVATION / PRODUCT-SURFACE RECONCILIATION
+================================================
+
+Checkpoint
+----------
+Branch: main
+HEAD:   5442afb164092a05b2c2390bed4f29159d104c80
+
+IMPORTANT:
+This pass performs evidence-driven reconciliation only.
+No credentials were printed.
+No credentials were invented.
+No provider configuration was guessed.
+No destructive git operation was performed.
+No unrelated working-tree files were staged.
+
+Evidence
+--------
+evidence\activation-recovery-20260918-121148
+
+Generated
+---------
+evidence\activation-reconciliation-20260918-123438
+
+Files
+-----
+activation-map.txt
+capability-index.txt
+configuration-map.txt
+frontend-checks.txt
+validate.txt
+build.txt
+git-status-before.txt
+
+Interpretation
+--------------
+The canonical kernel validation remains the primary runtime gate.
+
+The following areas have now been explicitly mapped against
+the existing implementation:
+
+1. Authentication/session lifecycle
+2. Founder/workforce provisioning
+3. Workforce lifecycle
+4. Storage integration
+5. Product catalogue/access
+6. Entitlement resolution
+7. Role/RBAC visibility
+8. Configuration state semantics
+9. Verification/connection health
+10. Frontend navigation and responsive surfaces
+11. Existing homepage reconciliation
+12. Community build/deployment readiness
+
+NEXT ACTION:
+Use the generated activation-map.txt, capability-index.txt,
+configuration-map.txt and frontend-checks.txt as the exact
+source-of-truth for the implementation pass.
+
+No source file was modified by this audit command.

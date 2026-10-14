@@ -1471,35 +1471,35 @@ app.get('/api/v1/admin/providers', security.requireLevel(2), (req, res) => {
   catch (error) { res.status(500).json({ success: false, error: "PROVIDERS_READ_FAILED" }); }
 });
 
-app.post('/api/v1/admin/providers', security.requireLevel(2), requireDurableStorage, (req, res) => {
+app.post('/api/v1/admin/providers', security.requireLevel(2), security.requireConfigAction("register"), requireDurableStorage, (req, res) => {
   try {
     const gate = providerGate.register(req.body || {}, { actor: _govActor(req), tenantScope: _govTenant(req) });
     res.status(201).json({ success: true, provider: gate });
   } catch (error) { res.status(400).json({ success: false, error: error.code || "PROVIDER_REGISTER_FAILED", message: error.message }); }
 });
 
-app.post('/api/v1/admin/providers/:id/configure', security.requireLevel(2), requireDurableStorage, (req, res) => {
+app.post('/api/v1/admin/providers/:id/configure', security.requireLevel(2), security.requireConfigAction("provider-configure"), requireDurableStorage, (req, res) => {
   try {
     const gate = providerGate.configure(req.params.id, { ...(req.body || {}), actor: _govActor(req), tenantScope: _govTenant(req) });
     res.json({ success: true, provider: gate });
   } catch (error) { res.status(400).json({ success: false, error: error.code || "PROVIDER_CONFIGURE_FAILED", message: error.message }); }
 });
 
-app.post('/api/v1/admin/providers/:id/verify', security.requireLevel(2), requireDurableStorage, async (req, res) => {
+app.post('/api/v1/admin/providers/:id/verify', security.requireLevel(2), security.requireConfigAction("verify"), requireDurableStorage, async (req, res) => {
   try {
     const gate = await providerGate.verify(req.params.id, { actor: _govActor(req), tenantScope: _govTenant(req), connectionId: req.body?.connectionId || null });
     res.json({ success: true, provider: gate });
   } catch (error) { res.status(400).json({ success: false, error: error.code || "PROVIDER_VERIFY_FAILED", message: error.message }); }
 });
 
-app.post('/api/v1/admin/providers/:id/enable', security.requireLevel(2), requireDurableStorage, (req, res) => {
+app.post('/api/v1/admin/providers/:id/enable', security.requireLevel(2), security.requireConfigAction("enable"), requireDurableStorage, (req, res) => {
   try {
     const gate = providerGate.enable(req.params.id, { decidedBy: _govActor(req), reason: req.body?.reason || "", level: 2, tenantScope: _govTenant(req) });
     res.json({ success: true, provider: gate });
   } catch (error) { res.status(400).json({ success: false, error: error.code || "PROVIDER_ENABLE_FAILED", message: error.message }); }
 });
 
-app.post('/api/v1/admin/providers/:id/suspend', security.requireLevel(2), requireDurableStorage, (req, res) => {
+app.post('/api/v1/admin/providers/:id/suspend', security.requireLevel(2), security.requireConfigAction("suspend"), requireDurableStorage, (req, res) => {
   try {
     const gate = providerGate.suspend(req.params.id, { decidedBy: _govActor(req), reason: req.body?.reason || "", level: 2, tenantScope: _govTenant(req) });
     res.json({ success: true, provider: gate });
@@ -1566,14 +1566,14 @@ app.get('/api/v1/admin/whatsapp-numbers', security.requireLevel(2), (req, res) =
   catch (error) { res.status(500).json({ success: false, error: "NUMBERS_READ_FAILED" }); }
 });
 
-app.post('/api/v1/admin/whatsapp-numbers', security.requireLevel(2), requireDurableStorage, (req, res) => {
+app.post('/api/v1/admin/whatsapp-numbers', security.requireLevel(2), security.requireConfigAction("register"), requireDurableStorage, (req, res) => {
   try {
     const rec = whatsappNumbers.addNumber({ ...(req.body || {}), actor: _govActor(req) });
     res.status(201).json({ success: true, number: rec });
   } catch (error) { res.status(400).json({ success: false, error: error.code || "NUMBER_ADD_FAILED", message: error.message }); }
 });
 
-app.patch('/api/v1/admin/whatsapp-numbers/:id', security.requireLevel(2), requireDurableStorage, (req, res) => {
+app.patch('/api/v1/admin/whatsapp-numbers/:id', security.requireLevel(2), security.requireConfigAction("edit"), requireDurableStorage, (req, res) => {
   try {
     const body = req.body || {};
     let rec = null;
@@ -1583,23 +1583,23 @@ app.patch('/api/v1/admin/whatsapp-numbers/:id', security.requireLevel(2), requir
   } catch (error) { res.status(400).json({ success: false, error: error.code || "NUMBER_UPDATE_FAILED", message: error.message }); }
 });
 
-app.post('/api/v1/admin/whatsapp-numbers/:id/verify', security.requireLevel(2), requireDurableStorage, (req, res) => {
+app.post('/api/v1/admin/whatsapp-numbers/:id/verify', security.requireLevel(2), security.requireConfigAction("verify"), requireDurableStorage, (req, res) => {
   try {
     const rec = whatsappNumbers.verifyNumber(req.params.id, { ...(req.body || {}), actor: _govActor(req) });
     res.json({ success: true, number: rec });
   } catch (error) { res.status(400).json({ success: false, error: error.code || "NUMBER_VERIFY_FAILED", message: error.message }); }
 });
 
-app.post('/api/v1/admin/whatsapp-numbers/:id/state', security.requireLevel(2), requireDurableStorage, (req, res) => {
+app.post('/api/v1/admin/whatsapp-numbers/:id/state', security.requireLevel(2), security.requireConfigAction("state"), requireDurableStorage, (req, res) => {
   try {
     const rec = whatsappNumbers.setState(req.params.id, req.body?.to || req.body?.state, { actor: _govActor(req), reason: req.body?.reason || "", level: 2 });
     res.json({ success: true, number: rec });
   } catch (error) { res.status(400).json({ success: false, error: error.code || "NUMBER_STATE_FAILED", message: error.message }); }
 });
 app.get('/api/v1/admin/channels', security.requireLevel(2),(req,res)=>res.json({success:true,channels:channels.list()}));
-app.patch('/api/v1/admin/channels/:id', security.requireLevel(2),requireDurableStorage,(req,res)=>{const c=channels.set(req.params.id,req.body||{}); runtimeConfig.write('channels',req.params.id,c); res.json({success:true,channel:c});});
+app.patch('/api/v1/admin/channels/:id', security.requireLevel(2),requireDurableStorage,(req,res)=>{const c=channels.set(req.params.id,req.body||{}); runtimeConfig.write('channels',req.params.id,c); try { kernel?.eventBus?.publish?.("audit.log.created", { category: "CHANNELS", action: "CHANNEL_UPDATED", channelId: String(req.params.id || "").toUpperCase(), tenant: tenantForStore(resolveTenantId(req)), by: _govActor(req), at: new Date().toISOString() }); } catch {} res.json({success:true,channel:c});});
 app.get('/api/v1/admin/connections', security.requireLevel(2),(req,res)=>res.json({success:true,connections:connectionManager.list()}));
-app.post('/api/v1/admin/connections', security.requireLevel(2),requireDurableStorage,(req,res)=>{try{res.status(201).json({success:true,connection:connectionManager.upsert(req.body||{})});}catch(e){res.status(400).json({success:false,error:e.message});}});
+app.post('/api/v1/admin/connections', security.requireLevel(2),requireDurableStorage,(req,res)=>{try{const connection=connectionManager.upsert(req.body||{}); try { kernel?.eventBus?.publish?.("audit.log.created", { category: "CONNECTIONS", action: "CONNECTION_UPSERTED", connectionId: connection?.id || null, provider: connection?.provider || null, tenant: tenantForStore(resolveTenantId(req)), by: _govActor(req), at: new Date().toISOString() }); } catch {} res.status(201).json({success:true,connection});}catch(e){res.status(400).json({success:false,error:e.message});}});
 app.post('/api/v1/admin/connections/:id/test', security.requireLevel(2),async(req,res)=>res.json(await connectionManager.test(req.params.id)));
 
 // ---------- NEXT: canonical operational-intelligence + commercial routes ----------
@@ -1680,6 +1680,10 @@ app.post('/api/v1/connect/channels/configure', security.requireLevel(2), require
       if (webhookUrl) secrets.setSecret(channelId + "_WEBHOOK_URL", String(webhookUrl).slice(0, 500));
     } catch {}
     try { kernel?.eventBus?.publish?.("integrations.channel.configured", { channelId, tenant, by: record.updatedBy }); } catch {}
+    // Durable audit for every channel configuration (actor/action/target/
+    // outcome, timestamped). Secret VALUES are never included — only the
+    // configured/not-configured booleans already returned to the caller.
+    try { kernel?.eventBus?.publish?.("audit.log.created", { category: "CHANNELS", action: "CHANNEL_CONFIGURED", channelId, tenant, by: record.updatedBy, configured: record.configured, authType: record.authType, at: new Date().toISOString() }); } catch {}
     // Never echo secret values back.
     return res.status(200).json({ success: true, channel: channelId, configured: record.configured, authType: record.authType, tenant });
   } catch (e) { res.status(500).json({ success: false, error: "CHANNEL_CONFIGURE_FAILED", message: e.message }); }

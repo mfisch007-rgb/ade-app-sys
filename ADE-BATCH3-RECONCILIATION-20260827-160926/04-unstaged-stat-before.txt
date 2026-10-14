@@ -1,0 +1,17 @@
+﻿ .github/workflows/ci-cd.yml                        |  36 +-
+ .github/workflows/production-verification.yml      |  34 +-
+ .../ADE-BLOCK01-EXPERIENCE-FOUNDATION.md           |   8 +-
+ .../ADE-PHASE01-GEMINI-ENGINEERING-DIRECTIVE.md    |   6 +-
+ frontend/src/components/CommandPalette.jsx         |  41 ++-
+ package.json                                       |   6 +-
+ public/index.html                                  | 310 +++--------------
+ scripts/build-prod-server.js                       |  59 +---
+ src/ai/UniversalAIGateway.js                       |   2 +-
+ src/core/CapabilityRegistry.js                     | 377 +++++++--------------
+ src/kernel/EnterpriseKernelMaster.js               |  51 ++-
+ src/security/CommunityEditionGuard.js              |   4 +-
+ src/security/KeyManager.js                         |   4 +-
+ src/server.js                                      |  69 +++-
+ src/ui/CommandPaletteModal.jsx                     | 121 ++-----
+ src/ui/SpatialCommandCenter.jsx                    |  17 +-
+ 16 files changed, 417 insertions(+), 728 deletions(-)

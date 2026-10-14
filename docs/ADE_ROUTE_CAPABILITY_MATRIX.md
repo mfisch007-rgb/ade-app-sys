@@ -94,6 +94,32 @@ stays 401-gated (L2).
 | `public/js/ade-api-client.js` | `window.ADE`: per-surface token clients (`ade_token` / `ade_admin_token` / `ade_founder_token`), humanized errors, SSE reconnect, theme init | transport only; server authoritative |
 | `public/js/ade-route-registry.js` | `window.ADE_ROUTES`: canonical `PATH_SECTION`, document routes, section→endpoint map, truth states | must mirror `PATH_SECTION` in `public/index.html` |
 
+## 7. Batches 2–3 (worktree, uncommitted) — product directory + AWBULI + freshness
+
+| Change | File | Source of truth |
+|---|---|---|
+| "What ADE does" section (6 repo-supported capabilities, real destinations) | `public/index.html` | static copy → canonical sections |
+| Product directory: 12/12 cards carry `surfId`, modals show live status + recovery | `public/index.html` | `GET /api/v1/product-surface` (24 surfaces; 8 suites verified present) |
+| `PUBSTATE` plain-language badges (Available / Setup required / Pilot access / In review / Coming soon / Unavailable); raw enums in `title` only | `public/index.html` | matrix `status` values |
+| AWBULI 4-state readiness block (design / onboarding / provider / live) + Theater + Pilot next steps; no `wa.me/<digits>`, no live claims | `public/index.html` | awbuli row: `CONFIGURATION_REQUIRED` / `EXTERNAL_CREDENTIAL_REQUIRED` / `PARTIALLY_CONNECTED` grip 67 |
+| Prompt carousel repair (30s cycle, readable type, 44px dots, caption) + reduced-motion static list | `public/index.html` + `public/ade-design-system.css` | existing PROCARTA wiring preserved |
+| Founder `AWBULI` tab (read-only, reuses `productSurface` state) | `public/founder.html` | same awbuli row; creates/configures/sends nothing |
+| Telemetry freshness: `UPDATED … AGO / STALE` metric chip (15s cadence disclosed) + `LAST EVENT … AGO` stream chip | `public/index.html` | `GET /api/v1/metrics` counters + SSE event timestamps |
+| `tests/product-discovery-awbuli.test.js` (10 tests) | `tests/` | static markers + live surface assertions |
+
+AWBULI activation deps (exact, server-reported): `AWBULI_API_URL` +
+`AWBULI_API_KEY` ("To reach 100%: configure AWBULI_API_URL +
+AWBULI_API_KEY, then run verify."); sender registry empty — Admin →
+Channels / WhatsApp numbers; verification metadata-only until handshake.
+Team contact lines retained as human contact, labeled non-automated.
+
+Known pre-existing issues (not introduced here): `HEAD:public/founder.html`
+inline-JS syntax error (worktree-only fix from another session);
+`tests/trading-paper.test.js` SignalQualityGate fails on repeat runs from
+file-backed ledger/entitlement persistence — passes 11/11 with pristine
+isolated state; `data/runtime-config/admin.json` + `data/audit_ledger.json`
+accumulate local-run writes (left untouched per protection rules).
+
 ## 6. Verification per surface
 
 | Surface | Method | Guard |

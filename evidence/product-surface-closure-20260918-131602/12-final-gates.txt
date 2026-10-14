@@ -1,0 +1,46 @@
+12 FINAL GATES
+
+Surfaces: total=24 counts={"ACTIVATED":4,"CONFIGURATION_REQUIRED":3,"AVAILABLE":12,"FUTURE":2,"EXPERIMENTAL":1,"PREVIEW":1,"ROADMAP":1}
+  [ACTIVATED] ade-platform — declaration->catalogue->entitlement->role->nav->icon->route->click->API->result: PASS
+  [ACTIVATED] procarta — declaration->catalogue->entitlement->role->nav->icon->route->click->API->result: PASS
+  [CONFIGURATION_REQUIRED] awbuli — declaration->catalogue->entitlement->role->nav->icon->route->click->API->result: BLOCKED — CONFIGURATION REQUIRED
+  [ACTIVATED] oracle — declaration->catalogue->entitlement->role->nav->icon->route->click->API->result: PASS
+  [CONFIGURATION_REQUIRED] nexus — declaration->catalogue->entitlement->role->nav->icon->route->click->API->result: BLOCKED — CONFIGURATION REQUIRED
+  [CONFIGURATION_REQUIRED] eventos — declaration->catalogue->entitlement->role->nav->icon->route->click->API->result: BLOCKED — CONFIGURATION REQUIRED
+  [AVAILABLE] founders-circle — declaration->catalogue->entitlement->role->nav->icon->route->click->API->result: PASS
+  [AVAILABLE] market-circle — declaration->catalogue->entitlement->role->nav->icon->route->click->API->result: PASS
+  [FUTURE] tides — declaration->catalogue->entitlement->role->nav->icon->route->click->API->result: ROADMAP — FUTURE
+  [ACTIVATED] aibos — declaration->catalogue->entitlement->role->nav->icon->route->click->API->result: PASS
+  [FUTURE] biz-watch — declaration->catalogue->entitlement->role->nav->icon->route->click->API->result: ROADMAP — FUTURE
+  [EXPERIMENTAL] fraud-watch — declaration->catalogue->entitlement->role->nav->icon->route->click->API->result: ROADMAP — EXPERIMENTAL
+  [PREVIEW] agriculture — declaration->catalogue->entitlement->role->nav->icon->route->click->API->result: ROADMAP — PREVIEW
+  [ROADMAP] gov-ngo — declaration->catalogue->entitlement->role->nav->icon->route->click->API->result: ROADMAP — ROADMAP
+  [AVAILABLE] workforce — declaration->catalogue->entitlement->role->nav->icon->route->click->API->result: PASS
+  [AVAILABLE] account-security — declaration->catalogue->entitlement->role->nav->icon->route->click->API->result: PASS
+  [AVAILABLE] announcements — declaration->catalogue->entitlement->role->nav->icon->route->click->API->result: PASS
+  [AVAILABLE] audit — declaration->catalogue->entitlement->role->nav->icon->route->click->API->result: PASS
+  [AVAILABLE] pilot — declaration->catalogue->entitlement->role->nav->icon->route->click->API->result: PASS
+  [AVAILABLE] partner — declaration->catalogue->entitlement->role->nav->icon->route->click->API->result: PASS
+  [AVAILABLE] connections — declaration->catalogue->entitlement->role->nav->icon->route->click->API->result: PASS
+  [AVAILABLE] storage — declaration->catalogue->entitlement->role->nav->icon->route->click->API->result: PASS
+  [AVAILABLE] try-ade — declaration->catalogue->entitlement->role->nav->icon->route->click->API->result: PASS
+  [AVAILABLE] feedback — declaration->catalogue->entitlement->role->nav->icon->route->click->API->result: PASS
+
+Gates: npm validate=13/13 PASS (LEVEL-3 100.0%) | community-build=PASS (1527 files, sha256 96961d98) | product-surface-closure tests=7/7 PASS | identity+workforce+safety+boundaries+storage=37/37 PASS
+Pre-existing failures unrelated to this pass (recorded, not repaired): tests/public-ux.test.js expects marker 'try-community' and label 'Degree of Connection Grip' — both absent in HEAD 5442afb (homepage uses different testids/labels). Not in npm test script; homepage redesign explicitly out of scope.
+
+LIVE VERIFICATION (ephemeral in-process server, closed gracefully � no background process left running):
+  GET /api/v1/product-surface -> 200 success=true edition=COMMUNITY surfaces=24 incomplete=0 noSecret=true
+  live counts={ACTIVATED:4, CONFIGURATION_REQUIRED:1, PREVIEW:3, AVAILABLE:12, FUTURE:2, EXPERIMENTAL:1, ROADMAP:1}
+  (stub-file counts differ slightly: live fabric reports nexus/eventos grip>0 from in-repo engine evidence -> PREVIEW)
+  GET /api/v1/health -> success=true kernel=HEALTHY
+  GET / -> 200, root container present, both reconciliation markers present, product-surface-matrix + invitation + recovery forms present.
+
+DEPLOYMENT GATE (Phase 14) � BLOCKED, exact reason:
+  Command: vercel deploy --prod --yes (Vercel CLI 59.14.0, project ade-apex-community)
+  Result: Error: Not authorized. No Vercel authentication is present in this environment.
+  Action taken: NO deployment created, NO production URLs changed, NO credentials invented or bypassed.
+  Production verification (/api/v1/health, homepage, product routes on production) therefore NOT performed.
+  Local equivalents verified instead (ephemeral server, closed gracefully): /api/v1/health HEALTHY, / 200 with root+markers+matrix+forms, /api/v1/product-surface 200 with 24 surfaces.
+  Unblock path: authenticate Vercel CLI (vercel login) or push main via the connected Git integration, then re-run the Phase 14 checks. Commit 7705810 is on main locally, NOT pushed (push not authorized by this pass).
+Commit: 7705810 fix(platform): close product surface activation and usability gaps (7 files, +1039/-25). Unrelated pre-existing working-tree modifications left untouched and unstaged.

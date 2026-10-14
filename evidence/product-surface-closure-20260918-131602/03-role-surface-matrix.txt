@@ -1,0 +1,35 @@
+03 ROLE / SURFACE MATRIX
+
+Enforcement points (existing backend path, no new RBAC):
+  PUBLIC surfaces: no session (Home, Products, PROCARTA intake, Theater, Try ADE, Architecture, Community intake, Feedback, announcements read).
+  WORKFORCE session (loadAuthenticated): Account session read, change-password/PIN, logout.
+  ELEVATED PIN (requireElevatedPin): step-up PIN verified session.
+  WORKFORCE ADMIN (requireWorkforceAdmin: FOUNDER/ADMIN/OPERATOR + PIN, legacy ADMIN L2 bypass): all workforce mutations (invite/promote/demote/suspend/revoke/activate/expiry/reset-password/reset-pin), agent create/update, announcement write, workforce/audit/announcement-admin reads.
+  L2 security.requireLevel(2): admin connections verify, capabilities activate, trading venues, email.
+
+  [ACTIVATED] ade-platform: role=PUBLIC | nav=Products | route=#/Products
+  [ACTIVATED] procarta: role=PUBLIC_INTAKE + L2_OPERATOR_OPS | nav=PROCARTA | route=#/PROCARTA
+  [CONFIGURATION_REQUIRED] awbuli: role=PUBLIC_DEMO + OPERATOR_BRIDGE | nav=Product Theater | route=#/Product Theater
+  [ACTIVATED] oracle: role=AUTHENTICATED_COMMAND_CENTER | nav=Command Center | route=#/Command Center
+  [CONFIGURATION_REQUIRED] nexus: role=PUBLIC_DISCOVERY | nav=Home | route=#/Community
+  [CONFIGURATION_REQUIRED] eventos: role=PUBLIC_DISCOVERY | nav=Home | route=#/Community
+  [AVAILABLE] founders-circle: role=PUBLIC_REQUEST_ACCESS | nav=Home | route=#/Community
+  [AVAILABLE] market-circle: role=PUBLIC_JOIN | nav=Home | route=#/Community
+  [FUTURE] tides: role=PUBLIC_CONTACT | nav=Home | route=#/Community
+  [ACTIVATED] aibos: role=PUBLIC_ARCHITECTURE | nav=Architecture | route=#/Architecture
+  [FUTURE] biz-watch: role=PUBLIC_LEARN | nav=Products | route=#/Products
+  [EXPERIMENTAL] fraud-watch: role=PUBLIC_LEARN | nav=Products | route=#/Products
+  [PREVIEW] agriculture: role=PUBLIC_EXPLORE | nav=Products | route=#/Products
+  [ROADMAP] gov-ngo: role=PUBLIC_EXPLORE | nav=Home | route=#/Community
+  [AVAILABLE] workforce: role=FOUNDER_ADMIN_OPERATOR_ELEVATED | nav=Account -> Admin Console | route=/admin
+  [AVAILABLE] account-security: role=WORKFORCE_MEMBER | nav=Account | route=#/Account
+  [AVAILABLE] announcements: role=PUBLIC_READ + ELEVATED_WRITE | nav=Home | route=#/Home
+  [AVAILABLE] audit: role=FOUNDER_ADMIN_OPERATOR_ELEVATED | nav=Account -> Admin Console | route=/admin
+  [AVAILABLE] pilot: role=PUBLIC_REGISTER | nav=Community | route=#/Community
+  [AVAILABLE] partner: role=PUBLIC_REGISTER | nav=Community | route=#/Community
+  [AVAILABLE] connections: role=AUTHENTICATED_READ | nav=Products | route=#/Products
+  [AVAILABLE] storage: role=SERVER_SIDE (no client credential) | nav=Architecture | route=#/Architecture
+  [AVAILABLE] try-ade: role=PUBLIC | nav=Try ADE | route=#/Try ADE
+  [AVAILABLE] feedback: role=PUBLIC | nav=Feedback | route=#/Feedback
+
+Founder/Admin/User/Pilot/Partner boundaries: visibleNav filters Command Center when !token or PARTNER; partners skip PROCARTA/Try ADE/Architecture; pilots (VIEWER/PILOT, non-elevated) see rbacLevel<=1 capabilities only. Authorization enforced server-side; CSS never the boundary.

@@ -1,0 +1,59 @@
+06 API / ROUTE MATRIX
+
+Registered route inventory: 169 literal route strings across src/app.js + src/routes/identityRoutes.js.
+  [PASS] ade-platform: GET /api/v1/products
+  [PASS] ade-platform: GET /api/v1/health
+  [PASS] ade-platform: GET /api/v1/runtime
+  [PASS] procarta: GET /api/v1/procarta/status
+  [PASS] procarta: POST /api/v1/intake/API
+  [PASS] procarta: GET /api/v1/products
+  [PASS] awbuli: GET /api/v1/connectivity/inventory
+  [PASS] awbuli: GET /api/v1/connectivity/products/awbuli
+  [PASS] oracle: POST /api/command/execute
+  [PASS] oracle: GET /api/v1/capabilities
+  [PASS] nexus: GET /api/v1/connectivity/inventory
+  [PASS] nexus: GET /api/v1/connectivity/products/nexus
+  [PASS] eventos: GET /api/v1/connectivity/inventory
+  [PASS] eventos: GET /api/v1/connectivity/products/eventos
+  [PASS] founders-circle: POST /api/v1/community/intake
+  [PASS] market-circle: POST /api/v1/community/intake
+  [PASS] market-circle: GET /api/v1/partners
+  [PASS] tides: POST /api/v1/community/intake
+  [PASS] aibos: GET /api/v1/public-architecture
+  [PASS] aibos: GET /api/v1/runtime
+  [PASS] biz-watch: GET /api/v1/products
+  [PASS] fraud-watch: GET /api/v1/products
+  [PASS] agriculture: GET /api/v1/products
+  [PASS] gov-ngo: POST /api/v1/community/intake
+  [PASS] workforce: POST /api/v1/account/login
+  [PASS] workforce: POST /api/v1/account/pin
+  [PASS] workforce: POST /api/v1/workforce/invite
+  [PASS] workforce: POST /api/v1/account/accept-invitation
+  [PASS] workforce: GET /api/v1/workforce
+  [PASS] account-security: POST /api/v1/account/login
+  [PASS] account-security: POST /api/v1/account/pin
+  [PASS] account-security: GET /api/v1/account/session
+  [PASS] account-security: POST /api/v1/account/change-password
+  [PASS] account-security: POST /api/v1/account/change-pin
+  [PASS] account-security: POST /api/v1/account/recovery-codes/rotate
+  [PASS] account-security: POST /api/v1/account/logout
+  [PASS] account-security: POST /api/v1/account/forgot-password
+  [PASS] account-security: POST /api/v1/account/accept-invitation
+  [PASS] announcements: GET /api/v1/announcements
+  [PASS] announcements: GET /api/v1/announcements/admin
+  [PASS] audit: GET /api/v1/audit
+  [PASS] pilot: POST /api/v1/community/intake
+  [PASS] pilot: GET /api/v1/community/progression
+  [PASS] partner: POST /api/v1/community/intake
+  [PASS] partner: GET /api/v1/partners
+  [PASS] connections: GET /api/v1/connectivity/inventory
+  [PASS] connections: GET /api/v1/connectivity/products/:id
+  [PASS] connections: POST /api/v1/admin/connections/:id/verify
+  [PASS] storage: GET /api/v1/runtime
+  [PASS] try-ade: GET /api/v1/demo/scenarios
+  [PASS] try-ade: POST /api/v1/demo/run
+  [PASS] feedback: POST /api/v1/feedback
+  [PASS] feedback: GET /api/v1/feedback/recent
+
+Dead product routes: 0 (must be 0; enforced by regression test 2).
+Note: trading/gaming/market/sports/venue/oracle/learning Agent: PROSPERO (11:30, east) (10)-feature routes exist server-side and are reachable via Command Center palette/metrics; they are intentionally not Home cards (operator surface, not public catalogue).

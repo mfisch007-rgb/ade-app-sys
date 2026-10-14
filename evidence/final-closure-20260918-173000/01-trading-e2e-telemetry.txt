@@ -1,0 +1,33 @@
+FINAL CTO RELEASE CLOSURE — EVIDENCE RECONCILIATION
+Base: main @ d542101 | Date: 2026-09-18 | Mode: continue-from-checkpoint, no restart of scope.
+
+1. GIT/TRADING RECONCILIATION (d542101 vs 43fce62, exact)
+   FounderSignalEngine.js: +707 / -11 lines. All 11 removed lines are refactors inside analyzeBinary + export-line extension (states list, paperBalance default, signature, volPct guard, baseMin/expiry math, WATCH text, entry-window text).
+   BINARY_STATES is a strict superset: 10 legacy states + REJECTED_BROKER_MANIPULATION. Clean-feed path still yields legacy states (proven: analyzeBinary(EURUSD,M5) -> WATCH/MARKET=BINARY).
+   tests/trading-hardening.test.js: exactly 1 removed line (import line, extended with new symbols); ZERO assertions removed or weakened; +242 lines of new manipulation/latency/feed-validation tests.
+   Full trading battery green. VERDICT: legitimate additive protective hardening; execution semantics unchanged for clean feeds, strictly safer for manipulated feeds. Preserved as-is — NO redesign, NO restore needed.
+
+2. PRODUCTION HUMAN E2E (bounded, no invented credentials, no permanent test identities)
+   Probe POST /api/v1/workforce/provision-founder (temp identity, never persisted):
+   -> 400 SUPABASE_STORAGE_WRITE_FAILED: HTTP 404 (table "ade_kv_store" not found or not visible to the configured service key — CONFIGURATION_REQUIRED...).
+   CONCLUSION: BLOCKED at the storage layer. The failure itself is the behavioral proof: personCount READ succeeded (else READ_FAILED), the persist WRITE 404'd. No Founder login/session/workspace E2E is technically possible in production until writes work. Nothing was written; no identity created; nothing to clean.
+   Pre-proven on the identical commit via ephemeral local server (33/33 smoke in connective-tissue evidence): provision->login->PIN->elevate->session/role->invite->accept->list->suspend->activate->agent->announce->audit->activation->cases->partners->progression->notifications->operator E2E->logout, plus founder-only L2 (admin/overview, entitlements, storage-verify) with zero legacy-PIN involvement.
+   Session survival/refresh: no refresh endpoint exists by design (TTL sessions + re-login); re-login proven locally. Not re-provable in prod without credentials.
+
+3. VISUAL/DEVICE CLOSURE
+   No browser engine exists in this environment (no chromium/chrome/playwright/puppeteer) — pixel rendering is NOT TECHNICALLY AVAILABLE here.
+   Executed instead against the live production document (byte-identical to release tree, sha f6aa85ece2e5076d, 192550 B):
+   - 18 h2 headings; the only repeats are REGISTER YOUR INTEREST (Home grid vs Community page, distinct copy) and Feedback (Home grid vs Feedback page, distinct copy) — legitimate per-section headings, NOT the removed back-to-back duplicate.
+   - All release markers present; fabrication scan (live-trading/connected-broker/guaranteed-returns phrasing) clean.
+   - Static guards re-confirmed: 44px targets, scroll-bounded mobile menu, tableScroll wrappers, overflow-x clip, breakpoint ladder 430-1180.
+
+4. TELEMETRY/TEST ISOLATION (source-classified counts)
+   Local repo ledger data/audit_ledger.json: 598 entries, ~388 from local test-suite runs (SESSION_ISSUED for fixture subjects) — preserved as local engineering evidence; production Supabase ledger is unreachable by test runs.
+   Production isolation by construction (all verified in code + live behavior):
+   - Demo runs persist cases (source DEMO_ORCHESTRATOR) -> EXCLUDED from human case views by default since d542101 (demoExcluded count + ?includeDemo=true opt-in + deep-link intact).
+   - Demo feedback lands in the separate FeedbackPipeline queue file, never in the human FeedbackIntelligence store/patterns.
+   - Demo bus events (DEMO_RUN_*) are not subscribed by the persistent AuditStore (only SECURITY_EVENT/audit.log.created/AUDIT_LOGS/SECURITY_AUDIT_LOG persist).
+   - notification.demo_completed type is defined but never generated; inbox holds only real internal events (in-memory, per boot).
+   - No fixture actor (trade-test/matrix-op-*/g25-op..g29-op/ct-op/smoke*) exists outside tests/ (static scan: 0 hits in src/public/api).
+   - Identity audit (SESSION_ISSUED/AUTHENTICATION_FAILED incl. brute-force probes) persists via AuditStore — genuine security telemetry, correctly retained.
+   Local ledger session counts: SESSION_ISSUED 308 (test-run dominated), audit.log.created 214, AUTHORIZATION_GRANTED 32, SECURITY_AUDIT_LOG 25, AUTHENTICATION_FAILED 19.

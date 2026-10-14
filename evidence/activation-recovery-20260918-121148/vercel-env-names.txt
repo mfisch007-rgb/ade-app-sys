@@ -1,0 +1,1 @@
+﻿Vercel CLI 59.14.0 present but 'vercel env ls' requires authentication / timed out - no env names retrieved (manual check required).

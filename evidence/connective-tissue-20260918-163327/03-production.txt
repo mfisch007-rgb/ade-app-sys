@@ -1,0 +1,14 @@
+CONNECTIVE-TISSUE CLOSURE — PRODUCTION VERIFICATION
+Stamp: 20260918-163327 | Commit: d542101 (pushed 43fce62..d542101, main...origin/main in sync)
+
+Deployment: vercel deploy --prod --yes -> READY, target production.
+  URL: https://ade-apex-community-gz1mp47kq-mfisch007-3701s-projects.vercel.app
+  Canonical: https://ade-apex-community.vercel.app | Build: api/index.js (19.04MB) [iad1].
+
+Production checks (all HTTP 200 on canonical URL):
+  /api/v1/health: 200 OK, kernel HEALTHY, 9 subsystems (AI unconfigured/lexical fallback, honest).
+  / (homepage): 200, 192550 bytes. HAVE: ws-module-, ws-panel, PRODUCT SURFACE, accept-invitation-form, Workspace, ADE_HOMEPAGE_FINAL_RECONCILIATION, media-request-form, Include demos, STORAGE VERIFY, SERVER CATALOG, READ-ONLY PROBE.
+  /api/v1/product-surface: 200, 24 surfaces, COMMUNITY.
+  /api/v1/products, /api/v1/community/progression, /api/v1/notifications/recent, /api/v1/capabilities, /admin (22679 bytes): all 200.
+  /api/command/search?q=procarta: 200, 2 hits.
+Auth-gated new endpoints (/api/v1/cases filter, /api/v1/admin/storage/verify, elevation revoke) proven against the identical commit on an ephemeral local server (33/33 smoke); not executed on production to avoid creating real workforce/case records.
