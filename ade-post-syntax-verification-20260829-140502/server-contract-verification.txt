@@ -1,0 +1,14 @@
+PASS contract: import CapabilityRegistry from "./core/CapabilityRegistry.js";
+PASS contract: import { executeCapability } from "./core/CapabilityExecutor.js";
+PASS contract: app.get('/api/v1/capabilities'
+PASS contract: CapabilityRegistry.listCapabilities
+PASS contract: CapabilityRegistry.getSubsystems
+PASS contract: app.post('/api/v1/intake/:channel'
+PASS contract: app.post("/api/command/execute"
+PASS contract: executeCapability(CapabilityRegistry, action, payload)
+PASS contract: EXECUTED_BY_CAPABILITY_REGISTRY
+PASS contract: DISPATCHED_TO_KERNEL
+PASS contract: NO_EXECUTION_TARGET
+PASS contract: // GATE 5: Real-time SSE Stream
+
+PASS all required reconciliation server contracts remain present.

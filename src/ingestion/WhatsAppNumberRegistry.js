@@ -74,6 +74,15 @@ export class WhatsAppNumberRegistry {
     } catch {}
   }
 
+  // Response redaction (single authority, mirrors list()): the fingerprint
+  // is an internal dedup key derived from the number — API responses carry
+  // the masked form only, never the fingerprint.
+  _safe(n) {
+    if (!n || typeof n !== "object") return n;
+    const { fingerprint: _fp, ...safe } = n;
+    return safe;
+  }
+
   _touch(n, to, { actor = "SYSTEM", reason = "" } = {}) {
     n.state = to;
     n.updatedAt = nowIso();
@@ -109,12 +118,12 @@ export class WhatsAppNumberRegistry {
     this.numbers.set(rec.id, rec);
     this._persist();
     this._audit("NUMBER_ADDED", { id: rec.id, masked: rec.masked, tenantScope: scope });
-    return { ...rec };
+    return this._safe({ ...rec });
   }
 
   get(id) {
     const n = this.numbers.get(String(id || ""));
-    return n ? { ...n } : null;
+    return n ? this._safe({ ...n }) : null;
   }
 
   list({ tenantScope = null } = {}) {
@@ -136,7 +145,7 @@ export class WhatsAppNumberRegistry {
     n.updatedAt = nowIso();
     this._persist();
     this._audit("NUMBER_EDITED", { id: n.id, masked: n.masked, actor: String(actor).slice(0, 120) });
-    return { ...n };
+    return this._safe({ ...n });
   }
 
   /** Metadata verification only: records evidence of ownership checks performed
@@ -148,7 +157,7 @@ export class WhatsAppNumberRegistry {
     n.verification = { method: String(method).slice(0, 120), evidenceRef: evidenceRef ? String(evidenceRef).slice(0, 300) : null, by: String(actor).slice(0, 120), at: nowIso(), live: false };
     this._touch(n, "VERIFIED", { actor, reason: "metadata verification recorded (not a live handshake)" });
     this._audit("NUMBER_VERIFIED", { id: n.id, masked: n.masked });
-    return { ...n };
+    return this._safe({ ...n });
   }
 
   setDefault(id, { actor = "SYSTEM" } = {}) {
@@ -161,7 +170,7 @@ export class WhatsAppNumberRegistry {
     n.updatedAt = nowIso();
     this._persist();
     this._audit("NUMBER_DEFAULT_SET", { id: n.id, tenantScope: n.tenantScope });
-    return { ...n };
+    return this._safe({ ...n });
   }
 
   setState(id, to, { actor = "SYSTEM", reason = "", level = 0 } = {}) {
@@ -179,7 +188,7 @@ export class WhatsAppNumberRegistry {
     if (next === "DISABLED") n.isDefault = false;
     this._touch(n, next, { actor, reason });
     this._audit(`NUMBER_${next}`, { id: n.id, masked: n.masked });
-    return { ...n };
+    return this._safe({ ...n });
   }
 }
 

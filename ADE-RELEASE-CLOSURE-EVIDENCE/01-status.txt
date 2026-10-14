@@ -1,0 +1,87 @@
+﻿ M .github/workflows/ci-cd.yml
+ M .github/workflows/production-verification.yml
+M  ADE-LOGO.png
+A  docs/architecture/ADE-BLOCK01-EXPERIENCE-FOUNDATION.md
+A  docs/architecture/ADE-PHASE01-BASELINE.json
+A  docs/architecture/ADE-PHASE01-GEMINI-ENGINEERING-DIRECTIVE.md
+ M frontend/src/components/CommandPalette.jsx
+M  kernel/bus/EnterpriseEventBus.js
+M  kernel/engine/EnterpriseOrchestrator.js
+M  kernel/engine/MasterBoot.js
+M  kernel/engine/MemoryEngine.js
+M  kernel/engine/OfflineQueueEngine.js
+M  kernel/engine/StorageEngine.js
+M  kernel/engine/TaskConfidenceRouter.js
+A  lib/core/demoGuard.ts
+A  lib/core/edition.ts
+A  lib/core/mediaRegistry.ts
+ M package.json
+ M public/index.html
+ M scripts/build-prod-server.js
+M  src/adapters/GoogleADKConnector.js
+M  src/adapters/VertexAIAdapter.js
+ M src/ai/UniversalAIGateway.js
+M  src/cli/ade-validate.js
+M  src/commands/ledger.js
+MM src/core/CapabilityRegistry.js
+M  src/core/EnterpriseKernelMaster.js
+M  src/core/EnterpriseMasterOrchestrator.js
+M  src/core/EventBus.js
+M  src/core/KernelLoader.js
+A  src/core/reconciled/Block01Adapter.js
+M  src/core/runtimeState.js
+M  src/kernel/EnterpriseEventBus.js
+MM src/kernel/EnterpriseKernelMaster.js
+M  src/kernel/SupportingEngines.js
+M  src/modules/MarketingAIStudio.js
+ M src/security/CommunityEditionGuard.js
+ M src/security/KeyManager.js
+ M src/server.js
+M  src/sheets/sheetsClient.js
+ M src/ui/CommandPaletteModal.jsx
+ M src/ui/SpatialCommandCenter.jsx
+M  src/workflows/WorkflowEngine.js
+A  tests/core/block01-foundation.test.ts
+A  types/ade/design.ts
+A  types/ade/edition.ts
+A  types/ade/execution.ts
+A  types/ade/onboarding.ts
+A  types/ade/verification.ts
+?? .ade_capability_store.json
+?? .ade_capability_store.json.5976.1787309942384.tmp
+?? .ade_session_revocations.json
+?? ADE-BATCH-3-14-ACTUAL-SOURCE-BUNDLE.txt
+?? ADE-BATCH-3-14-CLAUDE-RECONCILIATION-CONTEXT.txt
+?? ADE-CRITICAL-MISSING-FILES.txt
+?? ADE-GIT-RELEASE-EVIDENCE.zip
+?? ADE-GIT-RELEASE-EVIDENCE/
+?? ADE-RELEASE-CLOSURE-EVIDENCE/
+?? ADE_FINAL_TRUTH_GATE.json
+?? ADE_MASTER_ENGINEERING_BATCH.txt
+?? ADE_MASTER_FORENSIC_20260817_115657.txt
+?? CLAUDE_BATCH3_14_FULL_RECONCILIATION_CONTEXT.txt
+?? README.md
+?? ade-full.bundle
+?? api/index.js
+?? data/runtime-config/
+?? dist/
+?? docs/contracts/ADE_MASTER_IMPLEMENTATION_CONTRACT_v1.0.txt
+?? docs/deployment/
+?? docs/engineering/FINAL_ENTERPRISE_AUDIT.json
+?? docs/engineering/FINAL_ENTERPRISE_AUDIT.md
+?? docs/engineering/FINAL_RECONCILIATION_CHECKSUMS.json
+?? docs/release/
+?? lib/core/demoGuard.js
+?? public/ade-experience/
+?? public/admin/
+?? scripts/build-community.mjs
+?? src/admin/
+?? src/integrations/
+?? src/intelligence/
+?? src/kernel/ADE_ICX_Engine.js
+?? src/kernel/FeedbackPipeline.js
+?? src/kernel/IdentityOnboarding.js
+?? src/kernel/ScenarioEngine.js
+?? tests/acceptance.test.js
+?? tests/release-verification.test.js
+?? vercel.json

@@ -1,0 +1,7 @@
+﻿src\ai\LocalProvider.js | enabled=False configured=True entitlement=False catalog=False
+src\ai\ProviderCatalog.js | enabled=False configured=True entitlement=False catalog=True
+src\capabilities\CapabilityActivation.js | enabled=False configured=True entitlement=False catalog=True
+src\integrations\ConnectionFabric.js | enabled=False configured=True entitlement=False catalog=True
+src\integrations\ConnectionManager.js | enabled=False configured=True entitlement=False catalog=False
+src\storage\SupabaseStorageAdapter.js | enabled=False configured=True entitlement=False catalog=False
+src\trading\TradingEntitlements.js | enabled=False configured=False entitlement=True catalog=False

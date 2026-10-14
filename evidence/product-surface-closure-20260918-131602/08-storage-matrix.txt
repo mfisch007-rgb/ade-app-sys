@@ -1,0 +1,11 @@
+08 STORAGE MATRIX
+
+Authoritative adapter: SupabaseStorageAdapter extends StorageProvider (KV contract get/set/delete/list/append/transaction).
+Contract: SUPABASE_URL + key (SUPABASE_SECRET_KEY > SUPABASE_SERVICE_ROLE_KEY > SUPABASE_STORAGE_KEY, server-side only) + SUPABASE_STORAGE_TABLE.
+NO object-storage buckets anywhere: persistence is a single PostgREST table (k/v rows). Any user report naming a bucket is a misnomer for the table.
+Boundaries: isConfigured()/configurationError() gate every op with STORAGE_NOT_CONFIGURED (never insecure fallback, never defaulted creds, lazy client import).
+Write path: client .from(table).upsert({k,v}) or REST POST {k,v} Prefer:merge-duplicates. Read: select v eq k maybeSingle. List: order k asc + like prefix%.
+User-observed SUPABASE_STORAGE_WRITE_FAILED HTTP 404: PostgREST 404 = table missing OR project URL wrong OR service key cannot see the table (missing GRANT/RLS).
+Fix this pass: 404 now throws '... table "<table>" not found or not visible to the configured service key — CONFIGURATION_REQUIRED: create the table / grant access, then retry' (table name only, never URL/key/values). REST GET maps 404 likewise. requireDurableStorage gate returns 503 STORAGE_NOT_CONFIGURED so writes halt instead of losing state; reads/login/health keep working.
+Local/community boundary: ADE_STORAGE_PROVIDER=local (default) keeps community fully functional without Supabase; production opts into supabase explicitly. Homepage humanizeError maps write/read failures to 'Configuration required — durable storage is not yet configured.'
+Non-atomic limits (documented, unchanged): append/transaction are emulated (no atomicity); like-prefix unescaped; supabaseClient.js eager SERVICE_ROLE import is legacy and NOT the canonical path.

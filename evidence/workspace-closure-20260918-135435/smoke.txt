@@ -1,0 +1,25 @@
+PASS health 200 G현 kernel=HEALTHY
+PASS homepage 200+markers G현 len=187198
+PASS product-surface 200x24 G현 counts={"ACTIVATED":4,"CONFIGURATION_REQUIRED":3,"AVAILABLE":12,"FUTURE":2,"EXPERIMENTAL":1,"PREVIEW":1,"ROADMAP":1}
+PASS founder provision 201 G현 @smokechief
+PASS login 200
+PASS pin elevate
+PASS session+role
+PASS invite 201
+PASS accept 201 G현 id=WRF-00002-C74689BF
+PASS workforce list G현 persons=2
+PASS suspend
+PASS activate
+PASS agent create 201
+PASS announcement publish
+PASS announcement read
+PASS audit read G현 entries=10
+PASS activation map
+PASS cases list
+PASS partners catalog
+PASS progression
+PASS notifications
+PASS operator login
+PASS operator elevate
+PASS operator CAN invite (role permits)
+PASS logout

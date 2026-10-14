@@ -1,0 +1,18 @@
+09 AUTH / WORKFORCE MATRIX (existing chain tested, missing links repaired)
+
+Chain (all handlers exist in src/routes/identityRoutes.js + WorkforceManager):
+  [PASS] login POST /api/v1/account/login (rate-limited) -> workforce.authenticate -> non-elevated WORKFORCE session
+  [PASS] session GET /api/v1/account/session -> loadAuthenticated (ACTIVE + expiry enforced)
+  [PASS] PIN elevation POST /api/v1/account/pin -> verifyPin -> elevated session (pinVerified)
+  [PASS] change-password / change-pin (self-service, current password required)
+  [PASS] recovery-codes/rotate (elevated) -> single-use codes shown once, rotation invalidates old sets
+  [PASS] logout POST /api/v1/account/logout -> identity.revokeSession; client clears token + section guard
+  [PASS] re-authentication: expired/invalid session -> 401 -> client clears token, prompts sign-in
+  [PASS] recovery POST /api/v1/account/forgot-password {username,recoveryCode,newPassword} — NEW UI in Account gate (forgot-password-form)
+  [PASS] provision-founder POST /api/v1/workforce/provision-founder — FIXED: repeat call hung forever (bare Promise executor). Now: anonymous repeat -> 401, elevated-admin repeat -> 409 FOUNDER_ALREADY_PROVISIONED. First provision still open bootstrap (201).
+  [PASS] invite POST /api/v1/workforce/invite (FOUNDER/ADMIN/OPERATOR + PIN; legacy ADMIN L2) -> 12-char code (plaintext once, bcrypt hash stored, 1-90d window)
+  [PASS] accept POST /api/v1/account/accept-invitation {code,fullName,username,password,pin} — NEW UI in Account gate (accept-invitation-form)
+  [PASS] role/promote/demote/expiry/suspend/revoke/activate/reset-password/reset-pin — FIXED: any elevated ANALYST/VIEWER could mutate workforce. Now requireWorkforceAdmin on all mutations; legacy ADMIN L2 synthesizes person (same shape as loadAuthenticated) so existing admin flows unchanged.
+  [PASS] agents create/update + announcement write now admin-guarded; reads (workforce/agents/audit/announcements-admin) already were.
+Evidence: tests/product-surface-closure.test.js (7/7) + tests/identity/identity-routes.test.js (5/5) + workforce-manager (all pass).
+Known residual (by design, not repaired): promote/demote share changeRole(body.role) semantics; EXPIRED is virtual (stats.active counts raw ACTIVE); no invite cancel/resend or person delete; /pin has no brute-force lockout beyond login/forgot/accept rate limits.

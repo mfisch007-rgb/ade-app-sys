@@ -1,0 +1,32 @@
+04 NAVIGATION MATRIX
+
+SPA sections (SECTION_NAMES, hash-routed with pushState/replaceState/popstate): Home, Products, PROCARTA, Product Theater, Try ADE, Architecture, Community, Feedback, Account, Command Center.
+External surfaces: /admin (Admin Console), /founder, /market-lab, /lab, /ade-experience/ (Product Theater & Media Studio).
+Desktop: .topNav aria-label=Primary, active/ops classes. Mobile: .hamburger + nav.mobileMenu.open renders same visibleNav + EXTERNAL SURFACES links; Escape/go() closes.
+Matrix nav linkage per surface:
+  [PASS] ade-platform: nav="Products" route="#/Products" button="Explore Suites" action="go:Products"
+  [PASS] procarta: nav="PROCARTA" route="#/PROCARTA" button="Open PROCARTA" action="go:PROCARTA"
+  [PASS] awbuli: nav="Product Theater" route="#/Product Theater" button="Explore via Theater" action="go:Product Theater"
+  [PASS] oracle: nav="Command Center" route="#/Command Center" button="Open Command Center" action="go:Command Center"
+  [PASS] nexus: nav="Home" route="#/Community" button="Explore Integrations" action="go:Community"
+  [PASS] eventos: nav="Home" route="#/Community" button="Discover" action="go:Community"
+  [PASS] founders-circle: nav="Home" route="#/Community" button="Request Access" action="go:Community(PILOT_INTEREST)"
+  [PASS] market-circle: nav="Home" route="#/Community" button="Join" action="go:Community(PARTNER_INTEREST)"
+  [PASS] tides: nav="Home" route="#/Community" button="Contact ADE" action="go:Community"
+  [PASS] aibos: nav="Architecture" route="#/Architecture" button="Architecture" action="go:Architecture"
+  [PASS] biz-watch: nav="Products" route="#/Products" button="Learn more" action="go:Products"
+  [PASS] fraud-watch: nav="Products" route="#/Products" button="Learn more" action="go:Products"
+  [PASS] agriculture: nav="Products" route="#/Products" button="Explore Data" action="go:Products"
+  [PASS] gov-ngo: nav="Home" route="#/Community" button="Explore Ecosystem" action="go:Community"
+  [PASS] workforce: nav="Account -> Admin Console" route="/admin" button="Open Admin Console" action="href:/admin"
+  [PASS] account-security: nav="Account" route="#/Account" button="Sign In" action="go:Account"
+  [PASS] announcements: nav="Home" route="#/Home" button="Go to Community" action="go:Community"
+  [PASS] audit: nav="Account -> Admin Console" route="/admin" button="Open Admin Console" action="href:/admin"
+  [PASS] pilot: nav="Community" route="#/Community" button="Request a Pilot" action="go:Community(PILOT_INTEREST)"
+  [PASS] partner: nav="Community" route="#/Community" button="Partner with ADE" action="go:Community(PARTNER_INTEREST)"
+  [PASS] connections: nav="Products" route="#/Products" button="Sign in to view diagnostics" action="go:Account"
+  [PASS] storage: nav="Architecture" route="#/Architecture" button="View Architecture" action="go:Architecture"
+  [PASS] try-ade: nav="Try ADE" route="#/Try ADE" button="Run Demo" action="go:Try ADE"
+  [PASS] feedback: nav="Feedback" route="#/Feedback" button="Submit Feedback" action="go:Feedback"
+
+No visible navigation item without action: every entry carries a button with a go:/href: action (verified in test 1).

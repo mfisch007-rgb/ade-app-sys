@@ -1,0 +1,1335 @@
+
+(()=>{
+const {useEffect,useMemo,useState,useCallback,useRef}=React;
+const h=React.createElement;
+
+  const TABS=['OVERVIEW','INBOX','WORKFORCE','PILOTS','PARTNERS','INTEGRATIONS','AWBULI','TRADING','FOREX','BINARY','GAMING','LIVE ENGAGEMENT & TRADING PORTAL','FEATURE CONTROL','PRODUCT THEATER','ANNOUNCEMENTS','AUDIT','EXTERNAL SERVICES'];
+const PILOT_STAGES=['PROSPECT','QUALIFIED','ASSESSMENT','BASELINE','PILOT','HUMAN REVIEW','IMPLEMENTATION','RE-MEASUREMENT','EVIDENCE','SUCCESS'];
+const ROLES=['FOUNDER','ADMIN','OPERATOR','ANALYST','PARTNER','VIEWER'];
+const PARTNER_TYPES=['TECHNOLOGY','CONSULTING','CHANNEL','STRATEGIC','RESELLER','IMPLEMENTATION'];
+const SCREENING=['SUBMITTED','VALIDATED','REVIEW','APPROVED','INVITED','ACTIVE'];
+const CONN_TYPES=['REST','WEBHOOK','OAUTH2'];
+const AUTH_TYPES=['NONE','API_KEY','BEARER','BASIC','OAUTH2','HMAC'];
+const MEDIA_TYPES=['VIDEO','AUDIO','IMAGE','BANNER','PRESENTATION','DOCUMENT'];
+const MEDIA_CATS=['PROMOTIONAL','DEMO','TUTORIAL','CASE_STUDY','ANNOUNCEMENT'];
+const ANN_KINDS=['NEWS','BULLETIN','ANNOUNCEMENT','ADVERT'];
+
+const fmtTime=t=>{if(!t)return'';const d=new Date(t);if(isNaN(d))return String(t);return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0')+':'+String(d.getSeconds()).padStart(2,'0')};
+const fmtDate=t=>{if(!t)return'—';const d=new Date(t);if(isNaN(d))return'—';return d.toLocaleDateString(undefined,{year:'numeric',month:'short',day:'numeric'})};
+const fmtUptime=u=>{if(u==null||isNaN(u))return'—';if(u<60)return Math.round(u)+'s';if(u<3600){const m=Math.floor(u/60);return m+'m '+(Math.round(u%60))+'s'}const hh=Math.floor(u/3600);const mm=Math.round((u%3600)/60);return hh+'h'+(mm?' '+mm+'m':'')};
+
+const shareWhatsApp=text=>window.open('https://wa.me/?text='+encodeURIComponent(text),'_blank');
+const shareTelegram=(url,text)=>window.open('https://t.me/share/url?url='+encodeURIComponent(url)+'&text='+encodeURIComponent(text),'_blank');
+const shareLinkedIn=url=>window.open('https://www.linkedin.com/sharing/share-offsite/?url='+encodeURIComponent(url),'_blank');
+const shareFacebook=url=>window.open('https://www.facebook.com/sharer/sharer.php?u='+encodeURIComponent(url),'_blank');
+const shareNative=(title,text,url)=>{if(navigator.share)return navigator.share({title,text,url}).catch(()=>{});};
+const copyText=text=>navigator.clipboard.writeText(text).then(()=>true).catch(()=>false);
+const decodeB64u=s=>{s=String(s||'').replace(/-/g,'+').replace(/_/g,'/');while(s.length%4)s+='=';return decodeURIComponent(Array.prototype.map.call(window.atob(s),c=>'%'+('00'+c.charCodeAt(0).toString(16)).slice(-2)).join(''))};
+const decodeClaims=t=>{try{const p=String(t||'').split('.');if(p.length!==3)return null;return JSON.parse(decodeB64u(p[1]))}catch{return null}};
+// JWT verification is server-side only; client decode is display-only — spoofed tokens will be rejected by API 401/403 and visibleTabs will revert to minimal
+const ALLOWED_GAMES=['AVIATOR','CRASH','VIRTUAL_FOOTBALL','VIRTUAL_SPORT','SPRIBE','POCKET_OPTION','QUOTEX','IQ_OPTION','EXPERT_OPTION','SPORTBET','BETWAY','BETNAIJA','BETKING'];
+const sanitizeVenue=v=>String(v||'').trim().toUpperCase();
+const isAllowedVenue=v=>ALLOWED_GAMES.includes(sanitizeVenue(v));
+const escapeHtml=s=>String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+const truncateHtml=s=>{const e=escapeHtml(s);return e.length>500?e.slice(0,500)+'…':e};
+const ShieldSvg=(size=36)=>h('svg',{className:'emptyShield',width:size,height:size,viewBox:'0 0 24 24',fill:'none',stroke:'var(--gold)',strokeWidth:'1.7',strokeLinejoin:'round',role:'img','aria-hidden':'true'},h('path',{d:'M12 2.8 L18.6 6.2 V11.6 C18.6 15.3 16.4 18.9 12 20.8 C7.6 18.9 5.4 15.3 5.4 11.6 V6.2 Z'}),h('path',{d:'M8.8 12.1 L11 14.3 L15.6 9.4',strokeLinecap:'round',strokeLinejoin:'round'}));
+const EmptyState=(opts)=>{const title=opts.title||'Nothing here yet';const desc=opts.desc||'';const actionLabel=opts.actionLabel;const actionFn=opts.actionFn;const hint=opts.hint;return h('div',{className:'emptyState'}, ShieldSvg(opts.iconSize||36), h('div',{className:'esTitle'},title), desc?h('div',{className:'esDesc'},desc):null, hint?h('div',{style:{fontSize:'11px',color:'var(--faint)',marginTop:'4px'}},hint):null, actionLabel?h('div',{className:'esAction'},h('button',{className:'btn sm primary',onClick:actionFn||(()=>{})},actionLabel)):null);};
+const heroShieldBg='url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' viewBox=\'0 0 100 100\' opacity=\'0.06\'%3E%3Cpath d=\'M50 8 L78 20 V48 C78 64 68 80 50 88 C32 80 22 64 22 48 V20 Z\' fill=\'none\' stroke=\'%23d4a843\' stroke-width=\'2\'/%3E%3C/svg%3E")';
+
+ function App(){
+  const [token,_setToken]=useState(()=>{try{return sessionStorage.getItem('ade_founder_token')||localStorage.getItem('ade_founder_token')||sessionStorage.getItem('ade_token')||localStorage.getItem('ade_token')||null}catch{return null}});
+  // Founder elevation is mirrored to the shared ade_token key so the Account
+  // & Security surface (which reads ade_token) always reflects the live
+  // server-issued session instead of a stale BASE snapshot.
+  // Live mirror of the current token. api() closures capture the token that
+  // was current when the request STARTED; the mirror tells whether a later
+  // 401/403 belongs to a stale (e.g. revoked-base) token or the live session.
+  // Only a failure on the LIVE token may end the session — this is what keeps
+  // a fresh elevated Founder token alive when a stale in-flight base-token
+  // request fails right after PIN step-up (base token is revoked on elevate).
+  const tokenRef=useRef(null);
+  useEffect(()=>{tokenRef.current=token},[token]);
+  const setToken=(v)=>{tokenRef.current=v;_setToken(v);try{if(v){sessionStorage.setItem('ade_founder_token',v);localStorage.setItem('ade_founder_token',v);sessionStorage.setItem('ade_token',v);localStorage.setItem('ade_token',v);}else{sessionStorage.removeItem('ade_founder_token');localStorage.removeItem('ade_founder_token');sessionStorage.removeItem('ade_token');localStorage.removeItem('ade_token');}}catch{}};
+  const [identity,setIdentity]=useState(()=>{try{const a=sessionStorage.getItem('ade_founder_identity');const b=localStorage.getItem('ade_founder_identity');const s=a||b;return s?JSON.parse(s):null}catch{return null}});
+   const [sessionMeta,setSessionMeta]=useState(()=>{try{const a=sessionStorage.getItem('ade_founder_session_meta');const b=localStorage.getItem('ade_founder_session_meta');const s=a||b;return s?JSON.parse(s):null}catch{return null}});
+   // Server-truth auth: serverAuth is set ONLY from GET /api/v1/account/session.
+   // authPhase: 'login' (no token) | 'checking' (validating) | 'failed' (unreachable) | 'pin' (base session, PIN required) | 'active' (validated).
+   const [serverAuth,setServerAuth]=useState(null);
+   const [authPhase,setAuthPhase]=useState(()=>{try{return (sessionStorage.getItem('ade_founder_token')||localStorage.getItem('ade_founder_token')||sessionStorage.getItem('ade_token')||localStorage.getItem('ade_token'))?'checking':'login'}catch{return 'login'}});
+   const [validateSeq,setValidateSeq]=useState(0);
+   const [loginUser,setLoginUser]=useState('');
+   const [loginPass,setLoginPass]=useState('');
+   const [adminPinMode,setAdminPinMode]=useState(false);
+   // Self-service PIN set: password-authenticated, same contract as Account.
+   const [showSetPin,setShowSetPin]=useState(false);
+   const [setPw,setSetPw]=useState('');
+   const [setPin1,setSetPin1]=useState('');
+   const [setPin2,setSetPin2]=useState('');
+   const [setPinMsg,setSetPinMsg]=useState(null);
+   const [setPinBusy,setSetPinBusy]=useState(false);
+  const [liveEvents,setLiveEvents]=useState([]);
+  const [streamState,setStreamState]=useState('DISCONNECTED');
+  const _tabInit=(()=>{try{const pk=String(window.location.pathname||'').toLowerCase().replace(/\/+$/,'')||'/';const pathTab=pk.indexOf('/founder/markets/binary')===0?'BINARY':pk.indexOf('/founder/markets/forex')===0?'FOREX':pk.indexOf('/founder/markets/gaming')===0?'GAMING':(pk.indexOf('/founder/markets')===0||pk.indexOf('/founder/trading')===0)?'TRADING':null;if(pathTab&&TABS.includes(pathTab))return pathTab;const h=String(window.location.hash||'').replace(/^#\/?/,'');const d=decodeURIComponent(h);if(TABS.includes(d))return d;const s=sessionStorage.getItem('ade_founder_tab')||localStorage.getItem('ade_founder_tab');if(s&&TABS.includes(s))return s;}catch{}return 'OVERVIEW'})();
+  const [tab,_setTab]=useState(_tabInit);
+  const setTab=(v)=>{_setTab(v);try{sessionStorage.setItem('ade_founder_tab',v);localStorage.setItem('ade_founder_tab',v);history.pushState({adeTab:v},'',v==='OVERVIEW'?'#/OVERVIEW':'#/'+encodeURIComponent(v));}catch{}};
+  useEffect(()=>{const onPop=()=>{try{const h=String(window.location.hash||'').replace(/^#\/?/,'');const d=decodeURIComponent(h);if(TABS.includes(d))_setTab(d);}catch{}};window.addEventListener('popstate',onPop);try{if(!window.location.hash) history.replaceState({adeTab:_tabInit},'', '#/'+encodeURIComponent(_tabInit));}catch{}return()=>window.removeEventListener('popstate',onPop)},[]);
+ const [toast,setToast]=useState('');
+ const [menuOpen,setMenuOpen]=useState(false);
+
+ const [health,setHealth]=useState(null);
+ const [runtime,setRuntime]=useState(null);
+ const [metrics,setMetrics]=useState(null);
+ const [overview,setOverview]=useState(null);
+ const [edition,setEdition]=useState(null);
+ const [caps,setCaps]=useState([]);
+
+  const [workforce,setWorkforce]=useState(null);
+  const [inviteForm,setInviteForm]=useState({fullName:'',email:'',username:'',role:'OPERATOR',organization:'',supervisor:'',permissionProfile:'',expiryDays:'30',message:''});
+  const [inviteResult,setInviteResult]=useState(null);
+  const [inviteBusy,setInviteBusy]=useState(false);
+  const [partnerBusy,setPartnerBusy]=useState(false);
+  const [connBusy,setConnBusy]=useState(false);
+  const [pilotBusy,setPilotBusy]=useState(false);
+  const [agents,setAgents]=useState([]);
+   const [agentForm,setAgentForm]=useState({name:'',description:''});
+   const [loginBusy,setLoginBusy]=useState(false);
+   const [showPw,setShowPw]=useState({});
+  // SVG eye-icon Show/Hide toggle shared by every password/PIN input.
+  const eyeIcon=(open)=>h('svg',{width:18,height:18,viewBox:'0 0 24 24',fill:'none',stroke:'currentColor',strokeWidth:2,strokeLinecap:'round',strokeLinejoin:'round','aria-hidden':'true'},
+    h('path',{d:'M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z'}),
+    h('circle',{cx:12,cy:12,r:3}),
+    open?null:h('line',{x1:1,y1:1,x2:23,y2:23}));
+  const eyeToggle=(key)=>h('button',{className:'showToggle eyeToggle',type:'button','aria-label':showPw[key]?'Hide':'Show','aria-pressed':showPw[key]?'true':'false',title:showPw[key]?'Hide':'Show',onClick:()=>setShowPw(s=>({...s,[key]:!s[key]}))},eyeIcon(Boolean(showPw[key])));
+   const [loginMsg,setLoginMsg]=useState(null);
+
+  const [pilotCandidates,setPilotCandidates]=useState([]);
+  const [pilotRegistry,setPilotRegistry]=useState([]);
+  const [pilotStats,setPilotStats]=useState(null);
+  const [aiProviders,setAiProviders]=useState(null);
+  const [uptimeStatus,setUptimeStatus]=useState(null);
+  const [extBusy,setExtBusy]=useState(false);
+
+ const [partners,setPartners]=useState([]);
+ const [partnerForm,setPartnerForm]=useState({orgName:'',website:'',country:'',contactPerson:'',email:'',partnerType:'TECHNOLOGY',capabilities:'',industries:'',countriesServed:''});
+
+ const [connections,setConnections]=useState([]);
+ const [connForm,setConnForm]=useState({name:'',provider:'',type:'REST',baseUrl:'',authType:'NONE',credentials:{}});
+ const [connTest,setConnTest]=useState(null);
+
+ const [features,setFeatures]=useState([]);
+ const [settings,setSettings]=useState(null);
+
+ const [providers,setProviders]=useState([]);
+ const [mediaRequests,setMediaRequests]=useState([]);
+ const [mediaForm,setMediaForm]=useState({type:'VIDEO',title:'',description:'',product:'',language:'en',category:'PROMOTIONAL',truthClassification:'SIMULATED',audience:'PUBLIC'});
+
+ const [announcements,setAnnouncements]=useState([]);
+ const [annForm,setAnnForm]=useState({title:'',body:'',kind:'ANNOUNCEMENT',link:''});
+
+ const [auditEntries,setAuditEntries]=useState([]);
+ const [auditFilter,setAuditFilter]=useState('');
+ const [auditLimit,setAuditLimit]=useState(100);
+  const [diagnostics,setDiagnostics]=useState(null);
+  const [productSurface,setProductSurface]=useState(null);
+ const [attention,setAttention]=useState(null);
+ const [tradeStatus,setTradeStatus]=useState(null);
+  const [tradeForm,setTradeForm]=useState({kind:'FOREX',instrument:'EURUSD',marketType:'REGULAR',timeframe:'M5',candles:'',executionStyle:'MANUAL',backtestCandles:'',game:'AVIATOR'});
+  const [tradeResult,setTradeResult]=useState(null);
+  const [tradeLedger,setTradeLedger]=useState([]);
+  const [tradeBacktest,setTradeBacktest]=useState(null);
+  const [tradeGaming,setTradeGaming]=useState(null);
+
+ const notify=m=>{setToast(m);setTimeout(()=>setToast(''),3000)};
+  const adeGetCookie=(n)=>{try{const m=String(document.cookie||'').match(new RegExp('(?:^|;\\s*)'+n+'=([^;]*)'));return m?decodeURIComponent(m[1]):null;}catch{return null;}};
+  const adeHasSessionCookies=()=>{try{return Boolean(adeGetCookie('ade_token'))&&Boolean(adeGetCookie('ade_elevated'));}catch{return false;}};
+  const adeVerifySessionCookies=()=>{try{if(token&&!adeHasSessionCookies()){/* elevated token in memory but cookies missing after page switch — re-validate instead of logout redirect */try{setValidateSeq(s=>s+1);}catch{}}return true;}catch{return false;}};
+
+  const clearSession=()=>{
+   setToken(null);setIdentity(null);setSessionMeta(null);setServerAuth(null);setAuthPhase('login');setAdminPinMode(false);
+   setWorkforce(null);setAgents([]);
+   try{sessionStorage.removeItem('ade_founder_token');localStorage.removeItem('ade_founder_token');sessionStorage.removeItem('ade_token');localStorage.removeItem('ade_token');sessionStorage.removeItem('ade_founder_identity');localStorage.removeItem('ade_founder_identity');sessionStorage.removeItem('ade_founder_session_meta');localStorage.removeItem('ade_founder_session_meta');sessionStorage.removeItem('ade_founder_tab');localStorage.removeItem('ade_founder_tab');}catch{}
+   // Purge SameSite session cookies (single authority) + revoke server-side.
+   try{for(const n of ['ade_token','ade_elevated']){document.cookie=n+'=; Path=/; Max-Age=0; SameSite=Lax';}}catch{}
+   try{const t=tokenRef.current;if(t)fetch('/api/v1/account/logout',{method:'POST',headers:{Authorization:'Bearer '+t}}).catch(()=>{});}catch{}
+  };
+
+  const api=useCallback(async(url,opt={})=>{
+   const headers={"Content-Type":"application/json",...(opt.headers||{})};
+   const usedToken=token;
+   if(usedToken)headers.Authorization="Bearer "+usedToken;
+   const r=await fetch(url,{...opt,headers});
+   // Session death (401 unauthenticated, or 403 with a token-death code)
+   // discards the stored session — but ONLY when the failing request carried
+   // the LIVE token. A stale in-flight request (e.g. a revoked base token
+   // racing PIN elevation) must never wipe the fresh elevated session.
+   // Plain 403 authorization denials
+   // (ELEVATED_PIN_REQUIRED, INSUFFICIENT_AUTHORIZATION, …) prove the token
+   // is VALID but unprivileged — wiping it here destroyed live base and
+   // elevated sessions, so they surface as thrown errors instead.
+   const TOKEN_DEATH=/ACCOUNT_NOT_ACTIVE|ACCESS_EXPIRED|expir|revok|rotation|invalid session|signature|issuer|audience|malformed|credential/i;
+   if(r.status===401&&url!=='/api/v1/auth/pin'){
+    if(usedToken!==tokenRef.current)return null;
+    clearSession();
+    notify('Session expired — re-authentication required');
+    return null;
+   }
+   const d=await r.json().catch(()=>({}));
+   if(!r.ok){
+    const code=typeof d.error==='string'?d.error:(d.error?.code||'');
+    const msg=d.message||(typeof d.error==='object'?d.error?.message:'')||'';
+    const text=msg?(code?code+': '+msg:msg):(code||'Request failed');
+    if(r.status===403&&TOKEN_DEATH.test(text)){if(usedToken!==tokenRef.current)return null;clearSession();notify('Session ended — re-authentication required');return null}
+    throw new Error(text);
+   }
+   return d;
+  },[token]);
+
+  // Boot validation: a stored token proves NOTHING until the server resolves it.
+  // States: checking → active (server person+claims) | login (invalid) | failed (unreachable, token kept for retry).
+  const validateSession=async(tok)=>{
+   const res=await fetch('/api/v1/account/session',{headers:{Authorization:'Bearer '+tok}});
+   const d=await res.json().catch(()=>({}));
+   if(!res.ok){const err=new Error((d&&(d.message||d.error))||('Request failed '+res.status));err.status=res.status;err.code=String((d&&d.error)||'');throw err}
+   return d;
+  };
+  useEffect(()=>{
+   if(!token){setServerAuth(null);setAuthPhase('login');return}
+   let cancelled=false;
+   setAuthPhase('checking');
+   (async()=>{
+    try{
+     const d=await validateSession(token);
+     if(cancelled)return;
+     const person=d.person||null;
+     const claims=d.claims||{};
+     setServerAuth({person,claims});
+     const role=String((person&&person.role)||claims.role||'').toUpperCase();
+     const subj=(person&&person.username)||claims.sub||(decodeClaims(token)||{}).sub||'unknown';
+     setIdentity({subject:subj,role:role||'—',level:(person&&person.level)!=null?person.level:claims.level,tier:claims.tier||'COMMUNITY',persona:String(claims.persona||'').toUpperCase()||'WORKFORCE',edition:claims.edition||'COMMUNITY',pinVerified:claims.pinVerified===true});
+     try{sessionStorage.setItem('ade_founder_identity',JSON.stringify({subject:subj,role}));localStorage.setItem('ade_founder_identity',JSON.stringify({subject:subj,role}));}catch{}
+     setAuthPhase('active');
+    }catch(e){
+     if(cancelled)return;
+     // Authoritative negative: token is valid but no workforce record exists.
+     // Keep the token, surface the genuine state — never a generic error.
+     if(e.code==='PERSON_NOT_FOUND'){
+      setServerAuth({person:null,claims:{}});
+      const cl=decodeClaims(token)||{};
+      setIdentity({subject:cl.sub||'unknown',role:'—',level:cl.level,tier:cl.tier||'COMMUNITY',persona:String(cl.persona||'').toUpperCase()||'WORKFORCE',edition:cl.edition||'COMMUNITY',pinVerified:false});
+      setAuthPhase('active');
+      return;
+     }
+     const authGone=(e.status===401||e.status===403)||/expir|revok|rotation|invalid|missing|unauthor/i.test(String(e.message||''));
+     if(authGone){clearSession();setLoginMsg({type:'err',text:'Session invalid or expired — please sign in again.'});}
+     else{setAuthPhase('failed');setLoginMsg({type:'err',text:'Service unreachable — the server did not answer. Your sign-in is preserved; retry when online.'});}
+    }
+   })();
+   return()=>{cancelled=true};
+  },[token,validateSeq]);
+
+  useEffect(()=>{
+   if(!token)return;
+   if(!sessionMeta&&decodeClaims(token)?.exp)setSessionMeta({expiresAt:Number(decodeClaims(token).exp)*1000,expiresIn:null});
+   const iv=setInterval(()=>{
+    if(sessionMeta?.expiresAt&&Date.now()>=Number(sessionMeta.expiresAt)){clearSession();notify('Session expired — re-authentication required')}
+   },10000);
+   return()=>clearInterval(iv);
+  },[token,sessionMeta]);
+
+ useEffect(()=>{
+  if(!token)return;
+  const es=new EventSource('/api/v1/events/stream');
+  es.onopen=()=>{setStreamState('CONNECTED');try{refreshAll()}catch{}};
+  es.onerror=()=>setStreamState('RECONNECTING');
+  es.onmessage=(m)=>{let ev;try{ev=JSON.parse(m.data)}catch{return}
+   setLiveEvents(prev=>[{topic:ev.topic||ev.type||'EVENT',eventId:ev.eventId,payload:ev.payload,at:ev.meta?.timestamp||ev.timestamp||new Date().toISOString()},...prev].slice(0,20));
+  };
+  return()=>{es.close();setStreamState('DISCONNECTED')};
+ },[token]);
+
+  try{adeVerifySessionCookies&&adeVerifySessionCookies();}catch{};const refreshAll=useCallback(async()=>{
+   if(!token)return;
+   const j=async(u)=>{try{return await api(u)}catch(e){return null}};
+   const [a,b,c,d,e,f,g,ov,m,diag,att,ai,up,ps]=await Promise.all([
+    j('/api/v1/health'),j('/api/v1/runtime'),j('/api/v1/metrics'),
+    j('/api/v1/edition'),j('/api/v1/media/providers'),j('/api/v1/media/requests'),
+    j('/api/v1/capabilities'),j('/api/v1/admin/overview'),j('/api/v1/announcements/admin'),
+     j('/api/v1/system/diagnostics'), j('/api/v1/attention'),
+     j('/api/v1/ai/providers'), j('/api/v1/integrations/uptimerobot/status'),
+     j('/api/v1/product-surface')
+    ]);
+   if(a)setHealth(a);if(b)setRuntime(b);if(c)setMetrics(c);if(d)setEdition(d);
+   if(e)setProviders(e?.providers||[]);if(f)setMediaRequests(f?.requests||[]);
+   if(g)setCaps(g?.capabilities||[]);if(ov)setOverview(ov);
+   if(m)setAnnouncements(m?.announcements||[]);
+   if(diag)setDiagnostics(diag);
+   if(att&&att.attention)setAttention(att.attention);
+   if(ai)setAiProviders(ai);if(up)setUptimeStatus(up);if(ps)setProductSurface(ps);
+  },[token,api]);
+
+ useEffect(()=>{refreshAll();const p=setInterval(refreshAll,20000);return()=>clearInterval(p)},[refreshAll]);
+
+ useEffect(()=>{if(!token)return;
+  const loadTab=async()=>{
+   if(tab==='INBOX'){
+    const r=await api('/api/v1/attention');if(r)setAttention(r.attention||null);
+   }else if(tab==='WORKFORCE'){
+    const r=await api('/api/v1/workforce');if(r){setWorkforce(r);setAgents(r.agents||[])}
+   }else if(tab==='PILOTS'){
+    const [cand,reg]=await Promise.all([api('/api/v1/procarta/pilot-candidates'),api('/api/v1/procarta/pilot/registry')]);
+    if(cand)setPilotCandidates(cand.candidates||[]);if(reg){setPilotRegistry(reg.records||[]);setPilotStats(reg.stats||null)}
+   }else if(tab==='PARTNERS'){
+    const r=await api('/api/v1/admin/partners');if(r)setPartners(r.partners||[]);
+   }else if(tab==='INTEGRATIONS'){
+    const r=await api('/api/v1/admin/connections');if(r)setConnections(r.connections||[]);
+   }else if(tab==='TRADING'){
+    const [st,lg]=await Promise.all([api('/api/v1/trading/status'),api('/api/v1/trading/ledger')]);
+    if(st)setTradeStatus(st.trading||null);if(lg)setTradeLedger(lg.positions||[]);
+   }else if(tab==='FEATURE CONTROL'){
+    const r=await api('/api/v1/features');if(r)setFeatures(r.features||[]);
+   }else if(tab==='AUDIT'){
+    const u=auditLimit?'?limit='+auditLimit:'';const r=await api('/api/v1/audit'+u);if(r)setAuditEntries(r.entries||[]);
+   }
+  };
+  loadTab();
+ },[tab,token,api,auditLimit]);
+
+   // Step 1 — workforce identity: username+password → base (non-elevated) session.
+   const workforceLogin=async()=>{
+    if(loginBusy)return;
+    if(!String(loginUser||'').trim()||!loginPass){setLoginMsg({type:'err',text:'Enter workforce username and password.'});return}
+    setLoginMsg(null);setLoginBusy(true);
+    try{
+     const r=await fetch('/api/v1/account/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:String(loginUser).trim(),password:loginPass})});
+     const d=await r.json().catch(()=>({}));
+     if(!r.ok)throw new Error((d&&(d.message||d.error))||'Invalid credentials');
+     setToken(d.token);
+     try{setValidateSeq(s=>s+1)}catch{}
+     if(d.expiresAt){const meta={expiresAt:d.expiresAt,expiresIn:d.expiresIn||null};setSessionMeta(meta);try{sessionStorage.setItem('ade_founder_session_meta',JSON.stringify(meta));localStorage.setItem('ade_founder_session_meta',JSON.stringify(meta));}catch{}}
+     setLoginPass('');
+     setLoginBusy(false);setLoginMsg({type:'ok',text:'✓ Identity verified — enter the six-digit authorization PIN to elevate.'});
+     notify('Identity verified — PIN required');
+    }catch(e){setLoginBusy(false);setLoginMsg({type:'err',text:'✕ '+(e.message||'Invalid credentials')});notify(e.message)}
+   };
+   // Step 2 — per-user step-up: the SIX-DIGIT PIN belonging to the signed-in
+   // workforce identity (checked against that person's record, never the
+   // generic admin hash). Revokes the base token, issues pinVerified session.
+   const founderPin=async(pin)=>{
+    if(loginBusy||!token)return;
+    setLoginMsg(null);setLoginBusy(true);
+    try{
+     const r=await fetch('/api/v1/account/pin',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+token},body:JSON.stringify({pin})});
+     const d=await r.json().catch(()=>({}));
+     if(!r.ok)throw new Error((d&&(d.message||d.error))||'Invalid PIN');
+     setToken(d.token);
+     // Atomic claims sync: persist elevated claims immediately so role gates
+     // never render stale BASE state; the server revalidation below confirms.
+     try{if(d.person||d.claims||d.identity){setServerAuth(prev=>({person:(d.person||(prev&&prev.person)||null),claims:{...((prev&&prev.claims)||{}),...(d.claims||{}),pinVerified:true}}));setIdentity(prev=>({...((prev)||{}),role:((d.person&&d.person.role)||(prev&&prev.role)||'—'),pinVerified:true}))}}catch{}
+     try{setValidateSeq(s=>s+1)}catch{}
+     if(d.expiresAt){const meta={expiresAt:d.expiresAt,expiresIn:d.expiresIn||null};setSessionMeta(meta);try{sessionStorage.setItem('ade_founder_session_meta',JSON.stringify(meta));localStorage.setItem('ade_founder_session_meta',JSON.stringify(meta));}catch{}}
+     setLoginBusy(false);setLoginMsg({type:'ok',text:'✓ SESSION ELEVATED — PIN verified'});
+     notify('SESSION ELEVATED');
+    }catch(e){setLoginBusy(false);setLoginMsg({type:'err',text:'✕ '+(e.message||'Invalid PIN')});notify(e.message)}
+   };
+   // Self-service: set (or refresh) your own per-user PIN using your workforce
+   // password. Same server contract as Account → POST /api/v1/account/change-pin.
+   // Never touches the generic ADMIN PIN and never resets anyone else's PIN.
+   const selfSetPin=async()=>{
+    if(setPinBusy||!token)return;
+    setSetPinMsg(null);
+    if(!setPw){setSetPinMsg({type:'err',text:'Enter your current workforce password.'});return}
+    if(!/^\d{6}$/.test(setPin1)){setSetPinMsg({type:'err',text:'The new PIN must contain exactly 6 digits.'});return}
+    if(setPin1!==setPin2){setSetPinMsg({type:'err',text:'The two PIN entries do not match.'});return}
+    setSetPinBusy(true);
+    try{
+     const r=await fetch('/api/v1/account/change-pin',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+token},body:JSON.stringify({currentPassword:setPw,newPin:setPin1})});
+     const d=await r.json().catch(()=>({}));
+     if(!r.ok)throw new Error((d&&(d.message||d.error))||'PIN change failed');
+     setSetPw('');setSetPin1('');setSetPin2('');setShowSetPin(false);
+     setSetPinBusy(false);setLoginMsg({type:'ok',text:'✓ Your authorization PIN was set — enter it above to elevate.'});
+     notify('Authorization PIN set');
+    }catch(e){setSetPinBusy(false);setSetPinMsg({type:'err',text:'✕ '+(e.message||'PIN change failed')});notify(e.message)}
+   };
+   // Separate recovery path: the generic pre-generated ADMIN PIN. Yields an
+   // ADMINISTRATOR bootstrap session — explicitly NOT a Founder session.
+   const adminPinLogin=async(pin)=>{
+    if(loginBusy)return;
+    setLoginMsg(null);setLoginBusy(true);
+    try{
+     const r=await fetch('/api/v1/auth/pin',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({pin})});
+     const d=await r.json().catch(()=>({}));
+     if(!r.ok)throw new Error((d&&(d.message||d.error))||'Invalid PIN');
+     setToken(d.token);
+     if(d.identity){setIdentity(d.identity);try{sessionStorage.setItem('ade_founder_identity',JSON.stringify(d.identity));localStorage.setItem('ade_founder_identity',JSON.stringify(d.identity));}catch{}}
+     if(d.expiresAt){const meta={expiresAt:d.expiresAt,expiresIn:d.expiresIn||null};setSessionMeta(meta);try{sessionStorage.setItem('ade_founder_session_meta',JSON.stringify(meta));localStorage.setItem('ade_founder_session_meta',JSON.stringify(meta));}catch{}}
+     setLoginBusy(false);setLoginMsg({type:'ok',text:'✓ ADMINISTRATOR SESSION AUTHENTICATED (recovery PIN — not Founder step-up)'});
+     notify('ADMINISTRATOR SESSION AUTHENTICATED');
+    }catch(e){setLoginBusy(false);setLoginMsg({type:'err',text:'✕ '+e.message});notify(e.message)}
+   };
+
+ const logout=async()=>{
+  try{if(token)await api('/api/v1/auth/revoke',{method:'POST'})}catch{}
+  clearSession();
+  notify('Session ended');
+ };
+
+  const doInvite=async()=>{
+   if(inviteBusy) return;
+   setInviteBusy(true);
+   try{
+    const body={
+     fullName:inviteForm.fullName,
+     role:inviteForm.role,
+     expiresInDays:Math.max(1,Math.min(90,Number(inviteForm.expiryDays)||30)),
+     username:inviteForm.username,
+     email:inviteForm.email,
+     organization:inviteForm.organization,
+     supervisor:inviteForm.supervisor,
+     permissionProfile:inviteForm.permissionProfile,
+     message:inviteForm.message
+    };
+    const r=await api('/api/v1/workforce/invite',{method:'POST',body:JSON.stringify(body)});
+    if(r){setInviteResult(r);notify('Invitation created')}
+   }catch(e){notify(e.message)}finally{setInviteBusy(false)}
+  };
+ const doPromote=async(id,role)=>{try{await api('/api/v1/workforce/'+id+'/promote',{method:'POST',body:JSON.stringify({role})});notify('Promoted');const r=await api('/api/v1/workforce');if(r)setWorkforce(r)}catch(e){notify(e.message)}};
+ const doDemote=async(id,role)=>{try{await api('/api/v1/workforce/'+id+'/demote',{method:'POST',body:JSON.stringify({role})});notify('Demoted');const r=await api('/api/v1/workforce');if(r)setWorkforce(r)}catch(e){notify(e.message)}};
+ const doSuspend=async(id)=>{try{await api('/api/v1/workforce/'+id+'/suspend',{method:'POST'});notify('Suspended');const r=await api('/api/v1/workforce');if(r)setWorkforce(r)}catch(e){notify(e.message)}};
+ const doActivate=async(id)=>{try{await api('/api/v1/workforce/'+id+'/activate',{method:'POST'});notify('Activated');const r=await api('/api/v1/workforce');if(r)setWorkforce(r)}catch(e){notify(e.message)}};
+ const doResetPw=async(id)=>{const np=prompt('New password (8+ chars):');if(!np)return;if(np.length<8){notify('Password must contain at least 8 characters.');return}try{await api('/api/v1/workforce/'+id+'/reset-password',{method:'POST',body:JSON.stringify({newPassword:np})});notify('Password reset')}catch(e){notify(e.message)}};
+ const doResetPin=async(id)=>{const np=prompt('New 6-digit PIN:');if(!np)return;if(!/^\d{6}$/.test(np)){notify('Authorization PIN must contain exactly 6 digits.');return}try{await api('/api/v1/workforce/'+id+'/reset-pin',{method:'POST',body:JSON.stringify({newPin:np})});notify('PIN reset')}catch(e){notify(e.message)}};
+ const doCreateAgent=async()=>{try{if(!agentForm.name||agentForm.name.trim().length<2)throw new Error('AGENT_NAME_REQUIRED — name must be at least 2 characters');const r=await api('/api/v1/workforce/agents',{method:'POST',body:JSON.stringify({name:agentForm.name,purpose:agentForm.description})});if(r){notify('Agent created');setAgentForm({name:'',description:''});const w=await api('/api/v1/workforce');if(w){setWorkforce(w);setAgents(w.agents||[])}}}catch(e){notify(e.message)}};
+ const doToggleAgentStatus=async(id,currentStatus)=>{try{const next=currentStatus==='ACTIVE'?'SUSPENDED':'ACTIVE';await api('/api/v1/workforce/agents/'+id,{method:'PATCH',body:JSON.stringify({status:next})});notify(next==='ACTIVE'?'Agent activated':'Agent suspended');const w=await api('/api/v1/workforce');if(w){setWorkforce(w);setAgents(w.agents||[])}}catch(e){notify(e.message)}};
+ const doAnalyzeTrade=async()=>{try{
+  let candles;try{candles=JSON.parse(tradeForm.candles||'[]')}catch{throw new Error('CANDLES_INVALID: paste a JSON array of {t,o,h,l,c} candles (min 20).')}
+  const body={kind:tradeForm.kind,instrument:tradeForm.instrument,marketType:tradeForm.marketType,timeframe:tradeForm.timeframe,candles,pair:tradeForm.instrument};
+  const r=await api('/api/v1/trading/analyze',{method:'POST',body:JSON.stringify(body)});
+  if(r){setTradeResult(r.analysis||null);notify('Analysis complete: '+((r.analysis&&r.analysis.state)||'—'))}
+ }catch(e){notify(e.message)}};
+  const doPaperExecute=async()=>{try{
+   if(!tradeResult||!String(tradeResult.state||'').startsWith('CONFIRMED'))throw new Error('SIGNAL_NOT_CONFIRMED: analyze first and execute only CONFIRMED signals.');
+   const r=await api('/api/v1/trading/paper',{method:'POST',body:JSON.stringify({signal:tradeResult,riskAmount:tradeResult.riskAmount||0,executionMode:'PAPER',executionStyle:tradeForm.executionStyle||'MANUAL'})});
+   if(r){notify('Paper position opened ('+(tradeForm.executionStyle||'MANUAL')+'): '+((r.position&&r.position.id)||''));const lg=await api('/api/v1/trading/ledger');if(lg)setTradeLedger(lg.positions||[])}
+  }catch(e){notify(e.message)}};
+  const doBacktest=async()=>{try{
+   let candles;try{candles=JSON.parse(tradeForm.backtestCandles||tradeForm.candles||'[]')}catch{throw new Error('CANDLES_INVALID: paste a JSON array of {t,o,h,l,c} candles (min 40) for backtest.')}
+   const r=await api('/api/v1/trading/backtest',{method:'POST',body:JSON.stringify({instrument:tradeForm.instrument,candles})});
+   if(r){setTradeBacktest(r.backtest||null);notify('Backtest complete: '+((r.backtest&&r.backtest.confirmed)||0)+' confirmed')}
+  }catch(e){notify(e.message)}};
+   const doGamingCheck=async()=>{try{
+    const venue=sanitizeVenue(tradeForm.game);
+    if(!isAllowedVenue(venue)){
+      setTradeGaming({support:'NOT_SUPPORTED',reason:'Venue '+escapeHtml(venue||'UNKNOWN')+' is not supported — no prediction. Allowed: '+ALLOWED_GAMES.join(', ')});
+      notify('Gaming market: NOT_SUPPORTED — no prediction');
+      return;
+    }
+    const r=await api('/api/v1/trading/gaming',{method:'POST',body:JSON.stringify({game:venue})});
+    if(r){setTradeGaming(r.gaming||null);notify('Gaming market: NOT_SUPPORTED — no prediction')}
+   }catch(e){notify(e.message)}};
+ const doPaperClose=async(id)=>{try{const r=await api('/api/v1/trading/paper/'+id+'/close',{method:'POST',body:JSON.stringify({outcome:'MANUAL'})});if(r){notify('Paper position closed');const lg=await api('/api/v1/trading/ledger');if(lg)setTradeLedger(lg.positions||[])}}catch(e){notify(e.message)}};
+ const doEmergencyStop=async(on)=>{try{const r=await api('/api/v1/trading/emergency-stop',{method:'POST',body:JSON.stringify({on})});if(r){notify(on?'Emergency stop ENGAGED':'Emergency stop released');const st=await api('/api/v1/trading/status');if(st)setTradeStatus(st.trading||null)}}catch(e){notify(e.message)}};
+
+  const doApprovePilot=async(intakeId)=>{if(pilotBusy) return; setPilotBusy(true); try{await api('/api/v1/procarta/pilot/approve',{method:'POST',body:JSON.stringify({intakeId,reason:'Founder approval'})});notify('Pilot approved');const c=await api('/api/v1/procarta/pilot-candidates');if(c)setPilotCandidates(c.candidates||[]);const reg=await api('/api/v1/procarta/pilot/registry');if(reg){setPilotRegistry(reg.records||[]);setPilotStats(reg.stats||null)}}catch(e){notify(e.message)}finally{setPilotBusy(false)}};
+ const doVerdict=async(recordId,verdict)=>{try{await api('/api/v1/procarta/pilot/verdict',{method:'POST',body:JSON.stringify({recordId,verdict,reason:'Founder verdict'})});notify('Verdict recorded');const reg=await api('/api/v1/procarta/pilot/registry');if(reg){setPilotRegistry(reg.records||[]);setPilotStats(reg.stats||null)}}catch(e){notify(e.message)}};
+
+  const doCreatePartner=async()=>{if(partnerBusy) return; setPartnerBusy(true); try{
+    if(!partnerForm.orgName||partnerForm.orgName.trim().length<2) throw new Error('ORGANIZATION_REQUIRED — organization name must be at least 2 characters');
+    const splitCsv=v=>String(v||'').split(/[,\n]/).map(s=>s.trim()).filter(Boolean);
+    const r=await api('/api/v1/admin/partners',{method:'POST',body:JSON.stringify({
+    name:partnerForm.orgName.trim(),
+    status:'EVALUATION',
+    capabilities:splitCsv(partnerForm.capabilities),
+    contact:{
+     person:partnerForm.contactPerson,
+     email:partnerForm.email,
+     website:partnerForm.website,
+     country:partnerForm.country,
+     organization:partnerForm.orgName,
+     partnerType:partnerForm.partnerType,
+     industries:splitCsv(partnerForm.industries),
+     countriesServed:splitCsv(partnerForm.countriesServed)
+    },
+    priority:'STANDARD'
+    })});if(r){notify('Partner created');setPartnerForm({orgName:'',website:'',country:'',contactPerson:'',email:'',partnerType:'TECHNOLOGY',capabilities:'',industries:'',countriesServed:''});const p=await api('/api/v1/admin/partners');if(p)setPartners(p.partners||[])}}catch(e){notify(e.message)}finally{setPartnerBusy(false)}};
+
+  const doCreateConn=async()=>{if(connBusy) return; setConnBusy(true); try{const r=await api('/api/v1/admin/connections',{method:'POST',body:JSON.stringify({...connForm,provider:connForm.provider||connForm.name||''})});if(r){notify('Connection created');setConnForm({name:'',provider:'',type:'REST',baseUrl:'',authType:'NONE',credentials:{}});const c=await api('/api/v1/admin/connections');if(c)setConnections(c.connections||[])}}catch(e){notify(e.message)}finally{setConnBusy(false)}};
+ const doTestConn=async(id)=>{try{setConnTest({id,testing:true});const r=await api('/api/v1/admin/connections/'+id+'/test',{method:'POST'});setConnTest({id,result:r});notify(r?.success?'Connection OK':'Test failed')}catch(e){setConnTest({id,result:{success:false,error:e.message}});notify(e.message)}};
+
+ const doToggleFeature=async(name,currentAvail)=>{
+  const capsCopy=[...features];
+  const idx=capsCopy.findIndex(c=>c.name===name||c.intent===name);
+  if(idx>=0){capsCopy[idx]={...capsCopy[idx],available:!currentAvail};setFeatures(capsCopy)}
+  try{
+   await api('/api/v1/features/'+encodeURIComponent(name),{method:'PATCH',body:JSON.stringify({available:!currentAvail})});
+   notify((!currentAvail?'Enabled':'Disabled')+' feature '+(name||''));
+  }catch(e){notify(e.message);if(idx>=0){const rc=[...features];if(idx<rc.length)rc[idx]={...rc[idx],available:currentAvail};setFeatures(rc)}}
+ };
+
+ const doCreateMediaReq=async()=>{try{const r=await api('/api/v1/media/request',{method:'POST',body:JSON.stringify({...mediaForm,campaignObjective:mediaForm.category,targetAudience:mediaForm.audience})});if(r){notify('Media request created');setMediaForm({type:'VIDEO',title:'',description:'',product:'',language:'en',category:'PROMOTIONAL',truthClassification:'SIMULATED',audience:'PUBLIC'});const m=await api('/api/v1/media/requests');if(m)setMediaRequests(m.requests||[])}}catch(e){notify(e.message)}};
+
+ const doCreateAnnouncement=async()=>{try{const r=await api('/api/v1/announcements',{method:'POST',body:JSON.stringify(annForm)});if(r){notify('Announcement published');setAnnForm({title:'',body:'',kind:'ANNOUNCEMENT',link:''});const a=await api('/api/v1/announcements/admin');if(a)setAnnouncements(a.announcements||[])}}catch(e){notify(e.message)}};
+
+    // Server-truth roles. serverAuth comes ONLY from GET /api/v1/account/session.
+    // A generic ADMIN (recovery-PIN) session NEVER satisfies isFounder.
+    const srvRole=String((serverAuth&&serverAuth.person&&serverAuth.person.role)||(serverAuth&&serverAuth.claims&&serverAuth.claims.role)||'').toUpperCase();
+    const srvPersona=String((serverAuth&&serverAuth.claims&&serverAuth.claims.persona)||'').toUpperCase();
+    const srvLevel=Number((serverAuth&&serverAuth.person&&serverAuth.person.level)!=null?serverAuth.person.level:(serverAuth&&serverAuth.claims&&serverAuth.claims.level))||0;
+    const srvElevated=Boolean(serverAuth&&serverAuth.claims&&serverAuth.claims.pinVerified);
+    const srvNoRecord=Boolean(serverAuth&&!serverAuth.person);
+    const isLegacyAdmin=Boolean(serverAuth&&(srvPersona==='ADMIN'||(!srvPersona&&!(serverAuth.person&&serverAuth.person.id))));
+    const roleName=srvRole||'—';
+    const _accessRole=srvRole||(isLegacyAdmin?'ADMIN':'—');
+    const isFounder=srvPersona==='WORKFORCE'&&srvRole==='FOUNDER';
+   const visibleTabs=(()=>{
+    if(isFounder) return TABS;
+    const all=TABS.slice();
+    // Bootstrap administrator (recovery PIN): everything except trading/feature internals.
+    if(isLegacyAdmin) return all.filter(t=>!['TRADING','FEATURE CONTROL'].includes(t));
+    // Workforce ADMIN: same as bootstrap minus founder-only trading/feature internals.
+    if(_accessRole==='ADMIN') return all.filter(t=>!['TRADING','FEATURE CONTROL'].includes(t));
+    // Partner sees only PARTNERS + OVERVIEW/PILOTS lite — strip internal infra
+    if(_accessRole==='PARTNER') return ['OVERVIEW','PARTNERS','ANNOUNCEMENTS'];
+    if(_accessRole==='PILOT'||_accessRole==='VIEWER') return ['OVERVIEW','PILOTS','PARTNERS','ANNOUNCEMENTS'];
+    // USER (OPERATOR/ANALYST) — no trading/audit/feature internal telemetry
+    if(['OPERATOR','ANALYST','USER'].includes(_accessRole)) return all.filter(t=>!['AUDIT','TRADING','FEATURE CONTROL'].includes(t));
+    return ['OVERVIEW'];
+   })();
+  useEffect(()=>{try{if(!TABS.includes(tab)&&!visibleTabs.includes(tab)) _setTab(visibleTabs[0]||'OVERVIEW');}catch{}},[visibleTabs,tab]);
+  const B=(label,cls)=>h('span',{className:'badge '+(cls||'muted')},label);
+
+   /* ── Auth Gate: checking → login (identity) → PIN (step-up) → workspace ── */
+  if(authPhase==='checking'||(token&&!serverAuth&&authPhase!=='failed'))return h('div',{className:'app',style:{minHeight:'100vh',display:'grid',placeItems:'center'}},
+   h('div',{className:'authBox',style:{textAlign:'center'}},
+    h('div',{className:'eyebrow'},'AUTOMATED ALPHA ALIPH DIGITAL ECOSYSTEMS'),
+    h('h2',{style:{margin:'14px 0 6px'}},'ADE ADVANCED FOUNDER CONTROLS'),
+    h('div',{className:'authLoading',style:{justifyContent:'center'}},h('span',{className:'spinner'}),'Verifying Founder workforce identity…'),
+    h('p',{className:'formHint',style:{textAlign:'center'}},'Checking the stored session against the server. Nothing is shown until the server answers.')
+   )
+  );
+  if(authPhase==='failed')return h('div',{className:'app',style:{minHeight:'100vh',display:'grid',placeItems:'center'}},
+   h('div',{className:'authBox',style:{textAlign:'center'}},
+    h('div',{className:'eyebrow'},'AUTOMATED ALPHA ALIPH DIGITAL ECOSYSTEMS'),
+    h('h2',{style:{margin:'14px 0 6px'}},'ADE ADVANCED FOUNDER CONTROLS'),
+    h('div',{className:'authStatus err'},'Service unreachable — the server did not answer. Your sign-in is preserved on this device.'),
+    h('div',{className:'authActions',style:{marginTop:12}},h('button',{className:'btn primary',style:{width:'100%'},onClick:()=>{setAuthPhase('checking');setValidateSeq(s=>s+1)}},'RETRY VERIFICATION')),
+    h('div',{className:'authActions',style:{marginTop:8}},h('button',{className:'btn',style:{width:'100%'},onClick:clearSession},'SIGN IN WITH A DIFFERENT IDENTITY')),
+    loginMsg&&h('div',{className:'authStatus '+(loginMsg.type==='ok'?'ok':'err'),style:{marginTop:10}},loginMsg.text)
+   )
+  );
+  // Step 2 — per-user six-digit PIN for the signed-in workforce identity.
+  if(token&&serverAuth&&srvPersona==='WORKFORCE'&&!srvElevated&&!srvNoRecord)return h('div',{className:'app',style:{minHeight:'100vh',display:'grid',placeItems:'center'}},
+   h('div',{className:'authBox',style:{textAlign:'center'}},
+    h('div',{className:'eyebrow'},'AUTOMATED ALPHA ALIPH DIGITAL ECOSYSTEMS'),
+    h('h2',{style:{margin:'14px 0 6px'}},(isFounder?'FOUNDER STEP-UP':'AUTHORIZATION STEP-UP')),
+    h('p',null,'Identity verified as @'+((serverAuth.person&&serverAuth.person.username)||'—')+' ('+(_accessRole||'—')+'). Enter the six-digit authorization PIN belonging to this identity.'),
+    h('form',{name:'founderStepUp',autoComplete:'off',onSubmit:e=>{e.preventDefault();if(loginBusy)return;const pin=e.target.elements['founder-stepup-pin'].value;if(pin)founderPin(pin);try{e.target.reset()}catch{}}},
+     h('div',{className:'passWrap'},h('input',{className:'authInput',id:'founder-stepup-pin',name:'founder-stepup-pin',type:showPw.stepPin?'text':'password',inputMode:'numeric',autoComplete:'one-time-code',placeholder:'••••••',maxLength:6,disabled:loginBusy}),eyeToggle('stepPin')),
+     h('div',{className:'authActions'},h('button',{className:'btn primary',type:'submit',style:{width:'100%'},disabled:loginBusy},loginBusy?'VERIFYING…':'VERIFY PIN & ELEVATE')),
+     loginBusy&&h('div',{className:'authLoading'},h('span',{className:'spinner'}),'Verifying PIN against your workforce record…'),
+     loginMsg&&h('div',{className:'authStatus '+(loginMsg.type==='ok'?'ok':'err')},loginMsg.text)
+    ),
+    h('div',{style:{marginTop:14,paddingTop:12,borderTop:'1px solid var(--line)'}},
+     h('button',{className:'btn ghost',style:{width:'100%'},onClick:()=>{setShowSetPin(v=>!v);setSetPinMsg(null)}},showSetPin?'Hide PIN setup':'PIN not working? Set your own PIN with your password'),
+     showSetPin&&h('div',{style:{marginTop:10,textAlign:'left'}},
+      h('p',{className:'formHint'},'Your PIN lives only on your workforce record. Enter your current workforce password once, choose a new six-digit PIN, and it takes effect immediately — no administrator involved.'),
+      h('label',{className:'fieldLabel'},'CURRENT WORKFORCE PASSWORD'),h('div',{className:'passWrap'},h('input',{className:'authInput',style:{letterSpacing:'normal',textAlign:'left',fontSize:15,paddingRight:56},type:showPw.setPw?'text':'password',value:setPw,onChange:e=>setSetPw(e.target.value),autoComplete:'current-password',disabled:setPinBusy}),eyeToggle('setPw')),
+      h('label',{className:'fieldLabel',style:{marginTop:8}},'NEW SIX-DIGIT PIN'),h('div',{className:'passWrap'},h('input',{className:'authInput',id:'founder-new-pin',name:'founder-new-pin',type:showPw.setPin?'text':'password',inputMode:'numeric',value:setPin1,onChange:e=>setSetPin1(e.target.value),autoComplete:'new-password',placeholder:'••••••',maxLength:6,disabled:setPinBusy}),eyeToggle('setPin')),
+      h('label',{className:'fieldLabel',style:{marginTop:8}},'CONFIRM NEW PIN'),h('div',{className:'passWrap'},h('input',{className:'authInput',id:'founder-new-pin-confirm',name:'founder-new-pin-confirm',type:showPw.setPin?'text':'password',inputMode:'numeric',value:setPin2,onChange:e=>setSetPin2(e.target.value),autoComplete:'new-password',placeholder:'••••••',maxLength:6,disabled:setPinBusy}),eyeToggle('setPin')),
+      h('div',{className:'authActions',style:{marginTop:10}},h('button',{className:'btn primary',style:{width:'100%'},disabled:setPinBusy,onClick:selfSetPin},setPinBusy?'SAVING…':'SET MY PIN')),
+      setPinMsg&&h('div',{className:'authStatus '+(setPinMsg.type==='ok'?'ok':'err')},setPinMsg.text)
+     )
+    ),
+    h('div',{className:'authActions',style:{marginTop:10}},h('button',{className:'btn',style:{width:'100%'},onClick:clearSession},'BACK TO SIGN-IN'))
+   )
+  );
+  // Genuine negative: valid session, no workforce record on the server.
+  if(token&&serverAuth&&srvNoRecord)return h('div',{className:'app',style:{minHeight:'100vh',display:'grid',placeItems:'center'}},
+   h('div',{className:'authBox',style:{textAlign:'center'}},
+    h('div',{className:'eyebrow'},'AUTOMATED ALPHA ALIPH DIGITAL ECOSYSTEMS'),
+    h('h2',{style:{margin:'14px 0 6px'}},'ADE ADVANCED FOUNDER CONTROLS'),
+    h('div',{className:'authStatus err'},'✕ Founder workforce identity not provisioned — the server confirms this session has no workforce record.'),
+    h('p',{className:'formHint',style:{textAlign:'center'}},'If this is a first-run system, provision the Founder from the Admin console. Otherwise contact an administrator.'),
+    h('div',{className:'authActions',style:{marginTop:12}},h('button',{className:'btn',style:{width:'100%'},onClick:clearSession},'BACK TO SIGN-IN'))
+   )
+  );
+  if(!token)return h('div',{className:'app',style:{minHeight:'100vh',display:'grid',placeItems:'center'}},
+   h('div',{className:'authBox',style:{textAlign:'center'}},
+    h('div',{className:'eyebrow'},'AUTOMATED ALPHA ALIPH DIGITAL ECOSYSTEMS'),
+    h('h2',{style:{margin:'14px 0 6px'}},'ADE ADVANCED FOUNDER CONTROLS'),
+    adminPinMode
+    ?h('div',null,
+      h('p',null,'Administrator recovery PIN — for bootstrap/recovery only. This creates an ADMINISTRATOR session, not a Founder session.'),
+      h('form',{name:'adminRecovery',autoComplete:'off',onSubmit:e=>{e.preventDefault();if(loginBusy)return;const pin=e.target.elements['admin-recovery-pin'].value;if(pin)adminPinLogin(pin);try{e.target.reset()}catch{}}},
+       h('div',{className:'passWrap'},h('input',{className:'authInput',id:'admin-recovery-pin',name:'admin-recovery-pin',type:showPw.adminPin?'text':'password',inputMode:'numeric',autoComplete:'one-time-code',placeholder:'••••••',maxLength:12,disabled:loginBusy}),eyeToggle('adminPin')),
+       h('div',{className:'authActions'},h('button',{className:'btn primary',type:'submit',style:{width:'100%'},disabled:loginBusy},loginBusy?'AUTHENTICATING…':'AUTHENTICATE AS ADMINISTRATOR')),
+       loginBusy&&h('div',{className:'authLoading'},h('span',{className:'spinner'}),'Authenticating against the ADE security boundary…'),
+       loginMsg&&h('div',{className:'authStatus '+(loginMsg.type==='ok'?'ok':'err')},loginMsg.text)
+      ),
+      h('div',{className:'authActions',style:{marginTop:10}},h('button',{className:'btn',style:{width:'100%'},onClick:()=>{setAdminPinMode(false);setLoginMsg(null)}},'BACK TO FOUNDER SIGN-IN'))
+     )
+    :h('div',null,
+      h('p',null,'Step 1 — sign in with your workforce username and password. Step 2 verifies your six-digit Founder PIN.'),
+      h('div',{className:'acctForm',style:{textAlign:'left'}},h('label',{className:'fieldLabel'},'USERNAME'),h('input',{className:'authInput',style:{letterSpacing:'normal',textAlign:'left',fontSize:15},value:loginUser,onChange:e=>setLoginUser(e.target.value),autoComplete:'username',disabled:loginBusy}),h('label',{className:'fieldLabel'},'PASSWORD'),h('div',{className:'passWrap'},h('input',{className:'authInput',style:{letterSpacing:'normal',textAlign:'left',fontSize:15,paddingRight:56},type:showPw.loginPw?'text':'password',value:loginPass,onChange:e=>setLoginPass(e.target.value),autoComplete:'current-password',disabled:loginBusy}),eyeToggle('loginPw'))),
+      h('div',{className:'authActions',style:{marginTop:10}},h('button',{className:'btn primary',style:{width:'100%'},disabled:loginBusy,onClick:workforceLogin},loginBusy?'VERIFYING…':'SIGN IN')),
+      loginBusy&&h('div',{className:'authLoading'},h('span',{className:'spinner'}),'Verifying identity against the ADE security boundary…'),
+      loginMsg&&h('div',{className:'authStatus '+(loginMsg.type==='ok'?'ok':'err')},loginMsg.text),
+      h('div',{className:'authActions',style:{marginTop:10}},h('button',{className:'btn ghost',onClick:()=>{setAdminPinMode(true);setLoginMsg(null)}},'Use administrator recovery PIN instead'))
+     ),
+     h('div',{style:{marginTop:20,paddingTop:16,borderTop:'1px solid var(--line)'}},
+      h('div',{className:'muted',style:{fontSize:10,letterSpacing:0.14,fontWeight:700}},'BUILDING AFRICAN DIGITAL BUSINESS OPERATIONAL SYSTEMS'),
+      h('div',{style:{fontSize:10,color:'var(--faint)',marginTop:6}},h('a',{href:'mailto:Automated_alpha_aliph@yahoo.com'},'Automated_alpha_aliph@yahoo.com')),
+      h('div',{style:{fontSize:10,color:'var(--faint)',marginTop:3}},'WhatsApp + Calls: ',h('a',{href:'tel:+2347038272792'},'+234 (0) 7038272792'),' · Calls Only: ',h('a',{href:'tel:+2347058769114'},'+234 (0) 7058769114'))
+     )
+   )
+  );
+
+ const kernStatus=(health?.kernel?.status)||(health?.runtime?.kernel?.status)||(health?.status)||'CONNECTING';
+ const kernLive=kernStatus==='ONLINE'||kernStatus==='HEALTHY';
+ const mu=fmtUptime(metrics?.observatory?.uptimeSeconds??runtime?.process?.uptimeSeconds);
+
+ /* ── OVERVIEW ── */
+ const TAB_OVERVIEW=()=>h('div',{className:'stack'},
+  h('div',{style:{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(min(100%,220px),1fr))',gap:12}},
+   h('div',{className:'stat'},h('b',{style:{color:kernLive?'var(--good)':'var(--bad)'}},kernStatus),h('span',null,'Kernel Status')),
+   h('div',{className:'stat'},h('b',null,runtime?.version||'—'),h('span',null,'ADE Version')),
+   h('div',{className:'stat'},h('b',null,runtime?.edition||edition?.edition||'—'),h('span',null,'Edition')),
+   h('div',{className:'stat'},h('b',null,mu),h('span',null,'Uptime')),
+   h('div',{className:'stat'},h('b',null,caps.length||'—'),h('span',null,'Capabilities')),
+   h('div',{className:'stat'},h('b',null,runtime?.kernel?.activeSubsystemCount||runtime?.kernel?.activeSubsystems?.length||'—'),h('span',null,'Active Subsystems')),
+   h('div',{className:'stat'},h('b',null,runtime?.process?.memoryMB?runtime.process.memoryMB+'MB':'—'),h('span',null,'Heap Memory')),
+   h('div',{className:'stat'},h('b',null,metrics?.eventBus?.published??'—'),h('span',null,'Events Published')),
+   h('div',{className:'stat'},h('b',null,metrics?.kernel?.intentsDispatched??'—'),h('span',null,'Intents Dispatched')),
+   h('div',{className:'stat'},h('b',null,runtime?.ai?.configured?'YES':'NO'),h('span',null,'AI Provider')),
+   h('div',{className:'stat'},h('b',null,runtime?.storage?.configured?'YES':'NO'),h('span',null,'Storage Provider')),
+   h('div',{className:'stat'},h('b',null,overview?.connections?.length??'—'),h('span',null,'Connections'))
+  ),
+  h('div',{className:'card'},h('div',{className:'panelTitle'},h('h3',null,'SYSTEM HEALTH DETAIL'),h('span',null,'LIVE')),
+   h('div',{className:'cardBody'},
+    runtime?h('div',{style:{display:'grid',gap:8}},
+     h('div',{style:{display:'flex',flexWrap:'wrap',gap:8}},
+      B(kernLive?'KERNEL ONLINE':'KERNEL '+kernStatus,kernLive?'good':'bad'),
+      B('PID '+(runtime?.process?.pid||'—'),'muted'),
+      B('NODE '+(runtime?.process?.node||'—'),'muted'),
+      B('PLATFORM '+(runtime?.process?.platform||'—'),'muted')
+     ),
+     runtime?.kernel?.activeSubsystems?.length?h('div',{style:{marginTop:8}},
+      h('div',{style:{fontSize:10,fontWeight:800,letterSpacing:0.12,color:'var(--gold)',marginBottom:6}},'ACTIVE SUBSYSTEMS'),
+      h('div',{style:{display:'flex',flexWrap:'wrap',gap:6}},runtime.kernel.activeSubsystems.map(s=>B(typeof s==='string'?s:s.name||s.id||'—','blue')))
+     ):null
+    ):h(EmptyState,{title:'Loading runtime data…',desc:'Fetching kernel status, PID, platform and active subsystems from the ADE runtime.',hint:'WHAT: System health detail · WHY LOADING: fetching /api/v1/runtime',iconSize:28})
+   )
+    ),
+   h('div',{className:'card'},h('div',{className:'panelTitle'},h('h3',null,'SYSTEM TELEMETRY'),h('span',null,'EVENTBUS · LATENCY · HEALTH')),h('div',{className:'cardBody'}, metrics?h('div',{style:{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(150px,1fr))',gap:10}},
+     h('div',{className:'stat'},h('b',null,metrics?.eventBus?.published??'—'),h('span',null,'Events Published')),
+     h('div',{className:'stat'},h('b',null,metrics?.eventBus?.delivered??'—'),h('span',null,'Events Delivered')),
+     h('div',{className:'stat'},h('b',null,metrics?.kernel?.intentsDispatched??'—'),h('span',null,'Intents Dispatched')),
+     h('div',{className:'stat'},h('b',null,metrics?.kernel?.intentsSucceeded??'—'),h('span',null,'Intents Succeeded')),
+     h('div',{className:'stat'},h('b',null,metrics?.kernel?.errors??0),h('span',null,'Kernel Errors')),
+     h('div',{className:'stat'},h('b',null,metrics?.observatory?.uptimeSeconds!=null?Math.floor(metrics.observatory.uptimeSeconds)+'s':'—'),h('span',null,'Observatory Uptime'))
+   ):h(EmptyState,{title:'Loading telemetry…',desc:'EventBus and capability latency from the kernel telemetry hub.',hint:'WHAT: Telemetry · WHY LOADING: fetching /api/v1/metrics',iconSize:28}))),
+   h('div',{className:'card'},h('div',{className:'panelTitle'},h('h3',null,'ADMIN OVERVIEW'),h('span',null,'SERVER')),
+    h('div',{className:'cardBody'},
+     overview?h('div',{style:{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(140px,1fr))',gap:10}},
+      h('div',{className:'stat'},h('b',null,overview.channels?.length??'—'),h('span',null,'Channels')),
+      h('div',{className:'stat'},h('b',null,overview.connections?.length??'—'),h('span',null,'Connections')),
+      h('div',{className:'stat'},h('b',null,overview.partners?.length??'—'),h('span',null,'Partners')),
+      h('div',{className:'stat'},h('b',null,overview.cases?.length??'—'),h('span',null,'Cases'))
+     ):h(EmptyState,{title:'Loading overview…',desc:'Fetching admin overview channels, connections, partners and cases from the server.',hint:'Please wait — overview refreshes every 20s',iconSize:28})
+    )
+   ),
+   h('div',{className:'card'},h('div',{className:'panelTitle'},h('h3',null,'PRODUCT VISIBILITY'),h('span',null,'SERVER-REPORTED')),
+    h('div',{className:'cardBody'},
+     productSurface&&productSurface.surfaces?h('div',{style:{display:'flex',flexWrap:'wrap',gap:6}},productSurface.surfaces.map(s=>h('span',{key:s.id,style:{display:'inline-flex',gap:6,alignItems:'center',fontSize:11,padding:'6px 10px',border:'1px solid var(--lineSoft)',borderRadius:99,background:'var(--ocean)'}},h('b',null,s.label||s.id),B(s.status,s.status==='AVAILABLE'||s.status==='ACTIVATED'?'good':s.status==='CONFIGURATION_REQUIRED'?'warn':'muted')))):h(EmptyState,{title:'Loading product surfaces…',desc:'Server-reported catalogue states from /api/v1/product-surface — the same matrix the public Products section renders.',hint:'WHAT: Product visibility · WHY LOADING: fetching product-surface',iconSize:28})
+    )
+   ),
+    h('div',{className:'card'},h('div',{className:'panelTitle'},h('h3',null,'PRODUCTION READINESS'),h('span',null,'DIAGNOSTICS')),
+    h('div',{className:'cardBody'},
+     diagnostics?h('div',{style:{display:'grid',gap:10}},
+      h('div',{style:{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(240px,1fr))',gap:10}},
+       h('div',{style:{padding:'12px',border:'1px solid var(--lineSoft)',borderRadius:12,background:'var(--ocean)'}},
+        h('div',{style:{fontSize:10,fontWeight:800,letterSpacing:.12,color:'var(--gold)'}},'STORAGE'),
+        h('div',{style:{marginTop:6}},B(diagnostics.diagnostics.storage.status, diagnostics.diagnostics.storage.durable?'good':'warn')),
+        h('div',{style:{fontSize:11,color:'var(--muted)',marginTop:6}},'Provider: '+(diagnostics.diagnostics.storage.provider||'—')),
+        h('div',{style:{fontSize:10,color:'var(--faint)',marginTop:4,wordBreak:'break-word'}},'Required: '+(diagnostics.diagnostics.storage.requiredEnv||[]).join(', ')),
+        h('div',{style:{fontSize:10,color:'var(--muted)',marginTop:6,lineHeight:1.5}},diagnostics.diagnostics.storage.note)
+       ),
+       h('div',{style:{padding:'12px',border:'1px solid var(--lineSoft)',borderRadius:12,background:'var(--ocean)'}},
+        h('div',{style:{fontSize:10,fontWeight:800,letterSpacing:.12,color:'var(--gold)'}},'EMAIL'),
+        h('div',{style:{marginTop:6}},B(diagnostics.diagnostics.email.status, diagnostics.diagnostics.email.configured?'good':'warn')),
+        h('div',{style:{fontSize:10,color:'var(--faint)',marginTop:4,wordBreak:'break-word'}},'Required: '+(diagnostics.diagnostics.email.requiredEnv||[]).join(', ')),
+        h('div',{style:{fontSize:10,color:'var(--muted)',marginTop:6,lineHeight:1.5}},diagnostics.diagnostics.email.note)
+       ),
+       h('div',{style:{padding:'12px',border:'1px solid var(--lineSoft)',borderRadius:12,background:'var(--ocean)'}},
+        h('div',{style:{fontSize:10,fontWeight:800,letterSpacing:.12,color:'var(--gold)'}},'AI'),
+        h('div',{style:{marginTop:6}},B(diagnostics.diagnostics.ai.status, diagnostics.diagnostics.ai.configuredCount>0?'good':'warn')),
+        h('div',{style:{fontSize:11,color:'var(--muted)',marginTop:6}},'Providers: '+(diagnostics.diagnostics.ai.configuredCount||0)+'/'+(diagnostics.diagnostics.ai.totalProviders||0)),
+        h('div',{style:{fontSize:10,color:'var(--muted)',marginTop:6,lineHeight:1.5}},diagnostics.diagnostics.ai.note)
+       ),
+       h('div',{style:{padding:'12px',border:'1px solid var(--lineSoft)',borderRadius:12,background:'var(--ocean)'}},
+        h('div',{style:{fontSize:10,fontWeight:800,letterSpacing:.12,color:'var(--gold)'}},'INTEGRATIONS'),
+        h('div',{style:{marginTop:6}},B(diagnostics.diagnostics.integrations.status, diagnostics.diagnostics.integrations.connectionCount>0?'good':'warn')),
+        h('div',{style:{fontSize:11,color:'var(--muted)',marginTop:6}},'Connections: '+(diagnostics.diagnostics.integrations.connectionCount??'—')),
+        h('div',{style:{fontSize:10,color:'var(--muted)',marginTop:6,lineHeight:1.5}},diagnostics.diagnostics.integrations.note)
+       )
+      ),
+      h('div',{style:{display:'flex',gap:6,flexWrap:'wrap',marginTop:4}},
+       h('span',{style:{fontSize:10,color:'var(--faint)'}},'CORE RUNTIME'),
+       B(kernLive?'READY':'NOT READY',kernLive?'good':'bad'),
+       h('span',{style:{fontSize:10,color:'var(--faint)',marginLeft:8}},'AUTH'),
+       B(identity?'READY':'—',identity?'good':'muted'),
+       h('span',{style:{fontSize:10,color:'var(--faint)',marginLeft:8}},'WORKFORCE'),
+       B(workforce?'READY':'—',workforce?'good':'muted')
+      )
+     ):h(EmptyState,{title:'Loading diagnostics…',desc:'Checking storage, email, AI and integration health for production readiness.',hint:'WHAT: Diagnostics · fetching /api/v1/system/diagnostics',iconSize:28})
+    )
+   ),
+   h('div',{className:'card'},h('div',{className:'panelTitle'},h('h3',null,'ATTENTION PREVIEW'),h('span',null,h('button',{className:'btn sm',onClick:()=>setTab('INBOX')},'OPEN INBOX →'))),
+    h('div',{className:'cardBody'},
+     attention?h('div',{style:{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(120px,1fr))',gap:8}},
+      h('div',{style:{padding:'10px',border:'1px solid var(--lineSoft)',borderRadius:10,background: attention.stats?.candidates>0 ? 'rgba(255,179,0,.08)' : 'var(--ocean)'}},
+       h('div',{style:{fontSize:10,fontWeight:800,letterSpacing:.1,color:'var(--gold)'}},'CANDIDATES'),
+       h('div',{style:{fontSize:18,fontWeight:800,color: attention.stats?.candidates>0 ? 'var(--warn)' : 'var(--muted)'}},String(attention.stats?.candidates??'—')),
+       h('div',{style:{fontSize:10,color:'var(--faint)'}},attention.stats?.candidates>0 ? 'ACTION REQUIRED' : 'all clear')
+      ),
+      h('div',{style:{padding:'10px',border:'1px solid var(--lineSoft)',borderRadius:10,background:'var(--ocean)'}},
+       h('div',{style:{fontSize:10,fontWeight:800,letterSpacing:.1,color:'var(--gold)'}},'PENDING PILOTS'),
+       h('div',{style:{fontSize:18,fontWeight:800,color:'var(--ink)'}},String(attention.stats?.pendingPilots??'—')),
+       h('div',{style:{fontSize:10,color:'var(--faint)'}},'EVALUATION')
+      ),
+      h('div',{style:{padding:'10px',border:'1px solid var(--lineSoft)',borderRadius:10,background:'var(--ocean)'}},
+       h('div',{style:{fontSize:10,fontWeight:800,letterSpacing:.1,color:'var(--gold)'}},'INTAKES'),
+       h('div',{style:{fontSize:18,fontWeight:800,color:'var(--ink)'}},String(attention.stats?.intakes??'—')),
+       h('div',{style:{fontSize:10,color:'var(--faint)'}},'community')
+      ),
+      h('div',{style:{padding:'10px',border:'1px solid var(--lineSoft)',borderRadius:10,background:'var(--ocean)'}},
+       h('div',{style:{fontSize:10,fontWeight:800,letterSpacing:.1,color:'var(--gold)'}},'PARTNERS'),
+       h('div',{style:{fontSize:18,fontWeight:800,color:'var(--ink)'}},String(attention.stats?.partners??'—')),
+       h('div',{style:{fontSize:10,color:'var(--faint)'}},'interests')
+      )
+     ):h(EmptyState,{title:'Loading attention…',desc:'Aggregating intakes, candidates, pilots and partners that need founder attention.',hint:'WHAT: Attention inbox · fetching /api/v1/attention',iconSize:28})
+    )
+   ),
+   h('div',{className:'card'},h('div',{className:'panelTitle'},h('h3',null,'LIVE EVENT STREAM'),h('span',null,'EVENTBUS · SSE')),
+   h('div',{className:'cardBody'},
+    h('div',{style:{display:'flex',gap:8,alignItems:'center',marginBottom:10}},
+     B(streamState==='CONNECTED'?'CONNECTED':streamState==='RECONNECTING'?'RECONNECTING':'DISCONNECTED',streamState==='CONNECTED'?'good':streamState==='RECONNECTING'?'warn':'bad'),
+     h('span',{style:{fontSize:10,color:'var(--faint)'}},'Canonical ADE Enterprise Event Bus via /api/v1/events/stream')
+    ),
+    liveEvents.length?h('div',{style:{display:'grid',gap:6,maxHeight:220,overflowY:'auto'}},liveEvents.map((ev,i)=>h('div',{key:i,style:{padding:'8px 10px',border:'1px solid var(--lineSoft)',borderRadius:10,background:'var(--ocean)'}},
+     h('div',{style:{display:'flex',gap:8,alignItems:'center',flexWrap:'wrap'}},
+      B(String(ev.topic||'EVENT').slice(0,26),'blue'),
+      h('span',{style:{fontSize:9.5,color:'var(--faint)'}},fmtTime(ev.at))
+     ),
+     ev.payload&&typeof ev.payload==='object'?h('div',{style:{fontSize:10.5,color:'var(--muted)',marginTop:4,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',maxWidth:'100%'}},Object.keys(ev.payload).slice(0,5).map(k=>k+':'+(typeof ev.payload[k]==='object'?JSON.stringify(ev.payload[k]).slice(0,40):String(ev.payload[k]).slice(0,40))).join(' · ')):null
+    ))):h(EmptyState,{title:'Waiting for live events…',desc:'Connected to the canonical ADE Enterprise Event Bus via /api/v1/events/stream (SSE). Events will appear here in real time.',hint:'WHAT: Live event stream · WHY EMPTY: no events published yet',iconSize:28})
+   )
+  )
+  );
+
+  const TAB_INBOX=()=>h('div',{className:'stack'},
+   h('div',{className:'sectionHead'},h('h2',null,'FOUNDER ATTENTION'),h('p',null,'What happened, what needs attention, what can wait — aggregated from durable records.')),
+   attention?h('div',{className:'card'},h('div',{className:'panelTitle'},h('h3',null,'ATTENTION SUMMARY'),h('span',null,'LIVE COUNTS')),h('div',{className:'cardBody'},h('div',{style:{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(130px,1fr))',gap:10}},
+    h('div',{className:'stat'},h('b',null,attention.stats?.intakes??'—'),h('span',null,'Intakes')),
+    h('div',{className:'stat'},h('b',null,attention.stats?.candidates??'—'),h('span',null,'Candidates')),
+    h('div',{className:'stat'},h('b',null,attention.stats?.pendingPilots??'—'),h('span',null,'Pending Pilots')),
+    h('div',{className:'stat'},h('b',null,attention.stats?.partners??'—'),h('span',null,'Partners')),
+    h('div',{className:'stat'},h('b',null,attention.stats?.connections??'—'),h('span',null,'Connections')),
+    h('div',{className:'stat'},h('b',null,attention.stats?.cases??'—'),h('span',null,'Cases'))
+   ))):h('div',{className:'card'},h('div',{className:'cardBody'},h(EmptyState,{title:'Loading attention…',desc:'Aggregating intakes, candidates, pilots and partners that need founder attention.',hint:'WHAT: Attention inbox · fetching /api/v1/attention',iconSize:28}))),
+   h('div',{className:'card'},h('div',{className:'panelTitle'},h('h3',null,'RECENT INTAKES'),h('span',null,String(attention?.intakes?.length||0)+' RECORDS')),h('div',{className:'cardBody'},attention?.intakes?.length?h('div',null,attention.intakes.slice(0,12).map(i=>h('div',{key:i.id,style:{padding:'8px 10px',borderBottom:'1px solid var(--lineSoft)',display:'flex',justifyContent:'space-between',gap:8}},
+     h('div',null,h('div',{style:{fontWeight:700,color:'var(--ink)'}},i.organization||'—'),h('div',{style:{fontSize:11,color:'var(--muted)'}},i.type||'—')),
+     h('div',{style:{fontSize:11,color:'var(--faint)'}},fmtDate(i.receivedAt))
+    ))):h(EmptyState,{title:'No community intakes yet',desc:'Intakes are inbound community requests that enter ADE for qualification. None have been received in this period.',hint:'WHAT: Community intakes · WHY EMPTY: no submissions yet · WHAT TO DO: Check back after intake forms are submitted',actionLabel:'Refresh inbox',actionFn:()=>{try{api("/api/v1/attention").then(r=>r&&r.attention&&setAttention(r.attention))}catch{}},iconSize:32}))),
+   h('div',{className:'card'},h('div',{className:'panelTitle'},h('h3',null,'CANDIDATES — ACTION REQUIRED'),h('span',null,String(attention?.candidates?.length||0)+' CANDIDATES')),h('div',{className:'cardBody'},attention?.candidates?.length?h('div',null,attention.candidates.slice(0,12).map(c=>h('div',{key:c.intakeId,style:{padding:'8px 10px',borderBottom:'1px solid var(--lineSoft)',display:'flex',justifyContent:'space-between',alignItems:'center',gap:8}},
+     h('div',null,h('div',{style:{fontWeight:700}},c.organization||'—'),h('div',{style:{fontSize:11,color:'var(--muted)'}},c.intent||'—')),
+     h('button',{className:'btn sm primary',onClick:()=>doApprovePilot(c.intakeId),disabled:pilotBusy},pilotBusy?h('span',{style:{display:'inline-flex',alignItems:'center',gap:4}},h('span',{className:'spinner',style:{width:10,height:10,borderWidth:'2px'}}),'…'):'Approve')
+    ))):h(EmptyState,{title:'No candidates — action required queue is clear',desc:'Candidates are intakes that passed PROCARTA qualification and await founder approval. The queue is empty because none are pending.',hint:'WHAT: Qualified candidates · WHY EMPTY: no pending approvals · WHAT TO DO: New candidates appear when PROCARTA qualifies intakes',actionLabel:'View pilot candidates',actionFn:()=>setTab('PILOTS'),iconSize:32}))),
+   h('div',{className:'card'},h('div',{className:'panelTitle'},h('h3',null,'PARTNERS'),h('span',null,String(attention?.partners?.length||0)+' PARTNERS')),h('div',{className:'cardBody'},attention?.partners?.length?h('div',null,attention.partners.slice(0,12).map(p=>h('div',{key:p.id,style:{padding:'8px 10px',borderBottom:'1px solid var(--lineSoft)'}},h('div',{style:{fontWeight:700}},p.name||'—'),h('div',{style:{fontSize:11,color:'var(--muted)'}},p.contact?.partnerType||'—')+' · '+B(p.status||'—','muted')))):h(EmptyState,{title:'No partners in attention queue',desc:'This preview shows recent partner interests. None are present because no partner activity is pending attention.',hint:'WHAT: Attention partners · WHY EMPTY: no partner events · WHAT TO DO: Register a partner in the Partners tab',actionLabel:'Go to Partners',actionFn:()=>setTab('PARTNERS'),iconSize:32})))
+  );
+
+  /* ── WORKFORCE ── */
+  const TAB_WORKFORCE=()=>h('div',{className:'stack'},
+  h('div',{className:'card'},h('div',{className:'panelTitle'},h('h3',null,'INVITE PERSON'),h('span',null,'CREATE INVITATION')),
+   h('div',{className:'cardBody'},
+    h('div',{className:'formGrid'},
+     h('div',{className:'formRow'},
+      h('div',null,h('label',{className:'fieldLabel'},'FULL NAME'),h('input',{className:'formInput',value:inviteForm.fullName,onChange:e=>setInviteForm({...inviteForm,fullName:e.target.value}),placeholder:'Full name'})),
+      h('div',null,h('label',{className:'fieldLabel'},'EMAIL'),h('input',{className:'formInput',type:'email',value:inviteForm.email,onChange:e=>setInviteForm({...inviteForm,email:e.target.value}),placeholder:'email@example.com'}))
+     ),
+     h('div',{className:'formRow'},
+      h('div',null,h('label',{className:'fieldLabel'},'USERNAME'),h('input',{className:'formInput',value:inviteForm.username,onChange:e=>setInviteForm({...inviteForm,username:e.target.value}),placeholder:'username'})),
+      h('div',null,h('label',{className:'fieldLabel'},'ROLE'),h('select',{className:'formInput',value:inviteForm.role,onChange:e=>setInviteForm({...inviteForm,role:e.target.value})},ROLES.map(r=>h('option',{key:r,value:r},r))))
+     ),
+     h('div',{className:'formRow'},
+      h('div',null,h('label',{className:'fieldLabel'},'ORGANIZATION'),h('input',{className:'formInput',value:inviteForm.organization,onChange:e=>setInviteForm({...inviteForm,organization:e.target.value}),placeholder:'Organization'})),
+      h('div',null,h('label',{className:'fieldLabel'},'SUPERVISOR'),h('input',{className:'formInput',value:inviteForm.supervisor,onChange:e=>setInviteForm({...inviteForm,supervisor:e.target.value}),placeholder:'Supervisor'}))
+     ),
+     h('div',{className:'formRow'},
+      h('div',null,h('label',{className:'fieldLabel'},'PERMISSION PROFILE'),h('input',{className:'formInput',value:inviteForm.permissionProfile,onChange:e=>setInviteForm({...inviteForm,permissionProfile:e.target.value}),placeholder:'Permission profile'})),
+      h('div',null,h('label',{className:'fieldLabel'},'EXPIRY (DAYS)'),h('input',{className:'formInput',type:'number',min:'1',max:'90',value:inviteForm.expiryDays,onChange:e=>setInviteForm({...inviteForm,expiryDays:e.target.value})}))
+     ),
+     h('div',null,h('label',{className:'fieldLabel'},'MESSAGE'),h('textarea',{className:'formInput',value:inviteForm.message,onChange:e=>setInviteForm({...inviteForm,message:e.target.value}),placeholder:'Welcome message (optional)'})),
+      h('div',{style:{display:'flex',gap:8}},h('button',{className:'btn primary',onClick:doInvite,disabled:inviteBusy},inviteBusy?h('span',{style:{display:'inline-flex',alignItems:'center',gap:6}},h('span',{className:'spinner',style:{width:12,height:12,borderWidth:'2px'}}),'SENDING…'):'SEND INVITATION'))
+    ),
+    inviteResult&&h('div',{className:'inviteResult'},
+     h('div',{style:{fontWeight:700,color:'var(--good)',marginBottom:8}},'INVITATION CREATED'),
+     h('div',{style:{marginBottom:8,padding:'6px 10px',borderRadius:8,background:'rgba(255,179,0,.1)',border:'1px solid rgba(255,179,0,.3)',fontSize:10.5,color:'var(--warn)',fontWeight:700,letterSpacing:0.06}},'EMAIL DELIVERY NOT CONFIGURED — deliver the invitation code manually'),
+     inviteResult.inviteCode&&h('div',null,h('div',{className:'fieldLabel'},'INVITATION CODE'),h('div',{className:'code'},inviteResult.inviteCode)),
+     inviteResult.person?.id&&h('div',null,h('div',{className:'fieldLabel'},'PERSON ID'),h('div',{className:'code'},inviteResult.person.id)),
+     (()=>{
+      const code=inviteResult.inviteCode||'';
+      const text=`You've been invited to join ADE. Invitation code: ${code}`;
+      const url=window.location.origin;
+      return h('div',{className:'shareRow'},
+       h('button',{className:'btn share',onClick:()=>copyText(code)},'📋 COPY CODE'),
+       h('button',{className:'btn share',onClick:()=>shareWhatsApp(text)},'📱 WHATSAPP'),
+       h('button',{className:'btn share',onClick:()=>shareTelegram(url,text)},'✈ TELEGRAM'),
+       h('button',{className:'btn share',onClick:()=>shareLinkedIn(url)},'💼 LINKEDIN'),
+       h('button',{className:'btn share',onClick:()=>shareFacebook(url)},'📘 FACEBOOK'),
+       h('button',{className:'btn share',onClick:()=>shareNative('ADE Invitation',text,url)},'🔗 SHARE')
+      );
+     })()
+    )
+   )
+  ),
+  h('div',{className:'card'},h('div',{className:'panelTitle'},h('h3',null,'WORKFORCE ROSTER'),h('span',null,(workforce?.persons?.length||0)+' MEMBERS')),
+   h('div',{className:'cardBody'},
+    workforce?.persons?.length?h('div',{className:'tableWrap'},
+     h('table',null,
+      h('thead',null,h('tr',null,h('th',null,'NAME'),h('th',null,'USERNAME'),h('th',null,'ROLE'),h('th',null,'STATUS'),h('th',null,'EMAIL'),h('th',null,'CREATED'),h('th',null,'EXPIRY'),h('th',null,'ACTIONS'))),
+      h('tbody',null,workforce.persons.map(p=>h('tr',{key:p.id},
+       h('td',{style:{color:'var(--ink)',fontWeight:600}},p.fullName||p.username),
+       h('td',{style:{fontFamily:'ui-monospace,Consolas,monospace',fontSize:11}},'@'+p.username),
+       h('td',null,B(p.role,p.role==='FOUNDER'?'gold':p.role==='ADMIN'?'warn':'muted')),
+       h('td',null,B(p.status,p.status==='ACTIVE'?'good':p.status==='SUSPENDED'?'bad':'muted')),
+       h('td',null,p.email||'—'),
+       h('td',null,fmtDate(p.createdAt)),
+        h('td',null,p.status==='INVITED'?(p.invitationExpiresAt?fmtDate(p.invitationExpiresAt)+(p.invitationRemainingMs!=null?' ('+Math.max(0,Math.ceil(p.invitationRemainingMs/86400000))+'d left)':''):'—'):(p.accessExpiryAt?fmtDate(p.accessExpiryAt):'—')),
+       h('td',null,h('div',{className:'actions'},
+        p.role!=='FOUNDER'&&h('button',{className:'btn sm',onClick:()=>doPromote(p.id,ROLES[Math.min(ROLES.indexOf(p.role)+1,ROLES.length-1)])},'↑ Promote'),
+        p.role!=='VIEWER'&&h('button',{className:'btn sm',onClick:()=>doDemote(p.id,ROLES[Math.max(ROLES.indexOf(p.role)-1,0)])},'↓ Demote'),
+        p.status==='ACTIVE'?h('button',{className:'btn sm danger',onClick:()=>doSuspend(p.id)},'⊘ Suspend'):h('button',{className:'btn sm',onClick:()=>doActivate(p.id)},'✓ Activate'),
+        h('button',{className:'btn sm',onClick:()=>doResetPw(p.id)},'🔑 Reset PW'),
+        h('button',{className:'btn sm',onClick:()=>doResetPin(p.id)},'🔒 Reset PIN')
+       ))
+      )))
+     )
+    ):h(EmptyState,{title:'No workforce members yet',desc:'This roster lists every invited person who can operate ADE. It is empty because no invitations have been created or accepted yet. Use the form above to invite your first teammate.',hint:'WHAT: Workforce roster · WHY EMPTY: no invitations yet · WHAT TO DO: Create your first invitation above',actionLabel:'Create your first invitation above',actionFn:()=>{try{const el=document.querySelector(".formInput");if(el)el.focus();window.scrollTo({top:0,behavior:"smooth"})}catch{}},iconSize:36})
+   )
+  ),
+  h('div',{className:'card'},h('div',{className:'panelTitle'},h('h3',null,'AGENT IDENTITIES'),h('span',null,(agents.length)+' AGENTS')),
+   h('div',{className:'cardBody'},
+    h('div',{className:'formRow',style:{marginBottom:14}},
+      h('div',null,h('label',{className:'fieldLabel'},'AGENT NAME'),h('input',{className:'formInput',value:agentForm.name,onChange:e=>setAgentForm({...agentForm,name:e.target.value}),placeholder:'Agent name'})),
+      h('div',null,h('label',{className:'fieldLabel'},'PURPOSE'),h('input',{className:'formInput',value:agentForm.description,onChange:e=>setAgentForm({...agentForm,description:e.target.value}),placeholder:'Purpose'})),
+      h('div',null,h('button',{className:'btn primary',onClick:doCreateAgent,style:{marginTop:20}},'CREATE AGENT'))
+     ),
+     agents.length?h('div',{className:'tableWrap'},
+       h('table',null,h('thead',null,h('tr',null,h('th',null,'NAME'),h('th',null,'STATUS'),h('th',null,'PURPOSE'),h('th',null,'CREATED'),h('th',null,'ACTIONS'))),
+       h('tbody',null,agents.map(a=>h('tr',{key:a.id},h('td',{style:{color:'var(--ink)',fontWeight:600}},a.name),h('td',null,B(a.status||'ACTIVE',a.status==='ACTIVE'?'good':'muted')),h('td',{style:{color:'var(--muted)',whiteSpace:'normal'}},a.purpose||'—'),h('td',null,fmtDate(a.createdAt)),h('td',null,h('div',{className:'actions'},a.status==='ACTIVE'?h('button',{className:'btn sm danger',onClick:()=>doToggleAgentStatus(a.id,a.status)},'⊘ Suspend'):h('button',{className:'btn sm',onClick:()=>doToggleAgentStatus(a.id,a.status)},'✓ Activate')))))))
+      ):h(EmptyState,{title:'No agent identities yet',desc:'Agents are programmatic actors that operate on behalf of ADE. None are registered because no agent has been created.',hint:'WHAT: Agent identities · WHY EMPTY: no agents created · WHAT TO DO: Add your first agent above',actionLabel:'Create your first agent above',actionFn:()=>{try{window.scrollTo({top:0,behavior:"smooth"})}catch{}},iconSize:32})
+   )
+  )
+ );
+
+ /* ── PILOTS ── */
+ const TAB_PILOTS=()=>h('div',{className:'stack'},
+  h('div',{className:'sectionHead'},h('h2',null,'PILOT PIPELINE'),h('p',null,'PROCARTA pilot progression from prospect to success.')),
+  h('div',{className:'pipeline'},PILOT_STAGES.map((s,i)=>h('div',{key:s,className:'stage'},s))),
+  pilotStats?h('div',{style:{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(120px,1fr))',gap:10}},
+   h('div',{className:'stat'},h('b',null,pilotStats.records??pilotRegistry.length??'—'),h('span',null,'Total Records')),
+   h('div',{className:'stat'},h('b',null,pilotStats.byState?.EVALUATION??'—'),h('span',null,'In Evaluation')),
+   h('div',{className:'stat'},h('b',null,pilotStats.byState?.PROMOTED??'—'),h('span',null,'Promoted')),
+   h('div',{className:'stat'},h('b',null,pilotStats.byState?.ARCHIVED??'—'),h('span',null,'Archived'))
+  ):null,
+  h('div',{className:'card'},h('div',{className:'panelTitle'},h('h3',null,'PILOT CANDIDATES'),h('span',null,(pilotCandidates.length)+' CANDIDATES')),
+   h('div',{className:'cardBody'},
+    pilotCandidates.length?h('div',{className:'tableWrap'},
+     h('table',null,h('thead',null,h('tr',null,h('th',null,'INTAKE ID'),h('th',null,'ORGANIZATION'),h('th',null,'INTENT'),h('th',null,'QUALIFICATION'),h('th',null,'RECEIVED'),h('th',null,'ACTIONS'))),
+     h('tbody',null,pilotCandidates.map(c=>h('tr',{key:c.intakeId||c.id},
+      h('td',{style:{fontFamily:'ui-monospace,Consolas,monospace',fontSize:11,color:'var(--gold)'}},c.intakeId||c.id||'—'),
+      h('td',{style:{color:'var(--ink)',fontWeight:600}},c.organization||'—'),
+      h('td',{style:{whiteSpace:'normal'}},c.intent||c.useCaseDescription||'—'),
+      h('td',null,B('PROCARTA','blue')),
+       h('td',null,fmtDate(c.receivedAt)),
+       h('td',null,h('button',{className:'btn sm primary',onClick:()=>doApprovePilot(c.intakeId||c.id),disabled:pilotBusy},pilotBusy?h('span',{style:{display:'inline-flex',alignItems:'center',gap:4}},h('span',{className:'spinner',style:{width:10,height:10,borderWidth:'2px'}}),'…'):'✓ Approve'))
+     )))
+    )):h(EmptyState,{title:'No pilot candidates at this time',desc:'New candidates appear when community intake qualifies via PROCARTA. The pipeline monitors intake signals and promotes only qualified prospects.',hint:'WHAT: Pilot candidates · WHY EMPTY: no qualified intakes yet · WHAT TO DO: Wait for PROCARTA qualification or check Inbox',actionLabel:'View Inbox',actionFn:()=>setTab('INBOX'),iconSize:36})
+    )
+   ),
+  h('div',{className:'card'},h('div',{className:'panelTitle'},h('h3',null,'PILOT REGISTRY'),h('span',null,(pilotRegistry.length)+' RECORDS')),
+   h('div',{className:'cardBody'},
+    pilotRegistry.length?h('div',{className:'tableWrap'},
+     h('table',null,h('thead',null,h('tr',null,h('th',null,'RECORD ID'),h('th',null,'INTAKE'),h('th',null,'CASE'),h('th',null,'STATUS'),h('th',null,'VERDICT REASON'),h('th',null,'APPROVED'),h('th',null,'RECEIVED'),h('th',null,'ACTIONS'))),
+     h('tbody',null,pilotRegistry.map(r=>h('tr',{key:r.id||r.recordId},
+      h('td',{style:{fontFamily:'ui-monospace,Consolas,monospace',fontSize:11,color:'var(--gold)'}},r.id||r.recordId||'—'),
+      h('td',null,r.intakeId||'—'),
+      h('td',{style:{whiteSpace:'normal'}},r.caseId||'—'),
+      h('td',null,B(r.state||'EVALUATION',r.state==='PROMOTED'?'good':r.state==='ARCHIVED'?'bad':'warn')),
+      h('td',{style:{whiteSpace:'normal'}},r.verdictReason||'—'),
+      h('td',null,r.approvedBy||'—'),
+      h('td',null,fmtDate(r.decidedAt)),
+      h('td',null,h('div',{className:'actions'},
+       r.state==='EVALUATION'&&h('button',{className:'btn sm',onClick:()=>doVerdict(r.id||r.recordId,'PROMOTED')},'↑ Promote'),
+       r.state==='EVALUATION'&&h('button',{className:'btn sm danger',onClick:()=>doVerdict(r.id||r.recordId,'ARCHIVED')},'↓ Archive')
+      ))
+     )))
+    )):h(EmptyState,{title:'No pilot records in the registry',desc:'This registry tracks every pilot from EVALUATION through PROMOTED or ARCHIVED. It is empty because no pilot has been approved yet.',hint:'WHAT: Pilot registry · WHY EMPTY: no approved pilots · WHAT TO DO: Approve a candidate above to create a record',actionLabel:'View candidates',actionFn:()=>window.scrollTo({top:0,behavior:"smooth"}),iconSize:32})
+   )
+  )
+ );
+
+ /* ── PARTNERS ── */
+ const TAB_PARTNERS=()=>h('div',{className:'stack'},
+  h('div',{className:'card'},h('div',{className:'panelTitle'},h('h3',null,'PARTNER APPLICATION'),h('span',null,'REGISTER NEW PARTNER')),
+   h('div',{className:'cardBody'},
+    h('div',{className:'formGrid'},
+     h('div',{className:'formRow'},
+      h('div',null,h('label',{className:'fieldLabel'},'ORGANIZATION NAME'),h('input',{className:'formInput',value:partnerForm.orgName,onChange:e=>setPartnerForm({...partnerForm,orgName:e.target.value}),placeholder:'Organization name'})),
+      h('div',null,h('label',{className:'fieldLabel'},'WEBSITE'),h('input',{className:'formInput',value:partnerForm.website,onChange:e=>setPartnerForm({...partnerForm,website:e.target.value}),placeholder:'https://...'}))
+     ),
+     h('div',{className:'formRow'},
+      h('div',null,h('label',{className:'fieldLabel'},'COUNTRY'),h('input',{className:'formInput',value:partnerForm.country,onChange:e=>setPartnerForm({...partnerForm,country:e.target.value}),placeholder:'Country'})),
+      h('div',null,h('label',{className:'fieldLabel'},'PARTNER TYPE'),h('select',{className:'formInput',value:partnerForm.partnerType,onChange:e=>setPartnerForm({...partnerForm,partnerType:e.target.value})},PARTNER_TYPES.map(t=>h('option',{key:t,value:t},t))))
+     ),
+     h('div',{className:'formRow'},
+      h('div',null,h('label',{className:'fieldLabel'},'CONTACT PERSON'),h('input',{className:'formInput',value:partnerForm.contactPerson,onChange:e=>setPartnerForm({...partnerForm,contactPerson:e.target.value}),placeholder:'Contact name'})),
+      h('div',null,h('label',{className:'fieldLabel'},'EMAIL'),h('input',{className:'formInput',type:'email',value:partnerForm.email,onChange:e=>setPartnerForm({...partnerForm,email:e.target.value}),placeholder:'email@example.com'}))
+     ),
+     h('div',{className:'formRow'},
+      h('div',null,h('label',{className:'fieldLabel'},'CAPABILITIES'),h('input',{className:'formInput',value:partnerForm.capabilities,onChange:e=>setPartnerForm({...partnerForm,capabilities:e.target.value}),placeholder:'Comma-separated capabilities'})),
+      h('div',null,h('label',{className:'fieldLabel'},'INDUSTRIES'),h('input',{className:'formInput',value:partnerForm.industries,onChange:e=>setPartnerForm({...partnerForm,industries:e.target.value}),placeholder:'Comma-separated industries'}))
+     ),
+      h('div',null,h('label',{className:'fieldLabel'},'COUNTRIES SERVED'),h('input',{className:'formInput',value:partnerForm.countriesServed,onChange:e=>setPartnerForm({...partnerForm,countriesServed:e.target.value}),placeholder:'Comma-separated countries'})),
+      h('button',{className:'btn primary',onClick:doCreatePartner,disabled:partnerBusy},partnerBusy?h('span',{style:{display:'inline-flex',alignItems:'center',gap:6}},h('span',{className:'spinner',style:{width:12,height:12,borderWidth:'2px'}}),'REGISTERING…'):'REGISTER PARTNER')
+    )
+   )
+  ),
+  h('div',{className:'card'},h('div',{className:'panelTitle'},h('h3',null,'SCREENING PIPELINE'),h('span',null,SCREENING.join(' → '))),
+   h('div',{className:'cardBody'},h('div',{className:'pipeline'},SCREENING.map(s=>h('div',{key:s,className:'stage'},s))))
+  ),
+  h('div',{className:'card'},h('div',{className:'panelTitle'},h('h3',null,'PARTNER LIST'),h('span',null,(partners.length)+' PARTNERS')),
+   h('div',{className:'cardBody'},
+    partners.length?h('div',{className:'tableWrap'},
+     h('table',null,h('thead',null,h('tr',null,h('th',null,'ORGANIZATION'),h('th',null,'TYPE'),h('th',null,'STATUS'),h('th',null,'COUNTRY'),h('th',null,'CONTACT'),h('th',null,'EMAIL'))),
+      h('tbody',null,partners.map(p=>h('tr',{key:p.id},
+       h('td',{style:{color:'var(--ink)',fontWeight:600}},p.name||p.contact?.organization||'—'),
+       h('td',null,B(p.contact?.partnerType||p.type||'—','blue')),
+       h('td',null,B(p.status||'EVALUATION',p.status==='ACTIVE'?'good':p.status==='APPROVED'?'gold':'muted')),
+       h('td',null,p.contact?.country||'—'),
+       h('td',null,p.contact?.person||'—'),
+       h('td',null,p.contact?.email||'—')
+)))
+     )):h(EmptyState,{title:'No partners registered yet',desc:'Partners are organizations that extend ADE capability. None are registered because no partner application has been submitted or approved.',hint:'WHAT: Partner list · WHY EMPTY: no partners yet · WHAT TO DO: Register your first partner above',actionLabel:'Register your first partner above',actionFn:()=>window.scrollTo({top:0,behavior:"smooth"}),iconSize:36})
+    )
+   )
+  );
+
+ /* ── INTEGRATIONS ── */
+ const TAB_INTEGRATIONS=()=>h('div',{className:'stack'},
+  h('div',{className:'card'},h('div',{className:'panelTitle'},h('h3',null,'NEW CONNECTION'),h('span',null,'ADD INTEGRATION')),
+   h('div',{className:'cardBody'},
+    h('div',{className:'formGrid'},
+     h('div',{className:'formRow'},
+      h('div',null,h('label',{className:'fieldLabel'},'NAME'),h('input',{className:'formInput',value:connForm.name,onChange:e=>setConnForm({...connForm,name:e.target.value}),placeholder:'Connection name'})),
+      h('div',null,h('label',{className:'fieldLabel'},'PROVIDER'),h('input',{className:'formInput',value:connForm.provider,onChange:e=>setConnForm({...connForm,provider:e.target.value}),placeholder:'Provider name'}))
+     ),
+     h('div',{className:'formRow'},
+      h('div',null,h('label',{className:'fieldLabel'},'TYPE'),h('select',{className:'formInput',value:connForm.type,onChange:e=>setConnForm({...connForm,type:e.target.value})},CONN_TYPES.map(t=>h('option',{key:t,value:t},t)))),
+      h('div',null,h('label',{className:'fieldLabel'},'AUTH TYPE'),h('select',{className:'formInput',value:connForm.authType,onChange:e=>setConnForm({...connForm,authType:e.target.value})},AUTH_TYPES.map(t=>h('option',{key:t,value:t},t))))
+     ),
+     h('div',null,h('label',{className:'fieldLabel'},'BASE URL'),h('input',{className:'formInput',value:connForm.baseUrl,onChange:e=>setConnForm({...connForm,baseUrl:e.target.value}),placeholder:'https://api.example.com'})),
+      h('p',{className:'formHint'},'PROVIDER is required and identifies the connection; the NAME field is a local label only.'),
+      h('button',{className:'btn primary',onClick:doCreateConn,disabled:connBusy},connBusy?h('span',{style:{display:'inline-flex',alignItems:'center',gap:6}},h('span',{className:'spinner',style:{width:12,height:12,borderWidth:'2px'}}),'CREATING…'):'CREATE CONNECTION')
+    )
+   )
+  ),
+  h('div',{className:'card'},h('div',{className:'panelTitle'},h('h3',null,'CONNECTIONS'),h('span',null,(connections.length)+' ACTIVE')),
+   h('div',{className:'cardBody'},
+    connections.length?h('div',{className:'tableWrap'},
+     h('table',null,h('thead',null,h('tr',null,h('th',null,'NAME'),h('th',null,'PROVIDER'),h('th',null,'TYPE'),h('th',null,'AUTH'),h('th',null,'BASE URL'),h('th',null,'STATUS'),h('th',null,'ACTIONS'))),
+      h('tbody',null,connections.map(c=>h('tr',{key:c.id},
+       h('td',{style:{color:'var(--ink)',fontWeight:600}},c.name||c.provider||'—'),
+       h('td',null,c.provider||'—'),
+       h('td',null,B(c.type||'REST','blue')),
+       h('td',null,B(c.authType||'NONE','muted')),
+       h('td',{style:{maxWidth:200,overflow:'hidden',textOverflow:'ellipsis'}},c.baseUrl||'—'),
+        h('td',null,B(c.status||'UNKNOWN',c.status==='CONNECTED'?'good':'muted')),
+       h('td',null,h('button',{className:'btn sm',onClick:()=>doTestConn(c.id)},connTest?.id===c.id&&connTest?.testing?'Testing...':'⚡ Test'))
+)))
+     )):h(EmptyState,{title:'No connections configured',desc:'Connections link ADE to external systems via REST, WEBHOOK or OAUTH2. None exist because no integration has been added yet.',hint:'WHAT: External integrations · WHY EMPTY: no connections yet · WHAT TO DO: Add your first integration above to connect external systems',actionLabel:'Add your first integration above',actionFn:()=>window.scrollTo({top:0,behavior:"smooth"}),iconSize:36}),
+    connTest?.result&&!connTest?.testing?h('div',{className:'card',style:{marginTop:12}},
+     h('div',{className:'panelTitle'},h('h3',null,'TEST RESULT')),
+     h('div',{className:'cardBody'},
+      h('pre',{style:{margin:0,fontSize:11,color:connTest.result.success?'var(--good)':'var(--bad)'}},JSON.stringify(connTest.result,null,2))
+     )
+    ):null
+   )
+  )
+ );
+
+   /* ── AWBULI (WhatsApp Business Messaging) ── */
+  /* Read-only Founder visibility. All state comes from the canonical
+     /api/v1/product-surface row; this tab creates nothing, configures
+     nothing and sends nothing. */
+  const TAB_AWBULI=()=>{const su=(()=>{try{return (productSurface&&productSurface.surfaces||[]).find(s=>String(s.id||'').toLowerCase()==='awbuli')||null}catch{return null}})();const st=su&&su.status;const act=su&&su.activation&&su.activation.state;const conn=su&&su.connection;return h('div',{className:'stack'},
+   h('div',{className:'sectionHead'},h('h2',null,'AWBULI — WhatsApp Business Messaging'),h('p',null,'Founder visibility into AWBULI readiness. Design availability, onboarding, provider configuration and live connectivity are tracked as separate states — nothing here sends messages or changes credentials.')),
+   h('div',{className:'card'},h('div',{className:'panelTitle'},h('h3',null,'READINESS'),h('span',null,st?B(String(st),st==='ACTIVATED'||st==='AVAILABLE'?'good':st==='CONFIGURATION_REQUIRED'?'warn':'muted'):'LOADING')),h('div',{className:'cardBody'},
+    su?h('div',null,
+     h('div',{style:{display:'flex',flexWrap:'wrap',gap:8}},B('DESIGN: REGISTERED','good'),B('ONBOARDING: PENDING','warn'),B('PROVIDER: '+String(act||'UNKNOWN'),act==='ACTIVATED'||act==='AVAILABLE'?'good':'warn'),B('LIVE: '+String((conn&&conn.state)||'UNKNOWN'),conn&&(conn.state==='CONNECTED'||conn.state==='VERIFIED')?'good':'muted')),
+     h('div',{style:{fontSize:11,color:'var(--muted)',marginTop:8}},'Activation: '+String(act||'—')+' · Fabric: '+String((conn&&conn.state)||'—')+(conn&&conn.grip!=null?(' · grip '+conn.grip+'%'):'')+' · '+(String((su&&su.errorRecovery)||'No blocker recorded.')).slice(0,240)),
+     h('div',{style:{fontSize:11,color:'var(--muted)',marginTop:6}},'To advance: register a sender identity under Admin ' + String.fromCharCode(8594) + ' Channels / WhatsApp numbers, then configure the provider bridge. Verification is metadata-only until a live handshake succeeds.'),
+     h('div',{style:{display:'flex',gap:8,flexWrap:'wrap',marginTop:10}},h('button',{className:'btn sm',onClick:()=>setTab('PRODUCT THEATER')},'Open Product Theater'),h('button',{className:'btn sm',onClick:()=>setTab('INTEGRATIONS')},'Open Integrations'),h('button',{className:'btn sm',onClick:()=>window.open('/admin','_blank')},'Open Admin Console'))
+    ):h(EmptyState,{title:'Loading AWBULI state—',desc:'Reading the canonical surface row from /api/v1/product-surface.',hint:'WHAT: AWBULI readiness · WHY LOADING: fetching product-surface',iconSize:28})
+   )))
+  };
+
+/* ── FEATURE CONTROL ── */
+ const TAB_FEATURES=()=>h('div',{className:'stack'},
+  h('div',{className:'card'},h('div',{className:'panelTitle'},h('h3',null,'EDITION INFO'),h('span',null,'SERVER STATUS')),
+   h('div',{className:'cardBody'},
+    edition?h('div',{style:{display:'flex',flexWrap:'wrap',gap:8}},
+     B(edition.edition||'COMMUNITY','gold'),
+     B(edition.badge||'—','muted'),
+     B('DEMO MODE: '+(edition.isDemoMode?'YES':'NO'),edition.isDemoMode?'warn':'good')
+    ):h(EmptyState,{title:'Loading edition…',desc:'Fetching current ADE edition and badge from the server.',hint:'WHAT: Edition info · fetching /api/v1/edition',iconSize:28})
+   )
+  ),
+  h('div',{className:'card'},h('div',{className:'panelTitle'},h('h3',null,'FEATURE MATRIX'),h('span',null,(features.length)+' FEATURES')),
+   h('div',{className:'cardBody'},
+    features.length?features.map((f,i)=>h('div',{key:f.intent||f.name||i,className:'featureRow'},
+     h('div',{className:'toggle',class:f.available?'toggle on':'toggle',onClick:()=>doToggleFeature(f.name||f.intent,f.available),style:f.available?{background:'var(--gold)',borderColor:'var(--gold)'}:{}}),
+     h('div',{className:'fname'},f.name||f.intent),
+     h('div',{className:'fedition'},B(f.edition||f.tier||'COMMUNITY',f.edition==='PRO'?'warn':f.edition==='ENTERPRISE'?'bad':'muted')),
+     B(f.available?'AVAILABLE':'DISABLED',f.available?'good':'bad'),
+     f.requiresExternal?B('EXTERNAL DEPENDENCY','warn'):null,
+     f.requiresPayment?B('PAID','bad'):null
+    )):h(EmptyState,{title:'No features in the control store',desc:'Features are edition-gated capabilities controlled from this matrix. None are loaded because the store is empty or still syncing.',hint:'WHAT: Feature matrix · WHY EMPTY: store empty or loading · WHAT TO DO: Refresh or check diagnostics for storage health',actionLabel:'Refresh diagnostics',actionFn:()=>refreshAll(),iconSize:32})
+   )
+  )
+ );
+
+  /* ── TRADING (paper mode) ── */
+  const TAB_TRADING=()=>h('div',{className:'stack'},
+   h('div',{className:'sectionHead'},h('h2',null,'MARKETS / TRADING COMMAND'),h('p',null,'Unified Founder operational surface: Forex, Binary and Gaming/Aviator route to their canonical domain engines below. No duplicate stores — every action calls the same /api/v1/trading/* + venue/entitlement authorities. Paper mode; live execution always reports BROKER_NOT_CONFIGURED until a VERIFIED provider exists.')),
+   h('div',{className:'card'},h('div',{className:'panelTitle'},h('h3',null,'UNIFIED MARKETS'),h('span',null,'ONE SURFACE · SEPARATE ENGINES')),
+    h('div',{className:'cardBody'},
+     h('div',{style:{display:'flex',gap:8,flexWrap:'wrap'}},
+      h('button',{className:'btn sm',onClick:()=>setTab('FOREX')},'FOREX — Broker Connections & Paper Intelligence'),
+      h('button',{className:'btn sm',onClick:()=>setTab('BINARY')},'BINARY — Live Feed + Manipulation Shields'),
+      h('button',{className:'btn sm',onClick:()=>setTab('GAMING')},'GAMING / AVIATOR — Educational Analytics (NOT_SUPPORTED)'),
+      h('button',{className:'btn sm',onClick:()=>setTab('LIVE ENGAGEMENT & TRADING PORTAL')},'LIVE ENGAGEMENT PORTAL')
+     ),
+     h('div',{style:{fontSize:11,marginTop:8,color:'var(--muted)'}},'Forex → FounderSignalEngine.analyzeForex + MarketDataRegistry/VenueRegistry · Binary → analyzeBinary + BinaryBrokerConnector (paper) + broker-comparison store · Gaming → analyzeGaming (always NOT_SUPPORTED/NO_TRADE) + AviatorHistoryStore. Quality + risk enforced server-side on every paper execution.')
+    )
+   ),
+   h('div',{className:'sectionHead'},h('h2',null,'MARKET INTELLIGENCE'),h('p',null,'Paper-mode signal analytics on supplied candles. No live broker is connected — live execution always reports BROKER_NOT_CONFIGURED.')),
+  h('div',{className:'card'},h('div',{className:'panelTitle'},h('h3',null,'TRADING STATUS'),h('span',null,'PAPER MODE')),
+   h('div',{className:'cardBody'},
+     tradeStatus?h('div',{style:{display:'flex',flexWrap:'wrap',gap:8,alignItems:'center'}},
+      B('MODE: '+(tradeStatus.mode||'PAPER'),'muted'),
+      B('LIVE: '+(tradeStatus.liveExecution||'BROKER_NOT_CONFIGURED'),'warn'),
+      B('BALANCE: '+(tradeStatus.paperBalance??'—'),'muted'),
+      B('OPEN: '+(tradeStatus.risk?.openPositions??'—'),'blue'),
+      B('MAX RISK: '+(tradeStatus.risk?.maxRiskPerTrade??'—')+'%','muted'),
+      B('DAILY CAP: '+(tradeStatus.risk?.maxDailyLoss??'—')+'%','muted'),
+      B('EXPOSURE: '+(tradeStatus.risk?.openPositions??0)+'/'+(tradeStatus.risk?.maxExposure??'—'),'muted'),
+      B(tradeStatus.risk?.emergencyStop?'EMERGENCY STOP ON':'EMERGENCY STOP OFF',tradeStatus.risk?.emergencyStop?'bad':'good'),
+      h('button',{className:'btn sm danger',onClick:()=>doEmergencyStop(!tradeStatus.risk?.emergencyStop)},tradeStatus.risk?.emergencyStop?'Release Stop':'Engage Stop')
+     ):h(EmptyState,{title:'Loading trading status…',desc:'Fetching paper-mode status, balance and risk limits from /api/v1/trading/status.',hint:'Trading runs PAPER only until a broker is connected',iconSize:28}),
+     tradeStatus?h('div',{style:{marginTop:10,fontSize:11,color:'var(--muted)',lineHeight:1.6}},'Execution: PAPER only — LIVE is disabled until an authorized broker/provider is connected. Session-extraction and credential reuse are not supported; authenticate in your own broker session.') : null
+    )
+   ),
+  h('div',{className:'card'},h('div',{className:'panelTitle'},h('h3',null,'ANALYZE'),h('span',null,'SUPPLIED CANDLES ONLY')),
+   h('div',{className:'cardBody'},
+    h('div',{className:'formGrid'},
+     h('div',{className:'formRow'},
+      h('div',null,h('label',{className:'fieldLabel'},'KIND'),h('select',{className:'formInput',value:tradeForm.kind,onChange:e=>setTradeForm({...tradeForm,kind:e.target.value})},h('option',{value:'FOREX'},'FOREX'),h('option',{value:'BINARY'},'BINARY'))),
+      h('div',null,h('label',{className:'fieldLabel'},'INSTRUMENT / PAIR'),h('input',{className:'formInput',value:tradeForm.instrument,onChange:e=>setTradeForm({...tradeForm,instrument:e.target.value}),placeholder:'EURUSD'}))
+     ),
+      h('div',{className:'formRow'},
+       h('div',null,h('label',{className:'fieldLabel'},'MARKET TYPE (BINARY)'),h('select',{className:'formInput',value:tradeForm.marketType,onChange:e=>setTradeForm({...tradeForm,marketType:e.target.value})},h('option',{value:'REGULAR'},'REGULAR'),h('option',{value:'OTC'},'OTC'))),
+       h('div',null,h('label',{className:'fieldLabel'},'TIMEFRAME'),h('select',{className:'formInput',value:tradeForm.timeframe,onChange:e=>setTradeForm({...tradeForm,timeframe:e.target.value})},h('option',{value:'M1'},'M1'),h('option',{value:'M5'},'M5'),h('option',{value:'M15'},'M15'),h('option',{value:'H1'},'H1'))),
+       h('div',null,h('label',{className:'fieldLabel'},'EXECUTION STYLE'),h('select',{className:'formInput',value:tradeForm.executionStyle,onChange:e=>setTradeForm({...tradeForm,executionStyle:e.target.value})},h('option',{value:'MANUAL'},'MANUAL — signal + you decide'),h('option',{value:'SEMI_AUTO'},'SEMI_AUTO — signal + confirm amount'),h('option',{value:'FULL_AUTO'},'FULL_AUTO — paper only, risk-gated')))
+      ),
+     h('div',null,h('label',{className:'fieldLabel'},'CANDLES JSON [{t,o,h,l,c}...] MIN 20'),h('textarea',{className:'formInput',value:tradeForm.candles,onChange:e=>setTradeForm({...tradeForm,candles:e.target.value}),placeholder:'[{"t":..., "o":1.08, "h":1.081, "l":1.079, "c":1.0805}, ...]',style:{minHeight:90,fontFamily:'ui-monospace,Consolas,monospace',fontSize:11}})),
+     h('div',{style:{display:'flex',gap:8,flexWrap:'wrap'}},h('button',{className:'btn primary',onClick:doAnalyzeTrade},'ANALYZE'))
+    ),
+    tradeResult&&h('div',{className:'inviteResult',style:{marginTop:14}},
+     h('div',{style:{display:'flex',gap:8,flexWrap:'wrap',alignItems:'center',marginBottom:8}},
+      B(tradeResult.state||'—',String(tradeResult.state||'').startsWith('CONFIRMED')?'good':tradeResult.state==='NO_TRADE'?'bad':'warn'),
+      tradeResult.direction&&B(tradeResult.direction,'blue'),
+      h('span',{style:{fontSize:11,color:'var(--muted)'}},tradeResult.instrument||'')
+     ),
+      h('div',{style:{fontSize:12,lineHeight:1.7,color:'var(--ink)'}},
+       tradeResult.entry!=null?h('div',null,'ENTRY '+tradeResult.entry+' · SL '+tradeResult.stopLoss+' · TP1 '+tradeResult.tp1+' · TP2 '+tradeResult.tp2+' · TP3 '+tradeResult.tp3):null,
+       tradeResult.expiry?h('div',null,'EXPIRY (ESTIMATED): '+tradeResult.expiry.estimatedMinutes+' min — '+tradeResult.expiry.note):null,
+       tradeResult.riskAmount!=null?h('div',null,'RISK '+tradeResult.riskAmount+' · SIZE '+tradeResult.positionSize+' · RR '+tradeResult.riskReward):null,
+       tradeResult.confidencePercent!=null?h('div',null,'QUALITY '+tradeResult.confidencePercent+'% ('+((tradeResult.quality&&tradeResult.quality.band)||'—')+') · CONF '+tradeResult.confidence):null,
+       tradeResult.invalidation?h('div',null,'INVALIDATION: '+tradeResult.invalidation):null,
+       tradeResult.reason?h('div',{style:{color:'var(--muted)'}},tradeResult.reason):null
+      ),
+      String(tradeResult.state||'').startsWith('CONFIRMED')&&h('div',{style:{marginTop:10,display:'flex',gap:8,alignItems:'center',flexWrap:'wrap'}},h('span',{style:{fontSize:11,color:'var(--muted)'}},'PAPER '+(tradeForm.executionStyle||'MANUAL')),h('button',{className:'btn sm primary',onClick:doPaperExecute},'EXECUTE PAPER'))
+     )
+    )
+   ),
+   h('div',{className:'card'},h('div',{className:'panelTitle'},h('h3',null,'BACKTEST EVIDENCE'),h('span',null,'SUPPLIED CANDLES')),
+    h('div',{className:'cardBody'},
+     h('div',null,h('label',{className:'fieldLabel'},'BACKTEST CANDLES (MIN 40 — LEAVE BLANK TO REUSE ABOVE)'),h('textarea',{className:'formInput',value:tradeForm.backtestCandles,onChange:e=>setTradeForm({...tradeForm,backtestCandles:e.target.value}),placeholder:'[{"t":null,"o":...,"h":...,"l":...,"c":...}, ...]',style:{minHeight:60,fontFamily:'ui-monospace,Consolas,monospace',fontSize:11}})),
+     h('div',{style:{marginTop:8}},h('button',{className:'btn sm',onClick:doBacktest},'RUN BACKTEST')),
+     tradeBacktest&&h('div',{style:{marginTop:10,fontSize:12,lineHeight:1.7}},h('div',null,'CONFIRMED '+tradeBacktest.confirmed+' · EVALUATED '+tradeBacktest.evaluated+' · W '+tradeBacktest.wins+' / L '+tradeBacktest.losses+(tradeBacktest.winRate!=null?' · WIN RATE '+(tradeBacktest.winRate*100).toFixed(1)+'%':'')),tradeBacktest.error?h('div',{style:{color:'var(--warn)'}},tradeBacktest.error):null,h('div',{style:{color:'var(--muted)',fontSize:11}},tradeBacktest.note||''))
+    )
+   ),
+   h('div',{className:'card'},h('div',{className:'panelTitle'},h('h3',null,'GAMING / VIRTUAL'),h('span',null,'ROADMAP')),
+    h('div',{className:'cardBody'},
+     h('div',{className:'formRow'},
+       h('div',null,h('label',{className:'fieldLabel'},'MARKET'),h('select',{className:'formInput',value:tradeForm.game,onChange:e=>setTradeForm({...tradeForm,game:sanitizeVenue(e.target.value)})},['AVIATOR','CRASH','VIRTUAL_FOOTBALL','VIRTUAL_SPORT','SPRIBE','POCKET_OPTION','QUOTEX','IQ_OPTION','EXPERT_OPTION','SPORTBET','BETWAY','BETNAIJA','BETKING'].map(g=>h('option',{key:g,value:g},g)))),
+      h('div',{style:{alignSelf:'end'}},h('button',{className:'btn sm',onClick:doGamingCheck},'CHECK SUPPORT'))
+     ),
+     tradeGaming?h('div',{style:{marginTop:10,fontSize:12,lineHeight:1.7}},B(tradeGaming.support||'NOT_SUPPORTED','warn'),h('div',{style:{marginTop:6,color:'var(--muted)'}},tradeGaming.reason||'')):h('div',{style:{marginTop:8,fontSize:11,color:'var(--muted)'}},'Crash/virtual/betting outcomes resolve on provider servers with no authorized analytical feed. ADE returns NO_TRADE here by design — no session extraction, no credential reuse, no detection evasion.')
+    )
+   ),
+  h('div',{className:'card'},h('div',{className:'panelTitle'},h('h3',null,'PAPER LEDGER'),h('span',null,(tradeLedger.length)+' POSITIONS')),
+   h('div',{className:'cardBody'},
+    tradeLedger.length?h('div',{className:'tableWrap'},
+     h('table',null,h('thead',null,h('tr',null,h('th',null,'ID'),h('th',null,'INSTRUMENT'),h('th',null,'DIR'),h('th',null,'STATE'),h('th',null,'ENTRY'),h('th',null,'RISK'),h('th',null,'RESULT'),h('th',null,'ACTIONS'))),
+      h('tbody',null,tradeLedger.map(p=>h('tr',{key:p.id},
+       h('td',{style:{fontFamily:'ui-monospace,Consolas,monospace',fontSize:11}},p.id),
+       h('td',null,p.instrument||'—'),
+       h('td',null,B(p.direction||'—','blue')),
+       h('td',null,B(p.closedAt?'CLOSED':p.executionState||'—',p.closedAt?'muted':'good')),
+       h('td',null,p.entry??'—'),
+       h('td',null,p.riskAmount??'—'),
+       h('td',null,p.result?(p.result.outcome+' '+(p.result.pnl??'')):'—'),
+       h('td',null,!p.closedAt&&h('button',{className:'btn sm',onClick:()=>doPaperClose(p.id)},'Close'))
+      ))))
+    ):h(EmptyState,{title:'No paper positions yet',desc:'Paper positions simulate trades on supplied candles without a live broker. None exist because no CONFIRMED signal has been executed.',hint:'WHAT: Paper ledger · WHY EMPTY: no executed signals · WHAT TO DO: Analyze candles and execute a CONFIRMED signal in PAPER mode',actionLabel:'Analyze candles',actionFn:()=>window.scrollTo({top:0,behavior:"smooth"}),iconSize:32})
+   )
+  )
+ );
+
+ /* ── PRODUCT THEATER ── */
+ const TAB_THEATER=()=>h('div',{className:'stack'},
+  h('div',{className:'card'},h('div',{className:'panelTitle'},h('h3',null,'MEDIA REQUEST'),h('span',null,'NEW REQUEST')),
+   h('div',{className:'cardBody'},
+    h('div',{className:'formGrid'},
+     h('div',{className:'formRow'},
+      h('div',null,h('label',{className:'fieldLabel'},'TYPE'),h('select',{className:'formInput',value:mediaForm.type,onChange:e=>setMediaForm({...mediaForm,type:e.target.value})},MEDIA_TYPES.map(t=>h('option',{key:t,value:t},t)))),
+      h('div',null,h('label',{className:'fieldLabel'},'TITLE'),h('input',{className:'formInput',value:mediaForm.title,onChange:e=>setMediaForm({...mediaForm,title:e.target.value}),placeholder:'Media title'}))
+     ),
+     h('div',null,h('label',{className:'fieldLabel'},'DESCRIPTION'),h('textarea',{className:'formInput',value:mediaForm.description,onChange:e=>setMediaForm({...mediaForm,description:e.target.value}),placeholder:'Description'})),
+     h('div',{className:'formRow'},
+      h('div',null,h('label',{className:'fieldLabel'},'PRODUCT'),h('input',{className:'formInput',value:mediaForm.product,onChange:e=>setMediaForm({...mediaForm,product:e.target.value}),placeholder:'Product name'})),
+      h('div',null,h('label',{className:'fieldLabel'},'LANGUAGE'),h('input',{className:'formInput',value:mediaForm.language,onChange:e=>setMediaForm({...mediaForm,language:e.target.value}),placeholder:'en'}))
+     ),
+     h('div',{className:'formRow'},
+      h('div',null,h('label',{className:'fieldLabel'},'CATEGORY'),h('select',{className:'formInput',value:mediaForm.category,onChange:e=>setMediaForm({...mediaForm,category:e.target.value})},MEDIA_CATS.map(t=>h('option',{key:t,value:t},t)))),
+      h('div',null,h('label',{className:'fieldLabel'},'CLASSIFICATION'),h('select',{className:'formInput',value:mediaForm.truthClassification,onChange:e=>setMediaForm({...mediaForm,truthClassification:e.target.value})},h('option',{value:'LIVE'},'LIVE'),h('option',{value:'SIMULATED'},'SIMULATED'))),
+      h('div',null,h('label',{className:'fieldLabel'},'AUDIENCE'),h('input',{className:'formInput',value:mediaForm.audience,onChange:e=>setMediaForm({...mediaForm,audience:e.target.value}),placeholder:'PUBLIC'}))
+     ),
+     h('button',{className:'btn primary',onClick:doCreateMediaReq},'SUBMIT REQUEST')
+    )
+   )
+  ),
+  h('div',{className:'card'},h('div',{className:'panelTitle'},h('h3',null,'PROVIDER STATUS'),h('span',null,'MEDIA ENGINE')),
+   h('div',{className:'cardBody'},
+    providers.length?h('div',{style:{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(200px,1fr))',gap:10}},providers.map(p=>h('div',{key:p.id||p.name,className:'stat'},
+     h('div',{style:{fontSize:13,fontWeight:700,color:'var(--ink)'}},p.id||p.name),
+     h('div',{style:{marginTop:4}},B(p.configured?'CONFIGURED':'UNCONFIGURED',p.configured?'good':'muted')),
+     p.type?h('div',{style:{marginTop:4,fontSize:10,color:'var(--muted)'}},(p.type||'')+(p.status?' · '+p.status:'')):null
+    ))):h(EmptyState,{title:'No media providers configured',desc:'Providers power Product Theater rendering. None are configured because no provider credentials are set in this environment.',hint:'WHAT: Media engine providers · WHY EMPTY: no provider env configured · WHAT TO DO: Configure a provider in environment or submit a media request',actionLabel:'Submit media request below',actionFn:()=>window.scrollTo({top:0,behavior:"smooth"}),iconSize:32})
+   )
+  ),
+  h('div',{className:'card'},h('div',{className:'panelTitle'},h('h3',null,'MEDIA REQUESTS'),h('span',null,(mediaRequests.length)+' REQUESTS')),
+   h('div',{className:'cardBody'},
+    mediaRequests.length?h('div',{className:'tableWrap'},
+     h('table',null,h('thead',null,h('tr',null,h('th',null,'TITLE'),h('th',null,'TYPE'),h('th',null,'CATEGORY'),h('th',null,'CLASSIFICATION'),h('th',null,'STATUS'),h('th',null,'CREATED'))),
+      h('tbody',null,mediaRequests.map(m=>h('tr',{key:m.id||m.requestId},
+       h('td',{style:{color:'var(--ink)',fontWeight:600}},m.title||'—'),
+       h('td',null,B(m.type||'—','blue')),
+       h('td',null,B(m.category||'—','muted')),
+       h('td',null,B(m.truthClassification||'PLACEHOLDER',m.truthClassification==='LIVE'?'good':m.truthClassification==='SIMULATED'?'blue':'warn')),
+       h('td',null,B(m.status||'CREATED','muted')),
+       h('td',null,fmtDate(m.createdAt))
+)))
+     )):h(EmptyState,{title:'No media requests yet',desc:'Media requests queue promotional, demo or tutorial assets for production. None exist because none have been submitted.',hint:'WHAT: Media requests · WHY EMPTY: no submissions · WHAT TO DO: Submit your first request above',actionLabel:'Create media request above',actionFn:()=>window.scrollTo({top:0,behavior:"smooth"}),iconSize:32})
+   )
+  )
+ );
+
+ /* ── ANNOUNCEMENTS ── */
+ const TAB_ANNOUNCEMENTS=()=>h('div',{className:'stack'},
+  h('div',{className:'card'},h('div',{className:'panelTitle'},h('h3',null,'PUBLISH ANNOUNCEMENT'),h('span',null,'CREATE')),
+   h('div',{className:'cardBody'},
+    h('div',{className:'formGrid'},
+     h('div',{className:'formRow'},
+      h('div',{style:{flex:'1 1 200px'}},h('label',{className:'fieldLabel'},'TITLE'),h('input',{className:'formInput',value:annForm.title,onChange:e=>setAnnForm({...annForm,title:e.target.value}),placeholder:'Announcement title'})),
+      h('div',{style:{flex:'0 0 160px'}},h('label',{className:'fieldLabel'},'KIND'),h('select',{className:'formInput',value:annForm.kind,onChange:e=>setAnnForm({...annForm,kind:e.target.value})},ANN_KINDS.map(k=>h('option',{key:k,value:k},k))))
+     ),
+     h('div',null,h('label',{className:'fieldLabel'},'BODY'),h('textarea',{className:'formInput',value:annForm.body,onChange:e=>setAnnForm({...annForm,body:e.target.value}),placeholder:'Announcement body'})),
+     h('div',null,h('label',{className:'fieldLabel'},'LINK (OPTIONAL)'),h('input',{className:'formInput',value:annForm.link,onChange:e=>setAnnForm({...annForm,link:e.target.value}),placeholder:'https://...'})),
+     h('button',{className:'btn primary',onClick:doCreateAnnouncement},'PUBLISH')
+    )
+   )
+  ),
+  h('div',{className:'card'},h('div',{className:'panelTitle'},h('h3',null,'ANNOUNCEMENTS'),h('span',null,(announcements.length)+' PUBLISHED')),
+   h('div',{className:'cardBody'},
+    announcements.length?h('div',{style:{display:'grid',gap:10}},announcements.map(a=>h('div',{key:a.id,style:{padding:'14px 16px',border:'1px solid var(--line)',borderRadius:'var(--radius)',background:'var(--surface2)'}},
+     h('div',{style:{display:'flex',alignItems:'center',gap:8,marginBottom:6}},
+      B(a.kind||'NEWS',a.kind==='ANNOUNCEMENT'?'gold':a.kind==='BULLETIN'?'warn':a.kind==='ADVERT'?'bad':'blue'),
+      h('span',{style:{fontSize:10,color:'var(--faint)'}},fmtDate(a.createdAt))
+     ),
+     h('div',{style:{fontSize:14,fontWeight:700,color:'var(--ink)',marginBottom:4}},a.title),
+     a.body?h('div',{style:{fontSize:12,color:'var(--muted)',lineHeight:1.5}},a.body):null,
+     a.link?h('a',{href:a.link,target:'_blank',rel:'noopener',style:{fontSize:11,marginTop:4,display:'inline-block'}},a.link):null
+    ))):h(EmptyState,{title:'No announcements published yet',desc:'Announcements broadcast news, bulletins or adverts to the ecosystem. None are published because none have been created.',hint:'WHAT: Published announcements · WHY EMPTY: none created · WHAT TO DO: Publish your first announcement above',actionLabel:'Publish your first announcement above',actionFn:()=>window.scrollTo({top:0,behavior:"smooth"}),iconSize:32})
+   )
+  )
+ );
+
+ /* ── AUDIT ── */
+ const TAB_AUDIT=()=>h('div',{className:'stack'},
+  h('div',{className:'card'},h('div',{className:'panelTitle'},
+   h('h3',null,'SECURITY AUDIT LEDGER'),
+   h('div',{style:{display:'flex',gap:8,alignItems:'center'}},
+    h('input',{className:'search',style:{width:180,minHeight:34,fontSize:11},placeholder:'Filter by type...',value:auditFilter,onChange:e=>setAuditFilter(e.target.value)}),
+    h('select',{className:'formInput',style:{width:100,minHeight:34,fontSize:11},value:String(auditLimit),onChange:e=>setAuditLimit(Number(e.target.value))},h('option',{value:'50'},'50'),h('option',{value:'100'},'100'),h('option',{value:'250'},'250'),h('option',{value:'500'},'500')),
+    h('button',{className:'btn sm',onClick:async()=>{const r=await api('/api/v1/audit?limit='+auditLimit+(auditFilter?'&type='+encodeURIComponent(auditFilter):''));if(r)setAuditEntries(r.entries||[])}},'↻ Refresh')
+   )
+  ),
+   h('div',{className:'cardBody'},
+    auditEntries.length?h('div',{className:'tableWrap'},
+     h('table',null,h('thead',null,h('tr',null,h('th',null,'TIMESTAMP'),h('th',null,'TYPE'),h('th',null,'TOPIC'),h('th',null,'DETAILS'))),
+       h('tbody',null,(auditFilter?auditEntries.filter(e=>{const t=(e.payload?.type??e.type??e.topic??'').toLowerCase();return t.includes(auditFilter.toLowerCase())}):auditEntries).map((e,i)=>{
+         // Audit JSON sanitization: escape HTML entities & < > " and truncate; render as text (React escapes), never as HTML
+         const raw=e.message||e.payload?.message||JSON.stringify(e.payload||{});
+         const safe=truncateHtml(raw);
+         return h('tr',{key:i},
+        h('td',{style:{fontFamily:'ui-monospace,Consolas,monospace',fontSize:10}},fmtTime(e.meta?.timestamp||e.timestamp||e.createdAt)),
+        h('td',null,B(escapeHtml(e.payload?.type||e.type||e.topic||'—'),'blue')),
+        h('td',{style:{color:'var(--ink)',fontWeight:600}},escapeHtml(e.topic||e.type||'—')),
+        h('td',{style:{fontSize:11,color:'var(--faint)',maxWidth:300,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}},safe)
+ )}))
+     )):h(EmptyState,{title:'No audit entries found',desc:'The audit ledger records every security-relevant event. No entries match the current filter or none have been emitted yet.',hint:'WHAT: Security audit ledger · WHY EMPTY: no matching events · WHAT TO DO: Clear the filter or adjust limit and refresh',actionLabel:'Refresh audit',actionFn:async()=>{try{const r=await api("/api/v1/audit?limit="+auditLimit);if(r)setAuditEntries(r.entries||[])}catch{}},iconSize:32})
+   )
+  )
+ );
+
+   const TAB_FOREX=()=>h('div',{className:'stack'},h('div',{className:'sectionHead'},h('h2',null,'FOREX — Broker Connections & Paper Intelligence'),h('p',null,'Live paper analytics with risk controls. Broker status badges: Connected / Authenticated / Unconfigured. Manual venue configuration via INTEGRATIONS.')), TAB_TRADING());
+   const TAB_BINARY=()=>h('div',{className:'stack'},h('div',{className:'sectionHead'},h('h2',null,'BINARY — Live Feed + Manipulation Shields'),h('p',null,'Tick-stall (15s), 2.5-pip edge, 0.8-pip feed validation. Paper only until VERIFIED broker.')), TAB_TRADING());
+   const TAB_GAMING=()=>h('div',{className:'stack'},h('div',{className:'sectionHead'},h('h2',null,'GAMING — Aviator / Crash Analytics (Educational)'),h('p',null,'Rolling history via AviatorHistoryStore, bustTable + MonteCarlo — not prediction. Paper simulation only.')), h('div',{className:'card'},h('div',{className:'cardBody'}, h('div',{style:{display:'flex',gap:8,flexWrap:'wrap'}},h('button',{className:'btn primary',onClick:()=>window.open('/market-lab','_blank')},'Open Market Lab'),h('button',{className:'btn',onClick:()=>setTab('TRADING')},'Go to Trading')))));
+   const TAB_LIVE=()=>h('div',{className:'stack'},
+    h('div',{className:'sectionHead'},h('h2',null,'LIVE ENGAGEMENT & TRADING PORTAL'),h('p',null,'Direct connectors for Forex, Binary (OTC & Regular), Aviator/Virtual Engine, Soccer & Prediction Feeds and Market Data Comparison — SignalQualityGate + execution gateways. LIVE vs SIMULATED badges.  States load live from /api/v1/engagement/live-feeds — nothing hardcoded.')),
+    h('div',{className:'card'},h('div',{className:'panelTitle'},h('h3',null,'CONNECTORS'),h('span',null,'LIVE FEEDS')),h('div',{className:'cardBody'},
+      h('div',{style:{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(220px,1fr))',gap:10}},
+        ['FOREX','BINARY','AVIATOR','SOCCER'].map(k=>h('div',{key:k,className:'stat'},h('b',null,k),h('span',null,'tap Refresh to load live state')))
+      ),
+      h('div',{style:{display:'flex',gap:8,marginTop:10,flexWrap:'wrap'}},
+        h('button',{className:'btn primary',onClick:async()=>{try{const r=await api('/api/v1/engagement/live-feeds');notify('Feeds: Forex '+(r?.feeds?.forex?.state||'?')+' · Binary '+(r?.feeds?.binary?.state||'?')+' · Aviator '+(r?.feeds?.aviator?.state||'?')+' · Soccer '+(r?.feeds?.soccer?.state||'?'));}catch(e){notify(e.message);}}},'Refresh live feeds'),
+        h('button',{className:'btn',onClick:()=>window.open('/market-lab','_blank')},'Open Market Lab'),
+        h('button',{className:'btn',onClick:()=>setTab('TRADING')},'Go to Trading')
+      )
+    )),
+    h('div',{className:'card'},h('div',{className:'panelTitle'},h('h3',null,'TELEMETRY'),h('span',null,'SSE · /api/v1/events/stream')),h('div',{className:'cardBody'},
+      liveEvents.length?h('div',{style:{display:'grid',gap:6,maxHeight:220,overflowY:'auto'}},liveEvents.map((ev,i)=>h('div',{key:i,style:{padding:'8px 10px',border:'1px solid var(--lineSoft)',borderRadius:10,background:'var(--ocean)'}},h('div',{style:{display:'flex',gap:8,alignItems:'center'}},h('span',{className:'badge blue'},String(ev.topic||'EVENT').slice(0,26)),h('span',{style:{fontSize:9.5,color:'var(--faint)'}},fmtTime(ev.at)))))):h(EmptyState,{title:'Waiting for live events…',desc:'Connected to the canonical ADE Enterprise Event Bus via /api/v1/events/stream (SSE). Events will appear here in real time.',hint:'WHAT: Live event stream · WHY EMPTY: no events published yet',iconSize:28})
+    ))
+   );
+   const TAB_EXTERNAL_SERVICES=()=>h('div',{className:'stack'},
+    h('div',{className:'sectionHead'},h('h2',null,'EXTERNAL SERVICES — Founder/Admin Configuration Center'),h('p',null,'Supabase, Resend, UptimeRobot and AI providers — dashboard-configurable, never exposed to public. All production verification without printing secrets.')),
+    h('div',{style:{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(280px,1fr))',gap:12}},
+     h('div',{className:'card'},h('div',{className:'panelTitle'},h('h3',null,'SUPABASE — Durable Storage')),h('div',{className:'cardBody'},
+      diagnostics?h('div',null,
+       h('div',{style:{display:'flex',gap:6,flexWrap:'wrap'}},h('span',{className:'badge '+(diagnostics?.diagnostics?.storage?.configured?'good':'warn')},diagnostics?.diagnostics?.storage?.status||'—')),
+       h('div',{style:{fontSize:11,color:'var(--muted)',marginTop:6}},'Provider: '+(diagnostics?.diagnostics?.storage?.provider||'—')+' · Mode: '+(diagnostics?.diagnostics?.storage?.mode||'—')),
+       h('div',{style:{fontSize:11,marginTop:4,color:'var(--muted)'}},diagnostics?.diagnostics?.storage?.note||''),
+       h('div',{style:{display:'flex',gap:6,marginTop:10}},h('button',{className:'btn sm',onClick:async()=>{setExtBusy(true);try{const r=await api('/api/v1/system/diagnostics');setDiagnostics(r);notify('Supabase diagnostics refreshed')}catch(e){notify(e.message)}finally{setExtBusy(false)}},disabled:extBusy},'VERIFY'))
+      ):h('div',{className:'muted'},'Loading diagnostics…')
+     )),
+     h('div',{className:'card'},h('div',{className:'panelTitle'},h('h3',null,'RESEND — Email')),h('div',{className:'cardBody'},
+      diagnostics?h('div',null,
+       h('div',{style:{display:'flex',gap:6}},h('span',{className:'badge '+(diagnostics?.diagnostics?.email?.configured?'good':'warn')},diagnostics?.diagnostics?.email?.status||'—'), h('span',{className:'badge muted'},(diagnostics?.diagnostics?.email?.sender||'—').slice(0,28))),
+       h('div',{style:{fontSize:11,marginTop:6,color:'var(--muted)'}},diagnostics?.diagnostics?.email?.note||''),
+       h('div',{style:{display:'flex',gap:6,marginTop:10,flexWrap:'wrap'}},
+        h('button',{className:'btn sm',onClick:async()=>{const k=prompt('Resend API key (masked after save):');if(!k)return;setExtBusy(true);try{await api('/api/v1/email/configure',{method:'POST',body:JSON.stringify({apiKey:k})});const r=await api('/api/v1/system/diagnostics');setDiagnostics(r);notify('Resend configured (masked)')}catch(e){notify(e.message)}finally{setExtBusy(false)}},disabled:extBusy},'CONFIGURE'),
+        h('button',{className:'btn sm',onClick:async()=>{setExtBusy(true);try{await api('/api/v1/email/status').then(r=>notify('Resend: '+(r?.email?.status||r?.status?.status||'—')))}catch(e){notify(e.message)}finally{setExtBusy(false)}},disabled:extBusy},'VERIFY'))
+      ):null
+     )),
+     h('div',{className:'card'},h('div',{className:'panelTitle'},h('h3',null,'UPTIMEROBOT — Health Monitoring')),h('div',{className:'cardBody'},
+      h('div',{style:{fontSize:11,color:'var(--gold)',fontWeight:800}},'Endpoint: https://ade-apex-community.vercel.app/api/v1/health'),
+      h('div',{style:{fontSize:11,color:'var(--muted)',marginTop:4}},'Expected: HTTP 200 and response status OK — 5 minute interval'),
+      uptimeStatus?h('div',{style:{marginTop:8}},
+       h('div',{style:{display:'flex',gap:6}},h('span',{className:'badge '+(uptimeStatus.status==='VERIFIED'?'good':uptimeStatus.status==='CONFIGURED'?'warn':'muted')},uptimeStatus.status), uptimeStatus.masked?h('span',{className:'badge muted'},'key '+uptimeStatus.masked):null),
+       uptimeStatus.monitorId?h('div',{style:{fontSize:11,marginTop:4,color:'var(--muted)'}},'Monitor: '+uptimeStatus.monitorId):null
+      ):h('div',{style:{fontSize:11,marginTop:6,color:'var(--muted)'}},'Status: '+(uptimeStatus?.status||'NOT CONFIGURED')),
+      h('div',{style:{display:'flex',gap:6,flexWrap:'wrap',marginTop:10}},
+       h('button',{className:'btn sm primary',onClick:async()=>{const k=prompt('UptimeRobot API key (masked):');if(!k)return;setExtBusy(true);try{await api('/api/v1/integrations/uptimerobot/configure',{method:'POST',body:JSON.stringify({apiKey:k})});const r=await api('/api/v1/integrations/uptimerobot/status');setUptimeStatus(r);notify('UptimeRobot authorized (masked)')}catch(e){notify(e.message)}finally{setExtBusy(false)}},disabled:extBusy},'AUTHORIZE UPTIMEROBOT'),
+       h('button',{className:'btn sm',onClick:async()=>{setExtBusy(true);try{const r=await api('/api/v1/integrations/uptimerobot/verify',{method:'POST'});setUptimeStatus(r);notify('UptimeRobot: '+r.status)}catch(e){notify(e.message)}finally{setExtBusy(false)}},disabled:extBusy},'VERIFY CONNECTION'),
+       h('button',{className:'btn sm',onClick:async()=>{const id=prompt('Monitor ID (leave blank to keep):');if(id===null)return;setExtBusy(true);try{await api('/api/v1/integrations/uptimerobot/configure',{method:'POST',body:JSON.stringify({monitorId:id})});const r=await api('/api/v1/integrations/uptimerobot/status');setUptimeStatus(r);notify('Monitor updated')}catch(e){notify(e.message)}finally{setExtBusy(false)}},disabled:extBusy},'CREATE/UPDATE MONITOR')
+      )
+     )),
+     h('div',{className:'card'},h('div',{className:'panelTitle'},h('h3',null,'AI PROVIDERS — Founder/Admin Only')),h('div',{className:'cardBody'},
+      aiProviders?h('div',null,
+       h('div',{style:{display:'grid',gap:8}},aiProviders.providers.map(p=>h('div',{key:p.name,style:{display:'flex',alignItems:'center',justifyContent:'space-between',gap:8,padding:'8px 10px',border:'1px solid var(--lineSoft)',borderRadius:10,background:'var(--ocean)'}},
+        h('div',null,h('div',{style:{fontSize:11,fontWeight:800,color:'var(--gold)'}},p.name),h('div',{style:{fontSize:10,color:'var(--muted)'}},p.model+' · '+(p.via||'ENV')+(p.lastVerified?' · verified '+new Date(p.lastVerified).toLocaleDateString():''))),
+        h('div',{style:{display:'flex',gap:6,alignItems:'center'}},
+         h('span',{className:'badge '+(p.status==='CONFIGURED'?'good':'muted')},p.status),
+         h('button',{className:'btn sm',onClick:async()=>{const k=prompt(p.name+' API key (masked):');if(!k)return;setExtBusy(true);try{await api('/api/v1/ai/providers/'+p.name+'/configure',{method:'POST',body:JSON.stringify({apiKey:k})});const r=await api('/api/v1/ai/providers');setAiProviders(r);notify(p.name+' configured (masked)')}catch(e){notify(e.message)}finally{setExtBusy(false)}},disabled:extBusy},'CONFIGURE'),
+         h('button',{className:'btn sm',onClick:async()=>{setExtBusy(true);try{const r=await api('/api/v1/ai/providers/'+p.name+'/verify',{method:'POST'});setAiProviders(await api('/api/v1/ai/providers'));notify(p.name+': '+r.status)}catch(e){notify(e.message)}finally{setExtBusy(false)}},disabled:extBusy},'VERIFY')
+        )
+       ))),
+       h('div',{style:{fontSize:11,marginTop:8,color:'var(--muted)'}},'Fallback: '+(aiProviders.fallback||'OFFLINE_LEXICAL_ENGINE')+' · Active: '+(aiProviders.activeProviders||0)+' · All providers dashboard-configurable; masked, never returned raw.')
+      ):h('div',{className:'muted'},'Loading AI providers…')
+     ))
+    )
+   );
+   const tabContent={OVERVIEW:TAB_OVERVIEW,INBOX:TAB_INBOX,WORKFORCE:TAB_WORKFORCE,PILOTS:TAB_PILOTS,PARTNERS:TAB_PARTNERS,INTEGRATIONS:TAB_INTEGRATIONS,AWBULI:TAB_AWBULI,TRADING:TAB_TRADING,FOREX:TAB_FOREX,BINARY:TAB_BINARY,GAMING:TAB_GAMING,'LIVE ENGAGEMENT & TRADING PORTAL':TAB_LIVE,'FEATURE CONTROL':TAB_FEATURES,'PRODUCT THEATER':TAB_THEATER,ANNOUNCEMENTS:TAB_ANNOUNCEMENTS,AUDIT:TAB_AUDIT,'EXTERNAL SERVICES':TAB_EXTERNAL_SERVICES};
+
+ return h('div',{className:'app'},
+  h('header',{className:'top'},
+   h('div',{className:'topInner'},
+     h('div',{className:'brand',onClick:()=>{try{window.location.href='/'}catch{}},title:'ADE home',style:{cursor:'pointer'}},
+      h('img',{src:'/ADE-LOGO.png',alt:'ADE',style:{width:38,height:38,objectFit:'contain'}}),
+      h('div',{className:'brandName'},h('strong',null,'ADVANCED FOUNDER CONTROLS'),h('span',null,'AUTOMATED ALPHA ALIPH DIGITAL ECOSYSTEMS'))
+     ),
+     h('nav',{className:'topNav'},visibleTabs.map(t=>h('button',{key:t,className:tab===t?'active':'',onClick:()=>{setTab(t);setMenuOpen(false)},title:visibleTabs.length!==TABS.length?('Filtered for '+(_accessRole||'role')):''},t))),
+    h('div',{className:'topRight'},
+     serverAuth?h('span',{className:'pill',title:'Server-validated · Role: '+(_accessRole||'—')+' · Persona: '+(srvPersona||'—')+' · PIN: '+(srvElevated?'verified':'not verified')},'@'+((serverAuth.person&&serverAuth.person.username)||(identity&&identity.subject)||'—')+' · '+(_accessRole||'—')+' · L'+srvLevel+(srvElevated?' · ELEVATED':' · BASE')):null,
+     ((()=>{try{const _m=String(document.cookie||'').match(/(?:^|;\s*)ade_elevated=([^;]*)/);if(_m)return h('span',{className:'pill',title:'Dual-token elevated session — no auto-logout'},'@FOUNDER · L3 · ELEVATED');}catch{}return null})()||h('span',{className:'pill '+(kernLive?'live':kernStatus==='OFFLINE'?'off':'')},h('i',{className:'dot'}),kernLive?'ONLINE':kernStatus)),
+      h('a',{className:'btn sm',href:'/#/Workspace',title:'Open the canonical ADE role workspace — same server session, shared token'},'WORKSPACE'),
+      h('button',{className:'btn sm danger',onClick:logout},'⊘ LOGOUT'),
+      h('button',{className:'iconBtn hamburger',onClick:()=>setMenuOpen(v=>!v),'aria-expanded':menuOpen?'true':'false','aria-label':'Toggle navigation',title:'Menu'},menuOpen?'✕':'☰')
+    )
+   ),
+   menuOpen&&h('nav',{className:'mobileMenu open','aria-label':'Mobile'},visibleTabs.map(t=>h('button',{key:t,className:tab===t?'active':'',onClick:()=>{setTab(t);setMenuOpen(false)}},t)),h('a',{href:'/#/Workspace',style:{display:'block',padding:'12px 14px',minHeight:48,fontWeight:800},onClick:()=>setMenuOpen(false)},'→ CANONICAL WORKSPACE'))
+  ),
+   h('main',{className:'shell'},
+    h('div',{className:'heroCard',style:{padding:'18px 20px',marginBottom:'18px',display:'flex',alignItems:'center',gap:'16px',flexWrap:'wrap'}},
+     h('div',{style:{flex:'1 1 260px',position:'relative',zIndex:1,minWidth:'200px'}},
+      h('div',{className:'eyebrow',style:{color:'var(--gold)',fontSize:'10px',letterSpacing:'.22em'}},'AUTOMATED ALPHA ALIPH DIGITAL ECOSYSTEMS'),
+      h('h2',{style:{margin:'6px 0 4px',fontSize:'18px',letterSpacing:'-.01em',color:'var(--gold)'}},'ADE ADVANCED FOUNDER CONTROLS'),
+      h('p',{style:{margin:0,color:'var(--muted)',fontSize:'12.5px',lineHeight:1.5}},'Building African Digital Business Operational Systems — shield-grade operations, procurement and intelligence.'),
+       h('div',{style:{marginTop:'10px',display:'flex',gap:'8px',flexWrap:'wrap'}},h('span',{className:'badge gold'},'SHIELD SECURED'),h('span',{className:'badge blue'},isFounder?(srvElevated?'FOUNDER AUTHORITY · ELEVATED':'FOUNDER AUTHORITY · BASE SESSION'):isLegacyAdmin?'BOOTSTRAP ADMINISTRATOR':(_accessRole||'—')+' SESSION'))
+     ),
+     h('div',{style:{position:'relative',width:'96px',height:'96px',flex:'0 0 auto',display:'block'}},
+      h('div',{className:'heroOrb',role:'img','aria-label':'ADE shield orb'}),
+      h('svg',{viewBox:'0 0 24 24',width:36,height:36,style:{position:'absolute',left:'50%',top:'50%',transform:'translate(-50%,-50%)',filter:'drop-shadow(0 2px 8px rgba(0,0,0,.4))'},fill:'none',stroke:'var(--gold)',strokeWidth:'1.6',strokeLinejoin:'round','aria-hidden':'true'},h('path',{d:'M12 2.8 L18.6 6.2 V11.6 C18.6 15.3 16.4 18.9 12 20.8 C7.6 18.9 5.4 15.3 5.4 11.6 V6.2 Z'}),h('path',{d:'M8.8 12.1 L11 14.3 L15.6 9.4',strokeLinecap:'round',strokeLinejoin:'round'}))
+     )
+    ),
+    h('div',{'data-testid':'founder-nav',style:{display:'flex',alignItems:'center',gap:'8px',flexWrap:'wrap',marginBottom:'14px'}},
+     h('button',{className:'btn sm',title:'Back to the previous screen',onClick:()=>{try{if(window.history.length>1)window.history.back();else setTab('OVERVIEW')}catch{setTab('OVERVIEW')}}},'← Back'),
+     h('button',{className:'btn sm',title:'Founder workspace home',onClick:()=>setTab('OVERVIEW')},'Home'),
+     h('span',{className:'muted',style:{fontSize:11}},'ADE · Advanced Founder Controls · '+(tab||'OVERVIEW'))
+    ),
+    (tabContent[tab]||TAB_OVERVIEW)()
+   ),
+   h('footer',{style:{marginTop:'auto',borderTop:'1px solid var(--line)',padding:'24px 0 20px',textAlign:'center'}},
+    h('div',{style:{fontSize:10,color:'var(--faint)',letterSpacing:0.12,fontWeight:700}},'AUTOMATED ALPHA ALIPH DIGITAL ECOSYSTEMS'),
+    h('div',{style:{fontSize:10,color:'var(--faint)',marginTop:4}},h('a',{href:'mailto:Automated_alpha_aliph@yahoo.com',style:{color:'var(--muted)'}},'Automated_alpha_aliph@yahoo.com')),
+    h('div',{style:{fontSize:10,color:'var(--faint)',marginTop:3}},'WhatsApp + Calls: ',h('a',{href:'tel:+2347038272792',style:{color:'var(--muted)'}},'+234 (0) 7038272792'),' · Calls Only: ',h('a',{href:'tel:+2347058769114',style:{color:'var(--muted)'}},'+234 (0) 7058769114')),
+    h('div',{style:{fontSize:9,color:'var(--faint)',marginTop:4,letterSpacing:0.08}},'© '+new Date().getFullYear()+' ADE ADVANCED FOUNDER CONTROLS · ALL RIGHTS RESERVED')
+   ),
+  toast&&h('div',{className:'toast'+(toast.indexOf('✓')===0?' ok':toast.indexOf('✕')===0?' err':'')},toast)
+ );
+}
+ReactDOM.createRoot(document.getElementById('root')).render(h(App));
+})();

@@ -1,0 +1,14 @@
+﻿M	.github/workflows/ci-cd.yml
+M	.github/workflows/production-verification.yml
+M	frontend/src/components/CommandPalette.jsx
+M	package.json
+M	public/index.html
+M	scripts/build-prod-server.js
+M	src/ai/UniversalAIGateway.js
+M	src/core/CapabilityRegistry.js
+M	src/kernel/EnterpriseKernelMaster.js
+M	src/security/CommunityEditionGuard.js
+M	src/security/KeyManager.js
+M	src/server.js
+M	src/ui/CommandPaletteModal.jsx
+M	src/ui/SpatialCommandCenter.jsx

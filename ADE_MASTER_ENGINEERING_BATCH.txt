@@ -1,0 +1,643 @@
+﻿GEMINI — ADE-APEX MASTER RECONCILIATION / ENGINEERING HAMMER
+=============================================================
+
+EXECUTION MODE
+--------------
+You are operating directly on the CURRENT ADE-APEX repository.
+
+This is ONE controlled engineering batch.
+
+Do NOT ask the operator what to inspect next.
+Do NOT create another forensic-report cycle.
+Do NOT return instructions for the operator to manually implement.
+Do NOT merely describe fixes.
+IMPLEMENT THE REQUIRED RECONCILIATION DIRECTLY IN THE REPOSITORY.
+
+CURRENT VERIFIED REALITY
+------------------------
+Actual repository HEAD:
+181c5390f3b1b1cee17af2fd824fff8481273d7c
+
+Branch:
+main
+
+Working tree:
+DIRTY
+
+IMPORTANT:
+The dirty working tree contains existing ADE Phase-01 / Block-01 engineering work.
+PRESERVE IT.
+
+ABSOLUTE PRESERVATION RULES
+----------------------------
+1. NEVER run:
+   git reset --hard
+   git clean -fd
+   git checkout -- .
+   git restore .
+   or any destructive operation.
+
+2. Do not delete existing legacy/older-build material merely because it is not currently canonical.
+
+3. Do not overwrite useful existing Phase-01 architecture without first integrating it.
+
+4. Existing architecture/documentation/types/tests that belong to the current ADE roadmap must remain available.
+
+5. If an old component conflicts with canonical runtime authority, quarantine/adapt it rather than destroying it.
+
+6. Git is the source of truth.
+
+OBJECTIVE
+---------
+Bring the CURRENT repository into one coherent, enterprise-grade ADE-APEX runtime state.
+
+The final implementation must be internally consistent.
+
+Do not manufacture claims.
+
+If a subsystem cannot legitimately be implemented from the available repository architecture, implement its contract/boundary honestly and mark the physical integration as deferred.
+
+=============================================================
+A. CANONICAL RUNTIME RECONCILIATION
+=============================================================
+
+Establish ONE authoritative runtime chain.
+
+Canonical authorities should resolve to:
+
+Kernel:
+src/kernel/EnterpriseKernelMaster.js
+
+EventBus:
+src/kernel/EnterpriseEventBus.js
+
+CapabilityRegistry:
+src/core/CapabilityRegistry.js
+
+PluginRegistry:
+src/kernel/PluginRegistry.js
+
+AI Gateway:
+src/ai/UniversalAIGateway.js
+
+Supporting Engines:
+src/kernel/SupportingEngines.js
+
+Server:
+src/server.js
+
+Where compatibility files exist under src/core or kernel/legacy surfaces:
+
+- preserve compatibility where useful
+- prevent competing runtime authorities
+- route them toward the canonical implementations
+- clearly quarantine deprecated boot surfaces
+
+Do NOT duplicate the kernel/EventBus/Gateway.
+
+Verify actual import/require relationships rather than merely creating filenames.
+
+=============================================================
+B. IDENTITY / SESSION / SECURITY AUTHORITY
+=============================================================
+
+Implement or reconcile server-authoritative identity/session security.
+
+Required:
+
+- cryptographically verifiable server-issued sessions/tokens
+- expiration
+- revocation
+- server-side role/persona entitlement
+- protected mutation-route authorization
+- no browser localStorage value may become an authority for privileges
+- consistent authentication middleware
+- input validation
+- audit/security-event integration where architecture supports it
+
+Do not claim "localStorage privilege escalation impossible" unless the actual authorization path proves it.
+
+Create/reconcile:
+
+src/kernel/IdentityOnboarding.js
+
+or integrate the functionality into the existing canonical identity authority if an equivalent already exists.
+
+Do not create a second competing identity authority.
+
+=============================================================
+C. CAPABILITY REGISTRY
+=============================================================
+
+Reconcile:
+
+src/core/CapabilityRegistry.js
+
+Required lifecycle:
+
+registerCapability
+verifyCapability
+getSubsystems
+unregisterCapability
+revokeCapability
+restoreCapability
+
+Required:
+
+- authoritative server-side state
+- persistent dynamic capability state
+- atomic persistence
+- restart survival
+- revocation
+- restoration
+- UI cannot override capability authority
+
+If an existing persistence design is superior, use it rather than blindly replacing it.
+
+=============================================================
+D. COMMAND CENTER
+=============================================================
+
+Reconcile the actual Command Center architecture.
+
+Required behavior:
+
+INITIAL STATE
+REST API authoritative snapshot
+
+LIVE STATE
+SSE/EventBus updates
+
+DISCONNECT
+explicit stale/unavailable state
+
+RECONNECT
+fresh REST reconciliation before declaring state current
+
+Never fabricate capabilities locally.
+
+If:
+frontend/src/app/CommandCenter.jsx
+
+does not exist, determine the actual Command Center entry/component in the current repository and integrate there.
+
+Do not create a disconnected duplicate UI.
+
+=============================================================
+E. DEMO / SIMULATION SAFETY
+=============================================================
+
+Reconcile existing:
+
+lib/core/demoGuard.ts
+
+and ScenarioEngine architecture.
+
+Required:
+
+SIMULATED / CONCEPT modes cannot perform unintended real network/database/device side effects.
+
+Scenario execution must:
+
+- track mutations
+- clean up deterministic state
+- rollback on failure
+- avoid leaked scenario state
+- distinguish simulation from production
+
+If ScenarioEngine.js does not exist, integrate equivalent functionality into the actual scenario engine rather than creating an unused file.
+
+=============================================================
+F. FEEDBACK / TELEMETRY PIPELINE
+=============================================================
+
+Reconcile the existing FeedbackPipeline architecture.
+
+Required:
+
+- input sanitization
+- reasonable PII minimization
+- EventBus backpressure resilience
+- offline buffering where appropriate
+- AI enrichment must not become a single point of ingestion failure
+- queue recovery must avoid duplicate uncontrolled processing
+
+Do not claim encryption, privacy, delivery guarantees, or persistence guarantees unless actually implemented.
+
+=============================================================
+G. BUILD INTEGRITY
+=============================================================
+
+Reconcile:
+
+scripts/build-community.mjs
+
+with the actual build system.
+
+The Community build must produce:
+
+dist/ade-community-edition.zip
+
+and:
+
+dist/build-manifest.json
+
+Manifest should contain, where applicable:
+
+- artifact
+- relative path
+- size
+- SHA-256
+- build timestamp
+- build/version identifier
+- git commit SHA
+
+The verification process must calculate the digest from the actual produced artifact.
+
+Do not generate a fake manifest.
+
+=============================================================
+H. ADE INTERNAL COMMUNICATIONS EXCHANGE
+=============================================================
+
+IMPLEMENT THE CANONICAL:
+
+ADE-ICX
+
+ADE Internal Communications Exchange
+
+Create:
+
+src/kernel/ADE_ICX_Engine.js
+
+ONLY IF an equivalent canonical subsystem does not already exist.
+
+ADE-ICX is an INTERNAL ADE STAFF COMMUNICATION SYSTEM.
+
+It is not WhatsApp.
+It is not a public social network.
+It is not a replacement for the external customer-facing AWBULI product.
+
+It belongs inside the ADE ecosystem.
+
+It must integrate with ADE's central identity authority.
+
+=============================================================
+I. ADE ORGANIZATION MODEL
+=============================================================
+
+ADE-ICX must support staff across:
+
+ADE Core
+ADE Infrastructure
+ADE Ecosystem
+AWBULI
+PROCARTA
+other ADE-owned operational products/units
+future ADE subsidiaries/arms
+
+A staff member should have one authoritative ADE identity while possessing organizational assignments.
+
+Minimum identity/profile model:
+
+- full name
+- current role
+- previous roles / portfolio history
+- organizational unit
+- department
+- branch/location
+- city
+- country
+- work email
+- work contact number
+- employment/active status
+- lastSeen
+- lastActive
+- current presence
+
+Keep the UI lightweight.
+
+Do NOT expose unnecessary personal information.
+
+=============================================================
+J. ADE HIERARCHY / COMMUNICATION PROTOCOL
+=============================================================
+
+Implement data-driven hierarchy.
+
+Minimum roles:
+
+Founder
+Executive
+Department Head
+Manager
+Team Lead
+Operational Staff
+
+Do not hardcode "Founder" as a special UI shortcut.
+
+Use policy/role data.
+
+Communication channels/policies:
+
+DIRECT
+TEAM
+DEPARTMENT
+PRODUCT
+ESCALATION
+ANNOUNCEMENT
+
+A junior employee must NOT automatically possess unrestricted direct access to senior leadership merely because the person exists in the directory.
+
+Communication access must be governed by:
+
+- role
+- organizational relationship
+- unit
+- department
+- reporting line
+- policy
+- escalation authority
+- explicit grants where appropriate
+
+Founder/Executive access must therefore remain controlled.
+
+=============================================================
+K. ESCALATION PROTOCOL
+=============================================================
+
+Implement auditable escalation routing:
+
+Operational Staff
+ -> Team Lead
+ -> Manager
+ -> Department Head
+ -> Executive
+ -> Founder
+
+Allow legitimate emergency/security exceptions.
+
+Every escalation should carry:
+
+- requester
+- target/current route
+- reason/category
+- timestamp
+- state
+- audit/event record
+- resolution/closure where supported
+
+Do not implement a fake "emergency bypass" that simply grants universal access.
+
+=============================================================
+L. PRESENCE
+=============================================================
+
+Presence must be server-derived.
+
+Minimum states:
+
+ONLINE
+AWAY
+BUSY
+OFFLINE
+
+Track:
+
+lastSeen
+lastActive
+
+Do not let the browser simply declare itself "ONLINE" as authoritative truth.
+
+The UI may display presence, but the server remains authoritative.
+
+Respect privacy and organizational policy.
+
+=============================================================
+M. INTERNAL MESSAGING
+=============================================================
+
+ADE-ICX must support:
+
+TEXT
+DOCUMENT
+FILE
+IMAGE
+VIDEO
+VOICE
+SYSTEM_EVENT
+ESCALATION_REQUEST
+
+Required security:
+
+- sender authorization
+- recipient authorization
+- organizational policy
+- message validation
+- media MIME validation
+- file size limits
+- safe storage boundary
+- access authorization
+- audit events
+- no arbitrary executable public upload
+
+Do not pretend to provide carrier SMS functionality.
+
+=============================================================
+N. GPS / GSM / IMEI / SIM / IOT BOUNDARY
+=============================================================
+
+THIS IS CRITICAL.
+
+Do NOT fake these systems.
+
+Explicitly maintain these as UNIMPLEMENTED physical integrations:
+
+GPS/GNSS
+GSM/cellular
+IMEI
+IMSI
+ICCID
+SIM
+MSISDN
+carrier/cell tower tracking
+MQTT
+OBD-II
+CAN
+J1939
+fleet tracking
+geofencing
+physical telematics devices
+
+Where architecture needs future contracts/interfaces/schemas, create provider-neutral contracts only.
+
+No fake hardware.
+No fake carrier connection.
+No synthetic "production GPS".
+No fake IMEI/SIM tracking.
+
+The existing CAN references may belong to legacy/future architecture.
+Do not delete them merely because hardware integration is deferred.
+
+=============================================================
+O. TESTING
+=============================================================
+
+Reconcile package.json test infrastructure.
+
+There must be a real executable validation path.
+
+At minimum validate:
+
+- canonical kernel loading
+- canonical EventBus
+- CapabilityRegistry lifecycle
+- persistence/restart behavior where practical
+- authentication/session authorization
+- CommandCenter data authority
+- demo/simulation side-effect boundary
+- feedback resilience
+- ADE-ICX identity
+- ADE-ICX hierarchy
+- RBAC/ABAC communication authorization
+- presence
+- escalation
+- media authorization
+- telematics boundary
+- build manifest integrity
+
+Do not report tests passed unless they actually execute and pass.
+
+If existing tests are written in a framework already installed, use that framework.
+
+If package.json currently lacks a test script, add an appropriate one.
+
+Do not fabricate test counts.
+
+=============================================================
+P. DOCUMENTATION
+=============================================================
+
+Create/reconcile:
+
+docs/architecture/ADE-ICX-SPEC.md
+
+It must describe the actual implemented contract.
+
+Do not document functionality that does not exist.
+
+Preserve existing ADE architecture documentation.
+
+=============================================================
+Q. LEGACY MATERIAL
+=============================================================
+
+The repository contains remnants of older ADE builds.
+
+Treat them as potentially valuable historical/reference material.
+
+Do NOT delete them simply for cleanliness.
+
+Classify where necessary:
+
+CANONICAL
+COMPATIBILITY
+LEGACY
+DEFERRED
+REFERENCE
+
+The objective is architectural authority, not destructive cleanup.
+
+=============================================================
+R. EXECUTION ORDER
+=============================================================
+
+Execute in this order:
+
+1. Record repository state.
+2. Inspect existing architecture.
+3. Identify reusable implementations.
+4. Reconcile canonical runtime.
+5. Reconcile security/identity.
+6. Reconcile CapabilityRegistry.
+7. Reconcile Command Center.
+8. Reconcile demo/scenario safety.
+9. Reconcile feedback pipeline.
+10. Implement/reconcile ADE-ICX.
+11. Establish telematics boundary.
+12. Reconcile tests.
+13. Build Community Edition.
+14. Verify SHA-256 manifest.
+15. Run complete validation.
+16. Review git diff.
+17. Produce final report.
+
+=============================================================
+S. GIT SAFETY
+=============================================================
+
+Do not reset the user's work.
+
+Do not clean the working tree.
+
+Do not delete unrelated Phase-01 work.
+
+Do not commit unless explicitly instructed.
+
+At completion report:
+
+git status
+git diff --stat
+HEAD
+
+and identify every changed/created/deleted file.
+
+=============================================================
+T. FINAL ACCEPTANCE
+=============================================================
+
+Do not declare PASS merely because files exist.
+
+PASS requires actual evidence.
+
+Final report MUST contain exactly:
+
+CURRENT TRUTH
+RECONCILIATION
+IMPLEMENTED
+PRESERVED LEGACY
+SECURITY
+ADE-ICX
+TELEMATICS
+TESTS
+BUILD
+GIT
+REMAINING BLOCKERS
+FINAL ACCEPTANCE
+
+For each section distinguish:
+
+ACTUAL
+DEFERRED
+NOT IMPLEMENTED
+VERIFIED
+
+Do not claim success for anything not actually verified.
+
+FINAL PRINCIPLE
+---------------
+ADE must have ONE authoritative runtime.
+
+ADE-ICX must be a first-class internal enterprise subsystem.
+
+ADE staff identity must span the ADE ecosystem.
+
+Communication must follow organizational hierarchy and policy.
+
+Security authority must remain server-side.
+
+Physical telematics must remain honest and provider-neutral until real hardware/carrier integrations exist.
+
+Existing valuable ADE work must be preserved.
+
+Execute this as ONE controlled engineering batch now.

@@ -1,0 +1,26 @@
+CONNECTIVE-TISSUE CLOSURE — REPAIRED SURFACES (all against existing backend; nothing invented)
+Stamp: 20260918-163327 | Base: main @ 43fce62
+
+1. Demo/synthetic isolation (PROVEN: 44/105 local cases were DEMO_ORCHESTRATOR synthetic)
+   GET /api/v1/cases now excludes source=DEMO_ORCHESTRATOR by default, reports demoExcluded, ?includeDemo=true opts in; GET /cases/:id still deep-links (demo receipt intact). /api/v1/admin/overview + /api/v1/attention use the same filter. Workspace cases panel: human count + "N demonstration hidden" + Include-demos checkbox + DEMO badges + source in detail. Human feedback store was never polluted (demo observations land in the separate FeedbackPipeline queue).
+
+2. Single live session (PROVEN defect: elevation left the base token valid)
+   POST /api/v1/account/pin now revokes the presented base token after successful PIN verification, before issuing the elevated token. Test: base 401 after elevation, elevated 200.
+
+3. Command palette backed by real server search
+   Palette debounces into GET /api/command/search (registered kernel subsystems + ecosystem catalog + dynamic intent); server hits render under SERVER CATALOG with honest behavior: executable hits dispatch via /api/command/execute, catalog-only hits toast their status and route to Products → Activation Matrix. Empty state shows only when both lists are empty.
+
+4. Duplicate homepage section removed
+   HOME rendered REGISTER YOUR INTEREST twice back-to-back; the redundant bare block is gone (per-section headings in interact grid + Community page remain, distinct copy).
+
+5. Storage 404 diagnostics (read-only)
+   GET /api/v1/admin/storage/verify (L2): NOT_RUN when unconfigured (with missing-var message), FAILED with table/grant hint on probe errors incl. HTTP 404, OK otherwise; always discloses "no data was written". Workspace Settings exposes Run Storage Verify for L2 roles. Existing 404 error mapping (table name only, never URL/key) unchanged and covered.
+
+6. Video-generation request flow (backend existed, UI did not)
+   Product Theater REQUEST MEDIA card: title/type form -> POST /api/v1/media/request -> receipt (requestId/status/PLACEHOLDER truth) or field error. No finished work is ever claimed.
+
+7. Docs preserved: the two emptied engineering docs restored byte-identical to HEAD (runbook 8999B, CTO report 20373B). Trading hardening (worktree, additive + green 41/41) kept as-is; FounderSignalEngine imports cleanly with the symbols app.js uses.
+
+8. Founder PIN-independence (PROVEN in smoke): workforce founder token alone reaches L2 admin/overview, trading entitlements, storage verify — no legacy Admin PIN involved.
+
+Untouched as required: backups, untracked artifacts, data/*.json runtime state (unstaged), trading/forex/game execution semantics.

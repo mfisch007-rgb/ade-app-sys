@@ -1,0 +1,11 @@
+FINAL CLOSURE — PRODUCTION + GATES (commit 4819f20)
+Date: 2026-09-18 ~19:4x WAT. main 4819f20 == origin/main 4819f20 (pushed 3752eb8..4819f20).
+
+Deployment: do4hhlnch, READY/production, api/index.js. Deployed-commit proof: production homepage contains the string "Include self-cleaning write probe", which exists ONLY in 4819f20's tree -> DEPLOYED-CONTENT 4819f20 CONFIRMED.
+Canonical alias checks (all HTTP 200): /api/v1/health OK HEALTHY 9 subsystems; / homepage (all workspace/media/cases/storage/palette markers); /api/v1/product-surface 24 COMMUNITY; /api/v1/products, /community/progression, /notifications/recent, /capabilities, /admin console; /api/command/search?q=procarta 2 hits; /api/v1/data-sources live (World Bank catalog).
+
+Final gates on released tree: validate 13/13; build PASS (1561 files, sha 7315d3c2); full npm test 328 (325 pass, 0 fail, 3 skipped — all 3 individually executed 59/59 earlier, credential file restored byte-identical); closure 15/15 (incl. write-probe stages deep-equal); trading 41/41; public-ux 5/5; inline/app syntax PASS; secrets scan clean.
+
+Not proven (honest): production Founder login E2E (BLOCKED: PGRST205 missing table — owner SQL action in 02-storage-writeprobe.txt); rendered video (no provider creds); outbound email delivery (would send real mail); pixel rendering (no browser engine here); prod L2-gated reads (no credentials held).
+Trading/forex/game execution semantics: NOT redesigned (superset states, zero assertions removed, clean-feed behavior re-proven).
+Local engineering telemetry (repo data/*.json, incl. test-run SESSION_ISSUED rows) is separate from customer-visible production telemetry (Supabase); synthetic demo/test records excluded from human views by default with explicit opt-ins.

@@ -1,0 +1,11 @@
+CONNECTIVE-TISSUE CLOSURE — TEST & GATE SUMMARY
+Stamp: 20260918-163327
+
+npm run validate: 13/13 PASS (LEVEL-3 100.0%).
+npm run build:community: PASS (1537 files, sha256 3119206daddac802e782c78c584bec5a674bfd67e1836584dac25ee7e2c13670).
+npm test (full existing suite): 328 tests — 325 PASS, 0 FAIL, 3 skipped.
+  Includes: tests/product-surface-closure.test.js 15/15 (11 prior + elevation-revoke, demo-exclusion/opt-in/deep-link, storage-verify/search-shape, surface-marker sets), trading-hardening/paper/broker/adapters 41/41, identity/workforce/auth/announcements, production-safety/boundaries, storage adapters, public-ux 5/5.
+Inline homepage JS: node --check PASS after every frontend edit.
+Ephemeral smoke (temp-CWD server, closed gracefully): 33/33 PASS — health HEALTHY; homepage 200 + all markers; product-surface 200x24; founder provision->login->elevate->session->invite->accept->list(2)->suspend->activate->agent->announce->audit(11)->activation->cases->partners->progression->notifications->operator login/elevate/invite->logout; founder-only L2 (overview/entitlements/storage-verify); demo excluded=1/opt-in/deep-link; backend search hits=2; media receipt ADE-MEDIA-*.
+Production storage (live): SupabaseStorageAdapter configured:true — mutations durable, no 503s; the 404 path is now diagnosable via the verify endpoint + table-hint errors.
+Secrets: diff scanned (no keys/tokens/private material); no PIN/password/token printed in evidence or code.

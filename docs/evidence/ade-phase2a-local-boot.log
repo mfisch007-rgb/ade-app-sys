@@ -1,0 +1,25 @@
+[PluginRegistry] Plugin 'memory' registered.
+[PluginRegistry] Plugin 'knowledge' registered.
+[PluginRegistry] Plugin 'rules' registered.
+[PluginRegistry] Plugin 'confidence' registered.
+[PluginRegistry] Plugin 'decision' registered.
+[PluginRegistry] Plugin 'oracle' registered.
+[PluginRegistry] Plugin 'guardian' registered.
+[PluginRegistry] Plugin 'notification' registered.
+[PluginRegistry] Plugin 'ledger' registered.
+[PluginRegistry] Plugin 'workflowEngine' registered.
+[PluginRegistry] Plugin 'icx' registered.
+[STORAGE] Storage provider active: LocalStorageAdapter
+[KERNEL ARCHITECTURE] Enterprise Kernel, Plugin Registry & Observatory wired.
+{"level":"INFO","msg":"Subsystem initialized","meta":{"subsystem":"memory"},"time":"2026-10-13T15:54:36.305Z"}
+{"level":"INFO","msg":"Subsystem initialized","meta":{"subsystem":"knowledge"},"time":"2026-10-13T15:54:36.323Z"}
+{"level":"INFO","msg":"Subsystem initialized","meta":{"subsystem":"rules"},"time":"2026-10-13T15:54:36.342Z"}
+{"level":"INFO","msg":"Subsystem initialized","meta":{"subsystem":"confidence"},"time":"2026-10-13T15:54:36.353Z"}
+{"level":"INFO","msg":"Subsystem initialized","meta":{"subsystem":"decision"},"time":"2026-10-13T15:54:36.375Z"}
+{"level":"INFO","msg":"Subsystem initialized","meta":{"subsystem":"oracle"},"time":"2026-10-13T15:54:36.391Z"}
+{"level":"INFO","msg":"Subsystem initialized","meta":{"subsystem":"guardian"},"time":"2026-10-13T15:54:36.401Z"}
+{"level":"INFO","msg":"Subsystem initialized","meta":{"subsystem":"notification"},"time":"2026-10-13T15:54:36.422Z"}
+{"level":"INFO","msg":"Subsystem initialized","meta":{"subsystem":"ledger"},"time":"2026-10-13T15:54:36.431Z"}
+{"level":"INFO","msg":"Subsystem initialized","meta":{"subsystem":"workflowEngine"},"time":"2026-10-13T15:54:36.458Z"}
+{"level":"INFO","msg":"Subsystem initialized","meta":{"subsystem":"icx"},"time":"2026-10-13T15:54:36.460Z"}
+[ADE-APEX KERNEL] Server online at http://localhost:4599

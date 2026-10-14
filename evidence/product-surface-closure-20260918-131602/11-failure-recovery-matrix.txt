@@ -1,0 +1,35 @@
+11 FAILURE / RECOVERY MATRIX
+
+  [ACTIVATED] ade-platform: failure="transport/validation errors per-endpoint" | recovery="No blocker recorded by the runtime."
+  [ACTIVATED] procarta: failure="transport/validation errors per-endpoint" | recovery="No blocker recorded by the runtime."
+  [CONFIGURATION_REQUIRED] awbuli: failure="Catalog entry; live use needs the external credential." | recovery="Configure the external bridge credential."
+  [ACTIVATED] oracle: failure="transport/validation errors per-endpoint" | recovery="No blocker recorded by the runtime."
+  [CONFIGURATION_REQUIRED] nexus: failure="Demonstrable catalogue entry; not yet a production promise." | recovery="Configuration required: supply the provider credential through the authorized configuration path, then verify."
+  [CONFIGURATION_REQUIRED] eventos: failure="Demonstrable catalogue entry; not yet a production promise." | recovery="Configuration required: supply the provider credential through the authorized configuration path, then verify."
+  [AVAILABLE] founders-circle: failure="transport/validation errors per-endpoint" | recovery="No blocker recorded by the runtime."
+  [AVAILABLE] market-circle: failure="transport/validation errors per-endpoint" | recovery="No blocker recorded by the runtime."
+  [FUTURE] tides: failure="Demonstrable catalogue entry; not yet a production promise." | recovery="Roadmap/preview: follow the Community intake pathway for pilot or partnership."
+  [ACTIVATED] aibos: failure="transport/validation errors per-endpoint" | recovery="No blocker recorded by the runtime."
+  [FUTURE] biz-watch: failure="Demonstrable catalogue entry; not yet a production promise." | recovery="Roadmap/preview: follow the Community intake pathway for pilot or partnership."
+  [EXPERIMENTAL] fraud-watch: failure="Demonstrable catalogue entry; not yet a production promise." | recovery="Roadmap/preview: follow the Community intake pathway for pilot or partnership."
+  [PREVIEW] agriculture: failure="Demonstrable catalogue entry; not yet a production promise." | recovery="Roadmap/preview: follow the Community intake pathway for pilot or partnership."
+  [ROADMAP] gov-ngo: failure="Demonstrable catalogue entry; not yet a production promise." | recovery="Roadmap/preview: follow the Community intake pathway for pilot or partnership."
+  [AVAILABLE] workforce: failure="transport/validation errors per-endpoint" | recovery="No blocker recorded by the runtime."
+  [AVAILABLE] account-security: failure="transport/validation errors per-endpoint" | recovery="No blocker recorded by the runtime."
+  [AVAILABLE] announcements: failure="transport/validation errors per-endpoint" | recovery="No blocker recorded by the runtime."
+  [AVAILABLE] audit: failure="transport/validation errors per-endpoint" | recovery="No blocker recorded by the runtime."
+  [AVAILABLE] pilot: failure="transport/validation errors per-endpoint" | recovery="No blocker recorded by the runtime."
+  [AVAILABLE] partner: failure="transport/validation errors per-endpoint" | recovery="No blocker recorded by the runtime."
+  [AVAILABLE] connections: failure="transport/validation errors per-endpoint" | recovery="No blocker recorded by the runtime."
+  [AVAILABLE] storage: failure="transport/validation errors per-endpoint" | recovery="No blocker recorded by the runtime."
+  [AVAILABLE] try-ade: failure="transport/validation errors per-endpoint" | recovery="No blocker recorded by the runtime."
+  [AVAILABLE] feedback: failure="transport/validation errors per-endpoint" | recovery="No blocker recorded by the runtime."
+
+Global mappings (homepage humanizeError, user language, no backend jargon except admin surfaces):
+  COMMAND_RBAC_BLOCKED -> 'Access denied — you need higher authorization.'
+  EDITION_GATED -> 'This feature is not available in your edition.'
+  SUPABASE_STORAGE_WRITE/READ_FAILED -> 'Configuration required — durable storage is not yet configured. Your entry was not lost; contact ADE via Community intake.'
+  STORAGE_NOT_CONFIGURED -> 'Service temporarily unavailable — please try again later.'
+  CONFIGURATION_REQUIRED -> 'Configuration required — follow the action shown on the product card.'
+  PARTNER_REQUIRED -> 'Partner implementation required — register interest via Community intake.'
+  Loading/success/error states: every intake/feedback/demo/auth form disables while busy, toasts on success, field errors inline, recovery path in matrix card.

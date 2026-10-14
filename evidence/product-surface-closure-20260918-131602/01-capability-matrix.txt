@@ -1,0 +1,269 @@
+01 CAPABILITY MATRIX — declaration->catalogue->activation->entitlement->role->route->nav->action->API->result
+Generated: 2026-09-18T12:16:02.720Z | Edition: COMMUNITY | Surfaces: 24
+Method: ProductSurfaceMatrix.build() over existing authorities (ProductRegistry, CapabilityActivation, ConnectionFabric contracts, EditionPolicy).
+
+[ACTIVATED] ade-platform — ADE Platform
+  declaration : src/products/ProductRegistry.js ADE_PRODUCTS.ADE_PLATFORM
+  catalogue   : ProductRegistry:ade-platform (ACTIVE/COMMUNITY) (present=true)
+  activation  : ACTIVATED — Registered and callable through dispatch.
+  entitlement : EditionPolicy.isCapabilityAvailable + CapabilityActivation.assess
+  role        : PUBLIC
+  route/nav   : #/Products / Products | icon=ADE | button="Explore Suites" -> go:Products
+  api         : GET /api/v1/products | GET /api/v1/health | GET /api/v1/runtime
+  result      : loading/success/failure states wired; recovery="No blocker recorded by the runtime."
+  audit       : not required
+
+[ACTIVATED] procarta — PROCARTA
+  declaration : src/products/ProductRegistry.js ADE_PRODUCTS.PROCARTA + canonical vertical slice
+  catalogue   : ProductRegistry:procarta (INTEGRATED/pluginRequired) + ConnectionFabric:procarta (present=true)
+  activation  : ACTIVATED — Bound runtime path (no plugin needed).
+  entitlement : EditionPolicy.isCapabilityAvailable + CapabilityActivation.assess
+  role        : PUBLIC_INTAKE + L2_OPERATOR_OPS
+  route/nav   : #/PROCARTA / PROCARTA | icon=PR | button="Open PROCARTA" -> go:PROCARTA
+  api         : GET /api/v1/procarta/status | POST /api/v1/intake/API | GET /api/v1/products
+  result      : loading/success/failure states wired; recovery="No blocker recorded by the runtime."
+  audit       : REQUIRED (audit ledger)
+
+[CONFIGURATION_REQUIRED] awbuli — AWBULI
+  declaration : src/products/ProductRegistry.js ADE_PRODUCTS.AWBULI + ConnectionFabric:awbuli
+  catalogue   : ProductRegistry:awbuli (INTEGRATED/pluginRequired) + ConnectionFabric:awbuli (present=true)
+  activation  : EXTERNAL_CREDENTIAL_REQUIRED — Catalog entry; live use needs the external credential.
+  entitlement : EditionPolicy.isCapabilityAvailable + CapabilityActivation.assess
+  role        : PUBLIC_DEMO + OPERATOR_BRIDGE
+  route/nav   : #/Product Theater / Product Theater | icon=AW | button="Explore via Theater" -> go:Product Theater
+  api         : GET /api/v1/connectivity/inventory | GET /api/v1/connectivity/products/awbuli
+  result      : loading/success/failure states wired; recovery="Configure the external bridge credential."
+  audit       : not required
+
+[ACTIVATED] oracle — ADE Oracle
+  declaration : src/products/ProductRegistry.js ADE_PRODUCTS.ORACLE
+  catalogue   : ProductRegistry:oracle (INTEGRATED/pluginRequired:false) (present=true)
+  activation  : ACTIVATED — Gateway live on lexical fallback; external quality needs a provider key.
+  entitlement : EditionPolicy.isCapabilityAvailable + CapabilityActivation.assess
+  role        : AUTHENTICATED_COMMAND_CENTER
+  route/nav   : #/Command Center / Command Center | icon=OR | button="Open Command Center" -> go:Command Center
+  api         : POST /api/command/execute | GET /api/v1/capabilities
+  result      : loading/success/failure states wired; recovery="No blocker recorded by the runtime."
+  audit       : REQUIRED (audit ledger)
+
+[CONFIGURATION_REQUIRED] nexus — NEXUS
+  declaration : src/integrations/ConnectionFabric.js PRODUCT_CONTRACTS.nexus + HOME card
+  catalogue   : ConnectionFabric:nexus (CATALOG + ENGINE contract) (present=true)
+  activation  : PREVIEW — Demonstrable catalogue entry; not yet a production promise.
+  entitlement : Catalogue/roadmap (no capability intent)
+  role        : PUBLIC_DISCOVERY
+  route/nav   : #/Community / Home | icon=NX | button="Explore Integrations" -> go:Community
+  api         : GET /api/v1/connectivity/inventory | GET /api/v1/connectivity/products/nexus
+  result      : loading/success/failure states wired; recovery="Configuration required: supply the provider credential through the authorized configuration path, then verify."
+  audit       : not required
+
+[CONFIGURATION_REQUIRED] eventos — EVENTOS
+  declaration : src/integrations/ConnectionFabric.js PRODUCT_CONTRACTS.eventos + HOME card
+  catalogue   : ConnectionFabric:eventos (CATALOG + ENGINE contract) (present=true)
+  activation  : PREVIEW — Demonstrable catalogue entry; not yet a production promise.
+  entitlement : Catalogue/roadmap (no capability intent)
+  role        : PUBLIC_DISCOVERY
+  route/nav   : #/Community / Home | icon=EV | button="Discover" -> go:Community
+  api         : GET /api/v1/connectivity/inventory | GET /api/v1/connectivity/products/eventos
+  result      : loading/success/failure states wired; recovery="Configuration required: supply the provider credential through the authorized configuration path, then verify."
+  audit       : not required
+
+[AVAILABLE] founders-circle — FOUNDERS CIRCLE
+  declaration : public/index.html HOME card (exclusive strategic hub)
+  catalogue   : HOME catalogue card -> Community PILOT_INTEREST pathway (present=true)
+  activation  : AVAILABLE — Available in edition; registers on first use.
+  entitlement : EditionPolicy.isCapabilityAvailable + CapabilityActivation.assess
+  role        : PUBLIC_REQUEST_ACCESS
+  route/nav   : #/Community / Home | icon=FC | button="Request Access" -> go:Community(PILOT_INTEREST)
+  api         : POST /api/v1/community/intake
+  result      : loading/success/failure states wired; recovery="No blocker recorded by the runtime."
+  audit       : not required
+
+[AVAILABLE] market-circle — ADE-MARKET CIRCLE
+  declaration : public/index.html HOME card (marketplace)
+  catalogue   : HOME catalogue card -> Community PARTNER_INTEREST pathway (present=true)
+  activation  : AVAILABLE — Available in edition; registers on first use.
+  entitlement : EditionPolicy.isCapabilityAvailable + CapabilityActivation.assess
+  role        : PUBLIC_JOIN
+  route/nav   : #/Community / Home | icon=MC | button="Join" -> go:Community(PARTNER_INTEREST)
+  api         : POST /api/v1/community/intake | GET /api/v1/partners
+  result      : loading/success/failure states wired; recovery="No blocker recorded by the runtime."
+  audit       : not required
+
+[FUTURE] tides — ADE-TIDES
+  declaration : public/index.html HOME card (future settlement network)
+  catalogue   : HOME catalogue card -> Community pathway (FUTURE) (present=true)
+  activation  : PREVIEW — Demonstrable catalogue entry; not yet a production promise.
+  entitlement : Catalogue/roadmap (no capability intent)
+  role        : PUBLIC_CONTACT
+  route/nav   : #/Community / Home | icon=TD | button="Contact ADE" -> go:Community
+  api         : POST /api/v1/community/intake
+  result      : loading/success/failure states wired; recovery="Roadmap/preview: follow the Community intake pathway for pilot or partnership."
+  audit       : not required
+
+[ACTIVATED] aibos — ADE-AIBOS / AIOPS
+  declaration : public/index.html HOME card (operating system kernel)
+  catalogue   : HOME catalogue card -> Architecture surface (present=true)
+  activation  : ACTIVATED — Gateway live on lexical fallback; external quality needs a provider key.
+  entitlement : EditionPolicy.isCapabilityAvailable + CapabilityActivation.assess
+  role        : PUBLIC_ARCHITECTURE
+  route/nav   : #/Architecture / Architecture | icon=AI | button="Architecture" -> go:Architecture
+  api         : GET /api/v1/public-architecture | GET /api/v1/runtime
+  result      : loading/success/failure states wired; recovery="No blocker recorded by the runtime."
+  audit       : not required
+
+[FUTURE] biz-watch — BIZ WATCH
+  declaration : public/index.html roadmap card (IN DEVELOPMENT)
+  catalogue   : HOME roadmap card -> Products surface (FUTURE) (present=true)
+  activation  : PREVIEW — Demonstrable catalogue entry; not yet a production promise.
+  entitlement : Catalogue/roadmap (no capability intent)
+  role        : PUBLIC_LEARN
+  route/nav   : #/Products / Products | icon=BW | button="Learn more" -> go:Products
+  api         : GET /api/v1/products
+  result      : loading/success/failure states wired; recovery="Roadmap/preview: follow the Community intake pathway for pilot or partnership."
+  audit       : not required
+
+[EXPERIMENTAL] fraud-watch — FRAUD WATCH
+  declaration : public/index.html roadmap card (EXPERIMENTAL)
+  catalogue   : HOME roadmap card -> Products surface (EXPERIMENTAL) (present=true)
+  activation  : PREVIEW — Demonstrable catalogue entry; not yet a production promise.
+  entitlement : Catalogue/roadmap (no capability intent)
+  role        : PUBLIC_LEARN
+  route/nav   : #/Products / Products | icon=FW | button="Learn more" -> go:Products
+  api         : GET /api/v1/products
+  result      : loading/success/failure states wired; recovery="Roadmap/preview: follow the Community intake pathway for pilot or partnership."
+  audit       : not required
+
+[PREVIEW] agriculture — AGRICULTURE
+  declaration : public/index.html roadmap card (PREVIEW)
+  catalogue   : HOME roadmap card -> Products surface (PREVIEW) (present=true)
+  activation  : PREVIEW — Demonstrable catalogue entry; not yet a production promise.
+  entitlement : Catalogue/roadmap (no capability intent)
+  role        : PUBLIC_EXPLORE
+  route/nav   : #/Products / Products | icon=AG | button="Explore Data" -> go:Products
+  api         : GET /api/v1/products
+  result      : loading/success/failure states wired; recovery="Roadmap/preview: follow the Community intake pathway for pilot or partnership."
+  audit       : not required
+
+[ROADMAP] gov-ngo — GOV / NGO / GRANTS
+  declaration : public/index.html roadmap card (ROADMAP)
+  catalogue   : HOME roadmap card -> Community ecosystem pathway (present=true)
+  activation  : PREVIEW — Demonstrable catalogue entry; not yet a production promise.
+  entitlement : Catalogue/roadmap (no capability intent)
+  role        : PUBLIC_EXPLORE
+  route/nav   : #/Community / Home | icon=GO | button="Explore Ecosystem" -> go:Community
+  api         : POST /api/v1/community/intake
+  result      : loading/success/failure states wired; recovery="Roadmap/preview: follow the Community intake pathway for pilot or partnership."
+  audit       : not required
+
+[AVAILABLE] workforce — Workforce & Admin Console
+  declaration : src/identity/WorkforceManager.js + public/admin/index.html
+  catalogue   : Workforce person registry (ade:workforce:v1) (present=true)
+  activation  : PREVIEW — Demonstrable catalogue entry; not yet a production promise.
+  entitlement : WorkforceManager role + PIN elevation (requireWorkforceAdmin for admin reads)
+  role        : FOUNDER_ADMIN_OPERATOR_ELEVATED
+  route/nav   : /admin / Account -> Admin Console | icon=WF | button="Open Admin Console" -> href:/admin
+  api         : POST /api/v1/account/login | POST /api/v1/account/pin | POST /api/v1/workforce/invite | POST /api/v1/account/accept-invitation | GET /api/v1/workforce
+  result      : loading/success/failure states wired; recovery="No blocker recorded by the runtime."
+  audit       : REQUIRED (audit ledger)
+
+[AVAILABLE] account-security — Account & Security
+  declaration : public/index.html ACCOUNT section + src/routes/identityRoutes.js
+  catalogue   : Workforce identity session surface (present=true)
+  activation  : PREVIEW — Demonstrable catalogue entry; not yet a production promise.
+  entitlement : WorkforceManager role + PIN elevation (requireWorkforceAdmin for admin reads)
+  role        : WORKFORCE_MEMBER
+  route/nav   : #/Account / Account | icon=ID | button="Sign In" -> go:Account
+  api         : POST /api/v1/account/login | POST /api/v1/account/pin | GET /api/v1/account/session | POST /api/v1/account/change-password | POST /api/v1/account/change-pin | POST /api/v1/account/recovery-codes/rotate | POST /api/v1/account/logout | POST /api/v1/account/forgot-password | POST /api/v1/account/accept-invitation
+  result      : loading/success/failure states wired; recovery="No blocker recorded by the runtime."
+  audit       : REQUIRED (audit ledger)
+
+[AVAILABLE] announcements — Announcements
+  declaration : src/identity/AnnouncementsManager.js + HOME live comms
+  catalogue   : Announcement ledger (public read, elevated write) (present=true)
+  activation  : PREVIEW — Demonstrable catalogue entry; not yet a production promise.
+  entitlement : Catalogue/roadmap (no capability intent)
+  role        : PUBLIC_READ + ELEVATED_WRITE
+  route/nav   : #/Home / Home | icon=NW | button="Go to Community" -> go:Community
+  api         : GET /api/v1/announcements | GET /api/v1/announcements/admin
+  result      : loading/success/failure states wired; recovery="No blocker recorded by the runtime."
+  audit       : not required
+
+[AVAILABLE] audit — Audit Ledger
+  declaration : src/routes/identityRoutes.js GET /api/v1/audit + Admin Console
+  catalogue   : Audit store query surface (limit/type filter) (present=true)
+  activation  : PREVIEW — Demonstrable catalogue entry; not yet a production promise.
+  entitlement : WorkforceManager role + PIN elevation (requireWorkforceAdmin for admin reads)
+  role        : FOUNDER_ADMIN_OPERATOR_ELEVATED
+  route/nav   : /admin / Account -> Admin Console | icon=AU | button="Open Admin Console" -> href:/admin
+  api         : GET /api/v1/audit
+  result      : loading/success/failure states wired; recovery="No blocker recorded by the runtime."
+  audit       : REQUIRED (audit ledger)
+
+[AVAILABLE] pilot — Pilot Pathway
+  declaration : public/index.html Community PILOT_INTEREST + backend pilot gate
+  catalogue   : Community intake catalogue (PILOT_INTEREST) (present=true)
+  activation  : AVAILABLE — Available in edition; registers on first use.
+  entitlement : EditionPolicy.isCapabilityAvailable + CapabilityActivation.assess
+  role        : PUBLIC_REGISTER
+  route/nav   : #/Community / Community | icon=PL | button="Request a Pilot" -> go:Community(PILOT_INTEREST)
+  api         : POST /api/v1/community/intake | GET /api/v1/community/progression
+  result      : loading/success/failure states wired; recovery="No blocker recorded by the runtime."
+  audit       : not required
+
+[AVAILABLE] partner — Partner Pathway
+  declaration : public/index.html Community PARTNER_INTEREST + partner catalog
+  catalogue   : Community intake catalogue (PARTNER_INTEREST) + GET /api/v1/partners (present=true)
+  activation  : AVAILABLE — Available in edition; registers on first use.
+  entitlement : EditionPolicy.isCapabilityAvailable + CapabilityActivation.assess
+  role        : PUBLIC_REGISTER
+  route/nav   : #/Community / Community | icon=PT | button="Partner with ADE" -> go:Community(PARTNER_INTEREST)
+  api         : POST /api/v1/community/intake | GET /api/v1/partners
+  result      : loading/success/failure states wired; recovery="No blocker recorded by the runtime."
+  audit       : not required
+
+[AVAILABLE] connections — Connection Grip
+  declaration : src/integrations/ConnectionFabric.js inventory() + PRODUCTS grip card
+  catalogue   : ConnectionFabric PRODUCT_CONTRACTS (awbuli/procarta/nexus/eventos) (present=true)
+  activation  : PREVIEW — Demonstrable catalogue entry; not yet a production promise.
+  entitlement : Catalogue/roadmap (no capability intent)
+  role        : AUTHENTICATED_READ
+  route/nav   : #/Products / Products | icon=GR | button="Sign in to view diagnostics" -> go:Account
+  api         : GET /api/v1/connectivity/inventory | GET /api/v1/connectivity/products/:id | POST /api/v1/admin/connections/:id/verify
+  result      : loading/success/failure states wired; recovery="No blocker recorded by the runtime."
+  audit       : not required
+
+[AVAILABLE] storage — Durable Storage
+  declaration : src/storage/SupabaseStorageAdapter.js + GET /api/v1/runtime storage block
+  catalogue   : StorageProvider contract (local default, supabase when configured) (present=true)
+  activation  : PREVIEW — Demonstrable catalogue entry; not yet a production promise.
+  entitlement : SupabaseStorageAdapter.isConfigured()
+  role        : SERVER_SIDE (no client credential)
+  route/nav   : #/Architecture / Architecture | icon=ST | button="View Architecture" -> go:Architecture
+  api         : GET /api/v1/runtime
+  result      : loading/success/failure states wired; recovery="No blocker recorded by the runtime."
+  audit       : not required
+
+[AVAILABLE] try-ade — Try ADE Demos
+  declaration : public/index.html Try ADE scenarios + demo orchestrator
+  catalogue   : Demo scenario catalogue (LIVE/SIMULATED labelled) (present=true)
+  activation  : AVAILABLE — Available in edition; registers on first use.
+  entitlement : EditionPolicy.isCapabilityAvailable + CapabilityActivation.assess
+  role        : PUBLIC
+  route/nav   : #/Try ADE / Try ADE | icon=DM | button="Run Demo" -> go:Try ADE
+  api         : GET /api/v1/demo/scenarios | POST /api/v1/demo/run
+  result      : loading/success/failure states wired; recovery="No blocker recorded by the runtime."
+  audit       : not required
+
+[AVAILABLE] feedback — Feedback
+  declaration : public/index.html Feedback + FeedbackIntelligence
+  catalogue   : Feedback capture catalogue (never auto-modifies source) (present=true)
+  activation  : AVAILABLE — Available in edition; registers on first use.
+  entitlement : EditionPolicy.isCapabilityAvailable + CapabilityActivation.assess
+  role        : PUBLIC
+  route/nav   : #/Feedback / Feedback | icon=FB | button="Submit Feedback" -> go:Feedback
+  api         : POST /api/v1/feedback | GET /api/v1/feedback/recent
+  result      : loading/success/failure states wired; recovery="No blocker recorded by the runtime."
+  audit       : not required
+
+Stub shapes (documented, production /api/v1/product-surface computes live): capabilityRegistry=8 core intents registered (PING/PUBLIC_INFO/WATCH_ASSET/TELEMETRY_SSE/UNIVERSAL_AI_GATEWAY/MULTI_STREAM/SYSTEM_HEALTH/SYSTEM_SHUTDOWN), providerStatus.configuredProviderCount=0, fabric grip snapshot procarta=100/awbuli=67/nexus=0/eventos=0, storage=LocalStorageAdapter configured=true, builtinCatalog=3 sample entries.

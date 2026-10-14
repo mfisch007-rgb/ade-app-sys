@@ -1,0 +1,36 @@
+FINAL CLOSURE — WORKFLOWS, STORAGE, PALETTE, KNOBS (all behaviorally proven unless marked)
+Date: 2026-09-18. Local proofs run on this exact tree via ephemeral temp-CWD servers (closed gracefully); production proofs via canonical alias GETs.
+
+5. INBOX/COMMS + 6. ALL FORMS (49 UI API targets scanned, 0 dead)
+   Round-trips proven: community intake 201 + listed; feedback 201 + recent-read; PROCARTA intake 201 + case receipt; invite (code shown once) -> accept 201 -> roster; agent create 201; announcement publish 201 + public read; case feedback recorded + read-back count; media request 201 + requestId receipt; demo run + trace; entitlement grant/revoke (L2); storage verify (L2). Every form shows loading/disabled, success toast + visible state update, field-level recoverable errors. Static scan: 49/49 UI API targets resolve to registered routes (param routes included).
+
+7. PROCARTA — CLOSED (in-repo canonical path; no external ProCarta service is configured anywhere in env/adapter/config)
+   /api/command/execute PROCARTA_EXECUTE 200 -> pilot candidate qualified (n=1) -> approve 201 -> registry record -> verdict 201 -> state PROMOTED visible -> intake->process(HUMAN_REVIEW)->feedback->read-back. UI: PROCARTA section intake + receipt + Workspace Workflows module + pilot Evidence module.
+
+8. PILOT/PARTNER/IMPLEMENTATION — CLOSED at AVAILABLE scope
+   Pilot full lifecycle above (candidate/approve/verdict/registry/PROMOTED). Partner register/list via L2 API (g28 suite green); public intake PARTNER_INTEREST + directory + progression evidence in UI. Approve/verdict are L2-API-only (no dedicated console tab) — documented operator path, not a hidden control. Statuses honest: pilot/partner AVAILABLE, venues/trading-live L2-gated, experimental surfaces labelled.
+
+9. VIDEO — CLOSED at REQUESTED/AWAITING-PROVIDER scope (NOT TECHNICALLY AVAILABLE: rendered video)
+   request 201 -> concept 201 -> theatre/generate 201 CREATED -> gallery lists it. No provider credentials exist anywhere, so nothing renders; UI states REQUEST LOGGED / PLACEHOLDER UNTIL RENDERED and never implies finished video. No backend invented. SEND/EXTRACT correctly demands a fresh founder/admin PIN (403 without).
+
+10. EXTERNAL PUBLIC/FREE SOURCES — CLOSED where genuine, CONFIGURATION REQUIRED elsewhere
+    PROVEN LIVE: World Bank Open Data (no key) — Nigeria 2025 GDP $290,794,361,542.11, source updated 2026-07-13, fetched directly just now; catalogued in-app via GET /api/v1/data-sources (200, 6 sources, prod-verified).
+    PROVEN LOCAL: oracle lexical query 200 without provider keys (fallback by design).
+    HONESTLY GATED: UptimeRobot/email/AI providers (credential-gated, CONFIGURATION_REQUIRED states, masked-only APIs). No scraping, no browser-auth workarounds, no fabricated connectivity.
+
+11. STORAGE — root-caused to the exact resource; NOT CLOSED (external manual step required)
+    Failing resource: PostgREST table from SUPABASE_STORAGE_TABLE ("ade_kv_store" per the production error text), path POST {SUPABASE_URL}/rest/v1/<table>, key SUPABASE_SERVICE_ROLE_KEY (all present in Vercel Production env).
+    Proof pattern: production READS succeed (health/progression/products 200; provision personCount read OK) while every WRITE 404s -> table readable but INSERT denied/missing: most likely (a) missing INSERT grant / RLS policy for the key, (b) column mismatch (adapter needs k TEXT PK + v JSONB), or (c) stale PostgREST schema cache.
+    This release improves diagnosis without touching prod: SupabaseStorageAdapter now appends the truncated PostgREST error body (schema metadata only, never values/keys) to every failure; Workspace Settings exposes the read-only verify probe for the Founder to re-test after the fix.
+    EXACT MANUAL CONFIGURATION (Supabase dashboard -> SQL editor, run as owner):
+      -- 1. diagnose: SELECT column_name, data_type FROM information_schema.columns WHERE table_name = '<table-from-SUPABASE_STORAGE_TABLE>';
+      --    (also compare: SELECT * FROM pg_tables WHERE tablename = '<table>'; SELECT * FROM pg_policies WHERE tablename = '<table>';)
+      -- 2. create if missing (exact adapter contract): CREATE TABLE IF NOT EXISTS <table> (k TEXT PRIMARY KEY, v JSONB);
+      -- 3. grants/RLS: GRANT ALL ON <table> TO service_role; (service_role bypasses RLS; if RLS is enforced for the configured key instead, add: CREATE POLICY "service full" ON <table> FOR ALL TO service_role USING (true) WITH CHECK (true);)
+      -- 4. reload schema cache: NOTIFY pgrst, 'reload schema';
+      -- 5. re-test in-app: Workspace -> Settings -> Run Storage Verify (expect PROBE OK), then provision/login once.
+    Durable write+read+restart/retrieval PROVEN locally (local adapter: write -> restart x2 -> progression stats show both pre-restart intakes). Production durable proof is pending the table fix.
+
+12. PALETTE — CLOSED: /api/command/search 200 (2 hits for "procarta" in prod); executable hits dispatch, catalog-only hits toast + route to Activation Matrix; empty state only when both lists empty.
+
+13. FOUNDER DASHBOARD — CLOSED: 47/47 workspace modules resolve to a panel case; 28/28 renderers defined; 49/49 UI API targets live; no decorative controls (secret-needing resets explicitly point at /admin).

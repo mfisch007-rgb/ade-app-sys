@@ -1,0 +1,16 @@
+WORKSPACE CLOSURE — PRODUCTION VERIFICATION
+Stamp: 20260918-135435 | Commit: 43fce62 (pushed main..origin/main, 5442afb..43fce62)
+
+Deployment: vercel deploy --prod --yes -> READY, target production.
+  URL: https://ade-apex-community-184tmdojr-mfisch007-3701s-projects.vercel.app
+  Aliases: https://ade-apex-community.vercel.app, https://ade-apex-community-mfisch007-3701s-projects.vercel.app
+  Build: api/index.js (19.03MB) [iad1].
+  Note: the raw deployment URL first returned a platform holding page for /api/v1/health (HTTP 200 HTML); the canonical alias serves the app correctly (propagation). All checks below use https://ade-apex-community.vercel.app.
+
+Production checks (all HTTP 200):
+  /api/v1/health: 200 {"success":true,"status":"OK","kernel":{"status":"HEALTHY","subsystemCount":9}} (9 subsystems; AI UNCONFIGURED with OFFLINE_LEXICAL fallback — honest).
+  / (homepage): 200, 187260 bytes, markers HAVE: ws-module-, ws-panel, PRODUCT SURFACE, accept-invitation-form, Workspace, ADE_HOMEPAGE_FINAL_RECONCILIATION.
+  /api/v1/product-surface: 200, 24 surfaces, COMMUNITY.
+  /api/v1/products: 200. /api/v1/community/progression: 200. /api/v1/notifications/recent: 200. /api/v1/capabilities: 200. /admin: 200 (22679 bytes console).
+
+Role/workspace routes: SPA hash routes (#/Workspace + 10 sections) served by the same 200 homepage shell; workspace APIs above verified. Authenticated E2E on production was NOT executed (would create real workforce records); the identical flow passed 26/26 against the ephemeral local server running this exact commit.

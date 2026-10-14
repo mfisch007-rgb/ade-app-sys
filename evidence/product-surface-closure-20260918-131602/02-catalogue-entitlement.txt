@@ -1,0 +1,42 @@
+02 CATALOGUE / ENTITLEMENT RECONCILIATION
+
+Authoritative catalogue sources (existing, no new registry):
+  - ProductRegistry ADE_PRODUCTS (4): ade-platform ACTIVE/COMMUNITY, procarta INTEGRATED/plugin, awbuli INTEGRATED/plugin, oracle INTEGRATED/no-plugin
+  - ConnectionFabric PRODUCT_CONTRACTS (4): awbuli, procarta, nexus, eventos (grip % from verified required capabilities only)
+  - BUILTIN_ECOSYSTEM_CAPABILITIES (13, src/app.js): pluginRequired=false -> ACTIVATED (PROCARTA_WORKFLOW, ECHO_TOGGLE, KERNEL_SHUTDOWN, SECURITY_GATE_VERIFY); credential-gated -> EXTERNAL_CREDENTIAL_REQUIRED; external-gated -> PARTNER_REQUIRED
+  - EditionPolicy CAPABILITY_AVAILABILITY (17 intents, COMMUNITY column is the entitlement bit)
+  - CapabilityRegistry core (8): PING, PUBLIC_INFO, WATCH_ASSET, TELEMETRY_SSE, UNIVERSAL_AI_GATEWAY, MULTI_STREAM, SYSTEM_HEALTH, SYSTEM_SHUTDOWN (rbacLevel+tier recorded, enforcement upstream)
+  - TradingEntitlements resolver: grant/revoke/get/can(userId, trading|gaming), durable store, caller must enforce L2
+
+Why evidence reported CapabilityActivation ENABLED=False: the module uses ACTIVATION_STATES
+(AVAILABLE|ACTIVATED|CONFIGURATION_REQUIRED|PARTNER_REQUIRED|EXTERNAL_CREDENTIAL_REQUIRED|PREVIEW|OFFLINE|UNAVAILABLE),
+never an ENABLED boolean. The [3/9] checker searched for the literal word ENABLED, so False is an audit artifact, not a defect.
+CONFIGURED=True came from code comments ('configure a provider key'), CATALOG=True from catalog language. No booleans were flipped;
+GET /api/v1/product-surface now joins the authorities so the UI reads derived states instead of literals.
+
+Per-surface entitlement evaluation (COMMUNITY):
+  ade-platform: resolver=EditionPolicy.isCapabilityAvailable + CapabilityActivation.assess | PING(avail=true,mode=LIVE,act=ACTIVATED), PUBLIC_INFO(avail=true,mode=LIVE,act=ACTIVATED), SYSTEM_HEALTH(avail=true,mode=LIVE,act=ACTIVATED), TELEMETRY_SSE(avail=true,mode=LIVE,act=ACTIVATED)
+  procarta: resolver=EditionPolicy.isCapabilityAvailable + CapabilityActivation.assess | PROCARTA_EXECUTE(avail=true,mode=LIVE,act=AVAILABLE), PROCARTA_WORKFLOW(avail=false,mode=UNAVAILABLE,act=null), CASE_CREATE(avail=true,mode=LIVE,act=AVAILABLE)
+  awbuli: resolver=EditionPolicy.isCapabilityAvailable + CapabilityActivation.assess | ADE_AWBULI_HUB(avail=false,mode=UNAVAILABLE,act=null)
+  oracle: resolver=EditionPolicy.isCapabilityAvailable + CapabilityActivation.assess | ORACLE_QUERY(avail=false,mode=UNAVAILABLE,act=null), UNIVERSAL_AI_GATEWAY(avail=true,mode=LIVE,act=ACTIVATED)
+  nexus: resolver=Catalogue/roadmap (no capability intent)
+  eventos: resolver=Catalogue/roadmap (no capability intent)
+  founders-circle: resolver=EditionPolicy.isCapabilityAvailable + CapabilityActivation.assess | PILOT_INTAKE(avail=true,mode=LIVE,act=AVAILABLE)
+  market-circle: resolver=EditionPolicy.isCapabilityAvailable + CapabilityActivation.assess | PARTNER_REGISTRATION(avail=true,mode=LIVE,act=AVAILABLE)
+  tides: resolver=Catalogue/roadmap (no capability intent)
+  aibos: resolver=EditionPolicy.isCapabilityAvailable + CapabilityActivation.assess | UNIVERSAL_AI_GATEWAY(avail=true,mode=LIVE,act=ACTIVATED)
+  biz-watch: resolver=Catalogue/roadmap (no capability intent)
+  fraud-watch: resolver=Catalogue/roadmap (no capability intent)
+  agriculture: resolver=Catalogue/roadmap (no capability intent)
+  gov-ngo: resolver=Catalogue/roadmap (no capability intent)
+  workforce: resolver=WorkforceManager role + PIN elevation (requireWorkforceAdmin for admin reads)
+  account-security: resolver=WorkforceManager role + PIN elevation (requireWorkforceAdmin for admin reads)
+  announcements: resolver=Catalogue/roadmap (no capability intent)
+  audit: resolver=WorkforceManager role + PIN elevation (requireWorkforceAdmin for admin reads)
+  pilot: resolver=EditionPolicy.isCapabilityAvailable + CapabilityActivation.assess | PILOT_INTAKE(avail=true,mode=LIVE,act=AVAILABLE)
+  partner: resolver=EditionPolicy.isCapabilityAvailable + CapabilityActivation.assess | PARTNER_REGISTRATION(avail=true,mode=LIVE,act=AVAILABLE)
+  connections: resolver=Catalogue/roadmap (no capability intent)
+  storage: resolver=SupabaseStorageAdapter.isConfigured()
+  try-ade: resolver=EditionPolicy.isCapabilityAvailable + CapabilityActivation.assess | DEMO_ORCHESTRATE(avail=true,mode=SIMULATED,act=AVAILABLE)
+  feedback: resolver=EditionPolicy.isCapabilityAvailable + CapabilityActivation.assess | FEEDBACK_SUBMIT(avail=true,mode=LIVE,act=AVAILABLE)
+Stub shapes (documented, production /api/v1/product-surface computes live): capabilityRegistry=8 core intents registered (PING/PUBLIC_INFO/WATCH_ASSET/TELEMETRY_SSE/UNIVERSAL_AI_GATEWAY/MULTI_STREAM/SYSTEM_HEALTH/SYSTEM_SHUTDOWN), providerStatus.configuredProviderCount=0, fabric grip snapshot procarta=100/awbuli=67/nexus=0/eventos=0, storage=LocalStorageAdapter configured=true, builtinCatalog=3 sample entries.

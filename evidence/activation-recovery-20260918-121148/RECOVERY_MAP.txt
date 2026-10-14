@@ -1,0 +1,79 @@
+﻿ADE RECOVERY MAP
+
+A. AUTHENTICATION
+   Verify:
+   - canonical auth session
+   - password/session persistence
+   - PIN elevation
+   - logout/login lifecycle
+
+B. FOUNDER PROVISIONING
+   Verify:
+   - Founder identity creation
+   - tenant/workspace creation
+   - workforce person record
+   - Founder role
+   - initial entitlement record
+   - initial product catalogue assignment
+
+C. WORKFORCE
+   Verify:
+   - create operator
+   - invite
+   - invitation persistence
+   - role assignment
+   - expiry
+   - suspend/revoke
+   - invited-user authentication
+
+D. STORAGE
+   Verify:
+   - exact bucket name
+   - exact write path
+   - bucket existence
+   - production Supabase project
+   - server-side credentials
+   - storage policy
+   - error mapping
+
+E. PRODUCT ACCESS
+   Verify:
+   - product catalogue
+   - entitlement resolution
+   - role gating
+   - Founder visibility
+   - Admin visibility
+   - Operator visibility
+   - route registration
+   - navigation rendering
+   - mobile navigation rendering
+
+F. CONFIGURATION
+   Verify:
+   - ENABLED versus CONFIGURED semantics
+   - required provider credentials
+   - verification action
+   - configuration persistence
+   - connection health
+
+G. FRONTEND
+   Verify:
+   - no startup exception
+   - no blank SPA
+   - no inaccessible menu
+   - no hidden required action
+   - loading state
+   - success state
+   - error recovery
+   - mobile/tablet/desktop layout
+
+H. DEPLOYMENT
+   Verify:
+   - npm validate
+   - community build
+   - git diff limited to intended files
+   - commit
+   - push
+   - Vercel production deployment
+   - /api/v1/health HTTP 200
+   - homepage HTTP 200

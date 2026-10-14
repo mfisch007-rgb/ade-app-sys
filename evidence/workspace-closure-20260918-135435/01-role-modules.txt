@@ -1,0 +1,47 @@
+WORKSPACE CLOSURE — ROLE MODULE MATRIX
+Stamp: 20260918-135435 | Base: main @ 7705810 | Method: WS_MODULES static scan + smoke + tests
+Status vocabulary preserved: AVAILABLE / ACTIVATED / CONFIGURATION_REQUIRED / PARTNER_REQUIRED / PREVIEW / FUTURE / EXPERIMENTAL / ROADMAP / BLOCKED.
+
+FOUNDER — Founder Workspace (14 modules)
+  Overview [PASS] counts + Invite/Review/Audit shortcuts -> in-page modules
+  Products [PASS] surface mini + Open Full Catalogue -> #/Products
+  Access & Entitlements [PASS] activation table + per-row Activate (L2) + trading grant/revoke forms -> /api/v1/capabilities/activation, /api/v1/admin/capabilities/:id/activate, /api/v1/admin/trading/entitlements
+  Workforce [PASS] roster table + Suspend/Activate/Revoke + role select/Apply + +30d/Clear expiry + invite form -> /api/v1/workforce*
+  Invitations [PASS] pending table + invite form -> /api/v1/workforce/invite
+  AI Workers [PASS] agent table + suspend/activate + create form -> /api/v1/workforce/agents*
+  Operations [PASS] stream state + scroll to live ops + palette -> in-page
+  Workflows [PASS] cases table + View(detail+transitions) + Process/Execute (confirm) + feedback -> /api/v1/cases*
+  Knowledge [PASS] provider grid + media counts -> /api/v1/media/providers (read)
+  Decisions [PASS] 6 runnable CapCards (execute) + palette + scroll -> /api/command/execute
+  Audit [PASS] type filter + 60-row table -> /api/v1/audit
+  Notifications [PASS] 20 recent events -> /api/v1/notifications/recent
+  Settings [PASS] edition/runtime/kernel/storage/AI read-only truth -> /api/v1/runtime, /api/v1/edition
+  Account [PASS] -> #/Account + Sign Out -> POST /api/v1/account/logout
+
+ADMIN — Admin Workspace (12 modules): Overview, Products, Workforce, Invitations, AI Workers, Announcements (publish + delete), Operations, Workflows, Access & Entitlements, Audit, Notifications, Account. Same endpoints as Founder; founder-person rows stay FOUNDER_PROTECTED (server).
+
+WORKER (Operator/Analyst/Viewer) — Worker Workspace (6 modules)
+  Overview [PASS] stats + Open Assigned Work / Read Announcements
+  Products [PASS] available-surface mini + catalogue link
+  Assigned Work [PASS] cases table + View + feedback; Process/Execute buttons ONLY for elevated OPERATOR (wsCanProcess), others see read-only + honest boundary
+  Announcements [PASS] public read list
+  Notifications [PASS] | Account [PASS]
+  Workforce mutations/audit/entitlements: not rendered; server returns 403 (proven by test: elevated ANALYST invite/suspend/revoke -> 403).
+
+PILOT (Viewer/Pilot base session, non-elevated) — Pilot Workspace (8 modules)
+  Pilot Workspace [PASS] stats + Request/Diagnostic shortcuts
+  Pilot Request [PASS] real intake form (PILOT_INTEREST preset) -> POST /api/v1/community/intake
+  Business Diagnostic [PASS] engine status + Start Diagnostic -> #/PROCARTA, demos -> #/Try ADE
+  Evidence & Results [PASS] progression stats + recent PROCARTA executions -> GET /api/v1/community/progression (public)
+  My Products [PASS] AVAILABLE/ACTIVATED/PREVIEW surfaces only (honest filter)
+  Implementation [PASS] discuss/request actions -> Community intake; Architecture link
+  Contact ADE [PASS] mailto + tel actions | Account [PASS]
+
+PARTNER — Partner Workspace (7 modules; Command Center stays hidden for partners — no internal telemetry)
+  Partner Workspace [PASS] directory count + grip + Manage/View shortcuts
+  Partnership [PASS] intake form (PARTNER_INTEREST) + live directory -> POST /api/v1/community/intake, GET /api/v1/partners
+  Integrations [PASS] per-product grip/state/ACTION REQUIRED + Admin Console L2-verify link
+  Products [PASS] | Implementation [PASS] | Contact ADE [PASS] | Account [PASS]
+  Opportunities/Referrals: OMITTED — no implementation exists (grep: only demo-copy and data-registry mentions). Not invented.
+
+Every module button: clickable, real destination/action, loading state (busy/disabled/spinner), success (notify + visible refresh), recoverable error (inline fieldErr + Retry), usable widths (wsGrid + tableScroll + 44px targets).

@@ -1,0 +1,64 @@
+﻿ M data/audit_ledger.json
+ M data/runtime-config/admin.json
+ M docs/engineering/ADE_FOUNDER_EXTERNAL_CONFIGURATION_RUNBOOK.md
+ M docs/engineering/MASTER_ENGINEERING_CTO_CONTINUATION_REPORT.md
+ M src/trading/FounderSignalEngine.js
+ M tests/trading-hardening.test.js
+?? $log
+?? .ade-batch-b-backup-20260829-150047/
+?? .ade-batch-b-backup-20260829-150710/
+?? .ade-reconciliation-backup-20260829-133427/
+?? .ade_capability_store.json
+?? .ade_storage.json
+?? .dockerignore
+?? .opencode-final-checkpoint.json
+?? .opencode-scoped-checkpoint.json
+?? ADE-BATCH-3-14-ACTUAL-SOURCE-BUNDLE.txt
+?? ADE-BATCH-3-14-CLAUDE-RECONCILIATION-CONTEXT.txt
+?? ADE-BATCH10-SCOPED-COMMIT-TRACE.txt
+?? ADE-BATCH3-RECONCILIATION-20260827-160926.zip
+?? ADE-BATCH3-RECONCILIATION-20260827-160926/
+?? ADE-BATCH5-UNTRACKED-TRUTH-20260827-163129/
+?? ADE-BATCH6-SOURCE-TRUTH-20260827-163551/
+?? ADE-BATCH7-COMMIT-PREFLIGHT-20260827-163821/
+?? ADE-BATCH7-COMMIT-PREFLIGHT-20260827-163902/
+?? ADE-BATCH7-CONTRACT-REPAIR-20260827-164409/
+?? ADE-CRITICAL-MISSING-FILES.txt
+?? ADE-GIT-RELEASE-EVIDENCE.zip
+?? ADE-GIT-RELEASE-EVIDENCE/
+?? ADE-RELEASE-CLOSURE-EVIDENCE.zip
+?? ADE-RELEASE-CLOSURE-EVIDENCE/
+?? ADE_FINAL_HOMEPAGE_RELEASE.ps1
+?? ADE_FINAL_TRUTH_GATE.json
+?? ADE_HOMEPAGE_UI_RELEASE.ps1
+?? ADE_MASTER_ENGINEERING_BATCH.txt
+?? ADE_MASTER_FORENSIC_20260817_115657.txt
+?? ADE_RELEASE_RUN.ps1
+?? CLAUDE_BATCH3_14_FULL_RECONCILIATION_CONTEXT.txt
+?? RUN-ADE-ENGAGEMENT-RECONCILIATION.ps1
+?? ade-full.bundle
+?? ade-post-syntax-verification-20260829-140502/
+?? ade-reconciliation-backup-20260829-135213/
+?? ade-safe-verification-20260829-140822/
+?? ade-server-forensic-backup-20260829-140208/
+?? ade-server-syntax-backup-20260829-135512/
+?? ade-verification-repair-20260829-141722/
+?? api/index.js.g17aa4-backup
+?? check_home.js
+?? data/.smoke-err.log
+?? data/.smoke-out.log
+?? dist/
+?? docs/architecture/ADE-ICX-SPEC.md
+?? docs/architecture/MASTER_ARCHITECTURAL_LOCK.pre-R18-repair-20260902-135127.md
+?? evidence/
+?? g17z_z10_patch.mjs
+?? g18_http_security_patch.mjs
+?? live-desktop.png
+?? live_root.html
+?? public/index.html.activation-audit-20260918-121148.bak
+?? public/index.html.before-final-ui-20260917-205229.bak
+?? src/app.js.g17aa4-backup
+?? src/app.js.g18-httpsec-backup
+?? src/kernel/EnterpriseKernelMaster.js.g17z-backup
+?? src/server.js.g17aa4-backup
+?? supabase/
