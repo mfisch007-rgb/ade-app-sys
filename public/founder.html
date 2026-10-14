@@ -6,6 +6,7 @@
 <meta name="description" content="ADE Founder Command Center — comprehensive dashboard for ADE Founder/Admin operations.">
 <link rel="icon" type="image/png" href="/ADE-LOGO.png">
 <link rel="apple-touch-icon" href="/ADE-LOGO.png">
+<link rel="stylesheet" href="/ade-design-system.css">
 <title>ADE ADVANCED FOUNDER CONTROLS</title>
 <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
 <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
@@ -195,7 +196,7 @@ td .actions{display:flex;gap:4px;flex-wrap:wrap}
 const {useEffect,useMemo,useState,useCallback,useRef}=React;
 const h=React.createElement;
 
-  const TABS=['OVERVIEW','INBOX','WORKFORCE','PILOTS','PARTNERS','INTEGRATIONS','TRADING','FOREX','BINARY','GAMING','LIVE ENGAGEMENT & TRADING PORTAL','FEATURE CONTROL','PRODUCT THEATER','ANNOUNCEMENTS','AUDIT','EXTERNAL SERVICES'];
+  const TABS=['OVERVIEW','INBOX','WORKFORCE','PILOTS','PARTNERS','INTEGRATIONS','AWBULI','TRADING','FOREX','BINARY','GAMING','LIVE ENGAGEMENT & TRADING PORTAL','FEATURE CONTROL','PRODUCT THEATER','ANNOUNCEMENTS','AUDIT','EXTERNAL SERVICES'];
 const PILOT_STAGES=['PROSPECT','QUALIFIED','ASSESSMENT','BASELINE','PILOT','HUMAN REVIEW','IMPLEMENTATION','RE-MEASUREMENT','EVIDENCE','SUCCESS'];
 const ROLES=['FOUNDER','ADMIN','OPERATOR','ANALYST','PARTNER','VIEWER'];
 const PARTNER_TYPES=['TECHNOLOGY','CONSULTING','CHANNEL','STRATEGIC','RESELLER','IMPLEMENTATION'];
@@ -321,7 +322,8 @@ const heroShieldBg='url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/200
  const [auditEntries,setAuditEntries]=useState([]);
  const [auditFilter,setAuditFilter]=useState('');
  const [auditLimit,setAuditLimit]=useState(100);
- const [diagnostics,setDiagnostics]=useState(null);
+  const [diagnostics,setDiagnostics]=useState(null);
+  const [productSurface,setProductSurface]=useState(null);
  const [attention,setAttention]=useState(null);
  const [tradeStatus,setTradeStatus]=useState(null);
   const [tradeForm,setTradeForm]=useState({kind:'FOREX',instrument:'EURUSD',marketType:'REGULAR',timeframe:'M5',candles:'',executionStyle:'MANUAL',backtestCandles:'',game:'AVIATOR'});
@@ -441,20 +443,21 @@ const heroShieldBg='url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/200
   try{adeVerifySessionCookies&&adeVerifySessionCookies();}catch{};const refreshAll=useCallback(async()=>{
    if(!token)return;
    const j=async(u)=>{try{return await api(u)}catch(e){return null}};
-   const [a,b,c,d,e,f,g,ov,m,diag,att,ai,up]=await Promise.all([
+   const [a,b,c,d,e,f,g,ov,m,diag,att,ai,up,ps]=await Promise.all([
     j('/api/v1/health'),j('/api/v1/runtime'),j('/api/v1/metrics'),
     j('/api/v1/edition'),j('/api/v1/media/providers'),j('/api/v1/media/requests'),
     j('/api/v1/capabilities'),j('/api/v1/admin/overview'),j('/api/v1/announcements/admin'),
-    j('/api/v1/system/diagnostics'), j('/api/v1/attention'),
-    j('/api/v1/ai/providers'), j('/api/v1/integrations/uptimerobot/status')
-   ]);
+     j('/api/v1/system/diagnostics'), j('/api/v1/attention'),
+     j('/api/v1/ai/providers'), j('/api/v1/integrations/uptimerobot/status'),
+     j('/api/v1/product-surface')
+    ]);
    if(a)setHealth(a);if(b)setRuntime(b);if(c)setMetrics(c);if(d)setEdition(d);
    if(e)setProviders(e?.providers||[]);if(f)setMediaRequests(f?.requests||[]);
    if(g)setCaps(g?.capabilities||[]);if(ov)setOverview(ov);
    if(m)setAnnouncements(m?.announcements||[]);
    if(diag)setDiagnostics(diag);
    if(att&&att.attention)setAttention(att.attention);
-   if(ai)setAiProviders(ai);if(up)setUptimeStatus(up);
+   if(ai)setAiProviders(ai);if(up)setUptimeStatus(up);if(ps)setProductSurface(ps);
   },[token,api]);
 
  useEffect(()=>{refreshAll();const p=setInterval(refreshAll,20000);return()=>clearInterval(p)},[refreshAll]);
@@ -827,7 +830,12 @@ const heroShieldBg='url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/200
      ):h(EmptyState,{title:'Loading overview…',desc:'Fetching admin overview channels, connections, partners and cases from the server.',hint:'Please wait — overview refreshes every 20s',iconSize:28})
     )
    ),
-   h('div',{className:'card'},h('div',{className:'panelTitle'},h('h3',null,'PRODUCTION READINESS'),h('span',null,'DIAGNOSTICS')),
+   h('div',{className:'card'},h('div',{className:'panelTitle'},h('h3',null,'PRODUCT VISIBILITY'),h('span',null,'SERVER-REPORTED')),
+    h('div',{className:'cardBody'},
+     productSurface&&productSurface.surfaces?h('div',{style:{display:'flex',flexWrap:'wrap',gap:6}},productSurface.surfaces.map(s=>h('span',{key:s.id,style:{display:'inline-flex',gap:6,alignItems:'center',fontSize:11,padding:'6px 10px',border:'1px solid var(--lineSoft)',borderRadius:99,background:'var(--ocean)'}},h('b',null,s.label||s.id),B(s.status,s.status==='AVAILABLE'||s.status==='ACTIVATED'?'good':s.status==='CONFIGURATION_REQUIRED'?'warn':'muted')))):h(EmptyState,{title:'Loading product surfaces…',desc:'Server-reported catalogue states from /api/v1/product-surface — the same matrix the public Products section renders.',hint:'WHAT: Product visibility · WHY LOADING: fetching product-surface',iconSize:28})
+    )
+   ),
+    h('div',{className:'card'},h('div',{className:'panelTitle'},h('h3',null,'PRODUCTION READINESS'),h('span',null,'DIAGNOSTICS')),
     h('div',{className:'cardBody'},
      diagnostics?h('div',{style:{display:'grid',gap:10}},
       h('div',{style:{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(240px,1fr))',gap:10}},
@@ -1153,7 +1161,23 @@ const heroShieldBg='url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/200
   )
  );
 
- /* ── FEATURE CONTROL ── */
+   /* ── AWBULI (WhatsApp Business Messaging) ── */
+  /* Read-only Founder visibility. All state comes from the canonical
+     /api/v1/product-surface row; this tab creates nothing, configures
+     nothing and sends nothing. */
+  const TAB_AWBULI=()=>{const su=(()=>{try{return (productSurface&&productSurface.surfaces||[]).find(s=>String(s.id||'').toLowerCase()==='awbuli')||null}catch{return null}})();const st=su&&su.status;const act=su&&su.activation&&su.activation.state;const conn=su&&su.connection;return h('div',{className:'stack'},
+   h('div',{className:'sectionHead'},h('h2',null,'AWBULI — WhatsApp Business Messaging'),h('p',null,'Founder visibility into AWBULI readiness. Design availability, onboarding, provider configuration and live connectivity are tracked as separate states — nothing here sends messages or changes credentials.')),
+   h('div',{className:'card'},h('div',{className:'panelTitle'},h('h3',null,'READINESS'),h('span',null,st?B(String(st),st==='ACTIVATED'||st==='AVAILABLE'?'good':st==='CONFIGURATION_REQUIRED'?'warn':'muted'):'LOADING')),h('div',{className:'cardBody'},
+    su?h('div',null,
+     h('div',{style:{display:'flex',flexWrap:'wrap',gap:8}},B('DESIGN: REGISTERED','good'),B('ONBOARDING: PENDING','warn'),B('PROVIDER: '+String(act||'UNKNOWN'),act==='ACTIVATED'||act==='AVAILABLE'?'good':'warn'),B('LIVE: '+String((conn&&conn.state)||'UNKNOWN'),conn&&(conn.state==='CONNECTED'||conn.state==='VERIFIED')?'good':'muted')),
+     h('div',{style:{fontSize:11,color:'var(--muted)',marginTop:8}},'Activation: '+String(act||'—')+' · Fabric: '+String((conn&&conn.state)||'—')+(conn&&conn.grip!=null?(' · grip '+conn.grip+'%'):'')+' · '+(String((su&&su.errorRecovery)||'No blocker recorded.')).slice(0,240)),
+     h('div',{style:{fontSize:11,color:'var(--muted)',marginTop:6}},'To advance: register a sender identity under Admin ' + String.fromCharCode(8594) + ' Channels / WhatsApp numbers, then configure the provider bridge. Verification is metadata-only until a live handshake succeeds.'),
+     h('div',{style:{display:'flex',gap:8,flexWrap:'wrap',marginTop:10}},h('button',{className:'btn sm',onClick:()=>setTab('PRODUCT THEATER')},'Open Product Theater'),h('button',{className:'btn sm',onClick:()=>setTab('INTEGRATIONS')},'Open Integrations'),h('button',{className:'btn sm',onClick:()=>window.open('/admin','_blank')},'Open Admin Console'))
+    ):h(EmptyState,{title:'Loading AWBULI state—',desc:'Reading the canonical surface row from /api/v1/product-surface.',hint:'WHAT: AWBULI readiness · WHY LOADING: fetching product-surface',iconSize:28})
+   )))
+  };
+
+/* ── FEATURE CONTROL ── */
  const TAB_FEATURES=()=>h('div',{className:'stack'},
   h('div',{className:'card'},h('div',{className:'panelTitle'},h('h3',null,'EDITION INFO'),h('span',null,'SERVER STATUS')),
    h('div',{className:'cardBody'},
@@ -1394,7 +1418,7 @@ const heroShieldBg='url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/200
         ['FOREX','BINARY','AVIATOR','SOCCER'].map(k=>h('div',{key:k,className:'stat'},h('b',null,k),h('span',null,'tap Refresh to load live state')))
       ),
       h('div',{style:{display:'flex',gap:8,marginTop:10,flexWrap:'wrap'}},
-        h('button',{className:'btn primary',onClick:async()=>{try{const r=await api('/api/v1/engagement/live-feeds');notify('Feeds: Forex '+(r?.feeds?.forex?.state||'?')+' · Binary '+(r?.feeds?.binary?.state||'?')+' · Aviator '+(r?.feeds?.aviator?.state||'?')+' · Soccer '+(r?.feeds?.soccer?.state||'?'));}catch(e){notify(e.message);}}}),'Refresh live feeds'),
+        h('button',{className:'btn primary',onClick:async()=>{try{const r=await api('/api/v1/engagement/live-feeds');notify('Feeds: Forex '+(r?.feeds?.forex?.state||'?')+' · Binary '+(r?.feeds?.binary?.state||'?')+' · Aviator '+(r?.feeds?.aviator?.state||'?')+' · Soccer '+(r?.feeds?.soccer?.state||'?'));}catch(e){notify(e.message);}}},'Refresh live feeds'),
         h('button',{className:'btn',onClick:()=>window.open('/market-lab','_blank')},'Open Market Lab'),
         h('button',{className:'btn',onClick:()=>setTab('TRADING')},'Go to Trading')
       )
@@ -1451,7 +1475,7 @@ const heroShieldBg='url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/200
      ))
     )
    );
-   const tabContent={OVERVIEW:TAB_OVERVIEW,INBOX:TAB_INBOX,WORKFORCE:TAB_WORKFORCE,PILOTS:TAB_PILOTS,PARTNERS:TAB_PARTNERS,INTEGRATIONS:TAB_INTEGRATIONS,TRADING:TAB_TRADING,FOREX:TAB_FOREX,BINARY:TAB_BINARY,GAMING:TAB_GAMING,'LIVE ENGAGEMENT & TRADING PORTAL':TAB_LIVE,'FEATURE CONTROL':TAB_FEATURES,'PRODUCT THEATER':TAB_THEATER,ANNOUNCEMENTS:TAB_ANNOUNCEMENTS,AUDIT:TAB_AUDIT,'EXTERNAL SERVICES':TAB_EXTERNAL_SERVICES};
+   const tabContent={OVERVIEW:TAB_OVERVIEW,INBOX:TAB_INBOX,WORKFORCE:TAB_WORKFORCE,PILOTS:TAB_PILOTS,PARTNERS:TAB_PARTNERS,INTEGRATIONS:TAB_INTEGRATIONS,AWBULI:TAB_AWBULI,TRADING:TAB_TRADING,FOREX:TAB_FOREX,BINARY:TAB_BINARY,GAMING:TAB_GAMING,'LIVE ENGAGEMENT & TRADING PORTAL':TAB_LIVE,'FEATURE CONTROL':TAB_FEATURES,'PRODUCT THEATER':TAB_THEATER,ANNOUNCEMENTS:TAB_ANNOUNCEMENTS,AUDIT:TAB_AUDIT,'EXTERNAL SERVICES':TAB_EXTERNAL_SERVICES};
 
  return h('div',{className:'app'},
   h('header',{className:'top'},
@@ -1463,7 +1487,7 @@ const heroShieldBg='url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/200
      h('nav',{className:'topNav'},visibleTabs.map(t=>h('button',{key:t,className:tab===t?'active':'',onClick:()=>{setTab(t);setMenuOpen(false)},title:visibleTabs.length!==TABS.length?('Filtered for '+(_accessRole||'role')):''},t))),
     h('div',{className:'topRight'},
      serverAuth?h('span',{className:'pill',title:'Server-validated · Role: '+(_accessRole||'—')+' · Persona: '+(srvPersona||'—')+' · PIN: '+(srvElevated?'verified':'not verified')},'@'+((serverAuth.person&&serverAuth.person.username)||(identity&&identity.subject)||'—')+' · '+(_accessRole||'—')+' · L'+srvLevel+(srvElevated?' · ELEVATED':' · BASE')):null,
-     ((()=>{try{const _m=String(document.cookie||'').match(/(?:^|;\s*)ade_elevated=([^;]*)/);if(_m)return h('span',{className:'pill',title:'Dual-token elevated session — no auto-logout'},'@FOUNDER · L3 · ELEVATED');}catch{}return null})()||h('span',{className:'pill '+(kernLive?'live':kernStatus==='OFFLINE'?'off':'')},h('i',{className:'dot'}),kernLive?'ONLINE':kernStatus),
+     ((()=>{try{const _m=String(document.cookie||'').match(/(?:^|;\s*)ade_elevated=([^;]*)/);if(_m)return h('span',{className:'pill',title:'Dual-token elevated session — no auto-logout'},'@FOUNDER · L3 · ELEVATED');}catch{}return null})()||h('span',{className:'pill '+(kernLive?'live':kernStatus==='OFFLINE'?'off':'')},h('i',{className:'dot'}),kernLive?'ONLINE':kernStatus)),
       h('a',{className:'btn sm',href:'/#/Workspace',title:'Open the canonical ADE role workspace — same server session, shared token'},'WORKSPACE'),
       h('button',{className:'btn sm danger',onClick:logout},'⊘ LOGOUT'),
       h('button',{className:'iconBtn hamburger',onClick:()=>setMenuOpen(v=>!v),'aria-expanded':menuOpen?'true':'false','aria-label':'Toggle navigation',title:'Menu'},menuOpen?'✕':'☰')
