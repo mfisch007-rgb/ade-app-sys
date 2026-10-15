@@ -687,6 +687,31 @@ a{color:var(--royal)}
 .retainBar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px;padding:9px 12px;border:1px dashed rgba(10,61,145,.4);border-radius:12px;background:rgba(27,95,220,.06);font-size:12px}
 @media(max-width:640px){.topoScroll svg{min-width:0}.topoCards{display:grid}.topoDesktopOnly{display:none}}
 </style>
+<style>
+  .mobile-header-nav {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.75rem 1rem;
+    width: 100%;
+    background: var(--bg-surface, #ffffff);
+    border-bottom: 1px solid var(--border-color, #e5e7eb);
+  }
+  .mobile-header-nav .nav-actions {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+  }
+  .mobile-header-nav button, .mobile-header-nav a {
+    font-size: 1.25rem;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0.25rem;
+    color: inherit;
+    text-decoration: none;
+  }
+</style>
 </head>
 <body><a class="ade-skip" href="#root">Skip to main content</a><div id="root" class="ade-home-responsive"></div>
 <button id="adeThemeToggle" class="ade-theme-toggle" type="button" aria-pressed="false" title="Switch to dark theme" aria-label="Toggle color theme" style="position:fixed;right:16px;bottom:16px;z-index:90">◐</button>
