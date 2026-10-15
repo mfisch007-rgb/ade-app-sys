@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-10-14T14:20:10.687Z",
+  "updatedAt": "2026-10-15T12:02:31.138Z",
   "capabilities": [
     {
       "id": "PING",
@@ -12,7 +12,7 @@
       "tier": "FREE",
       "classification": "STATIC_CORE_CAPABILITY",
       "description": "",
-      "registeredAt": "2026-10-14T14:19:45.487Z"
+      "registeredAt": "2026-10-15T12:02:14.320Z"
     },
     {
       "id": "PUBLIC_INFO",
@@ -24,7 +24,7 @@
       "tier": "FREE",
       "classification": "STATIC_CORE_CAPABILITY",
       "description": "",
-      "registeredAt": "2026-10-14T14:19:45.745Z"
+      "registeredAt": "2026-10-15T12:02:14.736Z"
     },
     {
       "id": "WATCH_ASSET",
@@ -36,7 +36,7 @@
       "tier": "FREE",
       "classification": "STATIC_CORE_CAPABILITY",
       "description": "",
-      "registeredAt": "2026-10-14T14:19:45.745Z"
+      "registeredAt": "2026-10-15T12:02:14.736Z"
     },
     {
       "id": "TELEMETRY_SSE",
@@ -48,7 +48,7 @@
       "tier": "FREE",
       "classification": "STATIC_CORE_CAPABILITY",
       "description": "",
-      "registeredAt": "2026-10-14T14:19:45.746Z"
+      "registeredAt": "2026-10-15T12:02:14.736Z"
     },
     {
       "id": "UNIVERSAL_AI_GATEWAY",
@@ -60,7 +60,7 @@
       "tier": "FREE",
       "classification": "STATIC_CORE_CAPABILITY",
       "description": "",
-      "registeredAt": "2026-10-14T14:19:45.746Z"
+      "registeredAt": "2026-10-15T12:02:14.736Z"
     },
     {
       "id": "MULTI_STREAM",
@@ -72,7 +72,7 @@
       "tier": "PRO",
       "classification": "STATIC_CORE_CAPABILITY",
       "description": "",
-      "registeredAt": "2026-10-14T14:19:45.746Z"
+      "registeredAt": "2026-10-15T12:02:14.737Z"
     },
     {
       "id": "SYSTEM_HEALTH",
@@ -84,7 +84,7 @@
       "tier": "FREE",
       "classification": "STATIC_CORE_CAPABILITY",
       "description": "",
-      "registeredAt": "2026-10-14T14:19:45.746Z"
+      "registeredAt": "2026-10-15T12:02:14.737Z"
     },
     {
       "id": "SYSTEM_SHUTDOWN",
@@ -96,7 +96,7 @@
       "tier": "ENTERPRISE",
       "classification": "STATIC_CORE_CAPABILITY",
       "description": "",
-      "registeredAt": "2026-10-14T14:19:45.746Z"
+      "registeredAt": "2026-10-15T12:02:14.737Z"
     },
     {
       "id": "ORG_UNITS",
@@ -108,7 +108,7 @@
       "tier": "FREE",
       "classification": "STATIC_CORE_CAPABILITY",
       "description": "",
-      "registeredAt": "2026-10-14T14:20:10.172Z"
+      "registeredAt": "2026-10-15T12:02:30.960Z"
     },
     {
       "id": "CUSTOMERS",
@@ -120,7 +120,7 @@
       "tier": "FREE",
       "classification": "STATIC_CORE_CAPABILITY",
       "description": "",
-      "registeredAt": "2026-10-14T14:20:10.251Z"
+      "registeredAt": "2026-10-15T12:02:30.963Z"
     },
     {
       "id": "FIELD_TASKS",
@@ -132,7 +132,7 @@
       "tier": "FREE",
       "classification": "STATIC_CORE_CAPABILITY",
       "description": "",
-      "registeredAt": "2026-10-14T14:20:10.255Z"
+      "registeredAt": "2026-10-15T12:02:30.965Z"
     },
     {
       "id": "AI_WORKERS",
@@ -144,7 +144,7 @@
       "tier": "FREE",
       "classification": "STATIC_CORE_CAPABILITY",
       "description": "",
-      "registeredAt": "2026-10-14T14:20:10.258Z"
+      "registeredAt": "2026-10-15T12:02:30.967Z"
     },
     {
       "id": "EXPERIENCE_QUERY",
@@ -156,7 +156,7 @@
       "tier": "FREE",
       "classification": "STATIC_CORE_CAPABILITY",
       "description": "",
-      "registeredAt": "2026-10-14T14:20:10.261Z"
+      "registeredAt": "2026-10-15T12:02:30.970Z"
     },
     {
       "id": "PROCARTA_EXECUTE",
@@ -168,7 +168,7 @@
       "tier": "FREE",
       "classification": "DYNAMIC_CAPABILITY",
       "description": "Execute a Procarta business-process analysis slice through canonical intake, case lifecycle, decision engine and provider-neutral AI boundaries.",
-      "registeredAt": "2026-10-14T14:20:10.686Z"
+      "registeredAt": "2026-10-15T12:02:31.138Z"
     }
   ],
   "subsystems": [],

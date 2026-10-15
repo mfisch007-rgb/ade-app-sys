@@ -126,13 +126,14 @@ git status --short
 
 Gate "3 - INLINE JAVASCRIPT SYNTAX"
 
-node --check public/index.html
+node --check src/app.js
+node --check src/kernel/EnterpriseKernelMaster.js
 
 if ($LASTEXITCODE -ne 0) {
-    Fail "public/index.html JavaScript syntax validation failed."
+    Fail "Core JavaScript syntax validation failed."
 }
 
-Write-Output "PASS - inline JavaScript syntax."
+Write-Output "PASS - inline and core JavaScript syntax."
 
 # ------------------------------------------------------------
 # 4. Existing project validation
