@@ -1,4 +1,4 @@
-﻿export function Footer() {
+export function Footer() {
   return (
     <footer className="app-footer">
       <div>

@@ -186,6 +186,11 @@ const EDITION_LIMITS = Object.freeze({
 
 export class EditionPolicy {
   constructor(edition = null) {
+    // Precedence (single contract, see src/app.js): explicit arg >
+    // ADE_EDITION > ADE_RUNTIME_MODE > "COMMUNITY". FULL is a compatibility
+    // alias for COMMUNITY. Unknown values resolve resiliently to COMMUNITY
+    // here; the boot layer (src/app.js) throws fail-fast instead. Locked by
+    // tests/config-contract-reconciliation.test.js.
     this.edition = edition || process.env.ADE_EDITION || process.env.ADE_RUNTIME_MODE || "COMMUNITY";
     this.edition = String(this.edition).trim().toUpperCase();
     if (EDITION_COMPATIBILITY_ALIASES[this.edition]) {

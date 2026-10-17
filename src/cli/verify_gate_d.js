@@ -1,4 +1,4 @@
-﻿import EnterpriseKernelMaster from "../kernel/EnterpriseKernelMaster.js";
+import EnterpriseKernelMaster from "../kernel/EnterpriseKernelMaster.js";
 import CommunityEditionGuard from "../security/CommunityEditionGuard.js";
 
 async function runGateDAudit() {

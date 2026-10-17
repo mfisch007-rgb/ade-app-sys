@@ -1,4 +1,4 @@
-﻿import React, { useState, useRef } from 'react';
+import React, { useState, useRef } from 'react';
 
 export function SecurityChallengeModal({ isOpen, onClose, onSuccess }) {
   const [digits, setDigits] = useState(['', '', '', '', '', '']);

@@ -1,4 +1,4 @@
-﻿import KernelEventBus from "./EventBus.js";
+import KernelEventBus from "./EventBus.js";
 
 export class ExternalStrategyBridge {
   constructor() {

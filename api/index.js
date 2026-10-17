@@ -1,4 +1,4 @@
-﻿import app, { kernelReady, storageHydration } from "../src/app.js";
+import app, { kernelReady, storageHydration } from "../src/app.js";
 
 export default async function handler(req, res) {
   try {

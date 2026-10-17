@@ -1,4 +1,4 @@
-﻿/**
+/**
  * ADE document-oriented storage contract.
  *
  * Used for services whose existing persistence model is a

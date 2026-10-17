@@ -1,4 +1,4 @@
-﻿/**
+/**
  * ADE DESIGN SYSTEM
  * Document Ref: ADE-ARCH-2026-BLOCK01
  */

@@ -1,4 +1,4 @@
-﻿/**
+/**
  * ADE-APEX Enterprise Master Orchestrator
  *
  * Orchestration layer only.

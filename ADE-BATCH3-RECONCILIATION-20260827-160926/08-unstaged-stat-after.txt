@@ -1,4 +1,4 @@
-﻿ .github/workflows/ci-cd.yml                   |  36 ++-
+ .github/workflows/ci-cd.yml                   |  36 ++-
  .github/workflows/production-verification.yml |  34 +--
  frontend/src/components/CommandPalette.jsx    |  41 ++-
  package.json                                  |   6 +-

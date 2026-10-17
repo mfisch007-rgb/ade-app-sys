@@ -1,4 +1,4 @@
-﻿import {
+import {
   isDemoModeActive,
   evaluateDemoPolicy,
   assertSafeExecution,

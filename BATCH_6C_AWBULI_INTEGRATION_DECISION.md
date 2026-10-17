@@ -1,4 +1,4 @@
-﻿# BATCH 6C — AWBULI INTEGRATION DECISION
+# BATCH 6C — AWBULI INTEGRATION DECISION
 
 ## Purpose
 Read-only reconciliation of the AWBULI product architecture/specification against the actually accessible ADE implementation. Determine what is real, what ADE can reuse, what requires an adapter/service, what remains external, and what is not proven.

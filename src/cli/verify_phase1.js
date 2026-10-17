@@ -1,4 +1,4 @@
-﻿import EnterpriseKernelMaster from "../kernel/EnterpriseKernelMaster.js";
+import EnterpriseKernelMaster from "../kernel/EnterpriseKernelMaster.js";
 
 async function verifyPhase1() {
   console.log("=======================================================");

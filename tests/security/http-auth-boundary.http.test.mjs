@@ -1,4 +1,4 @@
-﻿import { spawn } from "node:child_process";
+import { spawn } from "node:child_process";
 
 const PORT = 31991;
 const BASE = `http://127.0.0.1:${PORT}`;

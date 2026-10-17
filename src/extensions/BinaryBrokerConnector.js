@@ -1,4 +1,4 @@
-﻿import KernelEventBus from "../core/EventBus.js";
+import KernelEventBus from "../core/EventBus.js";
 import ExtensionSandboxGuard from "../security/ExtensionSandboxGuard.js";
 
 /**

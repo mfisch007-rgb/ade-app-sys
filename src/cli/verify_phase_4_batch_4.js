@@ -1,4 +1,4 @@
-﻿import MultiAssetManager from "../trading/MultiAssetManager.js";
+import MultiAssetManager from "../trading/MultiAssetManager.js";
 import BinaryBrokerConnector from "../trading/connectors/BinaryBrokerConnector.js";
 import AffiliateLockGuard from "../security/AffiliateLockGuard.js";
 import KernelEventBus from "../core/EventBus.js";

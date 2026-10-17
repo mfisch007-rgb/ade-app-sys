@@ -1,4 +1,4 @@
-﻿M	ADE-LOGO.png
+M	ADE-LOGO.png
 A	docs/architecture/ADE-BLOCK01-EXPERIENCE-FOUNDATION.md
 A	docs/architecture/ADE-PHASE01-BASELINE.json
 A	docs/architecture/ADE-PHASE01-GEMINI-ENGINEERING-DIRECTIVE.md

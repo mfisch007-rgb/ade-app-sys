@@ -1,4 +1,4 @@
-﻿import crypto from 'crypto';
+import crypto from 'crypto';
 
 export class SemanticCacheEngine {
   constructor(similarityThreshold = 0.85) {

@@ -1,4 +1,4 @@
-﻿import test from "node:test";
+import test from "node:test";
 import assert from "node:assert/strict";
 import { CaseManager } from "../src/intelligence/CaseManager.js";
 import { PartnerRegistry } from "../src/integrations/PartnerRegistry.js";

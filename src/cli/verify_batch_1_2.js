@@ -1,4 +1,4 @@
-﻿import fs from "fs";
+import fs from "fs";
 import path from "path";
 import KernelEventBus from "../core/EventBus.js";
 import CommunityEditionGuard from "../security/CommunityEditionGuard.js";

@@ -1,4 +1,4 @@
-﻿import http from 'http';
+import http from 'http';
 import AIGatewayMaster from '../ai/AIGatewayMaster.js';
 
 async function runMVPDemoSurface() {

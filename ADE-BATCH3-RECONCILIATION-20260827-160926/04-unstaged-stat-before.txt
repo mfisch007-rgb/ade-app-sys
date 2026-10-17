@@ -1,4 +1,4 @@
-﻿ .github/workflows/ci-cd.yml                        |  36 +-
+ .github/workflows/ci-cd.yml                        |  36 +-
  .github/workflows/production-verification.yml      |  34 +-
  .../ADE-BLOCK01-EXPERIENCE-FOUNDATION.md           |   8 +-
  .../ADE-PHASE01-GEMINI-ENGINEERING-DIRECTIVE.md    |   6 +-

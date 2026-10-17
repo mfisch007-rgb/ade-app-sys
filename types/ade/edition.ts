@@ -1,4 +1,4 @@
-﻿/**
+/**
  * ADE EDITION + CAPABILITY CONTRACT
  */
 

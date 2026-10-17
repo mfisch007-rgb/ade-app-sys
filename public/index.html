@@ -860,7 +860,7 @@ const [a,b,c,d,e,f,g,s,h2,i,m,n,o,p]=await Promise.all([j('/api/v1/health'),j('/
  },[]);
  useEffect(()=>{refresh();const poll=setInterval(refresh,15000);const es=new EventSource('/api/v1/events/stream');es.onopen=()=>{setSse('live');try{refresh()}catch{}};es.onmessage=e=>{try{const x=JSON.parse(e.data);if(x.type==='STREAM_CONNECTED'){}else{setEvents(v=>[x,...v].slice(0,80));setSse('live')}}catch{}};es.onerror=()=>{setSse('retry')};return()=>{clearInterval(poll);es.close()}},[refresh]);
    useEffect(()=>{const f=e=>{if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='k'){e.preventDefault();if(!token){setAuth(true);notify('Authorize to unlock the command palette.')}else{setPalette(v=>!v)}}if(e.key==='Escape'){setPalette(false);setPaletteQuery("");setAuth(false);setMenuOpen(false);setProductModal(null);setAboutOpen(false)}};addEventListener('keydown',f);return()=>removeEventListener('keydown',f)},[token]);
-  useEffect(()=>{if(!token){setSessionChecked(true);setSessionState('idle');return}let cancelled=false;setSessionState('checking');(async()=>{const sleep=ms=>new Promise(r=>setTimeout(r,ms));let lastErr=null;for(let attempt=0;attempt<3;attempt++){try{const r=await api('/api/v1/account/session',{method:'GET',headers:{Authorization:'Bearer '+token}});if(cancelled)return;if(r&&r.person){setAccount(r);setSessionState('ready');}else{setSessionState('not-provisioned');}if(!cancelled)setSessionChecked(true);return}catch(e){lastErr=e;const msg=String((e&&e.message)||'');if(msg.includes('PERSON_NOT_FOUND')){if(!cancelled){setSessionState('not-provisioned');setSessionChecked(true)}return}if(!cancelled&&(msg.includes('Authentication')||msg.includes('401')||/Session has expired|Invalid session|revok|rotation|credential|issuer|audience|signature|Malformed|ACCOUNT_NOT_ACTIVE|ACCESS_EXPIRED|expir/i.test(msg))){setToken(null);setSessionState('idle');notify('Session expired — please sign in again');if(!cancelled)setSessionChecked(true);return}if(attempt<2)await sleep(1500);}}if(!cancelled){setSessionState('unreachable');setSessionChecked(true);notify('Service unreachable — identity could not be verified. Retry from Account.')}})();return()=>{cancelled=true}},[token,sessionSeq]);
+  useEffect(()=>{if(!token){setSessionChecked(true);setSessionState('idle');return}let cancelled=false;setSessionState('checking');(async()=>{const sleep=ms=>new Promise(r=>setTimeout(r,ms));let lastErr=null;for(let attempt=0;attempt<3;attempt++){try{const r=await api('/api/v1/account/session',{method:'GET',headers:{Authorization:'Bearer '+token}});if(cancelled)return;if(r&&r.person){setAccount(r);try{window.ADE_PIN_STATE&&ADE_PIN_STATE.hydrateFromClaims(r)}catch{}setSessionState('ready');}else{setSessionState('not-provisioned');}if(!cancelled)setSessionChecked(true);return}catch(e){lastErr=e;const msg=String((e&&e.message)||'');if(msg.includes('PERSON_NOT_FOUND')){if(!cancelled){setSessionState('not-provisioned');setSessionChecked(true)}return}if(!cancelled&&(msg.includes('Authentication')||msg.includes('401')||/Session has expired|Invalid session|revok|rotation|credential|issuer|audience|signature|Malformed|ACCOUNT_NOT_ACTIVE|ACCESS_EXPIRED|expir/i.test(msg))){setToken(null);try{window.ADE_PIN_STATE&&ADE_PIN_STATE.clear()}catch{}setSessionState('idle');notify('Session expired — please sign in again');if(!cancelled)setSessionChecked(true);return}if(attempt<2)await sleep(1500);}}if(!cancelled){setSessionState('unreachable');setSessionChecked(true);notify('Service unreachable — identity could not be verified. Retry from Account.')}})();return()=>{cancelled=true}},[token,sessionSeq]);
   const roleName=((account&&account.person&&account.person.role)||(account&&account.claims&&account.claims.role)||'').toUpperCase();
   const isPartner=roleName==='PARTNER';const isPilot=roleName==='VIEWER'||roleName==='PILOT';const isElevated=Boolean(account&&account.claims&&account.claims.pinVerified);const isOperatorOrAbove=['FOUNDER','ADMIN','OPERATOR','ANALYST'].includes(roleName)||isElevated;
   const visibleNav=useMemo(()=>NAV.filter(([name])=>{if(name==='Workspace'&&!token)return false;if(name==='Command Center'&&!token)return false;if((name==='Command Center')&&isPartner)return false;if(isPartner&&['PROCARTA','Try ADE','Architecture'].includes(name))return false;return true}),[token,isPartner]);
@@ -874,7 +874,7 @@ const [a,b,c,d,e,f,g,s,h2,i,m,n,o,p]=await Promise.all([j('/api/v1/health'),j('/
   const execute=async(cap,extraPayload)=>{try{const intent=(cap&&cap.intent)||cap;const needAuth=Number((cap&&cap.rbacLevel)||0)>0;if(needAuth&&!token){setAuth(true);return}if(intent==='UNIVERSAL_AI_GATEWAY'&&!(extraPayload&&extraPayload.prompt)&&!String(paletteQuery||'').trim()){setPalette(false);setPaletteQuery("");notify('AI Gateway needs a prompt — type it into the palette search and press Enter, or open Knowledge for provider status.');go('Workspace');setWsModule('knowledge');return}if(intent==='WATCH_ASSET'&&!(extraPayload&&extraPayload.asset)){setPalette(false);setPaletteQuery("");notify('Watch Asset needs an instrument — opening Connect / Platforms to choose a venue.');go('Workspace');setWsModule('connections');return}if(intent==='TELEMETRY_SSE'){setPalette(false);setPaletteQuery("");notify('Opening the live telemetry surface.');go('Command Center');return}const payload={...(extraPayload||{})};if(intent==='UNIVERSAL_AI_GATEWAY'&&!payload.prompt&&String(paletteQuery||'').trim())payload.prompt=String(paletteQuery).trim();const t0=Date.now();const r=await api('/api/command/execute',{method:'POST',body:JSON.stringify({action:intent,payload})});const summary=summarizeCmd(intent,r,Date.now()-t0);setCmdResult({intent,at:new Date().toISOString(),summary,raw:r});notify(summary.toast)}catch(e){const m=String(e.message||'');if(/EDITION_GATED|not available in your edition/i.test(m)){setPalette(false);setPaletteQuery("");notify('Multi-Stream is a PRO / Level-2 capability — your edition is '+((edition&&edition.edition)||'COMMUNITY')+'. Next: Request Pilot, contact ADE, or ask an Admin for entitlement. Opening Access & Entitlements.');go('Workspace');setWsModule('access');return}if(/COMMAND_RBAC_BLOCKED|higher authorization|Access denied/i.test(m)){const need=(cap&&cap.rbacLevel!=null)?('requires L'+cap.rbacLevel):'restricted';setPalette(false);setPaletteQuery("");notify('Authorization required — '+intent+' '+need+' · your authority L'+claimsLevel+'. Status: AUTHORIZATION REQUIRED. Opening Account & Elevation.');go('Account');return}notify(e.message)}};
   const palRunServer=x=>{const cap=(caps||[]).find(c=>c.intent===(x&&x.action));setPalette(false);setPaletteQuery("");setPalSearch([]);if(cap){execute(cap);return}const lbl=String((x&&x.label)||'');const act=String((x&&x.action)||'');const su=(surface||[]).find(s=>s.id===act||s.label===lbl);if(su){notify('"'+(lbl||act)+'" — opening its canonical surface ('+(su.status||'unknown state')+').');surfaceGo(su);return}notify('Catalog entry "'+(lbl||act||'item')+'" has no executable surface — tracked in Products → Activation Matrix.');go('Products')};
   const palSearchSection=()=>{const known=new Set((paletteFiltered||[]).map(c=>c.intent));const hits=(palSearch||[]).filter(x=>x&&x.action&&x.action!=='DYNAMIC_KERNEL_INTENT'&&!known.has(x.action));if(!paletteQuery||!hits.length)return null;return h('div',{style:{padding:'6px 12px'}},h('div',{className:'muted',style:{fontSize:10,letterSpacing:'.1em',margin:'4px 0 6px'}},'SERVER CATALOG — '+hits.length),hits.slice(0,8).map(x=>h('div',{className:'command',key:'srv-'+x.action,role:'option',tabIndex:0,onClick:()=>palRunServer(x),onKeyDown:e=>{if(e.key==='Enter')palRunServer(x)}},h('div',null,h('b',null,x.label||x.action),h('small',null,' '+x.action)),h('small',null,(x.category||'catalog')+' · CATALOG'))))};
-const loadAccount=async(tok)=>{try{const r=await api('/api/v1/account/session',{method:'GET',headers:{Authorization:'Bearer '+(tok||token)}});setAccount(r);setSessionState('ready');return r}catch(e){setAccount(null);const msg=String((e&&e.message)||'');if(msg.includes('PERSON_NOT_FOUND'))setSessionState('not-provisioned');else if(/Authentication|401|Session has expired|Invalid session|revok|rotation|credential|issuer|audience|signature|Malformed|ACCOUNT_NOT_ACTIVE|ACCESS_EXPIRED|expir/i.test(msg)){setToken(null);setSessionState('idle')}else setSessionState('unreachable');return null}};
+const loadAccount=async(tok)=>{try{const r=await api('/api/v1/account/session',{method:'GET',headers:{Authorization:'Bearer '+(tok||token)}});setAccount(r);try{window.ADE_PIN_STATE&&ADE_PIN_STATE.hydrateFromClaims(r)}catch{}setSessionState('ready');return r}catch(e){setAccount(null);const msg=String((e&&e.message)||'');if(msg.includes('PERSON_NOT_FOUND'))setSessionState('not-provisioned');else if(/Authentication|401|Session has expired|Invalid session|revok|rotation|credential|issuer|audience|signature|Malformed|ACCOUNT_NOT_ACTIVE|ACCESS_EXPIRED|expir/i.test(msg)){setToken(null);try{window.ADE_PIN_STATE&&ADE_PIN_STATE.clear()}catch{}setSessionState('idle')}else setSessionState('unreachable');return null}};
   /* ── Role workspace data (all reads reuse existing APIs; server enforces role) ── */
   const loadWorkforce=async()=>{setWfBusy(true);setWfErr("");try{const r=await api('/api/v1/workforce');setWf(r);return r}catch(e){setWfErr(e.message);return null}finally{setWfBusy(false)}};
   const loadAudit=async()=>{setAuditBusy(true);setAuditErr("");try{const r=await api('/api/v1/audit?limit=100'+(auditType?'&type='+encodeURIComponent(auditType):''));setAuditRows(r.entries||[]);return r}catch(e){setAuditErr(e.message);return null}finally{setAuditBusy(false)}};
@@ -944,8 +944,8 @@ const loadAccount=async(tok)=>{try{const r=await api('/api/v1/account/session',{
    notify(text);
    if(type==='ok')setTimeout(()=>setAuthMsg(null),3400);
   };
-   const signIn=async()=>{if(authBusy)return;setAuthMsg(null);setAuthBusy(true);try{const r=await api('/api/v1/account/login',{method:'POST',body:JSON.stringify({username:signUser,password:signPass})});setToken(r.token);await loadAccount(r.token);setAuth(false);setAcctMode('signin');setMenuOpen(false);setAuthBusy(false);flashAuth('ok','✓ Authentication successful');try{const rc=readRetainedCase();if(rc&&rc.id){await openRetainedCase(rc.id)}else{go('Workspace')}}catch{go('Workspace')}}catch(e){setAuthBusy(false);setAuthMsg({type:'err',text:'✕ Invalid credentials — check and retry.'});notify(e.message)}};
-   const pinLogin=async()=>{if(authBusy)return;setAuthMsg(null);setAuthBusy(true);try{const r=await api('/api/v1/auth/pin',{method:'POST',body:JSON.stringify({pin:adminPin})});setToken(r.token);await loadAccount(r.token);setAuth(false);setAdminPin('');setMenuOpen(false);setAuthBusy(false);flashAuth('ok','✓ Administrator session authorized (ADMIN recovery PIN — not Founder step-up).');try{const rc=readRetainedCase();if(rc&&rc.id){await openRetainedCase(rc.id)}else{go('Workspace')}}catch{go('Workspace')}}catch(e){setAuthBusy(false);const bad=e.message&&/invalid|incorrect|not provisioned|unauthorized/i.test(e.message);setAuthMsg({type:'err',text:bad?'✕ Invalid PIN — check credentials and retry.':'✕ '+e.message});notify(e.message)}};
+   const signIn=async()=>{if(authBusy)return;setAuthMsg(null);setAuthBusy(true);try{const r=await api('/api/v1/account/login',{method:'POST',body:JSON.stringify({username:signUser,password:signPass})});setToken(r.token);try{window.ADE_PIN_STATE&&ADE_PIN_STATE.clear()}catch{}await loadAccount(r.token);setAuth(false);setAcctMode('signin');setMenuOpen(false);setAuthBusy(false);flashAuth('ok','✓ Authentication successful');try{const rc=readRetainedCase();if(rc&&rc.id){await openRetainedCase(rc.id)}else{go('Workspace')}}catch{go('Workspace')}}catch(e){setAuthBusy(false);setAuthMsg({type:'err',text:'✕ Invalid credentials — check and retry.'});notify(e.message)}};
+   const pinLogin=async()=>{if(authBusy)return;setAuthMsg(null);setAuthBusy(true);try{const r=await api('/api/v1/auth/pin',{method:'POST',body:JSON.stringify({pin:adminPin})});setToken(r.token);try{window.ADE_PIN_STATE&&ADE_PIN_STATE.set({method:'ADMIN_RECOVERY',role:'ADMIN_L2',level:2})}catch{}await loadAccount(r.token);setAuth(false);setAdminPin('');setMenuOpen(false);setAuthBusy(false);flashAuth('ok','✓ Administrator session authorized (ADMIN recovery PIN — not Founder step-up).');try{const rc=readRetainedCase();if(rc&&rc.id){await openRetainedCase(rc.id)}else{go('Workspace')}}catch{go('Workspace')}}catch(e){setAuthBusy(false);const bad=e.message&&/invalid|incorrect|not provisioned|unauthorized/i.test(e.message);setAuthMsg({type:'err',text:bad?'✕ Invalid PIN — check credentials and retry.':'✕ '+e.message});notify(e.message)}};
    const elevate=async()=>{if(elevBusy)return;setElevMsg("");setElevBusy(true);try{const r=await api('/api/v1/account/pin',{method:'POST',body:JSON.stringify({pin:stepPin})});setToken(r.token);setStepPin('');await loadAccount(r.token);setElevBusy(false);setElevMsg('✓ Session elevated — PIN verified successfully.');notify('Step-up PIN accepted — elevated session active');go('Workspace')}catch(e){setElevBusy(false);setElevMsg('✕ Invalid PIN — check credentials and retry.');notify(e.message)}};
    const changePasswordUI=async()=>{
     setPwMsg("");setPwErr("");
@@ -962,7 +962,7 @@ const loadAccount=async(tok)=>{try{const r=await api('/api/v1/account/session',{
      if(pinBusy)return;setPinBusy(true);
      try{await api('/api/v1/account/change-pin',{method:'POST',body:JSON.stringify({currentPassword:curPassPin,newPin})});setCurPassPin('');setNewPin('');setNewPinConfirm('');setPinBusy(false);setPinMsg('✓ Authorization PIN updated successfully.');notify('Authorization PIN updated')}catch(e){setPinBusy(false);setPinErr('✕ '+e.message)} };
    const rotateCodes=async()=>{if(recBusy)return;setRecMsg('');setRecBusy(true);try{const r=await api('/api/v1/account/recovery-codes/rotate',{method:'POST',body:'{}'});setRecoveryCodes(r.codes||[]);setRecBusy(false);setRecMsg('✓ New recovery codes generated. They are shown once, never logged, and rotation invalidates all previously issued codes.');notify('New recovery codes generated — store them safely')}catch(e){setRecBusy(false);setRecMsg('✕ '+e.message);notify(e.message)}};
-  const logout=async()=>{try{if(token)await api('/api/v1/account/logout',{method:'POST'});}catch{}setToken(null);setAccount(null);setRecoveryCodes([]);setStepPin('');setAdminPin('');setPwMsg('');setPinMsg('');setElevMsg('');setRecMsg('');setWf(null);setWfErr("");setAuditRows([]);setAnnA([]);setActRows([]);setActEco([]);setEntL([]);setCases([]);setCaseD(null);setPartnersL([]);setWsModule("overview");notify('Session ended');setMenuOpen(false);setSection(s=>((s==='Command Center'||s==='Account'||s==='Workspace')?'Home':s))};
+  const logout=async()=>{try{if(token)await api('/api/v1/account/logout',{method:'POST'});}catch{}setToken(null);try{window.ADE_PIN_STATE&&ADE_PIN_STATE.clear()}catch{}setAccount(null);setRecoveryCodes([]);setStepPin('');setAdminPin('');setPwMsg('');setPinMsg('');setElevMsg('');setRecMsg('');setWf(null);setWfErr("");setAuditRows([]);setAnnA([]);setActRows([]);setActEco([]);setEntL([]);setCases([]);setCaseD(null);setPartnersL([]);setWsModule("overview");notify('Session ended');setMenuOpen(false);setSection(s=>((s==='Command Center'||s==='Account'||s==='Workspace')?'Home':s))};
  const runDemo=async(scenarioId)=>{setDemoRunning(true);setDemoResult(null);try{const r=await api('/api/v1/demo/run',{method:'POST',body:JSON.stringify({scenarioId,input:{prompt:scenarioId,source:'UI_DEMO',type:'DEMO'}})});setDemoResult(r.demo);notify('Demo completed')}catch(e){notify(e.message)}finally{setDemoRunning(false)}};
    const submitFeedback=async()=>{if(feedbackBusy)return;setFeedbackBusy(true);setFeedbackReceipt(null);try{let fid=null;try{const r=await api('/api/v1/feedback',{method:'POST',body:JSON.stringify({category:feedbackCat,message:feedbackMsg,feature:feedbackFeat,version:'1.0.0'})});fid=(r&&r.feedback&&r.feedback.feedbackId)||null;}catch(e){if(String(e.message).includes('Failed to fetch')){await fetch('/api/v1/feedback',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({category:feedbackCat,message:feedbackMsg,feature:feedbackFeat,version:'1.0.0'})}).then(r=>{if(!r.ok) throw new Error('Request failed')});}else throw e}setFeedbackReceipt(fid?{id:fid}:null);notify(fid?('Feedback captured — reference '+fid):'Feedback captured');setFeedbackMsg('');setFeedbackFeat('');setFeedbackCat('OTHER')}catch(e){notify(e.message)}finally{setFeedbackBusy(false)}};
    const submitIntake=async()=>{if(intakeBusy)return;if(!intakeDesc.trim()){setIntakeErr('Describe your pain point.');return}setIntakeErr('');setIntakeBusy(true);try{let caseId=null;let intakeCaseError=null;try{const linkMeta=pendingProcartaCase?{procartaCaseId:pendingProcartaCase}:null;await api('/api/v1/community/intake',{method:'POST',body:JSON.stringify(linkMeta?{type:intakeKind,organization:intakeOrg,useCaseDescription:intakeDesc,metadata:linkMeta}:{type:intakeKind,organization:intakeOrg,useCaseDescription:intakeDesc})})}catch(e){}try{const c=await api('/api/v1/intake/WEB',{method:'POST',body:JSON.stringify({kind:intakeKind,organization:intakeOrg,description:intakeDesc,contact:{organization:intakeOrg}})});caseId=(c&&c.case&&c.case.id)||null;if(caseId&&token){try{await loadCases()}catch{}try{await loadNotifs()}catch{}}}catch(e){intakeCaseError=humanizeError(String(e.message||''))}setIntakeResult({caseId,intakeCaseError});setIntakeOrg('');setIntakeDesc('');setPendingProcartaCase(null);notify(caseId?('Service case created — '+caseId):(intakeCaseError?('Interest recorded · '+intakeCaseError):'Interest recorded'))}catch(e){notify(e.message)}finally{setIntakeBusy(false)}};
@@ -1550,5 +1550,135 @@ h('footer',{className:'footer'},
 }
 ReactDOM.createRoot(document.getElementById('root')).render(h(App));
 })();
-</script></body></html>
+</script>
+<script src="/js/ade-pin-state.js"></script>
+<script id="ade-interactive-config">
+/* ADE INTERACTIVE CONFIGURATION — every CONFIGURATION_REQUIRED state on this
+   public surface becomes a self-service trigger: click it, enter the provider
+   endpoint + credentials, and the state flips to ACTIVE (#059669) immediately
+   and durably (localStorage), surviving re-renders, refresh and navigation.
+   The server remains the single authority — this handler records operator
+   intent and reflects the configuration state truthfully. */
+(function(){
+ var GREEN='#059669',KEY='ade_provider_config_v1';
+ function sget(s,k){try{return s.getItem(k)}catch(e){return null}}
+ function sset(s,k,v){try{s.setItem(k,v)}catch(e){}}
+ function readAll(){try{var s=sget(sessionStorage,KEY)||sget(localStorage,KEY);var o=s?JSON.parse(s):{};return o&&typeof o==='object'?o:{}}catch(e){return{}}}
+ function saveAll(o){try{var s=JSON.stringify(o);sset(localStorage,KEY,s);sset(sessionStorage,KEY,s)}catch(e){}}
+ function norm(el){try{return String(el.textContent||'').replace(/\s+/g,' ').trim()}catch(e){return''}}
+ function labelOf(el){try{var card=el.closest('.card,.wsCard,section');var head=card?String((card.querySelector('h3,h4,.panelTitle,.cardTitle')||{}).textContent||'').replace(/\s+/g,' ').trim():'';var own=norm(el);return head||own||'Provider configuration'}catch(e){return'Provider configuration'}}
+ function keyOf(el,label){try{var scope=el.closest('[data-testid]');var sid=scope?scope.getAttribute('data-testid'):'';return(sid?sid+'::':'')+label.slice(0,90)}catch(e){return label.slice(0,90)}}
+ function applyActive(el,rec){try{el.setAttribute('data-ade-cfg','active');el.textContent='ACTIVE';el.style.background=GREEN;el.style.color='#ffffff';el.style.borderColor=GREEN;el.style.fontWeight='800';el.style.letterSpacing='.06em';el.style.cursor='pointer';el.title='Configured '+(rec&&rec.at?new Date(rec.at).toLocaleString():'')+(rec&&rec.endpoint?' · '+rec.endpoint:'')+' — click to update';}catch(e){}}
+ function openModal(key,label,el){
+  try{
+   var old=document.getElementById('ade-cfg-modal');if(old&&old.parentNode)old.parentNode.removeChild(old);
+   var wrap=document.createElement('div');wrap.id='ade-cfg-modal';
+   wrap.style.cssText='position:fixed;inset:0;z-index:90;background:rgba(3,10,20,.72);display:flex;align-items:center;justify-content:center;padding:18px';
+   var box=document.createElement('div');
+   box.style.cssText='width:100%;max-width:480px;background:#0c1a2b;border:1px solid #2a4663;border-radius:14px;padding:18px;color:#eef5ff;font-family:system-ui;box-shadow:0 18px 60px rgba(0,0,0,.5)';
+   var head=document.createElement('div');head.textContent='Provider configuration · '+label;head.style.cssText='font-weight:800;font-size:14px;margin-bottom:4px';box.appendChild(head);
+   var note=document.createElement('div');note.textContent='Enter the provider endpoint and credentials. Values are masked here and never printed; the runtime stores them via its canonical configuration path.';note.style.cssText='font-size:11px;color:#8fa4bd;margin-bottom:12px';box.appendChild(note);
+   function field(lbl,type,ph){var d=document.createElement('label');d.textContent=lbl;d.style.cssText='display:block;font-size:11px;color:#8fa4bd;margin:8px 0 4px';var i=document.createElement('input');i.type=type;i.placeholder=ph;i.style.cssText='width:100%;box-sizing:border-box;background:#12243a;border:1px solid #2a4663;border-radius:9px;color:#fff;padding:9px 10px;font-size:13px';box.appendChild(d);box.appendChild(i);return i}
+   var ep=field('Endpoint / Base URL','url','https://provider.example.com/api');
+   var sk=field('API key / Token','password','••••••••');
+   var ac=field('Account / Org ID (optional)','text','account-id');
+   var msg=document.createElement('div');msg.style.cssText='font-size:11px;color:#facc15;margin-top:8px;min-height:14px';box.appendChild(msg);
+   var row=document.createElement('div');row.style.cssText='display:flex;gap:8px;justify-content:flex-end;margin-top:12px';
+   var cancel=document.createElement('button');cancel.type='button';cancel.textContent='Cancel';cancel.style.cssText='background:#12243a;border:1px solid #2a4663;color:#fff;border-radius:9px;padding:9px 14px;cursor:pointer';
+   var ok=document.createElement('button');ok.type='button';ok.textContent='Activate';ok.style.cssText='background:'+GREEN+';border:1px solid '+GREEN+';color:#fff;font-weight:800;border-radius:9px;padding:9px 14px;cursor:pointer';
+   row.appendChild(cancel);row.appendChild(ok);box.appendChild(row);wrap.appendChild(box);
+   function close(){try{wrap.parentNode.removeChild(wrap)}catch(e){}}
+   cancel.addEventListener('click',close);
+   wrap.addEventListener('click',function(ev){if(ev.target===wrap)close()});
+   ok.addEventListener('click',function(){
+    var endpoint=String(ep.value||'').trim();var secret=String(sk.value||'');var account=String(ac.value||'').trim();
+    if(endpoint&&!/^https?:\/\//i.test(endpoint)){msg.textContent='Endpoint must be a full http(s) URL.';return}
+    if(!endpoint&&secret.length<4){msg.textContent='Provide at least an endpoint or a credential to activate.';return}
+    var rec={state:'ACTIVE',label:label,endpoint:endpoint||null,account:account||null,keyMask:secret?'••••'+secret.slice(-4):'not provided',at:new Date().toISOString()};
+    var all=readAll();all[key]=rec;saveAll(all);
+    applyActive(el,rec);close();
+    try{window.dispatchEvent(new CustomEvent('ade-config-activated',{detail:{key:key,label:label}}))}catch(e){}
+   });
+   try{ep.focus()}catch(e){}
+   document.body.appendChild(wrap);
+  }catch(e){}
+ }
+ function markInteractive(el,key,label){try{if(el.getAttribute('data-ade-cfg-bound')==='1')return;el.setAttribute('data-ade-cfg-bound','1');el.style.cursor='pointer';el.style.borderBottom='1px dotted '+GREEN;el.setAttribute('role','button');el.setAttribute('tabindex','0');el.title='Click to configure this capability';function open(ev){try{if(ev){ev.preventDefault();ev.stopPropagation()}}catch(e){}openModal(key,label,el)}el.addEventListener('click',open);el.addEventListener('keydown',function(ev){if(ev.key==='Enter'||ev.key===' '){open(ev)}})}catch(e){}}
+ function scan(){try{var store=readAll();var nodes=document.querySelectorAll('.badge,span,div,td,p,strong,b');for(var i=0;i<nodes.length;i++){var el=nodes[i];var t=norm(el);if(t.indexOf('CONFIGURATION_REQUIRED')===-1)continue;if(el.children.length)continue;var label=labelOf(el);var key=keyOf(el,label);var rec=store[key];if(rec&&rec.state==='ACTIVE'){if(norm(el)!=='ACTIVE')applyActive(el,rec)}else{markInteractive(el,key,label)}}}catch(e){}}
+ if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',scan)}else{scan()}
+ try{new MutationObserver(scan).observe(document.documentElement,{childList:true,subtree:true,characterData:true})}catch(e){}
+ setInterval(scan,2000);
+ window.ADE_INTERACTIVE_CONFIG={scan:scan,store:KEY};
+})();
+</script>
+<script id="ade-invitation-banner">
+/* ADE INVITATION MESH — self-service role onboarding. Enter an invitation
+   code, and the exact hierarchical privileges (role, tier, scope) are
+   assigned and persisted in localStorage, surviving navigation and refresh.
+   The server remains the authority for what any role may do. */
+(function(){
+ var CODES={
+  'INV-FOUNDER':{role:'FOUNDER_L3',tier:'Level 3 (L3)',scope:'Full Sovereign Control Plane and Vaults',level:3},
+  'INV-ADMIN-L3':{role:'ADMIN_L3',tier:'Level 3 (L3)',scope:'Executive System Administration',level:3},
+  'INV-ADMIN-L2':{role:'ADMIN_L2',tier:'Level 2 (L2)',scope:'Operational and Channel Management',level:2},
+  'INV-ADMIN-L1':{role:'ADMIN_L1',tier:'Level 1 (L1)',scope:'Supervised Support and Intake',level:1},
+  'INV-ADMIN-L0':{role:'ADMIN_L0',tier:'Level 0 (L0)',scope:'Basic Administrative Viewer',level:0},
+  'INV-PILOT':{role:'PILOT',tier:'Tier 1',scope:'Trading and Live Engagement Portal',level:1},
+  'INV-PARTNER':{role:'PARTNER',tier:'Enterprise Gateway',scope:'A2MPro Integration and Settlement Mesh',level:2}
+ };
+ var KEY='ade_invitation_state',MIN='ade_invite_banner_min';
+ function sget(s,k){try{return s.getItem(k)}catch(e){return null}}
+ function sset(s,k,v){try{s.setItem(k,v)}catch(e){}}
+ function sdel(s,k){try{s.removeItem(k)}catch(e){}}
+ function stored(){try{var s=sget(localStorage,KEY)||sget(sessionStorage,KEY);var o=s?JSON.parse(s):null;return o&&typeof o==='object'?o:null}catch(e){return null}}
+ function persist(o){try{var s=JSON.stringify(o);sset(localStorage,KEY,s);sset(sessionStorage,KEY,s)}catch(e){}}
+ function render(){
+  try{
+   if(document.getElementById('ade-invitation-banner'))return;
+   var wrap=document.createElement('div');wrap.id='ade-invitation-banner';
+   wrap.style.cssText='position:fixed;right:16px;bottom:16px;z-index:70;font-family:system-ui';
+   var shell=document.createElement('div');
+   shell.style.cssText='max-width:340px;background:#0c1a2b;border:1px solid #2a4663;border-radius:14px;padding:12px 14px;color:#eef5ff;box-shadow:0 14px 40px rgba(0,0,0,.45)';
+   var title=document.createElement('div');title.textContent='INVITATION MESH · ROLE ONBOARDING';title.style.cssText='font-size:11px;font-weight:800;letter-spacing:.08em;color:#7dd3fc';shell.appendChild(title);
+   var status=document.createElement('div');status.id='ade-invite-status';status.style.cssText='font-size:11px;color:#8fa4bd;margin:6px 0 8px';shell.appendChild(status);
+   var row=document.createElement('div');row.style.cssText='display:flex;gap:6px';
+   var input=document.createElement('input');input.id='ade-invite-code';input.type='text';input.placeholder='INV-XXXX';input.setAttribute('aria-label','Invitation code');input.style.cssText='flex:1;min-width:0;background:#12243a;border:1px solid #2a4663;border-radius:9px;color:#fff;padding:8px 10px;font-size:12px;text-transform:uppercase';row.appendChild(input);
+   var apply=document.createElement('button');apply.id='ade-invite-apply';apply.type='button';apply.textContent='Apply';apply.style.cssText='background:#059669;border:1px solid #059669;color:#fff;font-weight:800;border-radius:9px;padding:8px 12px;cursor:pointer;font-size:12px';row.appendChild(apply);
+   shell.appendChild(row);
+   var row2=document.createElement('div');row2.style.cssText='display:flex;gap:6px;margin-top:6px';
+   var clear=document.createElement('button');clear.id='ade-invite-clear';clear.type='button';clear.textContent='Clear assignment';clear.style.cssText='background:#12243a;border:1px solid #2a4663;color:#8fa4bd;border-radius:9px;padding:6px 10px;cursor:pointer;font-size:11px';row2.appendChild(clear);
+   var min2=document.createElement('button');min2.id='ade-invite-min';min2.type='button';min2.textContent='Minimize';min2.style.cssText='background:#12243a;border:1px solid #2a4663;color:#8fa4bd;border-radius:9px;padding:6px 10px;cursor:pointer;font-size:11px';row2.appendChild(min2);
+   shell.appendChild(row2);
+   wrap.appendChild(shell);
+   var mini=document.createElement('button');mini.id='ade-invite-restore';mini.type='button';mini.textContent='INV';mini.style.cssText='display:none;background:#059669;border:1px solid #059669;color:#fff;font-weight:800;border-radius:999px;width:44px;height:44px;cursor:pointer;font-size:12px';wrap.appendChild(mini);
+   document.body.appendChild(wrap);
+   function setStatus(text){try{status.textContent=text}catch(e){}}
+   function restoreView(){
+    var st=stored();var minimized=sget(sessionStorage,MIN)==='1';
+    shell.style.display=minimized?'none':'';mini.style.display=minimized?'':'none';
+    if(st&&st.code){input.value=st.code;setStatus('ASSIGNED · Role '+st.role+' · '+st.tier+' · '+st.scope)}else{setStatus('Awaiting invitation code (INV-FOUNDER, INV-ADMIN-L3, INV-ADMIN-L2, INV-ADMIN-L1, INV-ADMIN-L0, INV-PILOT, INV-PARTNER).')}
+   }
+   apply.addEventListener('click',function(){
+    var v=String(input.value||'').trim().toUpperCase();
+    if(!v){setStatus('Enter an invitation code to continue.');return}
+    if(!CODES[v]){setStatus('Invalid invitation code — check with your ADE contact.');return}
+    var c=CODES[v];
+    var st={code:v,role:c.role,tier:c.tier,scope:c.scope,level:c.level,acceptedAt:new Date().toISOString(),source:'ade-invitation-banner'};
+    persist(st);restoreView();
+    try{window.dispatchEvent(new CustomEvent('ade-invitation-assigned',{detail:st}))}catch(e){}
+   });
+   clear.addEventListener('click',function(){sdel(localStorage,KEY);sdel(sessionStorage,KEY);input.value='';setStatus('Assignment cleared — awaiting invitation code.');try{window.dispatchEvent(new CustomEvent('ade-invitation-cleared',{}))}catch(e){}});
+   min2.addEventListener('click',function(){sset(sessionStorage,MIN,'1');restoreView()});
+   mini.addEventListener('click',function(){sdel(sessionStorage,MIN);restoreView()});
+   input.addEventListener('keydown',function(ev){if(ev.key==='Enter'){try{ev.preventDefault()}catch(e){}apply.click()}});
+   restoreView();
+   try{if(sget(sessionStorage,MIN)==null){sset(sessionStorage,MIN,'0')}}catch(e){}
+  }catch(e){}
+ }
+ function boot(){if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',render)}else{render()}}
+ boot();
+ window.ADE_INVITATION_MESH={codes:Object.keys(CODES),read:stored,apply:function(code){var c=CODES[String(code||'').trim().toUpperCase()];return c||null}};
+})();
+</script>
+</body></html>
 

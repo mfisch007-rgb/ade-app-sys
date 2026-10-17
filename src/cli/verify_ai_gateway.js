@@ -1,4 +1,4 @@
-﻿import AIGatewayMaster from "../ai/AIGatewayMaster.js";
+import AIGatewayMaster from "../ai/AIGatewayMaster.js";
 
 async function verifyAIGateway() {
   console.log("=========================================================================");

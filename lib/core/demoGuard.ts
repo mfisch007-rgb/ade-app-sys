@@ -1,4 +1,4 @@
-﻿/**
+/**
  * ADE SERVER-AUTHORITATIVE DEMO GUARD
  */
 
@@ -23,7 +23,10 @@ export type PolicyEvaluationMode =
   | 'PRODUCTION_POLICY';
 
 export function isDemoModeActive(): boolean {
-  return process.env.ADE_DEMO_MODE === 'true';
+  // Unified with lib/core/demoGuard.js, src/core/EditionPolicy.js and
+  // src/core/DemoSafetyBoundary.js: case-insensitive "true" only.
+  // Any other value (including "1", "yes", "") keeps production policy.
+  return String(process.env.ADE_DEMO_MODE).toLowerCase() === 'true';
 }
 
 export function evaluateDemoPolicy(

@@ -1,4 +1,4 @@
-﻿.ade_capability_store.json
+.ade_capability_store.json
 .ade_capability_store.json.5976.1787309942384.tmp
 .ade_session_revocations.json
 ADE-BATCH-3-14-ACTUAL-SOURCE-BUNDLE.txt

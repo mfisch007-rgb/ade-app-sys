@@ -1,4 +1,4 @@
-﻿import CommunityEditionGuard from "./CommunityEditionGuard.js";
+import CommunityEditionGuard from "./CommunityEditionGuard.js";
 
 export class LicensingMiddleware {
   constructor() {

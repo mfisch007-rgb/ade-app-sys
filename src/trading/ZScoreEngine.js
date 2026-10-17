@@ -1,4 +1,4 @@
-﻿export class ZScoreEngine {
+export class ZScoreEngine {
   constructor(windowSize = 20) {
     this.windowSize = windowSize;
     this.priceHistory = [];

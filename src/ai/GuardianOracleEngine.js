@@ -1,4 +1,4 @@
-﻿import UniversalAIGateway from "./UniversalAIGateway.js";
+import UniversalAIGateway from "./UniversalAIGateway.js";
 import KernelEventBus from "../core/EventBus.js";
 
 export class GuardianOracleEngine {

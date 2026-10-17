@@ -1,4 +1,4 @@
-﻿import app, { kernel, kernelReady, storageHydration } from "./app.js";
+import app, { kernel, kernelReady, storageHydration } from "./app.js";
 
 const PORT = process.env.PORT || 3000;
 let isShuttingDown = false;

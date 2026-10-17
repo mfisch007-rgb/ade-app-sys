@@ -1,4 +1,4 @@
-﻿import jwt from 'jsonwebtoken';
+import jwt from 'jsonwebtoken';
 
 export const AUTH_LEVELS = {
   PUBLIC: 0,
@@ -9,11 +9,15 @@ export const AUTH_LEVELS = {
 
 export class SecurityGate {
   constructor(jwtSecret, kernelEventBus = null) {
-    this.jwtSecret = jwtSecret || 'ade_apex_jwt_secret_key_2026';
+    // LEGACY-ONLY gate — never grants canonical access (see src/app.js).
+    // Fail closed: no hardcoded fallback secret. A missing secret verifies
+    // nothing (verifyToken returns null, enforceLevel denies).
+    this.jwtSecret = jwtSecret || null;
     this.kernelEventBus = kernelEventBus;
   }
 
   verifyToken(token) {
+    if (!this.jwtSecret || !token) return null;
     try {
       return jwt.verify(token, this.jwtSecret);
     } catch (err) {

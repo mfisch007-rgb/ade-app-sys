@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import CommandPaletteModal from './CommandPaletteModal.jsx';
 
 export function SpatialCommandCenter({ commandEngine, sseUrl = "/api/v1/events/stream", capabilitiesUrl = "/api/v1/capabilities" }) {

@@ -1,4 +1,4 @@
-﻿/**
+/**
  * ADE EXECUTION STATE CONTRACT
  */
 

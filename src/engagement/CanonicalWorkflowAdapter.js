@@ -1,4 +1,4 @@
-﻿export class CanonicalWorkflowAdapter {
+export class CanonicalWorkflowAdapter {
   constructor(kernel) {
     this.kernel = kernel;
   }

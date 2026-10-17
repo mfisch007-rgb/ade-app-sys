@@ -1,4 +1,4 @@
-﻿import EnterpriseKernelMaster from "../core/EnterpriseKernelMaster.js";
+import EnterpriseKernelMaster from "../core/EnterpriseKernelMaster.js";
 import CapabilityRegistry from "../core/CapabilityRegistry.js";
 import ExtensionSandboxGuard from "../security/ExtensionSandboxGuard.js";
 import TelemetrySSEGateway from "../telemetry/TelemetrySSEGateway.js";

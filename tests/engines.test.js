@@ -4,10 +4,10 @@ export async function runEnginesSuite() {
     const test = (name, fn) => {
         try {
             fn();
-            console.log("   ̓V PASS: " + name);
+            console.log("  ✔ PASS: " + name);
             passed++;
         } catch (err) {
-            console.error("  ͖ FAIL: " + name + "\n    " + err.message);
+            console.error("  ✖ FAIL: " + name + "\n    " + err.message);
             failed++;
         }
     };

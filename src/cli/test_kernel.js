@@ -1,4 +1,4 @@
-﻿import EnterpriseKernelMaster from "../kernel/EnterpriseKernelMaster.js";
+import EnterpriseKernelMaster from "../kernel/EnterpriseKernelMaster.js";
 
 async function runKernelVerification() {
   console.log("=======================================================");

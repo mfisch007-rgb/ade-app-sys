@@ -1,4 +1,4 @@
-﻿export const EngagementEvents = Object.freeze({
+export const EngagementEvents = Object.freeze({
   CASE_CREATED: "engagement.case.created",
   CASE_UPDATED: "engagement.case.updated",
   CASE_TRANSITIONED: "engagement.case.transitioned",

@@ -1,4 +1,4 @@
-﻿import CommunityEditionGuard from "../security/CommunityEditionGuard.js";
+import CommunityEditionGuard from "../security/CommunityEditionGuard.js";
 
 export class AffiliateLockGuard {
   constructor() {

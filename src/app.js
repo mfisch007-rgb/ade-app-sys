@@ -1,6 +1,15 @@
-﻿import dotenv from "dotenv";
+import dotenv from "dotenv";
 
 dotenv.config();
+// Runtime mode / edition contract (single explicit precedence):
+//   explicit constructor arg > ADE_EDITION > ADE_RUNTIME_MODE > default.
+// Boot layer (here): strict — unknown ADE_RUNTIME_MODE throws fail-fast so
+// typos never silently run as another edition. Policy layer
+// (src/core/EditionPolicy.js): resilient — unknown resolves to COMMUNITY via
+// the FULL==COMMUNITY alias map. Both layers agree on values and aliasing;
+// they differ only in invalid-input handling, by design. Locked by
+// tests/config-contract-reconciliation.test.js. Do not change edition access
+// without separate approval.
 const ADE_RUNTIME_MODE_CONTRACT = Object.freeze([
   "FULL",
   "COMMUNITY",

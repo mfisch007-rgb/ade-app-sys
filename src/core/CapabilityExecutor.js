@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Canonical capability execution boundary.
  *
  * Resolves an intent from CapabilityRegistry and executes only a

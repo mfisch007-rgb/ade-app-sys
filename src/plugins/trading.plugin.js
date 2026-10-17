@@ -1,4 +1,4 @@
-﻿import { PluginSandbox } from './PluginSandbox.js';
+import { PluginSandbox } from './PluginSandbox.js';
 
 export function createTradingPlugin(kernelEventBus) {
   const sandbox = new PluginSandbox('TRADING_SIGNAL', kernelEventBus);

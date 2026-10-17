@@ -1,4 +1,4 @@
-﻿export function Header({ onOpenPalette }) {
+export function Header({ onOpenPalette }) {
   return (
     <header className="header glass-panel">
       <div className="brand">

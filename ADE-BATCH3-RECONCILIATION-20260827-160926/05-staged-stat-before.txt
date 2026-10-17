@@ -1,4 +1,4 @@
-﻿ ADE-LOGO.png                                       | Bin 2158750 -> 2158717 bytes
+ ADE-LOGO.png                                       | Bin 2158750 -> 2158717 bytes
  .../ADE-BLOCK01-EXPERIENCE-FOUNDATION.md           | 115 +++++
  docs/architecture/ADE-PHASE01-BASELINE.json        |  49 ++
  .../ADE-PHASE01-GEMINI-ENGINEERING-DIRECTIVE.md    | 407 ++++++++++++++++

@@ -1,4 +1,4 @@
-﻿export function MediaCards() {
+export function MediaCards() {
   return (
     <div className="media-grid">
       <div className="media-card">

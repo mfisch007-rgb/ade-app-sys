@@ -19,7 +19,9 @@ function requireAdmin(req, res, next) {
 
 function verifySecurityPin(req, res, next) {
     const pin = req.headers['x-security-pin'];
-    if (!pin || pin !== (process.env.ADMIN_SECURITY_PIN || 'ADE_PIN_2026')) {
+    // Fail closed: no hardcoded fallback PIN. Unset ADMIN_SECURITY_PIN denies.
+    const expected = process.env.ADMIN_SECURITY_PIN;
+    if (!pin || !expected || pin !== expected) {
         return res.status(403).json({ error: 'FORBIDDEN: Invalid or missing X-Security-PIN header.' });
     }
     next();

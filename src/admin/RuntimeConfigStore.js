@@ -1,4 +1,4 @@
-﻿import path from "node:path";
+import path from "node:path";
 import LocalDocumentStorageAdapter
   from "../storage/LocalDocumentStorageAdapter.js";
 

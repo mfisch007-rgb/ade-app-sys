@@ -1,4 +1,4 @@
-﻿import KernelEventBus from "../core/EventBus.js";
+import KernelEventBus from "../core/EventBus.js";
 import CommunityEditionGuard from "../security/CommunityEditionGuard.js";
 import CommandPaletteEngine from "../core/CommandPaletteEngine.js";
 import TelemetrySSEGateway from "../telemetry/TelemetrySSEGateway.js";

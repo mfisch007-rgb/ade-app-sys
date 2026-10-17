@@ -1,4 +1,4 @@
-﻿import ZScoreEngine from "./ZScoreEngine.js";
+import ZScoreEngine from "./ZScoreEngine.js";
 import KernelEventBus from "../core/EventBus.js";
 
 export class MultiAssetManager {

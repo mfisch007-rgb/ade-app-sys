@@ -1,4 +1,4 @@
-﻿# BATCH 6B — PROCARTA INTEGRATION DECISION
+# BATCH 6B — PROCARTA INTEGRATION DECISION
 
 ## Purpose
 Read-only reconciliation of the accessible ADE ProCarta implementations against the ADE canonical ProCarta engine and public integration seam. This batch determines what should be reused, adapted, wrapped, invoked, mounted, kept separate, or marked unknown.

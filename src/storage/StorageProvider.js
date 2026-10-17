@@ -1,4 +1,4 @@
-﻿/**
+/**
  * ADE canonical storage contract.
  *
  * Async methods are the portable persistence contract.

@@ -1,4 +1,4 @@
-﻿import { generateKeyPairSync, sign } from "crypto";
+import { generateKeyPairSync, sign } from "crypto";
 import CommunityEditionGuard from "../security/CommunityEditionGuard.js";
 import UniversalAIGateway from "../ai/UniversalAIGateway.js";
 

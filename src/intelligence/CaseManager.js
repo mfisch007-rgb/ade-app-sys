@@ -1,4 +1,4 @@
-﻿import crypto from "crypto";
+import crypto from "crypto";
 import { assertTransition, allowedTransitions } from "../engagement/CaseStateMachine.js";
 import EngagementEvents from "../engagement/EngagementEvents.js";
 

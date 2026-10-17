@@ -1,4 +1,4 @@
-﻿import ZScoreEngine from "../trading/ZScoreEngine.js";
+import ZScoreEngine from "../trading/ZScoreEngine.js";
 import MultiAssetManager from "../trading/MultiAssetManager.js";
 import AffiliateLockGuard from "../security/AffiliateLockGuard.js";
 import KernelEventBus from "../core/EventBus.js";

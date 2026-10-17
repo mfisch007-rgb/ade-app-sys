@@ -1,4 +1,4 @@
-﻿export async function fetchCapabilities() {
+export async function fetchCapabilities() {
   const res = await fetch('/api/v1/capabilities');
   return res.json();
 }

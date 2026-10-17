@@ -1,4 +1,4 @@
-﻿/**
+/**
  * CommandPaletteEngine — SECONDARY / CLI-ONLY surface (G25 reconciliation).
  *
  * NOT wired into the canonical runtime (src/app.js). Used only by standalone

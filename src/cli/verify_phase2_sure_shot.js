@@ -1,4 +1,4 @@
-﻿import EnterpriseKernelMaster from "../kernel/EnterpriseKernelMaster.js";
+import EnterpriseKernelMaster from "../kernel/EnterpriseKernelMaster.js";
 import TelemetrySSEGateway from "../telemetry/TelemetrySSEGateway.js";
 import LicensingMiddleware from "../security/LicensingMiddleware.js";
 

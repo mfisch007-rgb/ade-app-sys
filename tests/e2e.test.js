@@ -6,10 +6,10 @@ export async function runE2ESuite() {
     const test = async (name, fn) => {
         try {
             await fn();
-            console.log("  ̓V PASS: " + name);
+            console.log("  ✔ PASS: " + name);
             passed++;
         } catch (err) {
-            console.error("  ͖ FAIL: " + name + "\n    " + err.message);
+            console.error("  ✖ FAIL: " + name + "\n    " + err.message);
             failed++;
         }
     };

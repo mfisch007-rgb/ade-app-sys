@@ -1,4 +1,4 @@
-﻿import fs from "fs";
+import fs from "fs";
 import path from "path";
 import CommunityEditionGuard, { RBAC_MATRIX } from "../security/CommunityEditionGuard.js";
 import UniversalAIGateway from "../ai/UniversalAIGateway.js";

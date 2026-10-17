@@ -1,4 +1,4 @@
-﻿ M .github/workflows/ci-cd.yml
+ M .github/workflows/ci-cd.yml
  M .github/workflows/production-verification.yml
 M  ADE-LOGO.png
 AM docs/architecture/ADE-BLOCK01-EXPERIENCE-FOUNDATION.md

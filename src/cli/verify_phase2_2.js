@@ -1,4 +1,4 @@
-﻿import CommunityEditionGuard from "../security/CommunityEditionGuard.js";
+import CommunityEditionGuard from "../security/CommunityEditionGuard.js";
 import UniversalAIGateway from "../ai/UniversalAIGateway.js";
 
 async function runPhase2_2Audit() {

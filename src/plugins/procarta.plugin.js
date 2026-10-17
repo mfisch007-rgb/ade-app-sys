@@ -1,4 +1,4 @@
-﻿import { PluginSandbox } from './PluginSandbox.js';
+import { PluginSandbox } from './PluginSandbox.js';
 
 export function createProcartaPlugin(kernelEventBus) {
   const sandbox = new PluginSandbox('PROCARTA_FINANCE', kernelEventBus);

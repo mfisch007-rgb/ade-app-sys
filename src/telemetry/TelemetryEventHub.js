@@ -1,4 +1,4 @@
-﻿import EventEmitter from "events";
+import EventEmitter from "events";
 import { randomUUID } from "crypto";
 
 export class TelemetryEventHub extends EventEmitter {

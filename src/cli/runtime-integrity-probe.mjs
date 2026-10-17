@@ -1,4 +1,4 @@
-﻿import fs from "fs";
+import fs from "fs";
 import http from "http";
 
 const BASE = "http://127.0.0.1:" + (process.env.PORT || "3000");

@@ -1,4 +1,4 @@
-﻿import KernelEventBus from "../core/EventBus.js";
+import KernelEventBus from "../core/EventBus.js";
 import MultiAssetManager from "../trading/MultiAssetManager.js";
 import BinaryBrokerConnector from "../trading/connectors/BinaryBrokerConnector.js";
 import AffiliateLockGuard from "../security/AffiliateLockGuard.js";

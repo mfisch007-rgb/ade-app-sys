@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Enterprise Event Schema Registry
  *
  * Canonical validation registry for kernel and engagement events.

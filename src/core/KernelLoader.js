@@ -1,4 +1,4 @@
-﻿/**
+/**
  * ADE-APEX KernelLoader
  *
  * Boot-DAG compatibility/runtime loader.

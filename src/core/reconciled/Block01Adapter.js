@@ -1,4 +1,4 @@
-﻿/**
+/**
  * ADE Block 01 Runtime Adapter (Native JavaScript)
  * Reconciles Block 01 entitlement, demo guard, and onboarding contracts
  * into existing ADE runtime engines without creating duplicate logic.

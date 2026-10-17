@@ -1,4 +1,4 @@
-﻿export class PluginSandbox {
+export class PluginSandbox {
   constructor(pluginName, kernelEventBus) {
     this.pluginName = pluginName;
     this.kernelEventBus = kernelEventBus;

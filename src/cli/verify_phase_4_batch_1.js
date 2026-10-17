@@ -1,4 +1,4 @@
-﻿import BinaryBrokerConnector from "../extensions/BinaryBrokerConnector.js";
+import BinaryBrokerConnector from "../extensions/BinaryBrokerConnector.js";
 import ExternalStrategyBridge from "../core/ExternalStrategyBridge.js";
 import MasterAdminLicenseControl from "../security/MasterAdminLicenseControl.js";
 import CapabilityRegistry from "../core/CapabilityRegistry.js";

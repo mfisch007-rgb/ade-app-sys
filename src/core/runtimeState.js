@@ -1,4 +1,4 @@
-﻿/**
+/**
  * ADE-APEX Shared Runtime State
  *
  * This object is intentionally plain and serializable.
@@ -7,6 +7,8 @@
 
 export const runtimeState = {
 
+  // Default FULL == COMMUNITY via EditionPolicy alias; identical to the
+  // HttpSecurityBoundary "COMMUNITY" default. See src/app.js contract.
   mode: process.env.ADE_RUNTIME_MODE || "FULL",
 
   status: "STOPPED",

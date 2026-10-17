@@ -1,4 +1,4 @@
-﻿/**
+/**
  * ADE CENTRAL MEDIA REGISTRY
  *
  * Never hard-code media directly into random React components.

@@ -1,4 +1,4 @@
-﻿import KernelEventBus from "../../core/EventBus.js";
+import KernelEventBus from "../../core/EventBus.js";
 import AffiliateLockGuard from "../../security/AffiliateLockGuard.js";
 
 export class BinaryBrokerConnector {

@@ -1,4 +1,4 @@
-﻿import fs from "node:fs";
+import fs from "node:fs";
 
 const file = "./src/kernel/EnterpriseKernelMaster.js";
 

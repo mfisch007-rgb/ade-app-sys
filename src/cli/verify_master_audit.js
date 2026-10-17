@@ -1,4 +1,4 @@
-﻿import EnterpriseKernelMaster from "../kernel/EnterpriseKernelMaster.js";
+import EnterpriseKernelMaster from "../kernel/EnterpriseKernelMaster.js";
 import PreDeploymentAuditProbe from "../security/PreDeploymentAuditProbe.js";
 
 async function verifyMasterAudit() {
