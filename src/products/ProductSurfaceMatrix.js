@@ -50,6 +50,7 @@ const SURFACE_DECLARATIONS = Object.freeze([
   {
     id: "ade-platform",
     label: "ADE Platform",
+    summary: "The shared ADE operating platform itself: one runtime, one kernel and one product surface that every ADE capability runs on.",
     icon: "ADE",
     declaration: "src/products/ProductRegistry.js ADE_PRODUCTS.ADE_PLATFORM",
     catalogue: "ProductRegistry:ade-platform (ACTIVE/COMMUNITY)",
@@ -65,6 +66,7 @@ const SURFACE_DECLARATIONS = Object.freeze([
   {
     id: "procarta",
     label: "PROCARTA",
+    summary: "Business process intelligence: describe an operational problem in your own words and PROCARTA returns structured findings, evidence and next actions, then runs the approved workflow.",
     icon: "PR",
     declaration: "src/products/ProductRegistry.js ADE_PRODUCTS.PROCARTA + canonical vertical slice",
     catalogue: "ProductRegistry:procarta (INTEGRATED/pluginRequired) + ConnectionFabric:procarta",
@@ -80,6 +82,7 @@ const SURFACE_DECLARATIONS = Object.freeze([
   {
     id: "awbuli",
     label: "AWBULI",
+    summary: "WhatsApp-first business operations: customer conversations, lead capture and ledger updates through one messaging channel. Live messaging requires server-side provider setup and a verified sender identity — nothing is claimed before that.",
     icon: "AW",
     declaration: "src/products/ProductRegistry.js ADE_PRODUCTS.AWBULI + ConnectionFabric:awbuli",
     catalogue: "ProductRegistry:awbuli (INTEGRATED/pluginRequired) + ConnectionFabric:awbuli",
@@ -95,6 +98,7 @@ const SURFACE_DECLARATIONS = Object.freeze([
   {
     id: "oracle",
     label: "ADE Oracle",
+    summary: "Grounded question answering and knowledge lookup through the ADE AI gateway — deterministic fallback when no external AI provider is configured, and it says so plainly instead of inventing certainty.",
     icon: "OR",
     declaration: "src/products/ProductRegistry.js ADE_PRODUCTS.ORACLE",
     catalogue: "ProductRegistry:oracle (INTEGRATED/pluginRequired:false)",
@@ -110,6 +114,7 @@ const SURFACE_DECLARATIONS = Object.freeze([
   {
     id: "nexus",
     label: "NEXUS",
+    summary: "Connectivity mesh that inventories the APIs, databases and real-time operational streams a business runs on, so integrations are managed from one place instead of silos.",
     icon: "NX",
     declaration: "src/integrations/ConnectionFabric.js PRODUCT_CONTRACTS.nexus + HOME card",
     catalogue: "ConnectionFabric:nexus (CATALOG + ENGINE contract)",
@@ -125,6 +130,7 @@ const SURFACE_DECLARATIONS = Object.freeze([
   {
     id: "eventos",
     label: "EVENTOS",
+    summary: "Opportunity matching across NGOs, government, creators, funders and investors — discovery and request/offer pairing for partnerships and grants.",
     icon: "EV",
     declaration: "src/integrations/ConnectionFabric.js PRODUCT_CONTRACTS.eventos + HOME card",
     catalogue: "ConnectionFabric:eventos (CATALOG + ENGINE contract)",
@@ -140,6 +146,7 @@ const SURFACE_DECLARATIONS = Object.freeze([
   {
     id: "founders-circle",
     label: "FOUNDERS CIRCLE",
+    summary: "A strategic hub for founders: peer collaboration, shared venture intelligence, capital matchmaking and governance tools, entered through a pilot request.",
     icon: "FC",
     declaration: "public/index.html HOME card (exclusive strategic hub)",
     catalogue: "HOME catalogue card -> Community PILOT_INTEREST pathway",
@@ -155,6 +162,7 @@ const SURFACE_DECLARATIONS = Object.freeze([
   {
     id: "market-circle",
     label: "ADE-MARKET CIRCLE",
+    summary: "A commercial marketplace connecting regional African enterprises with verified buyers, suppliers and distribution channels through the partner pathway.",
     icon: "MC",
     declaration: "public/index.html HOME card (marketplace)",
     catalogue: "HOME catalogue card -> Community PARTNER_INTEREST pathway",
@@ -170,6 +178,7 @@ const SURFACE_DECLARATIONS = Object.freeze([
   {
     id: "tides",
     label: "ADE-TIDES",
+    summary: "A future cross-border payment and settlement network for African commerce — roadmap stage; engagement currently starts through the Community contact pathway.",
     icon: "TD",
     declaration: "public/index.html HOME card (future settlement network)",
     catalogue: "HOME catalogue card -> Community pathway (FUTURE)",
@@ -185,6 +194,7 @@ const SURFACE_DECLARATIONS = Object.freeze([
   {
     id: "aibos",
     label: "ADE-AIBOS / AIOPS",
+    summary: "The ADE AI business-operating-system layer: the shared intelligence, knowledge, workflow and governance services that products such as PROCARTA, AWBULI and Oracle build on.",
     icon: "AI",
     declaration: "public/index.html HOME card (operating system kernel)",
     catalogue: "HOME catalogue card -> Architecture surface",
@@ -200,6 +210,7 @@ const SURFACE_DECLARATIONS = Object.freeze([
   {
     id: "biz-watch",
     label: "BIZ WATCH",
+    summary: "Sector operational watch for business performance — in development; it requires partner data sources before it can report anything real.",
     icon: "BW",
     declaration: "public/index.html roadmap card (IN DEVELOPMENT)",
     catalogue: "HOME roadmap card -> Products surface (FUTURE)",
@@ -215,6 +226,7 @@ const SURFACE_DECLARATIONS = Object.freeze([
   {
     id: "fraud-watch",
     label: "FRAUD WATCH",
+    summary: "Risk and fraud signal layer — experimental; every capability stays gated by Guardian policy and verified data feeds.",
     icon: "FW",
     declaration: "public/index.html roadmap card (EXPERIMENTAL)",
     catalogue: "HOME roadmap card -> Products surface (EXPERIMENTAL)",
@@ -230,6 +242,7 @@ const SURFACE_DECLARATIONS = Object.freeze([
   {
     id: "agriculture",
     label: "AGRICULTURE",
+    summary: "Agriculture-sector workflows with seasonal and logistics context, built on public agriculture data signals — preview stage.",
     icon: "AG",
     declaration: "public/index.html roadmap card (PREVIEW)",
     catalogue: "HOME roadmap card -> Products surface (PREVIEW)",
@@ -245,6 +258,7 @@ const SURFACE_DECLARATIONS = Object.freeze([
   {
     id: "gov-ngo",
     label: "GOV / NGO / GRANTS",
+    summary: "Operations support for government, NGO, grants and census programmes — roadmap stage; engagement starts through the ecosystem marketplace pathway.",
     icon: "GO",
     declaration: "public/index.html roadmap card (ROADMAP)",
     catalogue: "HOME roadmap card -> Community ecosystem pathway",
@@ -260,6 +274,7 @@ const SURFACE_DECLARATIONS = Object.freeze([
   {
     id: "workforce",
     label: "Workforce & Admin Console",
+    summary: "Workforce and admin console: person registry, role assignment, invitations and PIN-elevated administration with a durable audit trail.",
     icon: "WF",
     declaration: "src/identity/WorkforceManager.js + public/admin/index.html",
     catalogue: "Workforce person registry (ade:workforce:v1)",
@@ -281,6 +296,7 @@ const SURFACE_DECLARATIONS = Object.freeze([
   {
     id: "account-security",
     label: "Account & Security",
+    summary: "Account and security surface for every workforce member: sign-in, six-digit PIN step-up, password and PIN changes, and recovery codes.",
     icon: "ID",
     declaration: "public/index.html ACCOUNT section + src/routes/identityRoutes.js",
     catalogue: "Workforce identity session surface",
@@ -306,6 +322,7 @@ const SURFACE_DECLARATIONS = Object.freeze([
   {
     id: "announcements",
     label: "Announcements",
+    summary: "Server-published announcements that keep operators informed from the live runtime — public read, elevated write.",
     icon: "NW",
     declaration: "src/identity/AnnouncementsManager.js + HOME live comms",
     catalogue: "Announcement ledger (public read, elevated write)",
@@ -321,6 +338,7 @@ const SURFACE_DECLARATIONS = Object.freeze([
   {
     id: "audit",
     label: "Audit Ledger",
+    summary: "Durable audit ledger queries: who did what, when and with which outcome — attributable and tenant-aware, for elevated roles.",
     icon: "AU",
     declaration: "src/routes/identityRoutes.js GET /api/v1/audit + Admin Console",
     catalogue: "Audit store query surface (limit/type filter)",
@@ -336,6 +354,7 @@ const SURFACE_DECLARATIONS = Object.freeze([
   {
     id: "pilot",
     label: "Pilot Pathway",
+    summary: "A structured pilot pathway: register interest, apply ADE to one real operational problem and measure the before-and-after result.",
     icon: "PL",
     declaration: "public/index.html Community PILOT_INTEREST + backend pilot gate",
     catalogue: "Community intake catalogue (PILOT_INTEREST)",
@@ -351,6 +370,7 @@ const SURFACE_DECLARATIONS = Object.freeze([
   {
     id: "partner",
     label: "Partner Pathway",
+    summary: "A partner pathway for implementation and integration partners — evaluated registration with real engagements, never fabricated logos.",
     icon: "PT",
     declaration: "public/index.html Community PARTNER_INTEREST + partner catalog",
     catalogue: "Community intake catalogue (PARTNER_INTEREST) + GET /api/v1/partners",
@@ -366,6 +386,7 @@ const SURFACE_DECLARATIONS = Object.freeze([
   {
     id: "connections",
     label: "Connection Grip",
+    summary: "Connection grip diagnostics: shows exactly which required capabilities are verified for each product connection and what is still missing.",
     icon: "GR",
     declaration: "src/integrations/ConnectionFabric.js inventory() + PRODUCTS grip card",
     catalogue: "ConnectionFabric PRODUCT_CONTRACTS (awbuli/procarta/nexus/eventos)",
@@ -385,6 +406,7 @@ const SURFACE_DECLARATIONS = Object.freeze([
   {
     id: "storage",
     label: "Durable Storage",
+    summary: "Durable storage: business records persist through the configured storage provider (Supabase when configured), server-side only — no client credentials.",
     icon: "ST",
     declaration: "src/storage/SupabaseStorageAdapter.js + GET /api/v1/runtime storage block",
     catalogue: "StorageProvider contract (local default, supabase when configured)",
@@ -400,6 +422,7 @@ const SURFACE_DECLARATIONS = Object.freeze([
   {
     id: "try-ade",
     label: "Try ADE Demos",
+    summary: "Guided demo scenarios that run the real orchestrator with LIVE and SIMULATED activity clearly labelled.",
     icon: "DM",
     declaration: "public/index.html Try ADE scenarios + demo orchestrator",
     catalogue: "Demo scenario catalogue (LIVE/SIMULATED labelled)",
@@ -415,6 +438,7 @@ const SURFACE_DECLARATIONS = Object.freeze([
   {
     id: "feedback",
     label: "Feedback",
+    summary: "Direct feedback capture into ADE intelligence — reviews inform the roadmap and never modify source automatically.",
     icon: "FB",
     declaration: "public/index.html Feedback + FeedbackIntelligence",
     catalogue: "Feedback capture catalogue (never auto-modifies source)",
@@ -504,6 +528,7 @@ export class ProductSurfaceMatrix {
       return {
         id: decl.id,
         label: decl.label,
+        summary: decl.summary || null,
         icon: decl.icon,
         declaration: decl.declaration,
         catalogue: decl.catalogue,
