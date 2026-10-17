@@ -65,6 +65,7 @@ import { UniversalAIGateway } from "./ai/UniversalAIGateway.js";
 import { WorkforceManager } from "./identity/WorkforceManager.js";
 import { AnnouncementsManager } from "./identity/AnnouncementsManager.js";
 import { registerIdentityRoutes } from "./routes/identityRoutes.js";
+import { maskSettingsSecrets } from "./security/SettingsRedaction.js";
 import { EditionPolicy } from "./core/EditionPolicy.js";
 import { DemoSafetyBoundary } from "./core/DemoSafetyBoundary.js";
 import { DemoOrchestrator } from "./demo/DemoOrchestrator.js";
@@ -2404,8 +2405,12 @@ app.post('/api/v1/integrations/analyze', security.requireLevel(2), async (req, r
 });
 app.get('/api/v1/admin/partners', security.requireLevel(2),(req,res)=>res.json({success:true,partners:partners.list()}));
 app.post('/api/v1/admin/partners', security.requireLevel(2),requireDurableStorage,(req,res)=>res.status(201).json({success:true,partner:partners.upsert(req.body||{})}));
-app.get('/api/v1/admin/settings', security.requireLevel(2),(req,res)=>res.json({success:true,settings:runtimeConfig.read()}));
-app.patch('/api/v1/admin/settings', security.requireLevel(2),requireDurableStorage,(req,res)=>{const body=req.body||{}; let d=runtimeConfig.read(); for(const [section,values] of Object.entries(body)){for(const [k,v] of Object.entries(values||{})) d=runtimeConfig.write(section,k,v);} res.json({success:true,settings:d});});
+// Admin settings read/write: policy values stay readable, secret-shaped leaves
+// are masked on EVERY response (read and write-echo) via the canonical
+// redaction helper, so credentials written through PATCH are never echoed
+// back raw in any API response.
+app.get('/api/v1/admin/settings', security.requireLevel(2),(req,res)=>res.json({success:true,settings:maskSettingsSecrets(runtimeConfig.read()),secretsMasked:true}));
+app.patch('/api/v1/admin/settings', security.requireLevel(2),requireDurableStorage,(req,res)=>{const body=req.body||{}; let d=runtimeConfig.read(); for(const [section,values] of Object.entries(body)){for(const [k,v] of Object.entries(values||{})) d=runtimeConfig.write(section,k,v);} res.json({success:true,settings:maskSettingsSecrets(d),secretsMasked:true});});
 app.post('/api/v1/assessment/public-discovery',async(req,res)=>{try{if(!req.body?.authorization?.publicAnalysis)return res.status(403).json({success:false,error:'PUBLIC_ANALYSIS_AUTHORIZATION_REQUIRED'}); const result=await publicDiscovery(req.body.url); res.json(result);}catch(e){res.status(400).json({success:false,error:e.message});}});
 
 // === BUSINESS HEALTH / BEFORE-AND-AFTER MEASUREMENT ========================

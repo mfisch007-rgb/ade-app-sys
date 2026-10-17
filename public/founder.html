@@ -1579,24 +1579,29 @@ const TAB_AWBULI= () => {
 window.TAB_AWBULI = TAB_AWBULI;
 </script>
 
-<script src="/js/ade-pin-state.js"></script>
 <script id="ade-interactive-config">
-/* ADE INTERACTIVE CONFIGURATION — every CONFIGURATION_REQUIRED state on this
-   public surface becomes a self-service trigger: click it, enter the provider
-   endpoint + credentials, and the state flips to ACTIVE (#059669) immediately
-   and durably (localStorage), surviving re-renders, refresh and navigation.
-   The server remains the single authority — this handler records operator
-   intent and reflects the configuration state truthfully. */
+/* ADE INTERACTIVE CONFIGURATION — server-confirmed only. Every element that
+   literally reads CONFIGURATION_REQUIRED becomes interactive: it opens the
+   canonical configuration dialog. Credentials entered there are sent ONCE to
+   the canonical server route POST /api/v1/connect/channels/configure under an
+   authenticated Admin/Founder session; the server stores them write-only and
+   never echoes them. The browser persists metadata only (channel, endpoint,
+   time) and renders the honest state CONFIGURED — AWAITING VERIFICATION. A
+   badge is never flipped to ACTIVE from browser values: ACTIVE remains server
+   truth reported by /api/v1/product-surface. Without a server-confirmed
+   write, nothing is stored and the element stays CONFIGURATION_REQUIRED. */
 (function(){
- var GREEN='#059669',KEY='ade_provider_config_v1';
+ var AMBER='#c58a16',KEY='ade_provider_config_v1';
+ var CHANNELS=['EMAIL','AI','INTEGRATIONS','WHATSAPP','TELEGRAM','PARTNER'];
  function sget(s,k){try{return s.getItem(k)}catch(e){return null}}
  function sset(s,k,v){try{s.setItem(k,v)}catch(e){}}
  function readAll(){try{var s=sget(sessionStorage,KEY)||sget(localStorage,KEY);var o=s?JSON.parse(s):{};return o&&typeof o==='object'?o:{}}catch(e){return{}}}
  function saveAll(o){try{var s=JSON.stringify(o);sset(localStorage,KEY,s);sset(sessionStorage,KEY,s)}catch(e){}}
+ function token(){return sget(sessionStorage,'ade_admin_token')||sget(localStorage,'ade_admin_token')||sget(sessionStorage,'ade_founder_token')||sget(localStorage,'ade_founder_token')||''}
  function norm(el){try{return String(el.textContent||'').replace(/\s+/g,' ').trim()}catch(e){return''}}
  function labelOf(el){try{var card=el.closest('.card,.wsCard,section');var head=card?String((card.querySelector('h3,h4,.panelTitle,.cardTitle')||{}).textContent||'').replace(/\s+/g,' ').trim():'';var own=norm(el);return head||own||'Provider configuration'}catch(e){return'Provider configuration'}}
  function keyOf(el,label){try{var scope=el.closest('[data-testid]');var sid=scope?scope.getAttribute('data-testid'):'';return(sid?sid+'::':'')+label.slice(0,90)}catch(e){return label.slice(0,90)}}
- function applyActive(el,rec){try{el.setAttribute('data-ade-cfg','active');el.textContent='ACTIVE';el.style.background=GREEN;el.style.color='#ffffff';el.style.borderColor=GREEN;el.style.fontWeight='800';el.style.letterSpacing='.06em';el.style.cursor='pointer';el.title='Configured '+(rec&&rec.at?new Date(rec.at).toLocaleString():'')+(rec&&rec.endpoint?' · '+rec.endpoint:'')+' — click to update';}catch(e){}}
+ function applyPending(el,rec){try{el.setAttribute('data-ade-cfg','configured_unverified');el.textContent='CONFIGURED — AWAITING VERIFICATION';el.style.background=AMBER;el.style.color='#111';el.style.borderColor=AMBER;el.style.fontWeight='800';el.style.letterSpacing='.05em';el.style.cursor='pointer';el.title='Server-confirmed configuration write '+(rec&&rec.at?new Date(rec.at).toLocaleString():'')+(rec&&rec.channelId?' · channel '+rec.channelId:'')+(rec&&rec.endpoint?' · '+rec.endpoint:'')+' — live verification remains server-side.';}catch(e){}}
  function openModal(key,label,el){
   try{
    var old=document.getElementById('ade-cfg-modal');if(old&&old.parentNode)old.parentNode.removeChild(old);
@@ -1605,61 +1610,73 @@ window.TAB_AWBULI = TAB_AWBULI;
    var box=document.createElement('div');
    box.style.cssText='width:100%;max-width:480px;background:#0c1a2b;border:1px solid #2a4663;border-radius:14px;padding:18px;color:#eef5ff;font-family:system-ui;box-shadow:0 18px 60px rgba(0,0,0,.5)';
    var head=document.createElement('div');head.textContent='Provider configuration · '+label;head.style.cssText='font-weight:800;font-size:14px;margin-bottom:4px';box.appendChild(head);
-   var note=document.createElement('div');note.textContent='Enter the provider endpoint and credentials. Values are masked here and never printed; the runtime stores them via its canonical configuration path.';note.style.cssText='font-size:11px;color:#8fa4bd;margin-bottom:12px';box.appendChild(note);
+   var note=document.createElement('div');note.textContent='Configuring writes to the server through the canonical channel authority under your Admin/Founder session. Credentials are sent once, never stored in this browser, and never echoed back.';note.style.cssText='font-size:11px;color:#8fa4bd;margin-bottom:12px';box.appendChild(note);
+   function sel(lbl,opts){var d=document.createElement('label');d.textContent=lbl;d.style.cssText='display:block;font-size:11px;color:#8fa4bd;margin:8px 0 4px';var s=document.createElement('select');s.style.cssText='width:100%;box-sizing:border-box;background:#12243a;border:1px solid #2a4663;border-radius:9px;color:#fff;padding:9px 10px;font-size:13px';for(var i=0;i<opts.length;i++){var o=document.createElement('option');o.value=opts[i];o.textContent=opts[i];s.appendChild(o)}box.appendChild(d);box.appendChild(s);return s}
    function field(lbl,type,ph){var d=document.createElement('label');d.textContent=lbl;d.style.cssText='display:block;font-size:11px;color:#8fa4bd;margin:8px 0 4px';var i=document.createElement('input');i.type=type;i.placeholder=ph;i.style.cssText='width:100%;box-sizing:border-box;background:#12243a;border:1px solid #2a4663;border-radius:9px;color:#fff;padding:9px 10px;font-size:13px';box.appendChild(d);box.appendChild(i);return i}
+   var ch=sel('Channel',CHANNELS);
    var ep=field('Endpoint / Base URL','url','https://provider.example.com/api');
-   var sk=field('API key / Token','password','••••••••');
+   var sk=field('API key / Token (sent once, never stored here)','password','••••••••');
    var ac=field('Account / Org ID (optional)','text','account-id');
    var msg=document.createElement('div');msg.style.cssText='font-size:11px;color:#facc15;margin-top:8px;min-height:14px';box.appendChild(msg);
    var row=document.createElement('div');row.style.cssText='display:flex;gap:8px;justify-content:flex-end;margin-top:12px';
    var cancel=document.createElement('button');cancel.type='button';cancel.textContent='Cancel';cancel.style.cssText='background:#12243a;border:1px solid #2a4663;color:#fff;border-radius:9px;padding:9px 14px;cursor:pointer';
-   var ok=document.createElement('button');ok.type='button';ok.textContent='Activate';ok.style.cssText='background:'+GREEN+';border:1px solid '+GREEN+';color:#fff;font-weight:800;border-radius:9px;padding:9px 14px;cursor:pointer';
+   var ok=document.createElement('button');ok.type='button';ok.textContent='Submit to Server';ok.style.cssText='background:'+AMBER+';border:1px solid '+AMBER+';color:#111;font-weight:800;border-radius:9px;padding:9px 14px;cursor:pointer';
    row.appendChild(cancel);row.appendChild(ok);box.appendChild(row);wrap.appendChild(box);
    function close(){try{wrap.parentNode.removeChild(wrap)}catch(e){}}
    cancel.addEventListener('click',close);
    wrap.addEventListener('click',function(ev){if(ev.target===wrap)close()});
    ok.addEventListener('click',function(){
-    var endpoint=String(ep.value||'').trim();var secret=String(sk.value||'');var account=String(ac.value||'').trim();
+    var endpoint=String(ep.value||'').trim();var secret=String(sk.value||'');var account=String(ac.value||'').trim();var channel=String(ch.value||'INTEGRATIONS');
     if(endpoint&&!/^https?:\/\//i.test(endpoint)){msg.textContent='Endpoint must be a full http(s) URL.';return}
-    if(!endpoint&&secret.length<4){msg.textContent='Provide at least an endpoint or a credential to activate.';return}
-    var rec={state:'ACTIVE',label:label,endpoint:endpoint||null,account:account||null,keyMask:secret?'••••'+secret.slice(-4):'not provided',at:new Date().toISOString()};
-    var all=readAll();all[key]=rec;saveAll(all);
-    applyActive(el,rec);close();
-    try{window.dispatchEvent(new CustomEvent('ade-config-activated',{detail:{key:key,label:label}}))}catch(e){}
+    if(!endpoint&&secret.length<4){msg.textContent='Provide at least an endpoint or a credential.';return}
+    var t=token();
+    if(!t){msg.textContent='Admin or Founder sign-in required — configuration is written by the server under an authenticated L2 session. Nothing was stored.';return}
+    ok.disabled=true;msg.textContent='Submitting to the server…';
+    fetch('/api/v1/connect/channels/configure',{method:'POST',headers:{'content-type':'application/json','authorization':'Bearer '+t},body:JSON.stringify({channelId:channel,baseUrl:endpoint||undefined,apiKey:secret||undefined,account:account||undefined})})
+    .then(function(res){return res.text().then(function(txt){return{status:res.status,ok:res.ok,body:txt}})})
+    .then(function(r){
+     var j={};try{j=JSON.parse(r.body)||{}}catch(e){}
+     if(!r.ok){
+      ok.disabled=false;
+      if([401,403].indexOf(r.status)>-1){msg.textContent='Server rejected this session for provider configuration (sign-in or L2 authority required). Nothing was stored.'}
+      else{msg.textContent='Server error '+r.status+(j.error?' · '+j.error:'')+'. Nothing was stored.'}
+      return;
+     }
+     var rec={state:'CONFIGURED_UNVERIFIED',label:label,channelId:channel,endpoint:endpoint||null,account:account||null,at:new Date().toISOString(),byServer:true,serverConfigured:j.configured===true};
+     var all=readAll();all[key]=rec;saveAll(all);applyPending(el,rec);close();
+     try{window.dispatchEvent(new CustomEvent('ade-config-activated',{detail:{key:key,label:label,channel:channel,state:rec.state,serverConfigured:rec.serverConfigured}}))}catch(e){}
+    })
+    .catch(function(){ok.disabled=false;msg.textContent='Server unreachable — configuration was NOT stored.'});
    });
    try{ep.focus()}catch(e){}
    document.body.appendChild(wrap);
   }catch(e){}
  }
- function markInteractive(el,key,label){try{if(el.getAttribute('data-ade-cfg-bound')==='1')return;el.setAttribute('data-ade-cfg-bound','1');el.style.cursor='pointer';el.style.borderBottom='1px dotted '+GREEN;el.setAttribute('role','button');el.setAttribute('tabindex','0');el.title='Click to configure this capability';function open(ev){try{if(ev){ev.preventDefault();ev.stopPropagation()}}catch(e){}openModal(key,label,el)}el.addEventListener('click',open);el.addEventListener('keydown',function(ev){if(ev.key==='Enter'||ev.key===' '){open(ev)}})}catch(e){}}
- function scan(){try{var store=readAll();var nodes=document.querySelectorAll('.badge,span,div,td,p,strong,b');for(var i=0;i<nodes.length;i++){var el=nodes[i];var t=norm(el);if(t.indexOf('CONFIGURATION_REQUIRED')===-1)continue;if(el.children.length)continue;var label=labelOf(el);var key=keyOf(el,label);var rec=store[key];if(rec&&rec.state==='ACTIVE'){if(norm(el)!=='ACTIVE')applyActive(el,rec)}else{markInteractive(el,key,label)}}}catch(e){}}
+ function markInteractive(el,key,label){try{if(el.getAttribute('data-ade-cfg-bound')==='1')return;el.setAttribute('data-ade-cfg-bound','1');el.style.cursor='pointer';el.style.borderBottom='1px dotted '+AMBER;el.setAttribute('role','button');el.setAttribute('tabindex','0');el.title='Click to configure this capability (server-confirmed, L2 session required)';function open(ev){try{if(ev){ev.preventDefault();ev.stopPropagation()}}catch(e){}openModal(key,label,el)}el.addEventListener('click',open);el.addEventListener('keydown',function(ev){if(ev.key==='Enter'||ev.key===' '){open(ev)}})}catch(e){}}
+ function scan(){try{var store=readAll();var nodes=document.querySelectorAll('.badge,span,div,td,p,strong,b');for(var i=0;i<nodes.length;i++){var el=nodes[i];var t=norm(el);if(t.indexOf('CONFIGURATION_REQUIRED')===-1)continue;if(el.children.length)continue;var label=labelOf(el);var key=keyOf(el,label);var rec=store[key];if(rec&&rec.state==='CONFIGURED_UNVERIFIED'&&rec.byServer===true){if(norm(el)!=='CONFIGURED — AWAITING VERIFICATION')applyPending(el,rec)}else{markInteractive(el,key,label)}}}catch(e){}}
  if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',scan)}else{scan()}
  try{new MutationObserver(scan).observe(document.documentElement,{childList:true,subtree:true,characterData:true})}catch(e){}
  setInterval(scan,2000);
- window.ADE_INTERACTIVE_CONFIG={scan:scan,store:KEY};
+ window.ADE_INTERACTIVE_CONFIG={scan:scan,store:KEY,channels:CHANNELS.slice(),state:'SERVER_CONFIRMED_ONLY'};
 })();
 </script>
 <script id="ade-invitation-banner">
-/* ADE INVITATION MESH — self-service role onboarding. Enter an invitation
-   code, and the exact hierarchical privileges (role, tier, scope) are
-   assigned and persisted in localStorage, surviving navigation and refresh.
-   The server remains the authority for what any role may do. */
+/* ADE INVITATION MESH — server-validated role onboarding. The code is
+   validated by the trusted backend (POST /api/v1/onboarding/claim) with
+   expiry and tenant enforcement. A valid result is a CLAIM RECORD only:
+   non-authoritative, stored for UX continuity, and never an access grant.
+   Roles are provisioned exclusively by ADE operators through the workforce
+   invitation flow; this banner can never assign one. Offline or rejected —
+   nothing is stored, nothing is claimed. */
 (function(){
- var CODES={
-  'INV-FOUNDER':{role:'FOUNDER_L3',tier:'Level 3 (L3)',scope:'Full Sovereign Control Plane and Vaults',level:3},
-  'INV-ADMIN-L3':{role:'ADMIN_L3',tier:'Level 3 (L3)',scope:'Executive System Administration',level:3},
-  'INV-ADMIN-L2':{role:'ADMIN_L2',tier:'Level 2 (L2)',scope:'Operational and Channel Management',level:2},
-  'INV-ADMIN-L1':{role:'ADMIN_L1',tier:'Level 1 (L1)',scope:'Supervised Support and Intake',level:1},
-  'INV-ADMIN-L0':{role:'ADMIN_L0',tier:'Level 0 (L0)',scope:'Basic Administrative Viewer',level:0},
-  'INV-PILOT':{role:'PILOT',tier:'Tier 1',scope:'Trading and Live Engagement Portal',level:1},
-  'INV-PARTNER':{role:'PARTNER',tier:'Enterprise Gateway',scope:'A2MPro Integration and Settlement Mesh',level:2}
- };
+ var CODES=['INV-FOUNDER','INV-ADMIN-L3','INV-ADMIN-L2','INV-ADMIN-L1','INV-ADMIN-L0','INV-PILOT','INV-PARTNER'];
  var KEY='ade_invitation_state',MIN='ade_invite_banner_min';
  function sget(s,k){try{return s.getItem(k)}catch(e){return null}}
  function sset(s,k,v){try{s.setItem(k,v)}catch(e){}}
  function sdel(s,k){try{s.removeItem(k)}catch(e){}}
  function stored(){try{var s=sget(localStorage,KEY)||sget(sessionStorage,KEY);var o=s?JSON.parse(s):null;return o&&typeof o==='object'?o:null}catch(e){return null}}
  function persist(o){try{var s=JSON.stringify(o);sset(localStorage,KEY,s);sset(sessionStorage,KEY,s)}catch(e){}}
+ function tenant(){try{return String((document.body&&document.body.getAttribute('data-ade-tenant'))||sget(localStorage,'ade_tenant')||'').trim()||null}catch(e){return null}}
  function render(){
   try{
    if(document.getElementById('ade-invitation-banner'))return;
@@ -1667,14 +1684,14 @@ window.TAB_AWBULI = TAB_AWBULI;
    wrap.style.cssText='position:fixed;right:16px;bottom:16px;z-index:70;font-family:system-ui';
    var shell=document.createElement('div');
    shell.style.cssText='max-width:340px;background:#0c1a2b;border:1px solid #2a4663;border-radius:14px;padding:12px 14px;color:#eef5ff;box-shadow:0 14px 40px rgba(0,0,0,.45)';
-   var title=document.createElement('div');title.textContent='INVITATION MESH · ROLE ONBOARDING';title.style.cssText='font-size:11px;font-weight:800;letter-spacing:.08em;color:#7dd3fc';shell.appendChild(title);
+   var title=document.createElement('div');title.textContent='INVITATION MESH · SERVER-VALIDATED ONBOARDING';title.style.cssText='font-size:11px;font-weight:800;letter-spacing:.08em;color:#7dd3fc';shell.appendChild(title);
    var status=document.createElement('div');status.id='ade-invite-status';status.style.cssText='font-size:11px;color:#8fa4bd;margin:6px 0 8px';shell.appendChild(status);
    var row=document.createElement('div');row.style.cssText='display:flex;gap:6px';
    var input=document.createElement('input');input.id='ade-invite-code';input.type='text';input.placeholder='INV-XXXX';input.setAttribute('aria-label','Invitation code');input.style.cssText='flex:1;min-width:0;background:#12243a;border:1px solid #2a4663;border-radius:9px;color:#fff;padding:8px 10px;font-size:12px;text-transform:uppercase';row.appendChild(input);
-   var apply=document.createElement('button');apply.id='ade-invite-apply';apply.type='button';apply.textContent='Apply';apply.style.cssText='background:#059669;border:1px solid #059669;color:#fff;font-weight:800;border-radius:9px;padding:8px 12px;cursor:pointer;font-size:12px';row.appendChild(apply);
+   var apply=document.createElement('button');apply.id='ade-invite-apply';apply.type='button';apply.textContent='Validate';apply.style.cssText='background:#059669;border:1px solid #059669;color:#fff;font-weight:800;border-radius:9px;padding:8px 12px;cursor:pointer;font-size:12px';row.appendChild(apply);
    shell.appendChild(row);
    var row2=document.createElement('div');row2.style.cssText='display:flex;gap:6px;margin-top:6px';
-   var clear=document.createElement('button');clear.id='ade-invite-clear';clear.type='button';clear.textContent='Clear assignment';clear.style.cssText='background:#12243a;border:1px solid #2a4663;color:#8fa4bd;border-radius:9px;padding:6px 10px;cursor:pointer;font-size:11px';row2.appendChild(clear);
+   var clear=document.createElement('button');clear.id='ade-invite-clear';clear.type='button';clear.textContent='Clear record';clear.style.cssText='background:#12243a;border:1px solid #2a4663;color:#8fa4bd;border-radius:9px;padding:6px 10px;cursor:pointer;font-size:11px';row2.appendChild(clear);
    var min2=document.createElement('button');min2.id='ade-invite-min';min2.type='button';min2.textContent='Minimize';min2.style.cssText='background:#12243a;border:1px solid #2a4663;color:#8fa4bd;border-radius:9px;padding:6px 10px;cursor:pointer;font-size:11px';row2.appendChild(min2);
    shell.appendChild(row2);
    wrap.appendChild(shell);
@@ -1684,18 +1701,29 @@ window.TAB_AWBULI = TAB_AWBULI;
    function restoreView(){
     var st=stored();var minimized=sget(sessionStorage,MIN)==='1';
     shell.style.display=minimized?'none':'';mini.style.display=minimized?'':'none';
-    if(st&&st.code){input.value=st.code;setStatus('ASSIGNED · Role '+st.role+' · '+st.tier+' · '+st.scope)}else{setStatus('Awaiting invitation code (INV-FOUNDER, INV-ADMIN-L3, INV-ADMIN-L2, INV-ADMIN-L1, INV-ADMIN-L0, INV-PILOT, INV-PARTNER).')}
+    if(st&&st.claim&&st.claim.role){input.value=st.code||'';setStatus('CLAIM RECORD (NON-AUTHORITATIVE) · '+st.claim.role+' · '+st.claim.tier+' · server-validated'+(st.validatedAt?' '+new Date(st.validatedAt).toLocaleString():'')+' — access is provisioned only by ADE operators.')}else{setStatus('Enter an invitation code — validated by the server ('+CODES.join(', ')+').')}
    }
    apply.addEventListener('click',function(){
     var v=String(input.value||'').trim().toUpperCase();
     if(!v){setStatus('Enter an invitation code to continue.');return}
-    if(!CODES[v]){setStatus('Invalid invitation code — check with your ADE contact.');return}
-    var c=CODES[v];
-    var st={code:v,role:c.role,tier:c.tier,scope:c.scope,level:c.level,acceptedAt:new Date().toISOString(),source:'ade-invitation-banner'};
-    persist(st);restoreView();
-    try{window.dispatchEvent(new CustomEvent('ade-invitation-assigned',{detail:st}))}catch(e){}
+    apply.disabled=true;setStatus('Validating with the server…');
+    fetch('/api/v1/onboarding/claim',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({code:v,tenant:tenant()})})
+    .then(function(res){return res.text().then(function(txt){return{status:res.status,ok:res.ok,body:txt}})})
+    .then(function(r){
+     apply.disabled=false;
+     var j={};try{j=JSON.parse(r.body)||{}}catch(e){}
+     if(!r.ok){
+      var m={400:'Enter an invitation code to continue.',404:'Not a recognised invitation code — nothing was stored.',410:'This invitation code has expired — nothing was stored. Ask your ADE contact for a renewed code.',403:'This code is not valid for this workspace/tenant — nothing was stored.'}[r.status]||('Server error '+r.status+' — nothing was stored.');
+      setStatus(m);return;
+     }
+     if(!j||j.validated!==true||!j.claim){setStatus('Server returned no validated claim — nothing was stored.');return}
+     var st={code:v,claim:j.claim,validatedAt:new Date().toISOString(),authoritative:false,source:'server-validated'};
+     persist(st);restoreView();
+     try{window.dispatchEvent(new CustomEvent('ade-invitation-assigned',{detail:st}))}catch(e){}
+    })
+    .catch(function(){apply.disabled=false;setStatus('Server unreachable — the claim could not be validated and nothing was stored.')});
    });
-   clear.addEventListener('click',function(){sdel(localStorage,KEY);sdel(sessionStorage,KEY);input.value='';setStatus('Assignment cleared — awaiting invitation code.');try{window.dispatchEvent(new CustomEvent('ade-invitation-cleared',{}))}catch(e){}});
+   clear.addEventListener('click',function(){sdel(localStorage,KEY);sdel(sessionStorage,KEY);input.value='';setStatus('Record cleared — awaiting invitation code.');try{window.dispatchEvent(new CustomEvent('ade-invitation-cleared',{}))}catch(e){}});
    min2.addEventListener('click',function(){sset(sessionStorage,MIN,'1');restoreView()});
    mini.addEventListener('click',function(){sdel(sessionStorage,MIN);restoreView()});
    input.addEventListener('keydown',function(ev){if(ev.key==='Enter'){try{ev.preventDefault()}catch(e){}apply.click()}});
@@ -1705,7 +1733,7 @@ window.TAB_AWBULI = TAB_AWBULI;
  }
  function boot(){if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',render)}else{render()}}
  boot();
- window.ADE_INVITATION_MESH={codes:Object.keys(CODES),read:stored,apply:function(code){var c=CODES[String(code||'').trim().toUpperCase()];return c||null}};
+ window.ADE_INVITATION_MESH={codes:CODES.slice(),read:stored,validate:function(code){return fetch('/api/v1/onboarding/claim',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({code:String(code||'').trim().toUpperCase(),tenant:tenant()})}).then(function(r){return r.json()})},authoritative:false};
 })();
 </script>
 </body></html>

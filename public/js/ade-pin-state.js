@@ -99,7 +99,7 @@
       if (claims.pinVerified === true) {
         var role = String((person && person.role) || claims.role || '').toUpperCase() || null;
         var level = (person && person.level != null) ? person.level : claims.level;
-        return set({ method: 'SERVER_VERIFIED', role: role, level: level });
+        return set({ method: 'SERVER_VERIFIED', role: role, level: level, subject: subjectOf(person, claims) });
       }
       var cur = read();
       var subj = subjectOf(person, claims);

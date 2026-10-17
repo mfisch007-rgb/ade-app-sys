@@ -1,4 +1,5 @@
 import { authRateLimit } from "../security/RateLimiter.js";
+import { validateRoleInvitation } from "../identity/RoleInvitationAuthority.js";
 
 function parseBearer(req) {
   const header = String(req.get("authorization") || "");
@@ -405,6 +406,36 @@ export function registerIdentityRoutes({
       return res.status(201).json({ success: true, person: result, status: "INVITATION_ACCEPTED" });
     } catch (error) {
       return routeError(res, error, "INVITATION_ACCEPT_FAILED");
+    }
+  });
+
+  // Role-class invitation claims (INV-FOUNDER … INV-PARTNER): validated
+  // server-side with expiry and optional tenant enforcement. Validation NEVER
+  // grants a role, issues a session, or returns a token — it confirms the
+  // claim so onboarding can route to the correct provisioning path
+  // (workforce invitation acceptance / partner or pilot intake). The browser
+  // may remember the claim for UX, but it is explicitly non-authoritative.
+  app.post("/api/v1/onboarding/claim", authRateLimit(), async (req, res) => {
+    try {
+      const { code, tenant } = req.body || {};
+      const result = validateRoleInvitation(code, { tenant });
+      if (!result.ok) {
+        return res.status(result.status).json({
+          success: false,
+          error: result.error,
+          ...(result.expiresAt ? { expiresAt: result.expiresAt } : {})
+        });
+      }
+      return res.status(200).json({
+        success: true,
+        validated: true,
+        authority: "server",
+        grantsAccess: false,
+        claim: result.claim,
+        note: "Validation confirms the claim only. Roles are provisioned by ADE operators through the workforce invitation flow."
+      });
+    } catch (error) {
+      return res.status(400).json({ success: false, error: "INVITATION_CLAIM_FAILED" });
     }
   });
 
