@@ -1606,6 +1606,32 @@ app.post('/api/v1/admin/whatsapp-numbers/:id/state', security.requireLevel(2), s
     res.json({ success: true, number: rec });
   } catch (error) { res.status(400).json({ success: false, error: error.code || "NUMBER_STATE_FAILED", message: error.message }); }
 });
+
+// Public AWBULI self-onboarding entry (read-only, unauthenticated): publishes
+// the deployment-configured public business number and the START/STAR trigger
+// words. The number registry persists masked identifiers only, so the full
+// number can come ONLY from AWBULI_PUBLIC_NUMBER configuration. Never claims LIVE.
+app.get('/api/v1/awbuli/entry', (req, res) => {
+  try {
+    const raw = String(process.env.AWBULI_PUBLIC_NUMBER || "").replace(/[\s\-()]/g, "");
+    const number = /^\+?\d{7,15}$/.test(raw) ? (raw.startsWith("+") ? raw : `+${raw}`) : null;
+    const bridgeConfigured = Boolean(process.env.AWBULI_API_URL && process.env.AWBULI_API_KEY);
+    res.json({
+      success: true,
+      entry: {
+        triggerWords: ["START", "STAR"],
+        number,
+        display: number,
+        configured: Boolean(number),
+        providerState: bridgeConfigured ? "CONFIGURED_UNVERIFIED" : "NOT_CONFIGURED",
+        live: false,
+        note: number
+          ? "Public business line published from server configuration. Inbound START / STAR is normalized by the canonical AWBULI adapter and stays SIMULATED until the provider gate is VERIFIED + ENABLED."
+          : "No public WhatsApp number is configured on this deployment yet — the ADE team provisions sender identities via the Admin Console."
+      }
+    });
+  } catch (error) { res.status(500).json({ success: false, error: "AWBULI_ENTRY_FAILED" }); }
+});
 app.get('/api/v1/admin/channels', security.requireLevel(2),(req,res)=>res.json({success:true,channels:channels.list()}));
 app.patch('/api/v1/admin/channels/:id', security.requireLevel(2),requireDurableStorage,(req,res)=>{const c=channels.set(req.params.id,req.body||{}); runtimeConfig.write('channels',req.params.id,c); try { kernel?.eventBus?.publish?.("audit.log.created", { category: "CHANNELS", action: "CHANNEL_UPDATED", channelId: String(req.params.id || "").toUpperCase(), tenant: tenantForStore(resolveTenantId(req)), by: _govActor(req), at: new Date().toISOString() }); } catch {} res.json({success:true,channel:c});});
 app.get('/api/v1/admin/connections', security.requireLevel(2),(req,res)=>res.json({success:true,connections:connectionManager.list()}));

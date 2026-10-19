@@ -1524,7 +1524,7 @@ const heroShieldBg='url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/200
       h('button',{className:'iconBtn hamburger',onClick:()=>setMenuOpen(v=>!v),'aria-expanded':menuOpen?'true':'false','aria-label':'Toggle navigation',title:'Menu'},menuOpen?'✕':'☰')
     )
    ),
-   menuOpen&&h('nav',{className:'mobileMenu open','aria-label':'Mobile'},visibleTabs.map(t=>h('button',{key:t,className:tab===t?'active':'',onClick:()=>{setTab(t);setMenuOpen(false)}},t)),h('a',{href:'/#/Workspace',style:{display:'block',padding:'12px 14px',minHeight:48,fontWeight:800},onClick:()=>setMenuOpen(false)},'→ CANONICAL WORKSPACE'))
+   menuOpen&&h('nav',{className:'mobileMenu open','aria-label':'Mobile'},visibleTabs.map(t=>h('button',{key:t,className:tab===t?'active':'',onClick:()=>{setTab(t);setMenuOpen(false)}},t)),h('a',{href:'/#/Workspace',style:{display:'block',padding:'12px 14px',minHeight:48,fontWeight:800},onClick:()=>setMenuOpen(false)},'→ CANONICAL WORKSPACE'),h('div',{style:{fontSize:11,color:'var(--muted)',padding:'12px 12px 4px',letterSpacing:'.16em',fontWeight:800,borderTop:'1px solid var(--line)',marginTop:'8px'}},'ECOSYSTEM'),h('a',{href:'/awbuli',style:{display:'block',minHeight:48,padding:'12px 14px',fontWeight:700},onClick:()=>setMenuOpen(false)},'AWBULI — WhatsApp Business Messaging'),h('a',{href:'/procarta',style:{display:'block',minHeight:48,padding:'12px 14px',fontWeight:700},onClick:()=>setMenuOpen(false)},'PROCARTA — Business Diagnostics'),h('a',{href:'/signin',style:{display:'block',minHeight:48,padding:'12px 14px',fontWeight:700},onClick:()=>setMenuOpen(false)},'I Have an Invitation Code'))
   ),
    h('main',{className:'shell'},
     h('div',{className:'heroCard',style:{padding:'18px 20px',marginBottom:'18px',display:'flex',alignItems:'center',gap:'16px',flexWrap:'wrap'}},
@@ -1550,6 +1550,7 @@ const heroShieldBg='url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/200
     h('div',{style:{fontSize:10,color:'var(--faint)',letterSpacing:0.12,fontWeight:700}},'AUTOMATED ALPHA ALIPH DIGITAL ECOSYSTEMS'),
     h('div',{style:{fontSize:10,color:'var(--faint)',marginTop:4}},h('a',{href:'mailto:Automated_alpha_aliph@yahoo.com',style:{color:'var(--muted)'}},'Automated_alpha_aliph@yahoo.com')),
     h('div',{style:{fontSize:10,color:'var(--faint)',marginTop:3}},'WhatsApp + Calls: ',h('a',{href:'tel:+2347038272792',style:{color:'var(--muted)'}},'+234 (0) 7038272792'),' · Calls Only: ',h('a',{href:'tel:+2347058769114',style:{color:'var(--muted)'}},'+234 (0) 7058769114')),
+    h('div',{style:{fontSize:10,marginTop:6,display:'flex',gap:10,justifyContent:'center',flexWrap:'wrap'}},h('a',{href:'/awbuli',style:{color:'var(--muted)'}},'AWBULI'),h('a',{href:'/procarta',style:{color:'var(--muted)'}},'PROCARTA'),h('a',{href:'/signin',style:{color:'var(--muted)'}},'I Have an Invitation Code'),h('a',{href:'/#/Workspace',style:{color:'var(--muted)'}},'Canonical Workspace'),h('a',{href:'/admin',style:{color:'var(--muted)'}},'Admin Console')),
     h('div',{style:{fontSize:9,color:'var(--faint)',marginTop:4,letterSpacing:0.08}},'© '+new Date().getFullYear()+' ADE ADVANCED FOUNDER CONTROLS · ALL RIGHTS RESERVED')
    ),
   toast&&h('div',{className:'toast'+(toast.indexOf('✓')===0?' ok':toast.indexOf('✕')===0?' err':'')},toast)

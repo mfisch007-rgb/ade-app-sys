@@ -486,3 +486,21 @@ body .awbuli-check .mark {
 body .awbuli-check .mark.ok { background: rgba(18, 144, 106, 0.14); color: var(--ade-good); }
 body .awbuli-check .mark.pending { background: rgba(197, 138, 22, 0.14); color: var(--ade-warn); }
 body .what-does-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); gap: 14px; }
+
+/* Header resilience (mobile): the logo, hamburger and arrow controls never
+   clip. Flex children keep their intrinsic size and the shell never overflows
+   its gutter; the About control yields first on narrow screens. */
+header.top .topInner { min-width: 0; }
+header.top .brand { flex: 0 0 auto; min-width: 0; }
+header.top .brand img { flex: 0 0 auto; display: block; }
+header.top .topRight { min-width: 0; flex-wrap: nowrap; }
+header.top .topRight .btn,
+header.top .topRight .iconBtn,
+header.top .topRight .pill { flex: 0 0 auto; }
+@media (max-width: 600px) {
+  header.top .topRight .btn[data-testid="header-about"] { display: none; }
+}
+@media (max-width: 430px) {
+  header.top .topRight { gap: 6px; }
+  header.top .brandName strong { font-size: 12px; letter-spacing: .08em; }
+}

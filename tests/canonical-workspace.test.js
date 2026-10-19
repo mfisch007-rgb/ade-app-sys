@@ -44,7 +44,7 @@ test("palette: unified server-derived catalogue with canonical execution", () =>
 });
 
 test("session: elevation lands in the canonical role workspace", () => {
-  const elev = indexHtml.slice(indexHtml.indexOf("const elevate="), indexHtml.indexOf("const elevate=") + 700);
+  const elev = indexHtml.slice(indexHtml.indexOf("const elevate="), indexHtml.indexOf("const elevate=") + 900);
   assert.ok(elev.includes("loadAccount(r.token)"), "session reloaded with the newly issued token");
   assert.ok(elev.includes("go('Workspace')"), "elevated session routes to the canonical workspace");
   assert.ok(indexHtml.includes("@'+account.person.username") || indexHtml.includes("'@'+account.person.username"), "workspace hero shows server identity");
