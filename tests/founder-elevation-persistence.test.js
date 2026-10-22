@@ -195,3 +195,15 @@ test("ELEV-PERSIST-7 — SSE contract: public stream route, connected frame, tru
   assert.ok(founder.includes("Waiting for live events"), "truthful empty/live-waiting state required");
   assert.ok(founder.includes("EventSource('/api/v1/events/stream')"), "browser listener must target the canonical route");
 });
+
+test("ELEV-PERSIST-8 — founder header authority is server-truth, never a cookie-only founder label", () => {
+  const founder = read("public/founder.html");
+  assert.ok(!founder.includes("@FOUNDER · L3 · ELEVATED"), "hard-coded founder elevation label is forbidden");
+  const pill = founder.slice(
+    founder.indexOf("serverAuth?h('span',{className:'pill'"),
+    founder.indexOf("h('a',{className:'btn sm',href:'/#/Workspace'")
+  );
+  assert.ok(pill.includes("_accessRole"), "header renders the server-resolved role");
+  assert.ok(pill.includes("srvElevated"), "header renders server-verified elevation");
+  assert.ok(founder.includes("ADE Founder Controls could not load"), "CDN failure renders an actionable message instead of a blank root");
+});

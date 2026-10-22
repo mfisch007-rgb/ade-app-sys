@@ -1,4 +1,4 @@
-import { test } from "node:test";
+import { test, after } from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
@@ -17,14 +17,27 @@ process.chdir(tmpRoot);
 
 let app;
 let base;
+let server = null;
 async function boot() {
   if (base) return base;
   ({ app } = await import("../src/app.js"));
-  const srv = app.listen(0, "127.0.0.1");
-  await new Promise((r) => srv.once("listening", r));
-  base = `http://127.0.0.1:${srv.address().port}`;
+  server = app.listen(0, "127.0.0.1");
+  await new Promise((r) => server.once("listening", r));
+  base = `http://127.0.0.1:${server.address().port}`;
   return base;
 }
+
+// The booted app holds an open listening socket plus kernel timers. Without
+// this teardown the test file's process never reaches the event-loop drain
+// and the node:test runner waits forever — which is what stalled the full
+// suite (all assertions here passed; the process simply never exited).
+after(async () => {
+  if (server) await new Promise((r) => server.close(r));
+  try {
+    const { kernel } = await import("../src/app.js");
+    if (kernel && typeof kernel.shutdown === "function") await kernel.shutdown();
+  } catch {}
+});
 const api = (token, method, url, body) =>
   fetch(`${base}${url}`, {
     method,

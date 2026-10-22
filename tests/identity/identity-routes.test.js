@@ -200,6 +200,58 @@ test("identity-routes: elevated members manage workload roles, state and expiry"
   assert.equal((await founderDemote.json()).error, "FOUNDER_PROTECTED");
 });
 
+test("identity-routes: legacy admin cannot create peers or demote the last active admin", async (t) => {
+  const { request, session } = await bootRoutes(t);
+  const boot = await (await request(null, "POST", "/api/v1/workforce/provision-founder", {
+    fullName: "Ade Founder",
+    username: "founder",
+    password: "FounderPass!1",
+    pin: "123456"
+  })).json();
+
+  const login = await (await request(null, "POST", "/api/v1/account/login", {
+    username: "founder",
+    password: "FounderPass!1"
+  })).json();
+  const elev = await (await request(login.token, "POST", "/api/v1/account/pin", { pin: "123456" })).json();
+
+  const invite = await (await request(elev.token, "POST", "/api/v1/workforce/invite", {
+    fullName: "Only Admin",
+    role: "ADMIN",
+    expiresInDays: 7
+  })).json();
+  const accepted = await (await request(null, "POST", "/api/v1/account/accept-invitation", {
+    code: invite.inviteCode,
+    fullName: "Only Admin",
+    username: "onlyadmin",
+    password: "AdminPass!9",
+    pin: "667788"
+  })).json();
+  assert.ok(accepted.success && accepted.person.id);
+
+  const legacyAdmin = session({ subject: "admin", persona: "ADMIN", level: 2, edition: "COMMUNITY" });
+
+  const peerInvite = await request(legacyAdmin, "POST", "/api/v1/workforce/invite", {
+    fullName: "Peer Admin",
+    role: "ADMIN"
+  });
+  assert.equal(peerInvite.status, 403);
+  assert.equal((await peerInvite.json()).error, "INSUFFICIENT_AUTHORIZATION");
+
+  const lastAdminDemote = await request(legacyAdmin, "POST", `/api/v1/workforce/${accepted.person.id}/demote`, {
+    role: "ANALYST"
+  });
+  assert.equal(lastAdminDemote.status, 403);
+  assert.equal((await lastAdminDemote.json()).error, "LAST_ADMIN_PROTECTED");
+
+  const founderDemote = await request(elev.token, "POST", `/api/v1/workforce/${accepted.person.id}/demote`, {
+    role: "ANALYST"
+  });
+  assert.equal(founderDemote.status, 200);
+  assert.equal((await founderDemote.json()).person.role, "ANALYST");
+  assert.equal(boot.person.role, "FOUNDER");
+});
+
 test("identity-routes: announcements publish ve publicly without auth", async (t) => {
   const { request, session } = await bootRoutes(t);
   const adminToken = session({ subject: "admin", persona: "ADMIN", level: 2, edition: "COMMUNITY" });

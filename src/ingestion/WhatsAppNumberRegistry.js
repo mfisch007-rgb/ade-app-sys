@@ -44,10 +44,19 @@ function fingerprint(e164, tenantScope) {
   }
 }
 
+function globalFingerprint(e164) {
+  try {
+    return `gfp-${crypto.createHash("sha256").update(String(e164)).digest("hex").slice(0, 24)}`;
+  } catch {
+    return `gfp-${e164.replace(/\D/g, "").slice(-8)}`;
+  }
+}
+
 export class WhatsAppNumberRegistry {
-  constructor({ store = null, eventBus = null } = {}) {
+  constructor({ store = null, eventBus = null, orgUnits = null } = {}) {
     this.store = store;
     this.eventBus = eventBus;
+    this.orgUnits = orgUnits || null;
     this.numbers = new Map();
     this._hydrate();
   }
@@ -77,10 +86,44 @@ export class WhatsAppNumberRegistry {
   // Response redaction (single authority, mirrors list()): the fingerprint
   // is an internal dedup key derived from the number — API responses carry
   // the masked form only, never the fingerprint.
+  attachOrgUnits(orgUnits) {
+    this.orgUnits = orgUnits || null;
+    return this;
+  }
+
   _safe(n) {
     if (!n || typeof n !== "object") return n;
-    const { fingerprint: _fp, ...safe } = n;
+    const { fingerprint: _fp, globalFingerprint: _gfp, ...safe } = n;
     return safe;
+  }
+
+  /** Resolve an organization/branch unit and its ancestry. Never crosses
+   *  tenant boundaries. Optional: callers without org units keep working. */
+  _resolveUnit(unitId, tenantScope) {
+    if (!unitId) return null;
+    if (!this.orgUnits || typeof this.orgUnits.get !== "function") {
+      throw fail("ORG_UNIT_REGISTRY_UNAVAILABLE", "number assignment requires the organization-unit registry.");
+    }
+    const unit = this.orgUnits.get(String(unitId), { tenantScope: String(tenantScope || "default") });
+    if (!unit) throw fail("ORG_UNIT_NOT_FOUND", String(unitId));
+    if (unit.status && unit.status !== "ACTIVE") throw fail("ORG_UNIT_INACTIVE", String(unitId));
+    let path = [];
+    try { path = this.orgUnits.ancestry(unit.unitId, { tenantScope: unit.tenantScope }) || []; } catch {}
+    const root = path[0] || null;
+    return {
+      unitId: unit.unitId,
+      unitType: unit.type,
+      unitPath: path.map((p) => `${p.type}:${p.name}`).slice(0, 10),
+      organization: root?.name || null
+    };
+  }
+
+  _conflict(globalFp, exceptId = null) {
+    for (const n of this.numbers.values()) {
+      if (n.id === exceptId) continue;
+      if (n.globalFingerprint === globalFp && n.state !== "DISABLED") return n;
+    }
+    return null;
   }
 
   _touch(n, to, { actor = "SYSTEM", reason = "" } = {}) {
@@ -91,7 +134,7 @@ export class WhatsAppNumberRegistry {
     return n;
   }
 
-  addNumber({ number = null, provider = "AWBULI", tenantScope = "default", purpose = "GENERAL", label = null, actor = "SYSTEM" } = {}) {
+  addNumber({ number = null, provider = "AWBULI", tenantScope = "default", purpose = "GENERAL", label = null, unitId = null, organization = null, actor = "SYSTEM" } = {}) {
     if (!number) throw fail("NUMBER_REQUIRED");
     const e164 = normalizeE164(number);
     const scope = String(tenantScope || "default").slice(0, 80);
@@ -99,14 +142,22 @@ export class WhatsAppNumberRegistry {
     for (const n of this.numbers.values()) {
       if (n.fingerprint === fp && n.state !== "DISABLED") throw fail("NUMBER_EXISTS", maskE164(e164));
     }
+    const gfp = globalFingerprint(e164);
+    if (this._conflict(gfp)) throw fail("NUMBER_ALREADY_REGISTERED", "this number is already an active sender identity on another tenant or record.");
+    const unit = this._resolveUnit(unitId, scope);
     const rec = {
       id: `WA-${Date.now().toString(36).toUpperCase()}-${fp.slice(3, 7).toUpperCase()}`,
       masked: maskE164(e164),
       fingerprint: fp,
+      globalFingerprint: gfp,
       provider: String(provider || "AWBULI").slice(0, 80),
       tenantScope: scope,
       purpose: String(purpose || "GENERAL").slice(0, 120),
       label: label ? String(label).slice(0, 120) : null,
+      unitId: unit?.unitId || null,
+      unitType: unit?.unitType || null,
+      unitPath: unit?.unitPath || null,
+      organization: organization ? String(organization).slice(0, 200) : (unit?.organization || null),
       isDefault: false,
       state: "UNVERIFIED",
       verification: null,
@@ -117,7 +168,7 @@ export class WhatsAppNumberRegistry {
     };
     this.numbers.set(rec.id, rec);
     this._persist();
-    this._audit("NUMBER_ADDED", { id: rec.id, masked: rec.masked, tenantScope: scope });
+    this._audit("NUMBER_ADDED", { id: rec.id, masked: rec.masked, tenantScope: scope, unitId: rec.unitId || null });
     return this._safe({ ...rec });
   }
 
@@ -130,22 +181,54 @@ export class WhatsAppNumberRegistry {
     const out = [];
     for (const n of this.numbers.values()) {
       if (tenantScope && n.tenantScope !== String(tenantScope) && n.tenantScope !== "default") continue;
-      const { fingerprint: _fp, ...safe } = n;
-      out.push(safe);
+      out.push(this._safe(n));
     }
     return out.sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)));
   }
 
-  editNumber(id, { label, purpose, tenantScope, actor = "SYSTEM" } = {}) {
+  editNumber(id, { label, purpose, tenantScope, unitId, organization, actor = "SYSTEM" } = {}) {
     const n = this.numbers.get(String(id || ""));
     if (!n) throw fail("NUMBER_NOT_FOUND", String(id));
     if (label !== undefined) n.label = label ? String(label).slice(0, 120) : null;
     if (purpose !== undefined) n.purpose = String(purpose || "GENERAL").slice(0, 120);
-    if (tenantScope !== undefined) n.tenantScope = String(tenantScope || "default").slice(0, 80);
+    if (tenantScope !== undefined) {
+      const nextScope = String(tenantScope || "default").slice(0, 80);
+      if (nextScope !== n.tenantScope) {
+        // The full number is never persisted, so its tenant-scoped
+        // fingerprint cannot be recomputed safely. Moving a sender identity
+        // across tenants therefore requires a fresh registration (and a
+        // fresh verification) rather than silent reassignment.
+        throw fail("NUMBER_TENANT_IMMUTABLE", "re-register the number for the target tenant; history stays with the original tenant.");
+      }
+    }
+    if (unitId !== undefined) {
+      const unit = this._resolveUnit(unitId, n.tenantScope);
+      n.unitId = unit?.unitId || null;
+      n.unitType = unit?.unitType || null;
+      n.unitPath = unit?.unitPath || null;
+      if (unit?.organization) n.organization = unit.organization;
+    }
+    if (organization !== undefined) n.organization = organization ? String(organization).slice(0, 200) : null;
     n.updatedAt = nowIso();
     this._persist();
-    this._audit("NUMBER_EDITED", { id: n.id, masked: n.masked, actor: String(actor).slice(0, 120) });
+    this._audit("NUMBER_EDITED", { id: n.id, masked: n.masked, actor: String(actor).slice(0, 120), unitId: n.unitId || null });
     return this._safe({ ...n });
+  }
+
+  /** Owner-facing aggregate for public/readiness surfaces. Counts only; no
+   *  numbers, fingerprints or tenant records leak. */
+  summary({ tenantScope = null } = {}) {
+    const rows = this.list({ tenantScope });
+    const states = {};
+    for (const r of rows) states[r.state] = (states[r.state] || 0) + 1;
+    return {
+      total: rows.length,
+      states,
+      verified: (states.VERIFIED || 0) + (states.ENABLED || 0) + (states.SUSPENDED || 0),
+      enabled: states.ENABLED || 0,
+      defaultConfigured: rows.some((r) => r.isDefault === true),
+      live: false
+    };
   }
 
   /** Metadata verification only: records evidence of ownership checks performed

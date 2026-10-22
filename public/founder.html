@@ -235,15 +235,25 @@ body, .ade-enterprise-theme {
 </style>
 </head>
 <body class="ade-enterprise-theme"><div id="root"></div>
+<script>
+(function(){
+ if(window.React&&window.ReactDOM)return;
+ var root=document.getElementById('root');
+ if(!root)return;
+ root.innerHTML='<main style="min-height:100vh;display:grid;place-items:center;padding:24px;background:#07111f;color:#e8ecf2;font-family:system-ui,-apple-system,Segoe UI,sans-serif"><div style="max-width:560px"><h1 style="font-size:20px;color:#d4a843;margin:0 0 10px">ADE Founder Controls could not load</h1><p style="line-height:1.6;margin:0 0 16px">The interface library (React) did not load from its content delivery network. Check this device network or content-blocking settings, then retry.</p><button type="button" onclick="location.reload()" style="min-height:44px;padding:10px 18px;border:1px solid #d4a843;border-radius:10px;background:transparent;color:#f0c75e;font-weight:800;letter-spacing:.08em;cursor:pointer">RETRY</button></div></main>';
+})();
+</script>
 <script src="/js/ade-pin-state.js"></script>
 <script>
 (()=>{
 const {useEffect,useMemo,useState,useCallback,useRef}=React;
 const h=React.createElement;
 
-  const TABS=['AWBULI','OVERVIEW','INBOX','WORKFORCE','PILOTS','PARTNERS','INTEGRATIONS','TRADING','FOREX','BINARY','GAMING','LIVE ENGAGEMENT & TRADING PORTAL','FEATURE CONTROL','PRODUCT THEATER','ANNOUNCEMENTS','AUDIT','EXTERNAL SERVICES'];
+  const TABS=['AWBULI','OVERVIEW','INBOX','WORKFORCE','PILOTS','COMMERCIAL','PARTNERS','INTEGRATIONS','TRADING','FOREX','BINARY','GAMING','LIVE ENGAGEMENT & TRADING PORTAL','FEATURE CONTROL','PRODUCT THEATER','ANNOUNCEMENTS','AUDIT','EXTERNAL SERVICES'];
 const PILOT_STAGES=['PROSPECT','QUALIFIED','ASSESSMENT','BASELINE','PILOT','HUMAN REVIEW','IMPLEMENTATION','RE-MEASUREMENT','EVIDENCE','SUCCESS'];
 const ROLES=['FOUNDER','ADMIN','OPERATOR','ANALYST','PARTNER','VIEWER'];
+const AUTHORITY_ROLES=['VIEWER','ANALYST','OPERATOR','ADMIN','FOUNDER'];const authorityOf=(role)=>AUTHORITY_ROLES.indexOf(String(role||'').toUpperCase());
+const inviteRolesFor=(accessRole)=>{const r=String(accessRole||'').toUpperCase();if(r==='FOUNDER')return ['ADMIN','OPERATOR','ANALYST','VIEWER'];if(r==='ADMIN')return ['OPERATOR','ANALYST','VIEWER'];return ['ANALYST','VIEWER'];};
 const PARTNER_TYPES=['TECHNOLOGY','CONSULTING','CHANNEL','STRATEGIC','RESELLER','IMPLEMENTATION'];
 const SCREENING=['SUBMITTED','VALIDATED','REVIEW','APPROVED','INVITED','ACTIVE'];
 const CONN_TYPES=['REST','WEBHOOK','OAUTH2'];
@@ -286,6 +296,9 @@ const heroShieldBg='url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/200
   // a fresh elevated Founder token alive when a stale in-flight base-token
   // request fails right after PIN step-up (base token is revoked on elevate).
   const tokenRef=useRef(null);
+  // Tracks the token whose session-cookie reconciliation has already been
+  // requested, so the re-validation dispatch happens at most once per token.
+  const cookieRecheck=useRef(null);
   useEffect(()=>{tokenRef.current=token},[token]);
   const setToken=(v)=>{tokenRef.current=v;_setToken(v);try{if(v){sessionStorage.setItem('ade_founder_token',v);localStorage.setItem('ade_founder_token',v);sessionStorage.setItem('ade_token',v);localStorage.setItem('ade_token',v);}else{sessionStorage.removeItem('ade_founder_token');localStorage.removeItem('ade_founder_token');sessionStorage.removeItem('ade_token');localStorage.removeItem('ade_token');}}catch{}};
   const [identity,setIdentity]=useState(()=>{try{const a=sessionStorage.getItem('ade_founder_identity');const b=localStorage.getItem('ade_founder_identity');const s=a||b;return s?JSON.parse(s):null}catch{return null}});
@@ -344,6 +357,9 @@ const heroShieldBg='url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/200
   const [pilotCandidates,setPilotCandidates]=useState([]);
   const [pilotRegistry,setPilotRegistry]=useState([]);
   const [pilotStats,setPilotStats]=useState(null);
+  const [commercialData,setCommercialData]=useState({overview:null,organizations:[],opportunities:[],proposals:[],agreements:[],pilots:[],inbound:[],revenue:[],costs:[],commissions:[],decisions:[]});
+  const [commercialForm,setCommercialForm]=useState({orgName:'',orgType:'PROSPECT',orgCountry:'',oppTitle:'',oppOrgId:'',currency:'USD',proposedMinor:'',proposalOppId:'',proposalTitle:'',proposalAmount:'',agreementOppId:'',agreementRateBps:'1000',pilotOppId:'',pilotProduct:'ADE',pilotCriteria:'',inboundProvider:'MANUAL',inboundMessageId:'',inboundSender:'',inboundSubject:'',inboundBody:'',revenueOppId:'',revenueKind:'PROPOSED',revenueAmount:'',revenueReference:'',revenueEvidence:'',costCategory:'DELIVERY',costAmount:'',costCurrency:'USD',costEvidence:'',decisionOppId:'',decisionType:'CONTINUE',decisionRationale:'',decisionEvidence:''});
+  const [commercialBusy,setCommercialBusy]=useState(false);
   const [aiProviders,setAiProviders]=useState(null);
   const [uptimeStatus,setUptimeStatus]=useState(null);
   const [extBusy,setExtBusy]=useState(false);
@@ -380,7 +396,7 @@ const heroShieldBg='url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/200
  const notify=m=>{setToast(m);setTimeout(()=>setToast(''),3000)};
   const adeGetCookie=(n)=>{try{const m=String(document.cookie||'').match(new RegExp('(?:^|;\\s*)'+n+'=([^;]*)'));return m?decodeURIComponent(m[1]):null;}catch{return null;}};
   const adeHasSessionCookies=()=>{try{return Boolean(adeGetCookie('ade_token'))&&Boolean(adeGetCookie('ade_elevated'));}catch{return false;}};
-  const adeVerifySessionCookies=()=>{try{if(token&&!adeHasSessionCookies()){/* elevated token in memory but cookies missing after page switch — re-validate instead of logout redirect */try{setValidateSeq(s=>s+1);}catch{}}return true;}catch{return false;}};
+   const adeSessionCookiesMissing=()=>{try{return Boolean(token)&&!adeHasSessionCookies()}catch{return false;}};
 
    const clearSession=()=>{
     setToken(null);setIdentity(null);setSessionMeta(null);setServerAuth(null);setAuthPhase('login');setAdminPinMode(false);
@@ -422,6 +438,19 @@ const heroShieldBg='url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/200
    }
    return d;
   },[token]);
+
+  const reloadCommercial=useCallback(async()=>{
+   const j=async(u)=>{try{return await api(u)}catch(e){return null}};
+   const [ov,orgs,opps,prp,agr,plt,inb,rev,cost,com,dec]=await Promise.all([
+    j('/api/v1/commercial/overview'),j('/api/v1/commercial/organizations'),j('/api/v1/commercial/opportunities'),
+    j('/api/v1/commercial/proposals'),j('/api/v1/commercial/agreements'),j('/api/v1/commercial/pilots'),
+    j('/api/v1/commercial/inbound'),j('/api/v1/commercial/revenue'),j('/api/v1/commercial/costs'),
+    j('/api/v1/commercial/commissions'),j('/api/v1/commercial/decisions')
+   ]);
+   setCommercialData({overview:ov?.overview||null,organizations:orgs?.organizations||[],opportunities:opps?.opportunities||[],proposals:prp?.proposals||[],agreements:agr?.agreements||[],pilots:plt?.pilots||[],inbound:inb?.inbound||[],revenue:rev?.revenue||[],costs:cost?.costs||[],commissions:com?.commissions||[],decisions:dec?.decisions||[]});
+  },[api]);
+  const cf=(k,v)=>setCommercialForm(f=>({...f,[k]:v}));
+  const postCommercial=async(url,body,okMsg)=>{setCommercialBusy(true);try{await api(url,{method:'POST',body:JSON.stringify(body||{})});await reloadCommercial();notify(okMsg||'Commercial record saved')}catch(e){notify(e.message)}finally{setCommercialBusy(false)}};
 
   // Boot validation: a stored token proves NOTHING until the server resolves it.
   // States: checking → active (server person+claims) | login (invalid) | failed (unreachable, token kept for retry).
@@ -487,7 +516,7 @@ const heroShieldBg='url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/200
   return()=>{es.close();setStreamState('DISCONNECTED')};
  },[token]);
 
-  try{adeVerifySessionCookies&&adeVerifySessionCookies();}catch{};const refreshAll=useCallback(async()=>{
+  const refreshAll=useCallback(async()=>{
    if(!token)return;
    const j=async(u)=>{try{return await api(u)}catch(e){return null}};
    const [a,b,c,d,e,f,g,ov,m,diag,att,ai,up,ps]=await Promise.all([
@@ -508,6 +537,24 @@ const heroShieldBg='url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/200
 
  useEffect(()=>{refreshAll();const p=setInterval(refreshAll,20000);return()=>clearInterval(p)},[refreshAll]);
 
+ // Session-cookie reconciliation MUST NOT run during render. setValidateSeq is a
+ // state dispatch, and a dispatch in the render phase makes React re-render this
+ // component immediately; because the counter always changes, the dispatch
+ // repeats until React aborts with "Too many re-renders" and unmounts the whole
+ // Founder console (white screen). That happened whenever a stored token
+ // outlived its session cookies — the exact "page switch" case this check
+ // exists for. Run it after commit, and request re-validation at most once per
+ // token so the re-render can settle.
+ useEffect(()=>{
+  try{
+   if(!adeSessionCookiesMissing()){cookieRecheck.current=null;return}
+   if(cookieRecheck.current===token)return;
+   cookieRecheck.current=token;
+   setValidateSeq(s=>s+1);
+  }catch{}
+ });
+
+
  useEffect(()=>{if(!token)return;
   const loadTab=async()=>{
    if(tab==='AWBULI'){return TAB_AWBULI();}
@@ -518,6 +565,8 @@ const heroShieldBg='url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/200
    }else if(tab==='PILOTS'){
     const [cand,reg]=await Promise.all([api('/api/v1/procarta/pilot-candidates'),api('/api/v1/procarta/pilot/registry')]);
     if(cand)setPilotCandidates(cand.candidates||[]);if(reg){setPilotRegistry(reg.records||[]);setPilotStats(reg.stats||null)}
+   }else if(tab==='COMMERCIAL'){
+    await reloadCommercial();
    }else if(tab==='PARTNERS'){
     const r=await api('/api/v1/admin/partners');if(r)setPartners(r.partners||[]);
    }else if(tab==='INTEGRATIONS'){
@@ -621,7 +670,7 @@ const heroShieldBg='url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/200
    try{
     const body={
      fullName:inviteForm.fullName,
-     role:inviteForm.role,
+     role:inviteRolesFor(_accessRole).includes(inviteForm.role)?inviteForm.role:inviteRolesFor(_accessRole)[0],
      expiresInDays:Math.max(1,Math.min(90,Number(inviteForm.expiryDays)||30)),
      username:inviteForm.username,
      email:inviteForm.email,
@@ -722,6 +771,7 @@ const heroShieldBg='url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/200
     const roleName=srvRole||'—';
     const _accessRole=srvRole||(isLegacyAdmin?'ADMIN':'—');
     const isFounder=srvPersona==='WORKFORCE'&&srvRole==='FOUNDER';
+    const canManagePeople=isLegacyAdmin||((_accessRole==='FOUNDER'||_accessRole==='ADMIN')&&srvElevated);const actorAuthority=canManagePeople?authorityOf(isLegacyAdmin?'ADMIN':_accessRole):-1;const actorPersonId=String((serverAuth&&serverAuth.person&&serverAuth.person.id)||'');
    const visibleTabs=(()=>{
     if(isFounder) return TABS;
     const all=TABS.slice();
@@ -998,7 +1048,7 @@ const heroShieldBg='url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/200
      ),
      h('div',{className:'formRow'},
       h('div',null,h('label',{className:'fieldLabel'},'USERNAME'),h('input',{className:'formInput',value:inviteForm.username,onChange:e=>setInviteForm({...inviteForm,username:e.target.value}),placeholder:'username'})),
-      h('div',null,h('label',{className:'fieldLabel'},'ROLE'),h('select',{className:'formInput',value:inviteForm.role,onChange:e=>setInviteForm({...inviteForm,role:e.target.value})},ROLES.map(r=>h('option',{key:r,value:r},r))))
+      h('div',null,h('label',{className:'fieldLabel'},'ROLE'),h('select',{className:'formInput',value:inviteRolesFor(_accessRole).includes(inviteForm.role)?inviteForm.role:inviteRolesFor(_accessRole)[0],onChange:e=>setInviteForm({...inviteForm,role:e.target.value})},inviteRolesFor(_accessRole).map(r=>h('option',{key:r,value:r},r))))
      ),
      h('div',{className:'formRow'},
       h('div',null,h('label',{className:'fieldLabel'},'ORGANIZATION'),h('input',{className:'formInput',value:inviteForm.organization,onChange:e=>setInviteForm({...inviteForm,organization:e.target.value}),placeholder:'Organization'})),
@@ -1037,22 +1087,26 @@ const heroShieldBg='url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/200
     workforce?.persons?.length?h('div',{className:'tableWrap'},
      h('table',null,
       h('thead',null,h('tr',null,h('th',null,'NAME'),h('th',null,'USERNAME'),h('th',null,'ROLE'),h('th',null,'STATUS'),h('th',null,'EMAIL'),h('th',null,'CREATED'),h('th',null,'EXPIRY'),h('th',null,'ACTIONS'))),
-      h('tbody',null,workforce.persons.map(p=>h('tr',{key:p.id},
-       h('td',{style:{color:'var(--ink)',fontWeight:600}},p.fullName||p.username),
-       h('td',{style:{fontFamily:'ui-monospace,Consolas,monospace',fontSize:11}},'@'+p.username),
-       h('td',null,B(p.role,p.role==='FOUNDER'?'gold':p.role==='ADMIN'?'warn':'muted')),
-       h('td',null,B(p.status,p.status==='ACTIVE'?'good':p.status==='SUSPENDED'?'bad':'muted')),
-       h('td',null,p.email||'—'),
-       h('td',null,fmtDate(p.createdAt)),
+h('tbody',null,workforce.persons.map(p=>{
+const promoteBtn=(function(){const i=AUTHORITY_ROLES.indexOf(p.role);const next=i>=0&&i<AUTHORITY_ROLES.length-1?AUTHORITY_ROLES[i+1]:null;if(!next||p.role==='FOUNDER')return null;if(actorPersonId&&String(p.id)===actorPersonId)return null;if(authorityOf(p.role)>actorAuthority)return null;if(authorityOf(next)>=actorAuthority)return null;return h('button',{className:'btn sm',onClick:()=>doPromote(p.id,next)},'↑ Promote to '+next)})();
+        const demoteBtn=(function(){const i=AUTHORITY_ROLES.indexOf(p.role);const prev=i>0?AUTHORITY_ROLES[i-1]:null;if(!prev||p.role==='VIEWER'||p.role==='FOUNDER')return null;if(actorPersonId&&String(p.id)===actorPersonId)return null;if(authorityOf(p.role)>actorAuthority)return null;if(authorityOf(prev)>=actorAuthority)return null;return h('button',{className:'btn sm',onClick:()=>doDemote(p.id,prev)},'↓ Demote to '+prev)})();
+       return h('tr',{key:p.id},
+        h('td',{style:{color:'var(--ink)',fontWeight:600}},p.fullName||p.username),
+        h('td',{style:{fontFamily:'ui-monospace,Consolas,monospace',fontSize:11}},'@'+p.username),
+        h('td',null,B(p.role,p.role==='FOUNDER'?'gold':p.role==='ADMIN'?'warn':'muted')),
+        h('td',null,B(p.status,p.status==='ACTIVE'?'good':p.status==='SUSPENDED'?'bad':'muted')),
+        h('td',null,p.email||'—'),
+        h('td',null,fmtDate(p.createdAt)),
         h('td',null,p.status==='INVITED'?(p.invitationExpiresAt?fmtDate(p.invitationExpiresAt)+(p.invitationRemainingMs!=null?' ('+Math.max(0,Math.ceil(p.invitationRemainingMs/86400000))+'d left)':''):'—'):(p.accessExpiryAt?fmtDate(p.accessExpiryAt):'—')),
-       h('td',null,h('div',{className:'actions'},
-        p.role!=='FOUNDER'&&h('button',{className:'btn sm',onClick:()=>doPromote(p.id,ROLES[Math.min(ROLES.indexOf(p.role)+1,ROLES.length-1)])},'↑ Promote'),
-        p.role!=='VIEWER'&&h('button',{className:'btn sm',onClick:()=>doDemote(p.id,ROLES[Math.max(ROLES.indexOf(p.role)-1,0)])},'↓ Demote'),
-        p.status==='ACTIVE'?h('button',{className:'btn sm danger',onClick:()=>doSuspend(p.id)},'⊘ Suspend'):h('button',{className:'btn sm',onClick:()=>doActivate(p.id)},'✓ Activate'),
-        h('button',{className:'btn sm',onClick:()=>doResetPw(p.id)},'🔑 Reset PW'),
-        h('button',{className:'btn sm',onClick:()=>doResetPin(p.id)},'🔒 Reset PIN')
-       ))
-      )))
+        h('td',null,canManagePeople?h('div',{className:'actions'},
+         promoteBtn,
+         demoteBtn,
+         p.status==='ACTIVE'?h('button',{className:'btn sm danger',onClick:()=>doSuspend(p.id)},'⊘ Suspend'):h('button',{className:'btn sm',onClick:()=>doActivate(p.id)},'✓ Activate'),
+         h('button',{className:'btn sm',onClick:()=>doResetPw(p.id)},'🔑 Reset PW'),
+         h('button',{className:'btn sm',onClick:()=>doResetPin(p.id)},'🔒 Reset PIN')
+        ):h('span',{className:'muted'},'Manage: read-only'))
+       )
+      }))
      )
     ):h(EmptyState,{title:'No workforce members yet',desc:'This roster lists every invited person who can operate ADE. It is empty because no invitations have been created or accepted yet. Use the form above to invite your first teammate.',hint:'WHAT: Workforce roster · WHY EMPTY: no invitations yet · WHAT TO DO: Create your first invitation above',actionLabel:'Create your first invitation above',actionFn:()=>{try{const el=document.querySelector(".formInput");if(el)el.focus();window.scrollTo({top:0,behavior:"smooth"})}catch{}},iconSize:36})
    )
@@ -1506,7 +1560,136 @@ const heroShieldBg='url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/200
      ))
     )
    );
-   const tabContent={AWBULI:TAB_AWBULI, OVERVIEW:TAB_OVERVIEW,INBOX:TAB_INBOX,WORKFORCE:TAB_WORKFORCE,PILOTS:TAB_PILOTS,PARTNERS:TAB_PARTNERS,INTEGRATIONS:TAB_INTEGRATIONS,TRADING:TAB_TRADING,FOREX:TAB_FOREX,BINARY:TAB_BINARY,GAMING:TAB_GAMING,'LIVE ENGAGEMENT & TRADING PORTAL':TAB_LIVE,'FEATURE CONTROL':TAB_FEATURES,'PRODUCT THEATER':TAB_THEATER,ANNOUNCEMENTS:TAB_ANNOUNCEMENTS,AUDIT:TAB_AUDIT,'EXTERNAL SERVICES':TAB_EXTERNAL_SERVICES};
+    /* ── COMMERCIAL ── */
+    const TAB_COMMERCIAL=()=>{
+     const d=commercialData||{};const f=commercialForm||{};const ov=d.overview||{};const pl=ov.pipeline||{};
+     const money=(v,c)=>v==null?'—':(Number(v)/100).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})+(c?' '+c:'');
+     const minor=v=>v==null?'—':Number(v).toLocaleString();
+     const badge=(v,cls)=>h('span',{className:'badge '+(cls||'muted')},v);
+     const field=(label,control)=>h('div',null,h('label',{className:'fieldLabel'},label),control);
+     const inp=(k,ph,type)=>h('input',{className:'formInput',type:type||'text',value:f[k]??'',onChange:e=>cf(k,e.target.value),placeholder:ph||'',disabled:commercialBusy});
+     const sel=(k,opts)=>h('select',{className:'formInput',value:f[k],onChange:e=>cf(k,e.target.value),disabled:commercialBusy},opts.map(o=>h('option',{key:o,value:o},o)));
+     const area=(k,ph)=>h('textarea',{className:'formInput',rows:2,value:f[k]??'',onChange:e=>cf(k,e.target.value),placeholder:ph||'',disabled:commercialBusy});
+     const orgName=id=>{const o=(d.organizations||[]).find(x=>x.id===id);return o?o.name:(id||'—')};
+     const orgSelect=k=>h('select',{className:'formInput',value:f[k]||'',onChange:e=>cf(k,e.target.value),disabled:commercialBusy},[h('option',{key:'',value:''},'— select organization —')].concat((d.organizations||[]).map(o=>h('option',{key:o.id,value:o.id},o.name))));
+     const oppSelect=k=>h('select',{className:'formInput',value:f[k]||'',onChange:e=>cf(k,e.target.value),disabled:commercialBusy},[h('option',{key:'',value:''},'— select opportunity —')].concat((d.opportunities||[]).map(o=>h('option',{key:o.id,value:o.id},o.title+' · '+o.stage))));
+     const move=id=>{const to=prompt('Target stage (DISCOVERED, QUALIFIED, CONTACTED, RESPONDED, MEETING, PROPOSAL, NEGOTIATION, AGREEMENT, PILOT, PAID_VALIDATED, ONBOARDING, ACTIVE_CUSTOMER, FOLLOW_UP_REQUIRED, PAUSED, DISQUALIFIED, LOST):','QUALIFIED');if(!to)return;const reason=prompt('Reason (required for DISQUALIFIED/LOST):')||'';postCommercial('/api/v1/commercial/opportunities/'+encodeURIComponent(id)+'/transition',{to:to.trim().toUpperCase(),reason},'Opportunity moved')};
+     const setProposal=(id,status)=>postCommercial('/api/v1/commercial/proposals/'+encodeURIComponent(id)+'/status',{status},'Proposal updated');
+     const approveAgreement=id=>{const evidenceRef=prompt('Approval evidence reference (required):');if(!evidenceRef)return;postCommercial('/api/v1/commercial/agreements/'+encodeURIComponent(id)+'/approve',{evidenceRef,note:'Founder approval'},'Agreement approved')};
+     const computeCommission=id=>postCommercial('/api/v1/commercial/agreements/'+encodeURIComponent(id)+'/commission',{},'Commission computed from collected revenue');
+     const settleCommission=id=>{const settlementRef=prompt('Settlement reference (required):');if(!settlementRef)return;postCommercial('/api/v1/commercial/commissions/'+encodeURIComponent(id)+'/settle',{settlementRef},'Commission settled')};
+     const addMilestone=id=>{const title=prompt('Milestone title:');if(!title)return;const evidenceRef=prompt('Evidence reference (optional):')||null;postCommercial('/api/v1/commercial/pilots/'+encodeURIComponent(id)+'/milestones',{title,evidenceRef},'Milestone added')};
+     const setMilestone=(pilot,m)=>{const ev=prompt('Evidence reference for '+m.title+' (required for MET):');if(!ev)return;postCommercial('/api/v1/commercial/pilots/'+encodeURIComponent(pilot.id)+'/milestones/'+encodeURIComponent(m.id)+'/status',{status:m.status==='MET'?'PENDING':'MET',evidenceRef:ev},'Milestone updated')};
+     const linkInbound=id=>{const opportunityId=prompt('Opportunity ID to link:');if(!opportunityId)return;postCommercial('/api/v1/commercial/inbound/'+encodeURIComponent(id)+'/link',{opportunityId},'Inbound linked')};
+     const createOrg=()=>{if(!String(f.orgName||'').trim()){notify('Organization name required');return}postCommercial('/api/v1/commercial/organizations',{name:f.orgName,type:f.orgType,country:f.orgCountry},'Organization created')};
+     const createOpp=()=>{if(!f.oppOrgId){notify('Select an organization');return}postCommercial('/api/v1/commercial/opportunities',{organizationId:f.oppOrgId,title:f.oppTitle,currency:f.currency,proposedMinor:f.proposedMinor===''?null:Number(f.proposedMinor)},'Opportunity created')};
+     const createProposal=()=>postCommercial('/api/v1/commercial/proposals',{opportunityId:f.proposalOppId,title:f.proposalTitle,amountMinor:Number(f.proposalAmount),currency:f.currency},'Proposal created');
+     const createAgreement=()=>postCommercial('/api/v1/commercial/agreements',{opportunityId:f.agreementOppId||null,currency:f.currency,commissionRateBps:Number(f.agreementRateBps)},'Agreement created');
+     const createPilot=()=>postCommercial('/api/v1/commercial/pilots',{opportunityId:f.pilotOppId,product:f.pilotProduct,acceptanceCriteria:String(f.pilotCriteria||'').split(',').map(s=>s.trim()).filter(Boolean),currency:f.currency},'Pilot created');
+     const ingestInbound=()=>postCommercial('/api/v1/commercial/inbound',{provider:f.inboundProvider,providerMessageId:f.inboundMessageId,sender:f.inboundSender,subject:f.inboundSubject,body:f.inboundBody},'Inbound message recorded');
+     const recordRevenue=()=>postCommercial('/api/v1/commercial/revenue',{opportunityId:f.revenueOppId||null,kind:f.revenueKind,amountMinor:Number(f.revenueAmount),currency:f.currency,reference:f.revenueReference,evidenceRef:f.revenueEvidence},'Revenue recorded');
+     const recordCost=()=>postCommercial('/api/v1/commercial/costs',{category:f.costCategory,amountMinor:Number(f.costAmount),currency:f.costCurrency,evidenceRef:f.costEvidence},'Cost recorded');
+     const recordDecision=()=>postCommercial('/api/v1/commercial/decisions',{opportunityId:f.decisionOppId,decision:f.decisionType,rationale:f.decisionRationale,evidence:String(f.decisionEvidence||'').split(',').map(s=>s.trim()).filter(Boolean)},'Decision recorded');
+     return h('div',{className:'stack'},
+      h('div',{className:'card'},h('div',{className:'panelTitle'},h('h3',null,'COMMERCIAL OPERATIONS'),h('span',null,ov.generatedAt?'UPDATED '+fmtTime(ov.generatedAt):'NO DATA')),
+       h('div',{className:'cardBody'},
+        h('div',{style:{display:'flex',gap:6,flexWrap:'wrap'}},
+         badge('OPPORTUNITIES '+((ov.opportunities||{}).total||0),'gold'),
+         badge('OVERDUE FOLLOW-UPS '+((ov.opportunities||{}).overdueFollowUps||0),((ov.opportunities||{}).overdueFollowUps?'warn':'muted')),
+         badge('COLLECTED (MINOR) '+minor(pl.collectedMinor),'good'),
+         badge('INVOICED (MINOR) '+minor(pl.invoicedMinor),'blue'),
+         badge('COSTS (MINOR) '+minor((ov.costs||{}).totalMinor),'muted'),
+         badge('COMMISSIONS ACCRUED (MINOR) '+minor((ov.commissions||{}).accruedMinor),'warn')
+        ),
+        h('div',{className:'formHint',style:{marginTop:8}},'Partner access: '+(ov.partnerAccess?.enabled?'ENABLED':'DISABLED — '+String(ov.partnerAccess?.reason||'NO_AUTHORIZED_PARTNER_IDENTITY'))),
+        (ov.evidenceGaps||[]).length?h('div',{style:{display:'flex',gap:6,flexWrap:'wrap',marginTop:8}},ov.evidenceGaps.map(g=>badge(g,'warn'))):null,
+        h('div',{style:{marginTop:10}},h('button',{className:'btn sm',onClick:()=>reloadCommercial(),disabled:commercialBusy},commercialBusy?'REFRESHING…':'REFRESH'))
+       )
+      ),
+      h('div',{className:'card'},h('div',{className:'panelTitle'},h('h3',null,'ORGANIZATIONS'),h('span',null,(d.organizations||[]).length+' RECORDS')),
+       h('div',{className:'cardBody'},h('div',{className:'formGrid'},
+        h('div',{className:'formRow'},field('ORGANIZATION NAME',inp('orgName','Acme Holdings')),field('TYPE',sel('orgType',['PROSPECT','CUSTOMER','VENTURE_STUDIO','INVESTOR','GTM_AGENCY','IMPLEMENTATION_PARTNER','CHANNEL_PARTNER','PARTNER','OTHER']))),
+        h('div',{className:'formRow'},field('COUNTRY',inp('orgCountry','Country')),h('div',null,h('button',{className:'btn primary',onClick:createOrg,disabled:commercialBusy},'CREATE ORGANIZATION'))),
+        (d.organizations||[]).length?h('div',{className:'tableWrap'},h('table',null,h('thead',null,h('tr',null,h('th',null,'NAME'),h('th',null,'TYPE'),h('th',null,'COUNTRY'),h('th',null,'ID'))),h('tbody',null,(d.organizations||[]).map(o=>h('tr',{key:o.id},h('td',{style:{color:'var(--ink)',fontWeight:600}},o.name),h('td',null,badge(o.type,'blue')),h('td',null,o.country||'—'),h('td',{style:{fontFamily:'ui-monospace,Consolas,monospace',fontSize:11,color:'var(--gold)'}},o.id)))))):h(EmptyState,{title:'No organizations yet',desc:'Create the prospect or customer organization before opening an opportunity.',iconSize:28})
+       ))
+      ),
+      h('div',{className:'card'},h('div',{className:'panelTitle'},h('h3',null,'PIPELINE'),h('span',null,(d.opportunities||[]).length+' OPPORTUNITIES')),
+       h('div',{className:'cardBody'},h('div',{className:'formGrid'},
+        h('div',{className:'formRow'},field('ORGANIZATION',orgSelect('oppOrgId')),field('TITLE',inp('oppTitle','Opportunity title'))),
+        h('div',{className:'formRow'},field('CURRENCY',inp('currency','USD')),field('PROPOSED AMOUNT (MINOR)',inp('proposedMinor','e.g. 250000','number'))),
+        h('div',null,h('button',{className:'btn primary',onClick:createOpp,disabled:commercialBusy},'CREATE OPPORTUNITY')),
+        (d.opportunities||[]).length?h('div',{className:'tableWrap'},h('table',null,h('thead',null,h('tr',null,h('th',null,'ORGANIZATION'),h('th',null,'TITLE'),h('th',null,'STAGE'),h('th',null,'PROPOSED'),h('th',null,'NEXT ACTION'),h('th',null,'MOVE'))),h('tbody',null,(d.opportunities||[]).map(o=>h('tr',{key:o.id},h('td',null,orgName(o.organizationId)),h('td',{style:{whiteSpace:'normal',color:'var(--ink)',fontWeight:600}},o.title),h('td',null,badge(o.stage,o.stage==='ACTIVE_CUSTOMER'?'good':(o.stage==='LOST'||o.stage==='DISQUALIFIED')?'bad':o.stage==='PAUSED'?'warn':'blue')),h('td',null,money(o.proposedMinor,o.currency)),h('td',{style:{whiteSpace:'normal'}},o.nextAction||'—'),h('td',null,h('button',{className:'btn sm',onClick:()=>move(o.id),disabled:commercialBusy},'MOVE'))))))):h(EmptyState,{title:'No opportunities yet',desc:'Every commercial conversation is tracked as an opportunity with an explicit stage.',iconSize:28})
+       ))
+      ),
+      h('div',{className:'card'},h('div',{className:'panelTitle'},h('h3',null,'PROPOSALS'),h('span',null,(d.proposals||[]).length+' PROPOSALS')),
+       h('div',{className:'cardBody'},h('div',{className:'formGrid'},
+        h('div',{className:'formRow'},field('OPPORTUNITY',oppSelect('proposalOppId')),field('TITLE',inp('proposalTitle','Proposal title'))),
+        h('div',{className:'formRow'},field('AMOUNT (MINOR)',inp('proposalAmount','e.g. 250000','number')),field('CURRENCY',inp('currency','USD'))),
+        h('div',null,h('button',{className:'btn primary',onClick:createProposal,disabled:commercialBusy},'CREATE PROPOSAL')),
+        (d.proposals||[]).length?h('div',{className:'tableWrap'},h('table',null,h('thead',null,h('tr',null,h('th',null,'TITLE'),h('th',null,'AMOUNT'),h('th',null,'STATUS'),h('th',null,'ACTIONS'))),h('tbody',null,(d.proposals||[]).map(p=>h('tr',{key:p.id},h('td',{style:{whiteSpace:'normal'}},p.title),h('td',null,money(p.amountMinor,p.currency)),h('td',null,badge(p.status,p.status==='ACCEPTED'?'good':p.status==='DRAFT'?'muted':'warn')),h('td',null,h('div',{className:'actions'},p.status==='DRAFT'?h('button',{className:'btn sm',onClick:()=>setProposal(p.id,'SENT'),disabled:commercialBusy},'SEND'):null,p.status==='SENT'?h('button',{className:'btn sm primary',onClick:()=>setProposal(p.id,'ACCEPTED'),disabled:commercialBusy},'ACCEPT'):null,p.status==='SENT'?h('button',{className:'btn sm danger',onClick:()=>setProposal(p.id,'REJECTED'),disabled:commercialBusy},'REJECT'):null))))))):h(EmptyState,{title:'No proposals yet',desc:'A proposal links a priced scope to a pipeline opportunity.',iconSize:28})
+       ))
+      ),
+      h('div',{className:'card'},h('div',{className:'panelTitle'},h('h3',null,'AGREEMENTS & COMMISSIONS'),h('span',null,(d.agreements||[]).length+' AGREEMENTS · '+(d.commissions||[]).length+' COMMISSIONS')),
+       h('div',{className:'cardBody'},h('div',{className:'formGrid'},
+        h('div',{className:'formRow'},field('OPPORTUNITY',oppSelect('agreementOppId')),field('COMMISSION RATE (BPS)',inp('agreementRateBps','1000 = 10%','number'))),
+        h('div',{className:'formRow'},field('CURRENCY',inp('currency','USD')),h('div',null,h('button',{className:'btn primary',onClick:createAgreement,disabled:commercialBusy},'CREATE AGREEMENT'))),
+        (d.agreements||[]).length?h('div',{className:'tableWrap'},h('table',null,h('thead',null,h('tr',null,h('th',null,'ID'),h('th',null,'STATUS'),h('th',null,'RATE'),h('th',null,'APPROVED BY'),h('th',null,'ACTIONS'))),h('tbody',null,(d.agreements||[]).map(a=>h('tr',{key:a.id},h('td',{style:{fontFamily:'ui-monospace,Consolas,monospace',fontSize:11,color:'var(--gold)'}},a.id),h('td',null,badge(a.status,a.status==='ACTIVE'?'good':a.status==='TERMINATED'?'bad':'muted')),h('td',null,(Number(a.commissionRateBps||0)/100).toFixed(2)+'%'),h('td',null,a.approvedBy||'—'),h('td',null,h('div',{className:'actions'},isFounder&&a.status==='DRAFT'?h('button',{className:'btn sm primary',onClick:()=>approveAgreement(a.id),disabled:commercialBusy},'APPROVE'):null,a.status==='ACTIVE'?h('button',{className:'btn sm',onClick:()=>computeCommission(a.id),disabled:commercialBusy},'COMPUTE'):null))))))):null,
+        (d.commissions||[]).length?h('div',{className:'tableWrap',style:{marginTop:10}},h('table',null,h('thead',null,h('tr',null,h('th',null,'AGREEMENT'),h('th',null,'BASE (MINOR)'),h('th',null,'COMMISSION'),h('th',null,'STATUS'),h('th',null,'ACTIONS'))),h('tbody',null,(d.commissions||[]).map(c=>h('tr',{key:c.id},h('td',{style:{fontFamily:'ui-monospace,Consolas,monospace',fontSize:11,color:'var(--gold)'}},c.agreementId),h('td',null,minor(c.commissionBaseMinor)),h('td',null,money(c.amountMinor,c.currency)),h('td',null,badge(c.status,c.status==='PAID'?'good':c.status==='ACCRUED'?'warn':'muted')),h('td',null,isFounder&&c.status==='ACCRUED'?h('button',{className:'btn sm',onClick:()=>settleCommission(c.id),disabled:commercialBusy},'SETTLE'):null)))))):null
+       ))
+      ),
+      h('div',{className:'card'},h('div',{className:'panelTitle'},h('h3',null,'PILOTS'),h('span',null,(d.pilots||[]).length+' PILOTS')),
+       h('div',{className:'cardBody'},h('div',{className:'formGrid'},
+        h('div',{className:'formRow'},field('OPPORTUNITY',oppSelect('pilotOppId')),field('PRODUCT',inp('pilotProduct','ADE'))),
+        h('div',{className:'formRow'},field('ACCEPTANCE CRITERIA (COMMA-SEPARATED)',inp('pilotCriteria','Criterion one, Criterion two')),field('CURRENCY',inp('currency','USD'))),
+        h('div',null,h('button',{className:'btn primary',onClick:createPilot,disabled:commercialBusy},'CREATE PILOT')),
+        (d.pilots||[]).length?h('div',{className:'tableWrap'},h('table',null,
+         h('thead',null,h('tr',null,h('th',null,'PRODUCT'),h('th',null,'STATUS'),h('th',null,'MILESTONES'),h('th',null,'RECOMMENDATION'),h('th',null,'ACTIONS'))),
+         h('tbody',null,(d.pilots||[]).map(p=>{
+          const rec=(ov.pilots||[]).find(x=>x.pilotId===p.id)||{};
+          return h('tr',{key:p.id},
+           h('td',{style:{color:'var(--ink)',fontWeight:600}},p.product),
+           h('td',null,badge(p.status,'blue')),
+           h('td',null,(p.milestones||[]).map(m=>h('button',{key:m.id,className:'btn sm '+(m.status==='MET'?'primary':''),style:{margin:'0 4px 4px 0'},onClick:()=>setMilestone(p,m),disabled:commercialBusy,title:'Toggle milestone status with evidence'},m.status+': '+m.title))),
+           h('td',null,badge(rec.recommendation||'—',rec.recommendation==='EXPAND'?'good':rec.recommendation==='STOP'?'bad':rec.recommendation==='INSUFFICIENT_DATA'?'warn':'blue')),
+           h('td',null,h('button',{className:'btn sm',onClick:()=>addMilestone(p.id),disabled:commercialBusy},'+ MILESTONE'))
+          );
+         }))
+        )):h(EmptyState,{title:'No pilots yet',desc:'A paid pilot must define acceptance criteria and milestone evidence before a Founder recommendation.',iconSize:28})
+       ))
+      ),
+      h('div',{className:'card'},h('div',{className:'panelTitle'},h('h3',null,'INBOUND MESSAGES'),h('span',null,(d.inbound||[]).length+' MESSAGES')),
+       h('div',{className:'cardBody'},h('div',{className:'formGrid'},
+        h('div',{className:'formRow'},field('PROVIDER',sel('inboundProvider',['EMAIL','WHATSAPP','WEBHOOK','FORM','MANUAL','OTHER'])),field('PROVIDER MESSAGE ID',inp('inboundMessageId','Unique provider id'))),
+        h('div',{className:'formRow'},field('SENDER',inp('inboundSender','sender@example.com')),field('SUBJECT',inp('inboundSubject','Subject'))),
+        field('BODY (PLAIN TEXT; UNTRUSTED)',area('inboundBody','Message body')),
+        h('div',null,h('button',{className:'btn primary',onClick:ingestInbound,disabled:commercialBusy},'RECORD INBOUND')),
+        (d.inbound||[]).length?h('div',{className:'tableWrap'},h('table',null,h('thead',null,h('tr',null,h('th',null,'PROVIDER'),h('th',null,'SUBJECT'),h('th',null,'SENDER'),h('th',null,'STATUS'),h('th',null,'ACTION'))),h('tbody',null,(d.inbound||[]).map(m=>h('tr',{key:m.id},h('td',null,badge(m.provider,'blue')),h('td',{style:{whiteSpace:'normal'}},m.subject||'—'),h('td',null,m.sender||'—'),h('td',null,badge(m.status,m.status==='LINKED'?'good':'warn')),h('td',null,h('button',{className:'btn sm',onClick:()=>linkInbound(m.id),disabled:commercialBusy},'LINK'))))))):null
+       ))
+      ),
+      h('div',{className:'card'},h('div',{className:'panelTitle'},h('h3',null,'REVENUE, COSTS & COMMISSIONS'),h('span',null,'EVIDENCE-BOUND FINANCE')),
+       h('div',{className:'cardBody'},h('div',{className:'formGrid'},
+        h('div',{className:'formRow'},field('OPPORTUNITY',oppSelect('revenueOppId')),field('REVENUE KIND',sel('revenueKind',['PROPOSED','INVOICED','COLLECTED','REFUNDED','CHARGEBACK']))),
+        h('div',{className:'formRow'},field('AMOUNT (MINOR)',inp('revenueAmount','e.g. 50000','number')),field('CURRENCY',inp('currency','USD'))),
+        h('div',{className:'formRow'},field('REFERENCE (REQUIRED FOR COLLECTED)',inp('revenueReference','Invoice / payment reference')),field('EVIDENCE REFERENCE (REQUIRED FOR COLLECTED)',inp('revenueEvidence','Bank statement / receipt'))),
+        h('div',null,h('button',{className:'btn primary',onClick:recordRevenue,disabled:commercialBusy},'RECORD REVENUE')),
+        h('div',{className:'formRow'},field('COST CATEGORY',sel('costCategory',['ACQUISITION','DELIVERY','SUPPORT','OTHER'])),field('COST AMOUNT (MINOR)',inp('costAmount','e.g. 15000','number'))),
+        h('div',{className:'formRow'},field('COST CURRENCY',inp('costCurrency','USD')),field('COST EVIDENCE',inp('costEvidence','Receipt / invoice ref'))),
+        h('div',null,h('button',{className:'btn',onClick:recordCost,disabled:commercialBusy},'RECORD COST')),
+        (d.revenue||[]).length?h('div',{className:'tableWrap'},h('table',null,h('thead',null,h('tr',null,h('th',null,'KIND'),h('th',null,'AMOUNT'),h('th',null,'REFERENCE'),h('th',null,'EVIDENCE'),h('th',null,'RECORDED'))),h('tbody',null,(d.revenue||[]).slice().reverse().slice(0,10).map(r=>h('tr',{key:r.id},h('td',null,badge(r.kind,r.kind==='COLLECTED'?'good':r.kind==='PROPOSED'?'muted':r.kind==='INVOICED'?'blue':'warn')),h('td',null,money(r.amountMinor,r.currency)),h('td',null,r.reference||'—'),h('td',null,r.evidenceRef||'—'),h('td',null,fmtDate(r.createdAt))))))):null,
+        h('div',{className:'formHint',style:{marginTop:8}},'Collected revenue requires both a payment reference and an evidence reference. Commission is computed only from collected funds net of refunds and chargebacks.')
+       ))
+      ),
+      isFounder?h('div',{className:'card'},h('div',{className:'panelTitle'},h('h3',null,'FOUNDER DECISIONS'),h('span',null,(d.decisions||[]).length+' RECORDED')),
+       h('div',{className:'cardBody'},h('div',{className:'formGrid'},
+        h('div',{className:'formRow'},field('OPPORTUNITY',oppSelect('decisionOppId')),field('DECISION',sel('decisionType',['CONTINUE','REVISE','EXPAND','PAUSE','STOP']))),
+        field('RATIONALE',area('decisionRationale','Why this decision is justified')),
+        field('EVIDENCE REFERENCES (COMMA-SEPARATED)',inp('decisionEvidence','pilot-report-1, payment-evidence-2')),
+        h('div',null,h('button',{className:'btn primary',onClick:recordDecision,disabled:commercialBusy},'RECORD DECISION')),
+        (d.decisions||[]).length?h('div',{className:'tableWrap'},h('table',null,h('thead',null,h('tr',null,h('th',null,'DECISION'),h('th',null,'OPPORTUNITY'),h('th',null,'RATIONALE'),h('th',null,'EVIDENCE'),h('th',null,'BY'))),h('tbody',null,(d.decisions||[]).map(x=>h('tr',{key:x.id},h('td',null,badge(x.decision,x.decision==='STOP'?'bad':x.decision==='EXPAND'?'good':'blue')),h('td',null,orgName((d.opportunities||[]).find(o=>o.id===x.opportunityId)?.organizationId)||x.opportunityId||'—'),h('td',{style:{whiteSpace:'normal'}},x.rationale),h('td',null,(x.evidence||[]).join(', ')),h('td',null,x.decidedBy)))))):null
+       ))):null
+     );
+    };
+    const tabContent={AWBULI:TAB_AWBULI, OVERVIEW:TAB_OVERVIEW,INBOX:TAB_INBOX,WORKFORCE:TAB_WORKFORCE,PILOTS:TAB_PILOTS,COMMERCIAL:TAB_COMMERCIAL,PARTNERS:TAB_PARTNERS,INTEGRATIONS:TAB_INTEGRATIONS,TRADING:TAB_TRADING,FOREX:TAB_FOREX,BINARY:TAB_BINARY,GAMING:TAB_GAMING,'LIVE ENGAGEMENT & TRADING PORTAL':TAB_LIVE,'FEATURE CONTROL':TAB_FEATURES,'PRODUCT THEATER':TAB_THEATER,ANNOUNCEMENTS:TAB_ANNOUNCEMENTS,AUDIT:TAB_AUDIT,'EXTERNAL SERVICES':TAB_EXTERNAL_SERVICES};
 
  return h('div',{className:'app'},
   h('header',{className:'top'},
@@ -1518,7 +1701,7 @@ const heroShieldBg='url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/200
      h('nav',{className:'topNav'},visibleTabs.map(t=>h('button',{key:t,className:tab===t?'active':'',onClick:()=>{setTab(t);setMenuOpen(false)},title:visibleTabs.length!==TABS.length?('Filtered for '+(_accessRole||'role')):''},t))),
     h('div',{className:'topRight'},
      serverAuth?h('span',{className:'pill',title:'Server-validated · Role: '+(_accessRole||'—')+' · Persona: '+(srvPersona||'—')+' · PIN: '+(srvElevated?'verified':'not verified')},'@'+((serverAuth.person&&serverAuth.person.username)||(identity&&identity.subject)||'—')+' · '+(_accessRole||'—')+' · L'+srvLevel+(srvElevated?' · ELEVATED':' · BASE')):null,
-     ((()=>{try{const _m=String(document.cookie||'').match(/(?:^|;\s*)ade_elevated=([^;]*)/);if(_m)return h('span',{className:'pill',title:'Dual-token elevated session — no auto-logout'},'@FOUNDER · L3 · ELEVATED');}catch{}return null})()||h('span',{className:'pill '+(kernLive?'live':kernStatus==='OFFLINE'?'off':'')},h('i',{className:'dot'}),kernLive?'ONLINE':kernStatus)),
+      h('span',{className:'pill '+(kernLive?'live':kernStatus==='OFFLINE'?'off':'')},h('i',{className:'dot'}),kernLive?'ONLINE':kernStatus),
       h('a',{className:'btn sm',href:'/#/Workspace',title:'Open the canonical ADE role workspace — same server session, shared token'},'WORKSPACE'),
       h('button',{className:'btn sm danger',onClick:logout},'⊘ LOGOUT'),
       h('button',{className:'iconBtn hamburger',onClick:()=>setMenuOpen(v=>!v),'aria-expanded':menuOpen?'true':'false','aria-label':'Toggle navigation',title:'Menu'},menuOpen?'✕':'☰')
@@ -1562,18 +1745,84 @@ ReactDOM.createRoot(document.getElementById('root')).render(h(App));
 <!-- AWBULI FOUNDER INTEGRATION TAB -->
 <script>
 const TAB_AWBULI= () => {
-    return React.createElement('div', { className: 'p-6 bg-slate-900 text-white rounded-2xl shadow-xl' },
-        React.createElement('h2', { className: 'text-2xl font-bold text-amber-400 mb-4' }, 'AWBULI Operational Registry & Channels'),
-        React.createElement('p', { className: 'text-slate-300 mb-4' }, 'Active WhatsApp Business Lines, Ingestion Gateways, and Live Channel Telemetry connected via src/injection/AwbuliChannelAdapter.js.'),
-        React.createElement('div', { className: 'grid grid-cols-1 md:grid-cols-2 gap-4 mt-4' },
-            React.createElement('div', { className: 'p-4 bg-slate-800 rounded-xl border border-slate-700' },
-                React.createElement('h3', { className: 'font-semibold text-cyan-400 mb-2' }, 'WhatsApp Registry Status'),
-                React.createElement('p', { className: 'text-sm text-slate-400' }, 'Registry Active • Synced with OperationalLedgerRouter')
-            ),
-            React.createElement('div', { className: 'p-4 bg-slate-800 rounded-xl border border-slate-700' },
-                React.createElement('h3', { className: 'font-semibold text-cyan-400 mb-2' }, 'Channel Bridge'),
-                React.createElement('p', { className: 'text-sm text-slate-400' }, 'AwbuliChannelAdapter Operational • Read-Only Security Guardrails Enforced')
-            )
+    const h=React.createElement;
+    const [status,setStatus]=React.useState(null);
+    const [summary,setSummary]=React.useState(null);
+    const [inventory,setInventory]=React.useState(null);
+    const [alerts,setAlerts]=React.useState(null);
+    const [access,setAccess]=React.useState('CHECKING');
+    const [command,setCommand]=React.useState('sold 5 bags rice for 25k');
+    const [parsed,setParsed]=React.useState(null);
+    const [parseMsg,setParseMsg]=React.useState('');
+    const tokenOf=()=>{try{return sessionStorage.getItem('ade_founder_token')||localStorage.getItem('ade_founder_token')||sessionStorage.getItem('ade_token')||localStorage.getItem('ade_token')||''}catch(e){return ''}};
+    const load=()=>{
+        const t=tokenOf();
+        fetch('/api/v1/integrations/awbuli/status').then(r=>r.json()).then(j=>{if(j&&j.success)setStatus(j)}).catch(()=>{});
+        if(!t){setAccess('NO_SESSION');return;}
+        const headers={Authorization:'Bearer '+t};
+        const get=url=>fetch(url,{headers}).then(r=>r.ok?r.json():null).catch(()=>null);
+        Promise.all([get('/api/v1/awbuli/summary'),get('/api/v1/awbuli/inventory'),get('/api/v1/awbuli/alerts')]).then(([s,i,a])=>{
+            if(s&&s.success){setSummary(s.summary);setInventory(i&&i.success?i.inventory:null);setAlerts(a&&a.success?a.alerts:null);setAccess('READY');}
+            else setAccess('NOT_ELEVATED');
+        }).catch(()=>setAccess('ERROR'));
+    };
+    React.useEffect(()=>{let on=true;const run=()=>{if(on)load()};run();return()=>{on=false}},[]);
+    const interpret=async()=>{
+        setParseMsg('');
+        try{
+            const r=await fetch('/api/v1/awbuli/interpret',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text:command})});
+            const j=await r.json();
+            if(j&&j.success){setParsed(j.interpretation);setParseMsg('');}
+            else setParseMsg((j&&j.message)||'Command could not be parsed.');
+        }catch(e){setParseMsg('Command could not be parsed.');}
+    };
+    const money=n=>typeof n==='number'?('₦'+n.toLocaleString()):'—';
+    const card=(title,body)=>h('div',{className:'p-4 bg-slate-800 rounded-xl border border-slate-700'},h('h3',{className:'font-semibold text-cyan-400 mb-2'},title),body);
+    const op=status&&status.operations;
+    const provider=status&&status.connector;
+    const items=(inventory&&inventory.items)||[];
+    const alertRows=(alerts&&alerts.alerts)||[];
+    return h('div',{className:'p-6 bg-slate-900 text-white rounded-2xl shadow-xl','data-testid':'awbuli-founder-tab'},
+        h('h2',{className:'text-2xl font-bold text-amber-400 mb-2'},'AWBULI Business Ledger'),
+        h('p',{className:'text-slate-300 mb-4'},'Server-reported command grammar, ledger totals, inventory and review alerts. WhatsApp transport remains provider-gated; this surface is read-only and never presents a live connection it cannot verify.'),
+        h('div',{className:'grid grid-cols-1 md:grid-cols-3 gap-4'},
+            card('Transport',h('div',null,
+                h('p',{className:'text-sm text-slate-300'},'Provider: '+String((provider&&provider.mode)||'UNKNOWN')),
+                h('p',{className:'text-sm text-slate-400'},'Configured: '+String(!!(provider&&provider.configured))),
+                h('p',{className:'text-sm text-slate-400'},'Inbound webhook: '+String(!!(status&&status.inboundWebhook))),
+                h('p',{className:'text-sm text-slate-400'},'Live transport: '+String(!!(op&&op.live)))
+            )),
+            card('Grammar & Ledger',h('div',null,
+                h('p',{className:'text-sm text-slate-300'},'Grammar: '+String((status&&status.commandGrammarVersion)||'—')),
+                h('p',{className:'text-sm text-slate-400'},'Ledger: '+String((op&&op.version)||'—')),
+                h('p',{className:'text-sm text-slate-400'},'Storage: '+String((op&&op.storage)||'—')),
+                h('p',{className:'text-sm text-slate-400'},'Timezone: '+String((op&&op.timezone)||'—'))
+            )),
+            card('Evidence',h('div',null,
+                h('p',{className:'text-sm text-slate-300'},'Z-Maths: '+String((op&&op.provenance&&op.provenance.zMaths)||'UNKNOWN')),
+                h('p',{className:'text-sm text-slate-400'},'Smart Logic: '+String((op&&op.provenance&&op.provenance.smartLogic)||'UNKNOWN')),
+                h('p',{className:'text-sm text-slate-400'},'Profit: '+String((op&&op.provenance&&op.provenance.profitFormula)||'—'))
+            ))
+        ),
+        h('div',{className:'grid grid-cols-1 md:grid-cols-2 gap-4 mt-4'},
+            card('Today',summary?h('div',null,
+                h('p',{className:'text-sm text-slate-300'},'Sales '+money(summary.totals&&summary.totals.sales)+' · Expenses '+money(summary.totals&&summary.totals.expenses)),
+                h('p',{className:'text-sm text-slate-300'},'Net '+money(summary.netProfit)+' · Margin '+String(summary.marginPct==null?'—':summary.marginPct+'%')),
+                h('p',{className:'text-sm text-slate-400'},'Credit given '+money(summary.totals&&summary.totals.creditGiven)+' · Payments '+money(summary.totals&&summary.totals.paymentsReceived)),
+                h('p',{className:'text-sm text-slate-400'},'Health '+String(summary.healthGrade||'—')+' · Receivables '+money(summary.receivables))
+            ):h('p',{className:'text-sm text-slate-400'},access==='NO_SESSION'?'Sign in to load tenant totals.':access==='NOT_ELEVATED'?'Authorization PIN step-up is required to load tenant totals.':access==='ERROR'?'Ledger totals could not be loaded.':'Loading…')),
+            card('Inventory ('+items.length+')',items.length?h('div',null,items.slice(0,8).map(it=>h('p',{key:it.item,className:'text-sm text-slate-300'},String(it.item)+': '+String(it.quantity)+' '+String(it.unit||'')+' · '+money(it.value))),items.length>8?h('p',{className:'text-xs text-slate-500'},'+'+(items.length-8)+' more'):null):h('p',{className:'text-sm text-slate-400'},'No tracked stock yet.'))
+        ),
+        h('div',{className:'grid grid-cols-1 md:grid-cols-2 gap-4 mt-4'},
+            card('Review Alerts ('+alertRows.length+')',alertRows.length?h('div',null,alertRows.slice(0,8).map((a,i)=>h('p',{key:String(a.type||'alert')+i,className:'text-sm text-slate-300'},String(a.type||'ALERT')+' · '+String(a.band||'')+' · '+(a.message||a.detail||'')))):h('p',{className:'text-sm text-slate-400'},'No anomaly alerts. Alerts are review prompts, not fraud confirmations.')),
+            card('Command Grammar Preview',h('div',null,
+                h('input',{value:command,onChange:e=>setCommand(e.target.value),placeholder:'sold 5 bags rice for 25k',style:{width:'100%',padding:'8px',borderRadius:8,border:'1px solid #334155',background:'#0f172a',color:'#e2e8f0'}}),
+                h('div',{className:'row',style:{marginTop:8}},h('button',{className:'btn sm primary',onClick:interpret},'INTERPRET (NO WRITE)')),
+                parsed?h('div',{style:{marginTop:8}},h('p',{className:'text-sm text-slate-300'},'Intent: '+String(parsed.intent)+' · Confidence '+String(parsed.confidence)),
+                    h('p',{className:'text-sm text-slate-400'},'Execution: '+String(parsed.execution)+' · Simulated: '+String(parsed.simulated)),
+                    h('p',{className:'text-sm text-slate-400'},'Missing: '+String((parsed.missingFields||[]).join(', ')||'none'))):null,
+                parseMsg?h('p',{className:'text-sm text-amber-400'},parseMsg):null
+            ))
         )
     );
 };

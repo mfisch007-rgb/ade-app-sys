@@ -228,6 +228,8 @@ export function registerIdentityRoutes({
       ANNOUNCEMENT_NOT_FOUND: 404,
       ANNOUNCEMENT_TITLE_REQUIRED: 400,
       USE_SELF_SERVICE_CHANGE: 400,
+      SELF_MANAGEMENT_FORBIDDEN: 403,
+      LAST_ADMIN_PROTECTED: 403,
       ELEVATED_PIN_REQUIRED: 403,
       INSUFFICIENT_AUTHORIZATION: 403
     };
@@ -472,7 +474,8 @@ export function registerIdentityRoutes({
     try {
       const result = await workforce.invite({
         ...(req.body || {}),
-        createdBy: req.person.username
+        createdBy: req.person.username,
+        actor: req.person
       });
       return res.status(201).json({ success: true, ...result, status: "INVITATION_ISSUED" });
     } catch (error) {
@@ -491,7 +494,7 @@ export function registerIdentityRoutes({
   };
 
   const withActor = (fn) => (req, person, extra = {}) =>
-    fn(person, req.body || {}, req.person?.id ?? null, extra);
+    fn(person, req.body || {}, req.person || null, extra);
 
   app.post("/api/v1/workforce/:id/promote", loadAuthenticated, requireElevatedPin, requireWorkforceAdmin, gate,
     personAction(

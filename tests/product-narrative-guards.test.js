@@ -36,6 +36,8 @@ test("MATRIX-HONESTY-1 — availability-sensitive products state their real prer
   assert.ok((byId.get("tides").summary + byId.get("biz-watch").summary + byId.get("gov-ngo").summary).match(/roadmap|in development|future/i), "roadmap surfaces are labelled");
   assert.ok(byId.get("aibos").summary.includes("shared"), "AIBOS is presented as the shared platform layer");
   assert.ok(byId.get("founders-circle").summary.includes("pilot") || byId.get("founders-circle").summary.includes("Pilot"), "FOUNDERS CIRCLE points to a real entry pathway");
+  assert.equal(byId.get("awbuli").frontendRoute, "#/products", "AWBULI status lives on the product surface");
+  assert.ok(!String(byId.get("awbuli").iconButton.action).includes("Theater"), "AWBULI status action never routes to Theater");
 });
 
 test("HOME-NARRATIVE-2 — ADE is explained on the homepage without manual intervention", () => {

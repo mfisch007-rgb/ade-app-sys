@@ -52,6 +52,46 @@ test("HOME-3 — anonymous Home pathways exist without login", () => {
   ]) assert.ok(html.includes(marker), `anonymous pathway present: ${marker}`);
 });
 
+test("HOME-3b — AWBULI status action opens the AWBULI surface, not Theater", () => {
+  const html = readPublic("index.html");
+  assert.ok(html.includes("'data-testid':'awbuli-status-link',onClick:()=>openAwbuli()"), "status button opens AWBULI");
+  assert.ok(!html.includes("onClick:()=>go('Product Theater')},'See AWBULI Status'"), "status button never routes to Theater");
+  const start = html.indexOf("const openAwbuli=");
+  const body = html.slice(start, html.indexOf("});", start) + 2);
+  assert.ok(start >= 0 && body.length > 20, "openAwbuli handler exists");
+  assert.ok(!body.includes("Product Theater"), "AWBULI status modal never embeds a Theater destination");
+});
+
+test("HOME-3d — public sign-in completes in one submit and step-up stays separate", () => {
+  const html = readPublic("index.html");
+  const start = html.indexOf("const signIn=async()=>{");
+  assert.ok(start >= 0, "signIn handler exists");
+  const body = html.slice(start, html.indexOf("const pinLogin=async()=>{", start));
+  assert.ok(body.includes("api('/api/v1/account/login'"), "single login request");
+  assert.ok(body.includes("setToken(r.token)"), "login stores the issued session");
+  assert.ok(body.includes("setAuth(false)"), "login closes the modal in the same submit");
+  assert.ok(body.includes("go('Workspace')"), "login navigates to the workspace in the same submit");
+  assert.ok(!body.includes("setAuth(true)"), "successful login does not reopen the modal");
+  assert.ok(html.includes("onKeyDown:e=>{if(e.key==='Enter')signIn()}"), "username field submits on Enter");
+  assert.ok(html.includes("api('/api/v1/account/pin'"), "PIN step-up remains a distinct server call");
+});
+
+test("HOME-3c — public surfaces expose no raw source media or manifest", () => {
+  const home = readPublic("index.html");
+  const experience = readPublic("ade-experience/index.html");
+  for (const marker of ["Try_again(3).mp4", "Continue(2).mp4", "SOURCE MEDIA LIBRARY", "media-manifest.json", "/ade-experience/media/"]) {
+    assert.ok(!home.includes(marker), `Home does not expose private media marker: ${marker}`);
+  }
+  for (const marker of ["Try_again(3).mp4", "sourceVideo", "Source media"]) {
+    assert.ok(!experience.includes(marker), `Experience layer does not expose private media marker: ${marker}`);
+  }
+  const backups = fs.readdirSync(path.join(root, "public"), { recursive: true })
+    .map(String)
+    .filter((file) => file.endsWith(".bak"));
+  assert.deepEqual(backups, [], `Public tree ships no backup files: ${backups.join(", ")}`);
+  assert.ok(!fs.existsSync(path.join(root, "public", "ade-experience/README-INTEGRATION.md")), "Public tree does not ship internal integration notes");
+});
+
 // 4. Optional graph/explorer failure cannot blank Home: explorer is strictly
 // opt-in (default closed, guarded empty state, never in the boot effect).
 test("HOME-4 — OpsExplorer is opt-in and guarded; boot never requires it", () => {
@@ -84,6 +124,13 @@ test("HOME-5 — every Home boot API answers anonymously (no auth-gated first pa
     }
     const gated = await fetch(base + "/api/v1/icx/status");
     assert.equal(gated.status, 401, "ICX stays L2-gated while Home stays public");
+    for (const p of [
+      "/ade-experience/media/Try_again(3).mp4",
+      "/ade-experience/media-manifest.json"
+    ]) {
+      const privateAsset = await fetch(base + p);
+      assert.equal(privateAsset.status, 401, `private source media stays L2-gated: ${p}`);
+    }
   } finally {
     srv.close();
   }

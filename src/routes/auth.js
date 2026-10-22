@@ -13,8 +13,8 @@
  * step-up (single live token — see founder-elevation-persistence ELEV-PERSIST-5),
  * but the *ade_token cookie itself* is never cleared: it is atomically
  * re-issued with the elevated session in the same response. Clients must
- * inspect BOTH cookies: if 'ade_elevated' is set, render
- * '@FOUNDER · L3 · ELEVATED' and never auto-logout-redirect on page switch.
+ * inspect BOTH cookies; role and elevation must render from server-resolved
+ * session claims, and the client must never auto-logout-redirect on page switch.
  */
 
 import { registerIdentityRoutes } from "./identityRoutes.js";

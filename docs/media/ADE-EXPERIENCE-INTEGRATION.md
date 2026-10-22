@@ -9,10 +9,10 @@ This is a production-oriented experience-layer package built from the ADE requir
 - SSE event surface with explicit heartbeat/boundary labeling.
 - LIVE / SIMULATED / CONCEPT boundary.
 - Enterprise and Community/MVP edition selector.
-- Product Theater / Media Studio.
+- Product Theater / Concept Preview.
 - Multilingual content-generation options including Nigerian Pidgin English, Yoruba, Hausa, Igbo, Edo/Bini and 30+ international languages.
 - Provider-neutral text/video generation contracts.
-- Uploaded 10-second source videos retained as media inputs.
+- Source media remains server-side behind L2 authentication; no public source-video selector is exposed.
 - No credentials, API keys or secrets.
 - No claim of physical telematics capability.
 - No automatic external media-provider calls.
@@ -31,10 +31,10 @@ Expected server contracts:
 The optional media endpoints should remain server-authorized and provider-neutral. A provider adapter should report LIVE only after actual execution evidence exists.
 
 ## Media architecture
-ADE Media Studio is designed as a capability container:
+The ADE Media Engine is designed as a capability container:
 OBSERVE -> BRIEF -> GENERATE -> VALIDATE -> APPROVE -> PUBLISH -> MEASURE -> LEARN
 
-The studio can evolve from local concepts to configured provider execution without coupling the UI to one vendor.
+The engine can evolve from local concepts to configured provider execution without coupling the UI to one vendor.
 
 ## Telematics boundary
 GPS/GNSS/GSM/cellular/IMEI/IMSI/ICCID/SIM/cell-tower/MQTT/OBD-II/CAN/J1939/fleet/geofence features remain provider-neutral until physically/provider validated.

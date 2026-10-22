@@ -23,6 +23,18 @@ export const WORKFORCE_ROLES = Object.freeze({
 export const WIZARD_ROLE = "OPERATOR";
 export const DEFAULT_INVITE_WINDOW_DAYS = 7;
 
+const ROLE_AUTHORITY = Object.freeze({
+  FOUNDER: 4,
+  ADMIN: 3,
+  OPERATOR: 2,
+  ANALYST: 1,
+  VIEWER: 0
+});
+
+function authorityOf(role) {
+  return ROLE_AUTHORITY[String(role || "").toUpperCase()] ?? -1;
+}
+
 export function roleLevel(role) {
   return WORKFORCE_ROLES[String(role || "").toUpperCase()] ?? 1;
 }
@@ -196,6 +208,55 @@ export class WorkforceManager {
     }
   }
 
+  #resolveActor(actor) {
+    if (!actor) return null;
+    if (typeof actor === "object") {
+      return {
+        id: actor.id ?? null,
+        username: actor.username ?? null,
+        role: String(actor.role || "").toUpperCase(),
+        level: Number(actor.level) || roleLevel(actor.role)
+      };
+    }
+    return this.#getPerson(actor);
+  }
+
+  #assertInviteAuthority(actor, role) {
+    if (!actor) return;
+    const actorAuthority = authorityOf(actor.role);
+    const requestedAuthority = authorityOf(role);
+    if (actorAuthority < ROLE_AUTHORITY.OPERATOR || requestedAuthority >= actorAuthority) {
+      throw new Error("INSUFFICIENT_AUTHORIZATION");
+    }
+  }
+
+  #assertCanManage(actor, target, { newRole = null } = {}) {
+    if (target?.role === "FOUNDER") throw new Error("FOUNDER_PROTECTED");
+    if (!actor) return;
+    if (target && target.id === actor.id) throw new Error("SELF_MANAGEMENT_FORBIDDEN");
+    const actorAuthority = authorityOf(actor.role);
+    const targetAuthority = authorityOf(target?.role);
+    if (actorAuthority < ROLE_AUTHORITY.ADMIN || targetAuthority > actorAuthority) {
+      throw new Error("INSUFFICIENT_AUTHORIZATION");
+    }
+    if (newRole && authorityOf(newRole) >= actorAuthority) {
+      throw new Error("INSUFFICIENT_AUTHORIZATION");
+    }
+  }
+
+  #assertLastAdminProtected(actor, target, { nextRole, nextStatus, nextExpiry } = {}) {
+    if (!target || target.role !== "ADMIN" || this.#effectiveStatus(target) !== "ACTIVE") return;
+    if (actor?.role === "FOUNDER") return;
+    const staysAdmin = nextRole === undefined || nextRole === "ADMIN";
+    const staysActive = nextStatus === undefined || nextStatus === "ACTIVE";
+    const noExpiry = nextExpiry === undefined || nextExpiry === null;
+    if (staysAdmin && staysActive && noExpiry) return;
+    const activeAdmins = Object.values(this.#state.persons).filter(
+      (person) => person.role === "ADMIN" && this.#effectiveStatus(person) === "ACTIVE"
+    );
+    if (activeAdmins.length <= 1) throw new Error("LAST_ADMIN_PROTECTED");
+  }
+
   async listPersons() {
     await this.#ensureFreshState();
     return Object.values(this.#state.persons)
@@ -263,13 +324,15 @@ export class WorkforceManager {
     return redact(this.#state.persons[id]);
   }
 
-  async invite({ fullName, role = "OPERATOR", expiresInDays = DEFAULT_INVITE_WINDOW_DAYS, createdBy = null } = {}) {
+  async invite({ fullName, role = "OPERATOR", expiresInDays = DEFAULT_INVITE_WINDOW_DAYS, createdBy = null, actor = null } = {}) {
     await this.#ensureFreshState();
     this.#assertFullName(fullName);
     const normalizedRole = String(role || "").toUpperCase();
     if (!isValidRole(normalizedRole) || normalizedRole === "FOUNDER") {
       throw new Error("INVALID_ROLE");
     }
+    const actorRecord = this.#resolveActor(actor);
+    this.#assertInviteAuthority(actorRecord, normalizedRole);
     const days = Number(expiresInDays);
     if (!Number.isFinite(days) || days <= 0 || days > 90) {
       throw new Error("INVALID_INVITE_WINDOW");
@@ -296,7 +359,7 @@ export class WorkforceManager {
       accessExpiryAt: null,
       credentialVersion: 1,
       createdAt: now,
-      createdBy: createdBy || null,
+      createdBy: createdBy || actorRecord?.username || null,
       lastLoginAt: null,
       updatedAt: now,
       note: "Invited"
@@ -450,10 +513,12 @@ export class WorkforceManager {
   async imposePin(personId, actorId, newPin) {
     await this.#ensureFreshState();
     const person = this.#getPerson(personId);
-    const actor = actorId ? this.#getPerson(actorId) : null;
+    const actor = this.#resolveActor(actorId);
     if (person.id === (actor?.id ?? null)) {
       throw new Error("USE_SELF_SERVICE_CHANGE");
     }
+    if (person.role === "FOUNDER") throw new Error("FOUNDER_PROTECTED");
+    this.#assertCanManage(actor, person);
     this.#assertPinFormat(newPin);
     person.pinHash = hash(newPin);
     person.credentialVersion += 1;
@@ -466,10 +531,12 @@ export class WorkforceManager {
   async resetPassword(personId, actorId, newPassword) {
     await this.#ensureFreshState();
     const person = this.#getPerson(personId);
-    const actor = actorId ? this.#getPerson(actorId) : null;
+    const actor = this.#resolveActor(actorId);
     if (person.id === (actor?.id ?? null)) {
       throw new Error("USE_SELF_SERVICE_CHANGE");
     }
+    if (person.role === "FOUNDER") throw new Error("FOUNDER_PROTECTED");
+    this.#assertCanManage(actor, person);
     this.#assertPasswordStrength(newPassword);
     person.passwordHash = hash(newPassword);
     person.credentialVersion += 1;
@@ -502,12 +569,14 @@ export class WorkforceManager {
   async changeRole(personId, newRole, actorId) {
     await this.#ensureFreshState();
     const person = this.#getPerson(personId);
-    const actor = actorId ? this.#getPerson(actorId) : null;
+    const actor = this.#resolveActor(actorId);
     if (person.role === "FOUNDER") throw new Error("FOUNDER_PROTECTED");
     const normalizedRole = String(newRole || "").toUpperCase();
     if (!isValidRole(normalizedRole) || normalizedRole === "FOUNDER") {
       throw new Error("INVALID_ROLE");
     }
+    this.#assertCanManage(actor, person, { newRole: normalizedRole });
+    this.#assertLastAdminProtected(actor, person, { nextRole: normalizedRole });
     person.role = normalizedRole;
     person.level = roleLevel(normalizedRole);
     person.updatedAt = new Date().toISOString();
@@ -519,11 +588,13 @@ export class WorkforceManager {
   async setStatus(personId, status, actorId) {
     await this.#ensureFreshState();
     const person = this.#getPerson(personId);
-    const actor = actorId ? this.#getPerson(actorId) : null;
+    const actor = this.#resolveActor(actorId);
     if (person.role === "FOUNDER") throw new Error("FOUNDER_PROTECTED");
     if (!["ACTIVE", "SUSPENDED", "REVOKED"].includes(status)) {
       throw new Error("INVALID_STATUS");
     }
+    this.#assertCanManage(actor, person);
+    this.#assertLastAdminProtected(actor, person, { nextStatus: status });
     person.status = status;
     person.updatedAt = new Date().toISOString();
     await this.#persist();
@@ -534,16 +605,20 @@ export class WorkforceManager {
   async setExpiry(personId, accessExpiryAt, actorId) {
     await this.#ensureFreshState();
     const person = this.#getPerson(personId);
-    const actor = actorId ? this.#getPerson(actorId) : null;
+    const actor = this.#resolveActor(actorId);
     if (person.role === "FOUNDER") throw new Error("FOUNDER_PROTECTED");
+    let expiry = null;
     if (accessExpiryAt === null) {
-      person.accessExpiryAt = null;
+      expiry = null;
     } else {
       const t = new Date(accessExpiryAt).getTime();
       if (!Number.isFinite(t)) throw new Error("INVALID_EXPIRY");
       if (t <= Date.now()) throw new Error("EXPIRY_MUST_BE_FUTURE");
-      person.accessExpiryAt = t;
+      expiry = t;
     }
+    this.#assertCanManage(actor, person);
+    this.#assertLastAdminProtected(actor, person, { nextExpiry: expiry });
+    person.accessExpiryAt = expiry;
     person.updatedAt = new Date().toISOString();
     await this.#persist();
     this.#audit("ACCESS_EXPIRY_SET", { subject: person.username, accessExpiryAt: person.accessExpiryAt, by: actor?.username ?? null });

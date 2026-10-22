@@ -122,6 +122,122 @@ test("workforce: role and status lifecycle with founder protection", async (t) =
   await assert.rejects(() => wf.setStatus(founder.id, "SUSPENDED", operatorPerson.id), /FOUNDER_PROTECTED/);
 });
 
+test("workforce: elevated roles cannot self-manage or exceed their authority", async (t) => {
+  const wf = new WorkforceManager({ store: tempStore(t) });
+  const founder = await wf.provisionFounder(FOUNDER);
+
+  const { person: operator, inviteCode: operatorCode } = await wf.invite({
+    fullName: "Ops One",
+    role: "OPERATOR",
+    actor: founder
+  });
+  await wf.acceptInvitation({
+    code: operatorCode,
+    fullName: "Ops One",
+    username: "opsone",
+    password: "OpsPass!5",
+    pin: "334455"
+  });
+
+  const { person: admin, inviteCode: adminCode } = await wf.invite({
+    fullName: "Admin One",
+    role: "ADMIN",
+    actor: founder
+  });
+  await wf.acceptInvitation({
+    code: adminCode,
+    fullName: "Admin One",
+    username: "adminone",
+    password: "AdminPass!6",
+    pin: "445566"
+  });
+
+  const { person: adminTwo, inviteCode: adminTwoCode } = await wf.invite({
+    fullName: "Admin Two",
+    role: "ADMIN",
+    actor: founder
+  });
+  await wf.acceptInvitation({
+    code: adminTwoCode,
+    fullName: "Admin Two",
+    username: "admintwo",
+    password: "AdminPass!7",
+    pin: "556677"
+  });
+
+  await assert.rejects(
+    () => wf.changeRole(operator.id, "ADMIN", operator.id),
+    /SELF_MANAGEMENT_FORBIDDEN/
+  );
+  await assert.rejects(
+    () => wf.setStatus(admin.id, "SUSPENDED", admin.id),
+    /SELF_MANAGEMENT_FORBIDDEN/
+  );
+  await assert.rejects(
+    () => wf.setExpiry(admin.id, Date.now() + 60_000, admin.id),
+    /SELF_MANAGEMENT_FORBIDDEN/
+  );
+
+  await assert.rejects(
+    () => wf.invite({ fullName: "Too High", role: "ADMIN", actor: operator }),
+    /INSUFFICIENT_AUTHORIZATION/
+  );
+  assert.equal(
+    (await wf.invite({ fullName: "Allowed Viewer", role: "VIEWER", actor: operator })).person.role,
+    "VIEWER"
+  );
+
+  await assert.rejects(
+    () => wf.changeRole(admin.id, "VIEWER", operator.id),
+    /INSUFFICIENT_AUTHORIZATION/
+  );
+  const peerDemotion = await wf.changeRole(adminTwo.id, "VIEWER", admin.id);
+  assert.equal(peerDemotion.role, "VIEWER");
+
+  await assert.rejects(
+    () => wf.resetPassword(founder.id, admin.id, "HackedPass!8"),
+    /FOUNDER_PROTECTED/
+  );
+  await assert.rejects(
+    () => wf.imposePin(founder.id, admin.id, "000000"),
+    /FOUNDER_PROTECTED/
+  );
+});
+
+test("workforce: last active admin is protected except for founder recovery", async (t) => {
+  const wf = new WorkforceManager({ store: tempStore(t) });
+  const founder = await wf.provisionFounder(FOUNDER);
+  const { person: admin, inviteCode } = await wf.invite({
+    fullName: "Only Admin",
+    role: "ADMIN",
+    actor: founder
+  });
+  await wf.acceptInvitation({
+    code: inviteCode,
+    fullName: "Only Admin",
+    username: "onlyadmin",
+    password: "AdminPass!9",
+    pin: "667788"
+  });
+
+  const legacyAdmin = { id: null, username: "admin", role: "ADMIN", level: 2 };
+  await assert.rejects(
+    () => wf.changeRole(admin.id, "ANALYST", legacyAdmin),
+    /LAST_ADMIN_PROTECTED/
+  );
+  await assert.rejects(
+    () => wf.setStatus(admin.id, "SUSPENDED", legacyAdmin),
+    /LAST_ADMIN_PROTECTED/
+  );
+  await assert.rejects(
+    () => wf.setExpiry(admin.id, Date.now() + 60_000, legacyAdmin),
+    /LAST_ADMIN_PROTECTED/
+  );
+
+  const demoted = await wf.changeRole(admin.id, "ANALYST", founder.id);
+  assert.equal(demoted.role, "ANALYST");
+});
+
 test("workforce: AI agent identities are registered and managed", async (t) => {
   const wf = new WorkforceManager({ store: tempStore(t) });
   await wf.provisionFounder(FOUNDER);

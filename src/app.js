@@ -65,6 +65,8 @@ import { UniversalAIGateway } from "./ai/UniversalAIGateway.js";
 import { WorkforceManager } from "./identity/WorkforceManager.js";
 import { AnnouncementsManager } from "./identity/AnnouncementsManager.js";
 import { registerIdentityRoutes } from "./routes/identityRoutes.js";
+import { registerCommercialRoutes } from "./routes/commercialRoutes.js";
+import { CommercialOperations } from "./commercial/CommercialOperations.js";
 import { maskSettingsSecrets } from "./security/SettingsRedaction.js";
 import { EditionPolicy } from "./core/EditionPolicy.js";
 import { DemoSafetyBoundary } from "./core/DemoSafetyBoundary.js";
@@ -89,6 +91,8 @@ import {
   PROCARTA_CAPABILITY_INTENT
 } from "./procarta/procartaCapability.js";
 import { AwbuliAdapter } from "../products/awbuli/adapter.js";
+import { parseAwbuliCommand, describeAwbuliCommands, AWBULI_COMMAND_VERSION } from "./products/awbuli/AwbuliCommandGrammar.js";
+import { AwbuliBusinessLedger } from "./products/awbuli/AwbuliBusinessLedger.js";
 import { ConnectionFabric } from "./integrations/ConnectionFabric.js";
 import { CapabilityExchange } from "./integrations/CapabilityExchange.js";
 import { CapabilityActivation } from "./capabilities/CapabilityActivation.js";
@@ -403,6 +407,7 @@ const whatsappNumbers = new WhatsAppNumberRegistry({ store: runtimeConfig, event
 const dataGovernance = new DataGovernance({ eventBus: kernel?.eventBus });
 const paymentService = new PaymentService({ store: runtimeConfig, secrets, eventBus: kernel?.eventBus, editionPolicy });
 const commercialEntitlement = new CommercialEntitlement({ editionPolicy, paymentService });
+const commercialOps = new CommercialOperations({ store: runtimeConfig, eventBus: kernel?.eventBus });
 const injectionCaseMapper = new InjectionToCaseMapper({ intake, store: runtimeConfig, eventBus: kernel?.eventBus });
 // Capability routing authority stays with the canonical intake/case layer
 // (InjectionToCaseMapper + UnifiedIntakeEngine). discoverCapabilities is
@@ -447,6 +452,7 @@ const initOperationalGraph=()=>{ if(operationalGraph) return operationalGraph; o
 // kernel (EventBus, DecisionEngine, ConfidenceModel, intake/cases, audit,
 // telemetry, tenant model). No second bus/engine/gate/registry.
 const financialLedger = new FinancialLedger({ store: runtimeConfig, eventBus: kernel?.eventBus });
+const awbuliBusinessLedger = new AwbuliBusinessLedger({ ledger: financialLedger, eventBus: kernel?.eventBus });
 const financialAdapters = new FinancialAdapterRegistry({ secrets, eventBus: kernel?.eventBus });
 const financeDecisionEngine = new DecisionEngine({});
 const financeRiskEngine = new RiskSignalEngine({ ledger: financialLedger, eventBus: kernel?.eventBus, decisionEngine: financeDecisionEngine, allowFinancialHold: false });
@@ -464,6 +470,7 @@ const financialPipeline = new FinancialPipeline({
 // Community/MVP operational convergence — additive registries over the existing
 // store/event/case/identity authorities. No new kernel, bus, or engines.
 const orgUnits = new OrgUnitRegistry({ store: runtimeConfig, eventBus: kernel?.eventBus });
+whatsappNumbers.attachOrgUnits(orgUnits);
 const customers = new CustomerRegistry({ store: runtimeConfig, eventBus: kernel?.eventBus, intake });
 const fieldTasks = new FieldTaskRegistry({ store: runtimeConfig, eventBus: kernel?.eventBus });
 const agentRegistry = new AgentRegistry({ store: runtimeConfig, eventBus: kernel?.eventBus, workforce, capabilityRegistry: CapabilityRegistry });
@@ -620,6 +627,13 @@ registerIdentityRoutes({
   announcements,
   auditStore,
   runtimeMode: ADE_RUNTIME_MODE,
+  requireDurableStorage
+});
+
+registerCommercialRoutes({
+  app,
+  security,
+  commercial: commercialOps,
   requireDurableStorage
 });
 
@@ -1625,6 +1639,8 @@ app.get('/api/v1/awbuli/entry', (req, res) => {
         configured: Boolean(number),
         providerState: bridgeConfigured ? "CONFIGURED_UNVERIFIED" : "NOT_CONFIGURED",
         live: false,
+        commandGrammarVersion: AWBULI_COMMAND_VERSION,
+        commandEntry: "POST /api/v1/awbuli/commands (L2 + PIN)",
         note: number
           ? "Public business line published from server configuration. Inbound START / STAR is normalized by the canonical AWBULI adapter and stays SIMULATED until the provider gate is VERIFIED + ENABLED."
           : "No public WhatsApp number is configured on this deployment yet — the ADE team provisions sender identities via the Admin Console."
@@ -1632,6 +1648,200 @@ app.get('/api/v1/awbuli/entry', (req, res) => {
     });
   } catch (error) { res.status(500).json({ success: false, error: "AWBULI_ENTRY_FAILED" }); }
 });
+// AWBULI command grammar + operations. Read/interpret endpoints are
+// deliberately side-effect free; recording requires L2 + PIN + durable
+// storage. No route claims a live WhatsApp transport: every payload says
+// `live: false` and the connector analysis remains the source of truth.
+const _awbuliUnitContext = (tenantScope, unitId) => {
+  if (!unitId) return { unitId: null, organization: null };
+  const unit = orgUnits.get(String(unitId), { tenantScope });
+  if (!unit) { const e = new Error("ORG_UNIT_NOT_FOUND"); e.code = "ORG_UNIT_NOT_FOUND"; throw e; }
+  let root = null;
+  try { root = orgUnits.ancestry(unit.unitId, { tenantScope })[0] || null; } catch {}
+  return { unitId: unit.unitId, organization: root?.name || null };
+};
+
+const _awbuliReadResult = (parsed, tenantScope, body = {}) => {
+  const intent = String(parsed?.intent || "UNKNOWN");
+  if (intent === "BALANCE") {
+    const summary = awbuliBusinessLedger.summary({ tenantScope, period: "ALL" });
+    const t = summary.totals;
+    const cashPosition = Number((
+      t.capital + t.sales + t.paymentsReceived + t.contributions
+      - t.expenses - t.stockPurchases - t.withdrawals - t.transfers
+    ).toFixed(2));
+    return {
+      type: "BALANCE",
+      cashPosition,
+      currency: "NGN",
+      formula: "capital + sales + paymentsReceived + contributions - expenses - stockPurchases - withdrawals - transfers",
+      note: "Operating cash view from recorded AWBULI entries. Credit sales and outstanding receivables are shown separately.",
+      summary
+    };
+  }
+  if (intent === "CLOSE_DAY") {
+    return { type: "CLOSE_DAY", close: awbuliBusinessLedger.closeDay({ tenantScope, date: body.date || null }) };
+  }
+  if (intent === "REPORT") {
+    const period = ["TODAY", "WEEK", "MONTH", "ALL"].includes(String(parsed?.fields?.period || "").toUpperCase())
+      ? String(parsed.fields.period).toUpperCase() : "TODAY";
+    return { type: "REPORT", summary: awbuliBusinessLedger.summary({ tenantScope, period }) };
+  }
+  if (intent === "TOP") {
+    const summary = awbuliBusinessLedger.summary({ tenantScope, period: "ALL" });
+    return { type: "TOP", topItems: summary.topItems, period: "ALL" };
+  }
+  if (intent === "HISTORY") {
+    return { type: "HISTORY", summary: awbuliBusinessLedger.summary({ tenantScope, period: "ALL" }) };
+  }
+  if (intent === "HELP") {
+    return { type: "HELP", commands: describeAwbuliCommands() };
+  }
+  if (intent === "START") {
+    return {
+      type: "START",
+      triggerWords: ["START", "STAR"],
+      note: "AWBULI is included in the COMMUNITY edition. WhatsApp delivery remains CONFIGURATION_REQUIRED until an approved sender identity and provider gate are verified."
+    };
+  }
+  if (intent === "SUBSTATUS") {
+    return { type: "SUBSTATUS", state: "COMMUNITY_INCLUDED", live: false, note: "AWBULI operations are local; no external subscription is claimed." };
+  }
+  if (intent === "CONTACT") {
+    return { type: "CONTACT", note: "Contact the ADE founder/admin channel for AWBULI setup and sender-identity provisioning." };
+  }
+  return { type: intent, note: "No read model is attached to this intent." };
+};
+
+app.get('/api/v1/awbuli/capabilities', hybridRateLimit, (req, res) => {
+  try {
+    const adapter = new AwbuliAdapter();
+    const connector = adapter.status();
+    res.json({
+      success: true,
+      product: { id: "awbuli", name: "ADE-AWBULI", version: "1.0.0" },
+      live: false,
+      transport: {
+        state: connector.configured ? "CONFIGURED_UNVERIFIED" : "NOT_CONFIGURED",
+        live: false,
+        inboundWebhook: false,
+        note: "No live WhatsApp transport is established. Commands recorded through the authorized operator path are local ledger entries."
+      },
+      commandGrammar: { version: AWBULI_COMMAND_VERSION, commands: describeAwbuliCommands() },
+      operations: awbuliBusinessLedger.status(),
+      gates: {
+        recording: "L2 + identity-bound PIN + durable storage",
+        interpretation: "public, rate-limited, read-only",
+        alerts: "OWNER_ONLY review signals; no fraud verdict or autonomous freeze"
+      }
+    });
+  } catch { res.status(500).json({ success: false, error: "AWBULI_CAPABILITIES_FAILED" }); }
+});
+
+app.post('/api/v1/awbuli/interpret', hybridRateLimit, (req, res) => {
+  try {
+    const text = String(req.body?.text || "").trim();
+    if (!text) return res.status(400).json({ success: false, error: "AWBULI_COMMAND_REQUIRED" });
+    const interpretation = parseAwbuliCommand(text);
+    res.json({ success: true, interpretation });
+  } catch (error) {
+    res.status(400).json({ success: false, error: error.code || "AWBULI_INTERPRET_FAILED", message: error.message });
+  }
+});
+
+app.post('/api/v1/awbuli/commands', security.requireLevel(2), security.requireConfigAction("command"), requireDurableStorage, (req, res) => {
+  try {
+    const tenantScope = _govTenant(req);
+    const body = req.body || {};
+    const text = String(body.text || "").trim();
+    if (!text) return res.status(400).json({ success: false, error: "AWBULI_COMMAND_REQUIRED" });
+    const interpretation = parseAwbuliCommand(text);
+
+    if (!interpretation.mutatesLedger) {
+      return res.json({
+        success: true,
+        accepted: false,
+        executed: false,
+        interpretation,
+        read: _awbuliReadResult(interpretation, tenantScope, body)
+      });
+    }
+
+    if (interpretation.humanReviewRequired && body.confirmReview !== true) {
+      return res.status(409).json({
+        success: false,
+        error: "AWBULI_COMMAND_REVIEW_REQUIRED",
+        message: "This command is incomplete or unusually large. Resubmit with confirmReview=true after checking it.",
+        interpretation
+      });
+    }
+
+    let occurredAt = null;
+    if (body.occurredAt) {
+      const t = new Date(body.occurredAt);
+      if (Number.isNaN(t.getTime())) return res.status(400).json({ success: false, error: "AWBULI_TIME_INVALID" });
+      if (t.getTime() > Date.now() + 5 * 60_000) return res.status(400).json({ success: false, error: "AWBULI_TIME_IN_FUTURE" });
+      occurredAt = t.toISOString();
+    }
+
+    const unit = _awbuliUnitContext(tenantScope, body.unitId || null);
+    const result = awbuliBusinessLedger.record(interpretation, {
+      tenantScope,
+      organization: body.organization || unit.organization || null,
+      unitId: unit.unitId,
+      actor: _govActor(req),
+      occurredAt,
+      idempotencyKey: body.idempotencyKey ? String(body.idempotencyKey).slice(0, 160) : null,
+      source: "AWBULI_OPERATOR",
+      channel: String(body.channel || "AWBULI").toUpperCase() === "WHATSAPP" ? "WHATSAPP" : "AWBULI",
+      confirmed: body.confirmed !== false
+    });
+
+    try {
+      kernel?.eventBus?.publish?.("audit.log.created", {
+        category: "AWBULI",
+        action: "AWBULI_COMMAND_RECORDED",
+        intent: interpretation.intent,
+        transactionId: result.transaction?.adeTransactionId || null,
+        tenant: tenantScope,
+        by: _govActor(req),
+        at: new Date().toISOString()
+      });
+    } catch {}
+
+    res.status(result.duplicate ? 200 : 201).json({
+      success: true,
+      accepted: true,
+      executed: true,
+      execution: "RECORDED",
+      duplicate: result.duplicate,
+      interpretation,
+      result
+    });
+  } catch (error) {
+    res.status(400).json({ success: false, error: error.code || "AWBULI_COMMAND_FAILED", message: error.message });
+  }
+});
+
+app.get('/api/v1/awbuli/summary', security.requireLevel(2), (req, res) => {
+  try {
+    const period = String(req.query.period || "TODAY").toUpperCase();
+    res.json({ success: true, summary: awbuliBusinessLedger.summary({ tenantScope: _govTenant(req), period }) });
+  } catch (error) { res.status(400).json({ success: false, error: error.code || "AWBULI_SUMMARY_FAILED", message: error.message }); }
+});
+
+app.get('/api/v1/awbuli/inventory', security.requireLevel(2), (req, res) => {
+  try {
+    res.json({ success: true, inventory: awbuliBusinessLedger.inventory({ tenantScope: _govTenant(req) }) });
+  } catch (error) { res.status(400).json({ success: false, error: error.code || "AWBULI_INVENTORY_FAILED", message: error.message }); }
+});
+
+app.get('/api/v1/awbuli/alerts', security.requireLevel(2), (req, res) => {
+  try {
+    res.json({ success: true, alerts: awbuliBusinessLedger.alerts({ tenantScope: _govTenant(req) }) });
+  } catch (error) { res.status(400).json({ success: false, error: error.code || "AWBULI_ALERTS_FAILED", message: error.message }); }
+});
+
 app.get('/api/v1/admin/channels', security.requireLevel(2),(req,res)=>res.json({success:true,channels:channels.list()}));
 app.patch('/api/v1/admin/channels/:id', security.requireLevel(2),requireDurableStorage,(req,res)=>{const c=channels.set(req.params.id,req.body||{}); runtimeConfig.write('channels',req.params.id,c); try { kernel?.eventBus?.publish?.("audit.log.created", { category: "CHANNELS", action: "CHANNEL_UPDATED", channelId: String(req.params.id || "").toUpperCase(), tenant: tenantForStore(resolveTenantId(req)), by: _govActor(req), at: new Date().toISOString() }); } catch {} res.json({success:true,channel:c});});
 app.get('/api/v1/admin/connections', security.requireLevel(2),(req,res)=>res.json({success:true,connections:connectionManager.list()}));
@@ -2401,7 +2611,10 @@ app.get('/api/v1/integrations/awbuli/status', hybridRateLimit, (req, res) => {
       },
       supportedOperations: status.configured ? ["ANALYZE","CONNECT","SYNC","DISCONNECT","RECHECK"] : ["ANALYZE"],
       integrationMode: status.configured ? "API_WEBHOOK_BRIDGE" : "ADE_NATIVE_INTEGRATION",
-      truthDisclosure: "External AWBULI connection is NOT established. No database/auth/API credentials are configured."
+      commandGrammarVersion: AWBULI_COMMAND_VERSION,
+      inboundWebhook: false,
+      operations: awbuliBusinessLedger.status(),
+      truthDisclosure: "External AWBULI connection is NOT established. No database/auth/API credentials are configured. No inbound WhatsApp webhook is mounted; recorded commands are local ledger entries."
     });
   } catch (error) {
     res.status(500).json({ success: false, error: "AWBULI_STATUS_FAILED" });
@@ -4239,6 +4452,19 @@ app.get('/lab', (req,res)=>res.sendFile(path.join(__dirname, '../public/market-l
 // presentation aliases only — no capability or auth behavior changes.
 app.get(/^\/founder(\/.*)?$/, (req,res)=>res.sendFile(path.join(__dirname, '../public/founder.html')));
 app.get(/^\/admin(\/.*)?$/, (req,res)=>res.sendFile(path.join(__dirname, '../public/admin/index.html')));
+
+// Private source media: raw MP4s and the source manifest are operator inputs,
+// never public Product Theater assets. Guard before the general static mount;
+// the terminal 404 prevents a missing private file falling through to the SPA.
+const privateSourceMediaDir = path.join(__dirname, "../public/ade-experience/media");
+app.use("/ade-experience/media", security.requireLevel(2), express.static(privateSourceMediaDir, { maxAge: 0, etag: true }), (req, res) => {
+  res.status(404).json({ success: false, error: "MEDIA_NOT_FOUND" });
+});
+app.get("/ade-experience/media-manifest.json", security.requireLevel(2), (req, res) => {
+  res.sendFile(path.join(__dirname, "../public/ade-experience/media-manifest.json"), (error) => {
+    if (error && !res.headersSent) res.status(404).json({ success: false, error: "MEDIA_MANIFEST_NOT_FOUND" });
+  });
+});
 
 // Serve Static UI Assets. Image/font assets are content-addressed by deployment
 // (same path, new bytes per release) and safe to cache immutably — this is what

@@ -89,9 +89,9 @@ const SURFACE_DECLARATIONS = Object.freeze([
     capabilityIntents: ["ADE_AWBULI_HUB"],
     entitlementSource: "CapabilityActivation EXTERNAL_GATED (bridge credential)",
     role: "PUBLIC_DEMO + OPERATOR_BRIDGE",
-    frontendRoute: FRONTEND_ROUTES.THEATER,
-    navSection: "Product Theater",
-    button: { label: "Explore via Theater", action: "go:Product Theater" },
+    frontendRoute: FRONTEND_ROUTES.PRODUCTS,
+    navSection: "Products",
+    button: { label: "Open AWBULI Status", action: "go:Products" },
     apiRoutes: ["GET /api/v1/connectivity/inventory", "GET /api/v1/connectivity/products/awbuli"],
     auditRequired: false
   },

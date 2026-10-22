@@ -43,7 +43,7 @@ main{padding:26px 0}.hero{display:grid;grid-template-columns:1.15fr .85fr;gap:20
 <div class="app">
 <header class="top">
   <div class="brand"><img src="assets/ade-brand-mark.png" alt="ADE brand mark"><div><h1>ADE-APEX · ADAPTIVE DIGITAL ENTERPRISE</h1><small>Reactive enterprise operating environment</small></div></div>
-  <nav class="nav"><button class="active" data-view="command">Command Center</button><button data-view="media">Media Studio</button></nav>
+  <nav class="nav"><button class="active" data-view="command">Product Theater</button><button data-view="media">Concept Preview</button></nav>
 </header>
 
 <main id="command">
@@ -54,7 +54,7 @@ main{padding:26px 0}.hero{display:grid;grid-template-columns:1.15fr .85fr;gap:20
     <p>ADE makes the architecture visible: capabilities discover themselves from the server, events move through the operational fabric, authorization remains server-owned, and every adaptation is bounded by policy and evidence.</p>
     <p class="motto">We <em>Listened</em> · We <em>Observed</em> · We <em>Learnt</em> · We <em>Evolved</em></p>
     <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:22px">
-      <button class="cta" onclick="activate('media')">Open Product Theater</button>
+      <button class="cta" onclick="activate('media')">Open Concept Preview</button>
       <button class="nav button" onclick="probe()">Probe Live Runtime</button>
     </div>
   </article>
@@ -77,7 +77,7 @@ main{padding:26px 0}.hero{display:grid;grid-template-columns:1.15fr .85fr;gap:20
 <main id="media" class="media">
 <section class="panel section">
   <div class="kicker">ADE MEDIA CONTAINER · CONTROLLED GENERATION</div>
-  <h2 style="font-size:38px;margin:10px 0">Product Theater & Media Studio</h2>
+  <h2 style="font-size:38px;margin:10px 0">Product Theater</h2>
   <div class="sub">Generate campaign concepts, multilingual copy, storyboards and provider-ready generation requests. Physical/video provider execution remains an explicit adapter boundary.</div>
 </section>
 <section class="studio" style="margin-top:20px">
@@ -88,7 +88,6 @@ main{padding:26px 0}.hero{display:grid;grid-template-columns:1.15fr .85fr;gap:20
     <label>Audience</label><input id="audience" value="African enterprise decision makers, operators and implementation partners">
     <label>Theme</label><input id="theme" value="Africa's digital backbone · intelligent operations · automation">
     <label>Call to action</label><input id="cta" value="Explore ADE">
-    <label>Source media</label><select id="sourceVideo"><option value="">No source video — storyboard only</option><option>Continue(2).mp4</option><option>Continue_again_to_the_next_fro(2).mp4</option><option>Good_job_continuing_From_where(2).mp4</option><option>The_video_you_have_done_is_imp(3).mp4</option><option>Those_pictures_I_had_just_sent(2).mp4</option><option>Try_again(3).mp4</option></select>
     <div class="media-actions"><button class="cta" onclick="generateCopy()">Generate campaign</button><button class="nav button" onclick="requestVideo()">Prepare video-provider request</button></div>
     <div class="langs"><div class="lang">LIVE = provider-backed</div><div class="lang">SIMULATED = bounded demo</div><div class="lang">CONCEPT = no execution</div><div class="lang">No hidden side effects</div></div>
   </article>
@@ -125,7 +124,7 @@ async function boot(){
   try{
     const r=await fetch("/api/v1/capabilities"); if(!r.ok)throw 0; renderCaps(await r.json()); log("BOOT","Server capability discovery connected","live");
   }catch(e){
-    $("mode").textContent="BOUNDED";["Kernel","EventBus","Identity","Capabilities","Oracle","Guardian","Media Studio"].forEach(x=>{const d=document.createElement("div");d.className="cap";d.innerHTML=`<strong>${x}</strong><small>Awaiting live backend evidence</small>`;$("caps").appendChild(d)});log("BOUNDARY","No live backend detected in this static experience preview","sim");
+    $("mode").textContent="BOUNDED";["Kernel","EventBus","Identity","Capabilities","Oracle","Guardian","Media Engine"].forEach(x=>{const d=document.createElement("div");d.className="cap";d.innerHTML=`<strong>${x}</strong><small>Awaiting live backend evidence</small>`;$("caps").appendChild(d)});log("BOUNDARY","No live backend detected in this static experience preview","sim");
   }
   try{
     const es=new EventSource("/api/v1/events/stream");
@@ -149,7 +148,7 @@ function generateCopy(){
  $("providerPayload").classList.add("hidden");
 }
 function requestVideo(){
- const payload={edition:$("edition").value,contentType:$("ctype").value,language:$("lang").value,audience:$("audience").value,theme:$("theme").value,cta:$("cta").value,sourceVideo:$("sourceVideo").value||null,execution:"PROVIDER_ADAPTER_REQUIRED",status:"CONCEPT"};
+ const payload={edition:$("edition").value,contentType:$("ctype").value,language:$("lang").value,audience:$("audience").value,theme:$("theme").value,cta:$("cta").value,execution:"PROVIDER_ADAPTER_REQUIRED",status:"CONCEPT"};
  $("providerPayload").textContent=JSON.stringify(payload,null,2);$("providerPayload").classList.remove("hidden");log("MEDIA","Prepared provider-neutral video generation contract; no external call was made","concept");
 }
 const c=document.getElementById("fx"),ctx=c.getContext("2d");let pts=[];
