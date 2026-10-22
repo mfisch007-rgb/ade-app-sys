@@ -2,8 +2,8 @@
 
 - **Release:** ADE Community start
 - **Report:** `ADE-COMMUNITY-READINESS-REPORT.md`
-- **Status:** Local candidate passes functional and dependency-audit gates; post-deploy media privacy and browser login remain to be verified.
-- **Use this checklist only after the Founder/operator confirms the deployed commit and initial post-deploy checks.**
+- **Status:** Deployed and privacy-verified at commit `293129e`; media/manifest return 401 and retired paths return 404. Browser sign-in and founder two-step login remain unverified.
+- **Use this checklist only after the Founder/operator confirms the deployed commit and browser login verification.**
 
 ## 1. Test conditions
 
@@ -16,16 +16,17 @@
 
 ## 2. Pre-launch checks (operator)
 
-- [ ] Deployment is the intended commit and `/api/v1/health` reports that commit.
-- [ ] Kernel is `HEALTHY`; no failing subsystem in the health payload.
-- [ ] `/api/v1/product-surface` returns 24 surfaces and AWBULI is on `#/products`.
-- [ ] Anonymous `/ade-experience/media/<file>.mp4` returns 401.
-- [ ] Anonymous `/ade-experience/media-manifest.json` returns 401.
-- [ ] No `.bak` file or `README-INTEGRATION.md` is reachable from production.
-- [ ] `/admin` and `/founder` show login gates, not anonymous consoles.
+- [x] Deployment is the intended commit and `/api/v1/health` reports that commit.
+- [x] Kernel is `HEALTHY`; no failing subsystem in the health payload.
+- [x] `/api/v1/product-surface` returns 24 surfaces and AWBULI is on `#/products`.
+- [x] Anonymous `/ade-experience/media/<file>.mp4` returns 401.
+- [x] Anonymous `/ade-experience/media-manifest.json` returns 401.
+- [x] No `.bak` file or `README-INTEGRATION.md` is reachable from production.
+- [x] Release decision and any dependency-risk exception are recorded.
+- [ ] `/admin` and `/founder` show login gates, not anonymous consoles in a browser.
 - [ ] Public “See AWBULI Status” opens the AWBULI status surface, not Product Theater.
 - [ ] The AWBULI page still states that no public number is configured unless the server publishes one.
-- [ ] Release decision and any dependency-risk exception are recorded.
+- [ ] Public sign-in and founder password + PIN complete in a real browser.
 
 ## 3. Anonymous public journeys
 
@@ -144,7 +145,7 @@ Console/network error (redact secrets):
 - Oracle may run on the offline lexical engine when no AI provider key is configured.
 - Email delivery is unavailable until Resend is configured.
 - Media playback in a logged-in browser requires the Bearer-token path; a bare protected `<video src>` is expected to fail.
-- Testers should not be invited until the deployed media/manifest routes return 401 and the operator has verified the deployed commit.
+- Production media/manifest privacy and retired-path 404s are verified at commit `293129e`; testers should not be invited until the operator has also completed browser login verification.
 
 ## 8. Tester sign-off
 

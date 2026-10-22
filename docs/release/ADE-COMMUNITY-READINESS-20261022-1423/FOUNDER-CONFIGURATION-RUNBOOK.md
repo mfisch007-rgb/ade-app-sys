@@ -163,9 +163,11 @@ Expected: `401` for both. If either returns `200`, stop the launch and remove th
 
 Also confirm:
 
-- No `.bak` files are reachable under `/`.
+- `.bak` files and `/ade-experience/README-INTEGRATION.md` return 404, not the SPA shell.
 - `/ade-experience/` does not show a source-video selector or raw filenames.
 - Authorized playback uses a Bearer `fetch`/blob path; a bare `<video src>` cannot rely on the session cookie alone.
+
+Current verified state at commit `293129e`: media and manifest return 401; the retired `.bak` and internal README paths return 404 `application/json`.
 
 ## 8. Release gate sequence
 
@@ -209,6 +211,14 @@ Required evidence:
 - Public sign-in and founder two-step login work in a browser.
 - `/admin` and `/founder` remain login-gated shells, not anonymous consoles.
 - No `.bak` or internal README is reachable.
+
+Current verified release (2026-10-22):
+
+- Verified runtime/artifact commit: `293129e01cce474f54b945831d444a908335da57`; health `OK`, kernel `HEALTHY`, 11 subsystems.
+- Artifact SHA-256: `c1cdc240ece5a3e6aad06f2153665fbecb422b38d29f6a7181f91fb4c65e8e09`.
+- Media/manifest: 401; retired `.bak`/README paths: 404.
+- Product surface: 24 surfaces; AWBULI `#/products`.
+- Browser login: **NOT VERIFIED**.
 
 ## 10. Rollback
 

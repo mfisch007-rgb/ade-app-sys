@@ -1,43 +1,47 @@
 # ADE Community Start — Release Readiness Report
 
-- **Report time:** 2026-10-22T16:10Z
+- **Report time:** 2026-10-22T17:05Z
 - **Repository:** `C:\Users\USER\Desktop\ADE-APP-SYS`
 - **Branch:** `main`
 - **Edition:** `COMMUNITY`
 - **Production URL:** `https://ade-apex-community.vercel.app`
-- **Verdict:** **READY FOR CONTROLLED DEPLOYMENT — POST-DEPLOY VERIFICATION REQUIRED**
+- **Verified runtime/artifact commit:** `293129e01cce474f54b945831d444a908335da57`
+- **Verdict:** **DEPLOYED AND POST-DEPLOY VERIFIED — BROWSER LOGIN VERIFICATION PENDING**
 
-The local source candidate now passes the functional, audit, release-verification, and artifact gates. The security decision was made to apply a lockfile-only transitive update; the audit is clean. Production still runs the previous HEAD until this candidate is deployed, so the raw source-media routes remain exposed until post-deploy proof is recorded. The browser-level login sequence remains unverified.
+The release is deployed. Anonymous media and manifest requests return 401, and the retired `.bak` and internal README paths return 404 instead of the SPA shell. The dependency audit is clean and the deployed kernel reports `HEALTHY`. The browser-level login sequence remains unverified. A docs-only commit after this verification does not change the runtime.
 
 ## 1. Executive summary
 
-Four confirmed defects were addressed locally:
+Four confirmed defects were fixed and deployed:
 
 1. **AWBULI status routing** — The public “See AWBULI Status” action and the AWBULI product-surface action no longer route to Product Theater. The status modal remains the AWBULI surface, and the server product matrix now points AWBULI at `#/products`.
-2. **Public source media** — Raw MP4 names, source-library cards, the source selector, and the manifest link were removed from public HTML. `/ade-experience/media` and `/ade-experience/media-manifest.json` are now L2-guarded in `src/app.js`. Anonymous requests return 401 locally.
+2. **Public source media** — Raw MP4 names, source-library cards, the source selector, and the manifest link were removed from public HTML. `/ade-experience/media` and `/ade-experience/media-manifest.json` are L2-guarded in `src/app.js`; production returns **401** anonymously.
 3. **Login repeat-submit** — The public sign-in path is still a single-submit flow, username Enter now submits, and a static regression test covers single-submit login, modal close, Workspace navigation, and the distinct PIN step-up. Browser-level reproduction of the reported “second submit or Cancel” behavior was not obtained.
-4. **Public/private separation** — Operator links are token-gated, and three tracked legacy `.bak` files plus the internal experience README were moved out of `public/`. A regression test now rejects `.bak` files in the public tree.
+4. **Public/private separation** — Operator links are token-gated, and three tracked legacy `.bak` files plus the internal experience README were moved out of `public/`. A fail-closed middleware returns **404** for both retired path patterns in production; a regression test now rejects `.bak` files in the public tree.
 
-Remaining pre-launch requirements:
+Remaining launch requirement:
 
-- Deploy this candidate and prove `HEAD /ade-experience/media/Try_again(3).mp4` and `HEAD /ade-experience/media-manifest.json` return **401** anonymously. They still return 200 on the previous production HEAD.
 - Verify public sign-in and founder two-step login in a real browser; the reported second-submit/Cancel sequence remains **NOT VERIFIED**.
 
 ## 2. Release gate evidence
 
 | Gate | Result | Evidence |
 |---|---|---|
-| `npm test` | PASS | 575 tests, 572 pass, 3 skipped, 0 fail |
-| `npm run test:full` | PASS | 775 tests, 772 pass, 3 skipped, 0 fail, with an ephemeral test-only `ADE_HTTP_TEST_PIN` |
+| `npm test` | PASS | 575 tests, 572 pass, 3 skipped, 0 fail, rerun after the final guard |
+| `npm run test:full` | PASS | 775 tests, 772 pass, 3 skipped, 0 fail, clean rerun with an ephemeral test-only `ADE_HTTP_TEST_PIN` |
 | `npm run validate` | PASS | 13/13, “FULL GREEN” |
-| `npm run build:community` | PASS | 948 source files after the security patch |
+| `npm run build:community` | PASS | 948 source files; final artifact below |
 | `npm run verify:release` | PASS | 3/3 |
 | `npm audit --audit-level=high` | PASS | `found 0 vulnerabilities` |
 | `npm audit --omit=dev --audit-level=high` | PASS | `found 0 vulnerabilities` |
-| Production media privacy | **PENDING DEPLOY** | Raw MP4 and manifest still return 200 on old HEAD |
+| Production health | PASS | commit `293129e01cce...`; status `OK`; kernel `HEALTHY`; 11 subsystems |
+| Production media privacy | PASS | Raw MP4 and manifest return **401** `application/json` |
+| Production retired paths | PASS | `.bak` and internal README return **404** `application/json` |
 | Browser login reproduction | **NOT VERIFIED** | No browser automation available |
 
-The release artifact is `dist/ade-community-edition.zip`; its final size, SHA-256, timestamp, and source commit are authoritative in `dist/build-manifest.json`. It was rebuilt from the release commit after the dependency update.
+One full-suite run during final re-verification produced a transient `E2E_CREDENTIAL_STORE_NOT_CREATED` in G18.14 after all lifecycle assertions passed; the isolated test and a complete rerun both passed. This was not reproduced and is recorded as a test-stability risk, not a product failure.
+
+The deployed release artifact is `dist/ade-community-edition.zip`: **22,303,603 bytes**, SHA-256 `c1cdc240ece5a3e6aad06f2153665fbecb422b38d29f6a7181f91fb4c65e8e09`, timestamp `2026-10-22T16:46:53.254Z`, 948 source files. `dist/build-manifest.json` records source commit `4f873e9389c1a0c31481924ee603b39cbc85b507`; the artifact and deployment commit is `293129e01cce474f54b945831d444a908335da57`.
 
 The artifact hash changes on rebuild because the build metadata includes a timestamp. The manifest’s `commit_sha` records the release source commit; do not treat an earlier hash as evidence for a later build.
 
@@ -55,7 +59,7 @@ Authorization was given to apply a lockfile-only transitive security update. The
 
 ## 4. Product readiness matrix
 
-`/api/v1/product-surface` reported 24 surfaces: `ACTIVATED:4`, `CONFIGURATION_REQUIRED:3`, `AVAILABLE:12`, `FUTURE:2`, `EXPERIMENTAL:1`, `PREVIEW:1`, `ROADMAP:1`.
+At verified commit `293129e`, `/api/v1/product-surface` reported 24 surfaces: `ACTIVATED:4`, `CONFIGURATION_REQUIRED:3`, `AVAILABLE:12`, `FUTURE:2`, `EXPERIMENTAL:1`, `PREVIEW:1`, `ROADMAP:1`.
 
 | Product | Runtime evidence | Readiness label | Scope / limitation |
 |---|---|---|---|
@@ -94,12 +98,16 @@ Local state:
 - `public/ade-experience/README-INTEGRATION.md` was moved to `docs/media/ADE-EXPERIENCE-INTEGRATION.md` and corrected.
 - Home and mobile operator links are token-gated. Direct `/admin` and `/founder` shells remain public login surfaces by design.
 
-Production state at HEAD:
+Production state at verified commit `293129e`:
 
-- `/ade-experience/media/Try_again(3).mp4` — `200`, `video/mp4`
-- `/ade-experience/media-manifest.json` — `200`, `application/json`
+- `/ade-experience/media/Try_again(3).mp4` — **401**, `application/json`
+- `/ade-experience/media-manifest.json` — **401**, `application/json`
+- `/index.html.activation-audit-20260918-121148.bak` — **404**, `application/json`
+- `/ade-experience/README-INTEGRATION.md` — **404**, `application/json`
+- `/` — `200`, `text/html`
+- `/admin` and `/founder` — `200` login shells; browser login verification remains pending
 
-The local fix is therefore **not in production**. Post-deploy verification must prove both routes return 401 anonymously.
+Both privacy fixes are therefore present in production.
 
 Media playback caveat: `src/kernel/IdentityOnboarding.js` accepts Bearer tokens only, not cookies. Authorized browser playback of a protected media URL must use a Bearer `fetch`/blob path; a bare `<video src>` element cannot authenticate with the session cookie alone.
 
@@ -114,26 +122,26 @@ Media playback caveat: `src/kernel/IdentityOnboarding.js` accepts Bearer tokens 
 
 ## 8. Residual risks and post-deploy checks
 
-1. **Production media exposure** — still live on the previous HEAD; requires deployment and post-deploy 401 proof.
-2. **Browser login UX** — not verified end to end; verify before announcing the launch.
-3. **Node mismatch** — local Node `v20.20.0`; repository/CI require `>=24.0.0`. CI remains authoritative.
-4. **Dirty worktree** — runtime data and unrelated pre-existing changes are present. Stage only the intended release files; never stage `data/audit_ledger.json`, `data/runtime-config/admin.json`, or `.ade_capability_store.json`.
-5. **AWBULI live messaging** — provider bridge and sender identity are not configured; no public number.
-6. **Z-Maths / Smart Logic** — source evidence remains inaccessible.
-7. **Legacy RAR artifacts** — `ADE-AWBULI.G.DRIVE DOWNLOAD.rar` and `ADE-PROCARTA.rar` remain uninspected; no extraction tool is available.
-8. **PM2** — local process was not restarted or reconfigured.
+1. **Browser login UX** — not verified end to end; verify before announcing the launch.
+2. **Node mismatch** — local Node `v20.20.0`; repository/CI require `>=24.0.0`. CI remains authoritative.
+3. **Dirty worktree** — runtime data and unrelated pre-existing changes are present. Stage only the intended release files; never stage `data/audit_ledger.json`, `data/runtime-config/admin.json`, or `.ade_capability_store.json`.
+4. **AWBULI live messaging** — provider bridge and sender identity are not configured; no public number.
+5. **Z-Maths / Smart Logic** — source evidence remains inaccessible.
+6. **Legacy RAR artifacts** — `ADE-AWBULI.G.DRIVE DOWNLOAD.rar` and `ADE-PROCARTA.rar` remain uninspected; no extraction tool is available.
+7. **PM2** — local process was not restarted or reconfigured.
+8. **Test stability** — one full-suite run produced a transient G18.14 credential-store file-check failure; isolated and full reruns passed. A repeat should block the credential-lifecycle area until explained.
+9. **Docs-only deployment commits** — a later commit containing only release-document changes can advance the Vercel HEAD without changing runtime source or the artifact. Verify `/api/v1/health` and the artifact hash rather than assuming every HEAD change is a runtime change.
 
 ## 9. Release recommendation
 
-Deploy through the controlled release path, then verify before announcing:
+The release is deployed and the privacy checks pass. Before announcing the launch:
 
-1. `/ade-experience/media/*` and `/ade-experience/media-manifest.json` return 401 anonymously.
-2. `/api/v1/health` reports the deployed commit.
-3. `/api/v1/product-surface` reflects AWBULI on `#/products`.
-4. Public sign-in and founder two-step login work in a real browser.
-5. No `.bak` or internal README is reachable from production.
+1. Verify public single-submit sign-in and founder password + PIN in a real browser.
+2. Re-check `/api/v1/health`, `/api/v1/product-surface`, and `/api/v1/awbuli/entry`.
+3. Keep the release commit and artifact SHA-256 above as the rollback reference.
+4. If any check fails, redeploy the previous known-good deployment and record the rollback.
 
-If any post-deploy check fails, redeploy the previous known-good deployment and record the rollback.
+Do not describe AWBULI, NEXUS, EVENTOS, or ADE-TIDES as live integrations.
 
 ## 10. Evidence commands
 
@@ -150,9 +158,15 @@ Production spot checks:
 
 ```powershell
 $base='https://ade-apex-community.vercel.app'
-Invoke-RestMethod "$base/api/v1/health"
-Invoke-RestMethod "$base/api/v1/product-surface"
+Invoke-RestMethod "$base/api/v1/health" | ConvertTo-Json -Depth 8
+Invoke-RestMethod "$base/api/v1/product-surface" |
+  Select-Object -ExpandProperty surfaces |
+  Where-Object id -eq 'awbuli'
 Invoke-RestMethod "$base/api/v1/awbuli/entry"
-(Invoke-WebRequest -Method Head "$base/ade-experience/media/Try_again(3).mp4").StatusCode
-(Invoke-WebRequest -Method Head "$base/ade-experience/media-manifest.json").StatusCode
+curl.exe -sS -o NUL -w "%{http_code} %{content_type}`n" "$base/ade-experience/media/Try_again(3).mp4"
+curl.exe -sS -o NUL -w "%{http_code} %{content_type}`n" "$base/ade-experience/media-manifest.json"
+curl.exe -sS -o NUL -w "%{http_code} %{content_type}`n" "$base/index.html.activation-audit-20260918-121148.bak"
+curl.exe -sS -o NUL -w "%{http_code} %{content_type}`n" "$base/ade-experience/README-INTEGRATION.md"
 ```
+
+Expected media/manifest: `401 application/json`. Expected retired paths: `404 application/json`.
