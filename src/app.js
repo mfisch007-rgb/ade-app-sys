@@ -4466,6 +4466,21 @@ app.get("/ade-experience/media-manifest.json", security.requireLevel(2), (req, r
   });
 });
 
+// Retired/backup paths must fail closed. The SPA fallback would otherwise
+// answer 200 with the app shell for any unknown path, which looks like a leak
+// to scanners even when no backup file exists. No public asset ends in .bak,
+// and the internal experience README is not a public document.
+app.use((req, res, next) => {
+  let pathname = "";
+  try { pathname = decodeURIComponent(req.path || "").toLowerCase(); } catch {
+    return res.status(400).json({ success: false, error: "INVALID_PATH" });
+  }
+  if (pathname.endsWith(".bak") || pathname.endsWith("/readme-integration.md")) {
+    return res.status(404).json({ success: false, error: "NOT_FOUND" });
+  }
+  next();
+});
+
 // Serve Static UI Assets. Image/font assets are content-addressed by deployment
 // (same path, new bytes per release) and safe to cache immutably — this is what
 // keeps the brand mark rendering instantly on repeat views, Back navigation and

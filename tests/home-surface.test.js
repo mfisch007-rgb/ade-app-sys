@@ -131,6 +131,13 @@ test("HOME-5 — every Home boot API answers anonymously (no auth-gated first pa
       const privateAsset = await fetch(base + p);
       assert.equal(privateAsset.status, 401, `private source media stays L2-gated: ${p}`);
     }
+    for (const p of [
+      "/index.html.activation-audit-20260918-121148.bak",
+      "/ade-experience/README-INTEGRATION.md"
+    ]) {
+      const retired = await fetch(base + p);
+      assert.equal(retired.status, 404, `retired public path fails closed: ${p}`);
+    }
   } finally {
     srv.close();
   }
