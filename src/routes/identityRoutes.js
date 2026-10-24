@@ -31,6 +31,23 @@ export function registerIdentityRoutes({
   }
   const gate = typeof requireDurableStorage === "function" ? requireDurableStorage : (req, res, next) => next();
 
+  const isStorageFailure = (error) => {
+    const code = String(error?.message || "");
+    return (
+      code === "WORKFORCE_STORAGE_UNAVAILABLE" ||
+      code === "WORKFORCE_STORE_CORRUPT" ||
+      code === "STORAGE_READ_FAILED" ||
+      code === "STORAGE_WRITE_FAILED"
+    );
+  };
+  const storageUnavailable = (res) =>
+    res.status(503).json({
+      success: false,
+      error: "AUTH_STORAGE_UNAVAILABLE",
+      message:
+        "Authentication storage is unavailable. Sign-in is blocked to prevent false credential failures while identity state cannot be verified."
+    });
+
   const elevatedRoles = ["FOUNDER", "ADMIN", "OPERATOR"];
 
   // Single-authority session cookies: PIN elevation atomically swaps the
@@ -111,7 +128,8 @@ export function registerIdentityRoutes({
     let person;
     try {
       person = await workforce.getPersonRecord(personId);
-    } catch {
+    } catch (error) {
+      if (isStorageFailure(error)) return storageUnavailable(res);
       // Shared bridge fallback: the opaque person id can be missing (tokens
       // that carry only the username subject) or stale (record re-created).
       // Fall back to exact username lookup before declaring the miss, so a
@@ -121,7 +139,8 @@ export function registerIdentityRoutes({
           const byName = await workforce.getPersonByUsername(claims.sub);
           if (byName) person = byName;
           else return res.status(401).json({ success: false, error: "PERSON_NOT_FOUND" });
-        } catch {
+        } catch (fallbackError) {
+          if (isStorageFailure(fallbackError)) return storageUnavailable(res);
           return res.status(401).json({ success: false, error: "PERSON_NOT_FOUND" });
         }
       } else {
@@ -185,7 +204,8 @@ export function registerIdentityRoutes({
     let person;
     try {
       person = await workforce.getPersonRecord(personId);
-    } catch {
+    } catch (error) {
+      if (isStorageFailure(error)) return storageUnavailable(res);
       return res.status(403).json({ success: false, error: "INSUFFICIENT_AUTHORIZATION" });
     }
     if (person.status !== "ACTIVE") {
@@ -203,6 +223,7 @@ export function registerIdentityRoutes({
   }
 
   const routeError = (res, error, fallback = "REQUEST_FAILED") => {
+    if (isStorageFailure(error)) return storageUnavailable(res);
     const statusMap = {
       PERSON_NOT_FOUND: 404,
       INVALID_PASSWORD: 400,
@@ -223,6 +244,7 @@ export function registerIdentityRoutes({
       INVITATION_INVALID: 403,
       INVITATION_EXPIRED: 403,
       INVALID_AGENT_NAME: 400,
+      INVALID_AGENT_PURPOSE: 400,
       INVALID_AGENT_STATUS: 400,
       AGENT_NOT_FOUND: 404,
       ANNOUNCEMENT_NOT_FOUND: 404,
@@ -231,14 +253,18 @@ export function registerIdentityRoutes({
       SELF_MANAGEMENT_FORBIDDEN: 403,
       LAST_ADMIN_PROTECTED: 403,
       ELEVATED_PIN_REQUIRED: 403,
-      INSUFFICIENT_AUTHORIZATION: 403
+      INSUFFICIENT_AUTHORIZATION: 403,
+      WORKFORCE_STORAGE_UNAVAILABLE: 503,
+      WORKFORCE_STORE_CORRUPT: 503,
+      STORAGE_READ_FAILED: 503,
+      STORAGE_WRITE_FAILED: 503
     };
     const code = error?.message || fallback;
     const status = statusMap[code] ?? 400;
     return res.status(status).json({ success: false, error: code });
   };
 
-  app.post("/api/v1/account/login", authRateLimit(), async (req, res) => {
+  app.post("/api/v1/account/login", gate, authRateLimit(), async (req, res) => {
     try {
       const { username, password } = req.body || {};
       const person = await workforce.authenticate(username, password);
@@ -256,6 +282,7 @@ export function registerIdentityRoutes({
         person
       });
     } catch (error) {
+      if (isStorageFailure(error)) return storageUnavailable(res);
       return res.status(500).json({ success: false, error: "LOGIN_FAILED" });
     }
   });
@@ -316,6 +343,7 @@ export function registerIdentityRoutes({
         }
       });
     } catch (error) {
+      if (isStorageFailure(error)) return storageUnavailable(res);
       return res.status(500).json({ success: false, error: "PIN_VERIFICATION_FAILED" });
     }
   });
@@ -350,6 +378,7 @@ export function registerIdentityRoutes({
         expiresAt: req.claims.exp * 1000
       });
     } catch (error) {
+      if (isStorageFailure(error)) return storageUnavailable(res);
       return res.status(500).json({ success: false, error: "SESSION_READ_FAILED" });
     }
   });

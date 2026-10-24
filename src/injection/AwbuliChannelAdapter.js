@@ -52,14 +52,16 @@ export function extractOperationalFacts(text) {
 }
 
 export class AwbuliChannelAdapter extends InjectionAdapter {
-  constructor({ tenantScope = "default", organization = null, providerGate = null } = {}) {
+  constructor({ tenantScope = "default", organization = null, providerGate = null, transportRegistry = null } = {}) {
     super({ adapterId: "AWBULI_CHANNEL_ADAPTER", sourceType: "WHATSAPP", sourceVersion: "NEXT.1", executionMode: "SIMULATED" });
     this.defaultTenant = String(tenantScope || "default").slice(0, 80);
     this.defaultOrganization = organization ? String(organization).slice(0, 200) : null;
     this.providerGate = providerGate || null;
+    this.transportRegistry = transportRegistry || null;
   }
 
-  _isLive(tenantScope) {
+  _isLive(tenantScope, input = {}) {
+    if (input.transportId && this.transportRegistry?.getAuthorized?.(input.transportId, { tenantScope })?.available) return true;
     try {
       return Boolean(this.providerGate?.ingestionAllowed?.("AWBULI", { tenantScope }));
     } catch { return false; }
@@ -69,7 +71,7 @@ export class AwbuliChannelAdapter extends InjectionAdapter {
     const text = typeof input === "string" ? input : (input.text || input.message || input.body);
     if (!text || !String(text).trim()) throw fail("ADAPTER_EMPTY_INPUT", "AWBULI message text is required.");
     const tenantScope = String(input.tenantScope || this.defaultTenant || "default").slice(0, 80);
-    const live = this._isLive(tenantScope);
+    const live = this._isLive(tenantScope, input);
     const facts = extractOperationalFacts(text);
     const eventType = input.eventType || classifyEventType(text);
     let eventId = input.eventId || null;
@@ -101,7 +103,7 @@ export class AwbuliChannelAdapter extends InjectionAdapter {
           ...(Array.isArray(input.entities) ? input.entities : [])
         ].slice(0, 50)
       },
-      metadata: { channel: "AWBULI", ...(input.metadata || {}) },
+      metadata: { channel: "AWBULI", transportId: input.transportId || null, ...(input.metadata || {}) },
       attachments: input.attachments,
       location: input.location,
       locale: input.locale,
@@ -109,8 +111,8 @@ export class AwbuliChannelAdapter extends InjectionAdapter {
         adapter: "AWBULI_CHANNEL_ADAPTER",
         synthetic: !live,
         evidence: live
-          ? ["AWBULI channel message", "provider gate ENABLED for tenant"]
-          : ["AWBULI channel message (SIMULATED)", "no live provider; capability routing only"]
+          ? ["AWBULI channel message", input.transportId ? "authorized transport registered for tenant" : "provider gate ENABLED for tenant"]
+          : ["AWBULI channel message (SIMULATED)", "no authorized transport; capability routing only"]
       },
       executionMode: live ? "LIVE" : "SIMULATED",
       sensitivity: input.sensitivity || "INTERNAL",

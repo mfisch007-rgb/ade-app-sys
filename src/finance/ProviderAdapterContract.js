@@ -143,7 +143,18 @@ export class PaystackFinancialAdapter extends FinancialProviderAdapter {
   }
 
   describe() {
-    return { ...super.describe(), configured: this.isConfigured(), state: this.isConfigured() ? (this.environment === "LIVE" ? "TEST" : "TEST") : "NOT_CONFIGURED" };
+    const configured = this.isConfigured();
+    return {
+      ...super.describe(),
+      configured,
+      live: false,
+      state: !configured ? "NOT_CONFIGURED" : this.environment === "LIVE" ? "READY" : "TEST",
+      note: !configured
+        ? "Paystack secret absent; no provider calls are possible."
+        : this.environment === "LIVE"
+          ? "LIVE credentials present; not live-verified until a signed webhook or verification call succeeds."
+          : "TEST credentials present; never a live claim."
+    };
   }
 }
 
@@ -167,18 +178,22 @@ export class FinancialAdapterRegistry {
 
   _secretFor(provider, tenantScope) {
     const scope = String(tenantScope || "default");
-    return this.secrets?.getSecret?.(`ADE_PAYSTACK_${scope}`) || process.env.PAYSTACK_SECRET_KEY || null;
+    const scoped = this.secrets?.getSecret?.(`ADE_PAYSTACK_${scope}`) || null;
+    if (scoped) return scoped;
+    // The process-wide key is only a default-tenant fallback; never leak it into another tenant.
+    return scope === "default" ? process.env.PAYSTACK_SECRET_KEY || null : null;
   }
 
   get(provider, { tenantScope = "default", environment = "TEST" } = {}) {
-    const key = `${String(tenantScope || "default")}::${String(provider).toUpperCase()}`;
-    if (this.adapters.has(key)) return this.adapters.get(key);
     const p = String(provider).toUpperCase();
+    const env = String(environment).toUpperCase() === "LIVE" ? "LIVE" : "TEST";
+    const key = `${String(tenantScope || "default")}::${env}::${p}`;
+    if (this.adapters.has(key)) return this.adapters.get(key);
     let adapter = null;
     if (p === "PAYSTACK") {
-      adapter = new PaystackFinancialAdapter({ environment, secretKey: this._secretFor(p, tenantScope) });
+      adapter = new PaystackFinancialAdapter({ environment: env, secretKey: this._secretFor(p, tenantScope) });
     } else {
-      adapter = new GenericFinancialAdapter({ provider: KNOWN_PROVIDERS.includes(p) ? p : "GENERIC", environment });
+      adapter = new GenericFinancialAdapter({ provider: KNOWN_PROVIDERS.includes(p) ? p : "GENERIC", environment: env });
     }
     this.adapters.set(key, adapter);
     return adapter;
@@ -190,9 +205,9 @@ export class FinancialAdapterRegistry {
     const d = adapter.describe();
     return {
       provider: d.provider, state: d.state, environment: d.environment,
-      capabilities: d.capabilities, readOnly: d.readOnly,
+      configured: Boolean(d.configured), capabilities: d.capabilities, readOnly: d.readOnly,
       contractScopes: d.contractScopes || [],
-      note: d.capabilities.length ? "Declared capabilities only; each call still requires credentials + authorization." : "No capabilities available; provider NOT_CONFIGURED."
+      note: d.note || (d.capabilities.length ? "Declared capabilities only; each call still requires credentials + authorization." : "No capabilities available; provider NOT_CONFIGURED.")
     };
   }
 

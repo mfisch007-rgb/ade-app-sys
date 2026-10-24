@@ -66,6 +66,63 @@ export class BrokerComparisonStore {
     return rec;
   }
 
+  _loadHandoffs(){
+    try{
+      const sec=this.store?.readSection?.("fbsHandoffs") ?? this.store?.read?.()?.fbsHandoffs ?? [];
+      return Array.isArray(sec) ? sec : (sec && Array.isArray(sec.items) ? sec.items : []);
+    }catch{ return []; }
+  }
+  _saveHandoffs(list){
+    try{ if(typeof this.store?.writeSection==="function") this.store.writeSection("fbsHandoffs", list.slice(-2000)); }catch{}
+  }
+
+  /** Durable approval record for an FBS/MT5 handoff. Never an order: ADE
+   *  transmits nothing, so exchange stays NONE, execution/delivery NOT_SENT,
+   *  and no order id is ever allocated. */
+  recordHandoff({ tenantId="default", userId, signal, mode="DEMO", classification="HANDOFF_APPROVAL_RECORDED", liveEligible=false, connectionId=null, requestedBy=null, confirmedAt=null }={}){
+    if(!userId) { const e=new Error("USER_ID_REQUIRED"); e.code="USER_ID_REQUIRED"; throw e; }
+    if(!signal || !signal.instrument) { const e=new Error("SIGNAL_REQUIRED"); e.code="SIGNAL_REQUIRED"; throw e; }
+    const normalizedMode=String(mode||"DEMO").toUpperCase();
+    if(!["DEMO","PAPER","SANDBOX","LIVE"].includes(normalizedMode)) { const e=new Error("HANDOFF_MODE_INVALID"); e.code="HANDOFF_MODE_INVALID"; throw e; }
+    const rec={
+      handoffId: `hnd_${Date.now()}_${Math.random().toString(36).slice(2,6)}`,
+      tenantId: String(tenantId||"default").slice(0,80),
+      userId: String(userId).slice(0,120),
+      venue: "fbs",
+      platform: "FBS_MT5",
+      mode: normalizedMode,
+      connectionId: connectionId ? String(connectionId).slice(0,120) : null,
+      signal: {
+        instrument: String(signal.instrument).slice(0,40),
+        direction: signal.direction ? String(signal.direction).toUpperCase().slice(0,20) : null,
+        state: signal.state ? String(signal.state).toUpperCase().slice(0,40) : null,
+        confidence: signal.confidence ?? null,
+        fingerprint: signal.fingerprint ? String(signal.fingerprint).slice(0,160) : null
+      },
+      classification: String(classification || "HANDOFF_APPROVAL_RECORDED").slice(0,80),
+      liveEligible: liveEligible === true,
+      exchange: "NONE",
+      executionState: "NOT_SENT",
+      deliveryState: "NOT_SENT",
+      orderId: null,
+      requestedBy: requestedBy ? String(requestedBy).slice(0,120) : null,
+      confirmedAt: confirmedAt || iso(),
+      createdAt: iso()
+    };
+    const list=this._loadHandoffs();
+    list.push(rec);
+    this._saveHandoffs(list);
+    try{ this.eventBus?.publish?.("fbs.handoff.recorded", { handoffId: rec.handoffId, userId: rec.userId, tenantId: rec.tenantId }); }catch{}
+    return rec;
+  }
+
+  listHandoffs({ tenantId=null, userId=null }={}){
+    let all=this._loadHandoffs();
+    if(tenantId) all=all.filter(r=>r.tenantId===String(tenantId));
+    if(userId) all=all.filter(r=>r.userId===String(userId));
+    return all.sort((a,b)=> new Date(b.createdAt)-new Date(a.createdAt));
+  }
+
   get(comparisonId){ return this._load().find(r=>r.comparisonId===String(comparisonId)) || null; }
 
   list({ tenantId=null, userId=null, platform=null, marketType=null, outcome=null }={}){

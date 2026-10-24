@@ -107,14 +107,24 @@ export class WorkforceManager {
     } catch {}
   }
 
+  #assertDurableStore() {
+    if (
+      typeof this.store?.isDurable === "function" &&
+      this.store.isDurable() === false
+    ) {
+      throw new Error("WORKFORCE_STORAGE_UNAVAILABLE");
+    }
+  }
+
   async initialize() {
     if (this.#ready) return this.#ready;
     this.#ready = (async () => {
+      this.#assertDurableStore();
       let state;
       try {
         state = await this.store.get(STORE_KEY, null);
       } catch {
-        state = null;
+        throw new Error("WORKFORCE_STORAGE_UNAVAILABLE");
       }
       if (state === null) {
         state = { persons: {}, agents: {}, seq: 0 };
@@ -137,17 +147,22 @@ export class WorkforceManager {
   }
 
   async #refreshState() {
+    this.#assertDurableStore();
+    let fresh;
     try {
-      const fresh = await this.store.get(STORE_KEY, null);
-      if (
-        fresh !== null &&
-        typeof fresh === "object" &&
-        typeof fresh.persons === "object" &&
-        typeof fresh.agents === "object"
-      ) {
-        this.#state = fresh;
-      }
-    } catch {}
+      fresh = await this.store.get(STORE_KEY, null);
+    } catch {
+      throw new Error("WORKFORCE_STORAGE_UNAVAILABLE");
+    }
+    if (fresh === null) return;
+    if (
+      typeof fresh !== "object" ||
+      typeof fresh.persons !== "object" ||
+      typeof fresh.agents !== "object"
+    ) {
+      throw new Error("WORKFORCE_STORE_CORRUPT");
+    }
+    this.#state = fresh;
   }
 
   async #ensureFreshState() {
@@ -156,7 +171,12 @@ export class WorkforceManager {
   }
 
   async #persist() {
-    await this.store.set(STORE_KEY, this.#state);
+    this.#assertDurableStore();
+    try {
+      await this.store.set(STORE_KEY, this.#state);
+    } catch {
+      throw new Error("WORKFORCE_STORAGE_UNAVAILABLE");
+    }
   }
 
   #nextId() {
@@ -630,12 +650,15 @@ export class WorkforceManager {
     if (typeof name !== "string" || name.trim().length < 2) {
       throw new Error("INVALID_AGENT_NAME");
     }
+    if (typeof purpose !== "string" || purpose.trim().length < 3) {
+      throw new Error("INVALID_AGENT_PURPOSE");
+    }
     const id = this.#nextId();
     const now = new Date().toISOString();
     this.#state.agents[id] = {
       id,
       name: name.trim(),
-      purpose: typeof purpose === "string" ? purpose.trim() : "",
+      purpose: purpose.trim(),
       status: "ACTIVE",
       createdAt: now,
       createdBy: createdBy || null,
@@ -653,7 +676,10 @@ export class WorkforceManager {
     if (typeof patch.name === "string" && patch.name.trim().length >= 2) {
       agent.name = patch.name.trim();
     }
-    if (typeof patch.purpose === "string") {
+    if (patch.purpose !== undefined) {
+      if (typeof patch.purpose !== "string" || patch.purpose.trim().length < 3) {
+        throw new Error("INVALID_AGENT_PURPOSE");
+      }
       agent.purpose = patch.purpose.trim();
     }
     if (patch.status !== undefined) {
@@ -673,7 +699,8 @@ export class WorkforceManager {
     const agent = this.#state.agents[agentId];
     if (!agent) return null;
     agent.lastUsedAt = new Date().toISOString();
-    return agent;
+    await this.#persist();
+    return { ...agent };
   }
 
   async listAgents() {

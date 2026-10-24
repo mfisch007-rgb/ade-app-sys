@@ -160,6 +160,7 @@ export class WhatsAppNumberRegistry {
       organization: organization ? String(organization).slice(0, 200) : (unit?.organization || null),
       isDefault: false,
       state: "UNVERIFIED",
+      activation: null,
       verification: null,
       lastActivityAt: null,
       createdAt: nowIso(),
@@ -226,6 +227,8 @@ export class WhatsAppNumberRegistry {
       states,
       verified: (states.VERIFIED || 0) + (states.ENABLED || 0) + (states.SUSPENDED || 0),
       enabled: states.ENABLED || 0,
+      active: rows.filter((r) => r.state === "ENABLED" && r.activation?.state === "ACTIVE").length,
+      blocked: rows.filter((r) => r.activation?.state === "BLOCKED").length,
       defaultConfigured: rows.some((r) => r.isDefault === true),
       live: false
     };
@@ -256,6 +259,62 @@ export class WhatsAppNumberRegistry {
     return this._safe({ ...n });
   }
 
+  setActivation(id, { state = null, transportId = null, reason = "", note = "", missing = [], actor = "SYSTEM" } = {}) {
+    const n = this.numbers.get(String(id || ""));
+    if (!n) throw fail("NUMBER_NOT_FOUND", String(id));
+    const next = String(state || "").toUpperCase();
+    if (!["ACTIVE", "BLOCKED"].includes(next)) throw fail("NUMBER_ACTIVATION_STATE_INVALID", String(state));
+    if (next === "ACTIVE") {
+      if (!transportId) throw fail("NUMBER_TRANSPORT_REQUIRED");
+      if (n.state === "DISABLED") throw fail("NUMBER_DISABLED");
+      if (!["VERIFIED", "SUSPENDED", "ENABLED"].includes(n.state)) throw fail("NUMBER_NOT_VERIFIED");
+      if (!n.verification) throw fail("NUMBER_NOT_VERIFIED", "metadata verification evidence is required before activation.");
+      n.activation = {
+        state: "ACTIVE",
+        transportId: String(transportId).slice(0, 120),
+        reason: "AUTHORIZED_TRANSPORT_BOUND",
+        note: note ? String(note).slice(0, 500) : (reason ? String(reason).slice(0, 500) : null),
+        missing: [],
+        actor: String(actor).slice(0, 120),
+        at: nowIso()
+      };
+      this._touch(n, "ENABLED", { actor, reason: reason || `activated on authorized transport ${n.activation.transportId}` });
+    } else {
+      n.activation = {
+        state: "BLOCKED",
+        transportId: transportId ? String(transportId).slice(0, 120) : null,
+        reason: String(reason || "TRANSPORT_UNAVAILABLE").slice(0, 120),
+        note: note ? String(note).slice(0, 500) : null,
+        missing: Array.isArray(missing) ? missing.map((m) => String(m).slice(0, 200)).slice(0, 20) : [],
+        actor: String(actor).slice(0, 120),
+        at: nowIso()
+      };
+      n.updatedAt = nowIso();
+      this._persist();
+    }
+    this._audit(`NUMBER_ACTIVATION_${next}`, { id: n.id, masked: n.masked, transportId: n.activation.transportId, reason: n.activation.reason });
+    return this._safe({ ...n });
+  }
+
+  findActiveByAddress(rawNumber, { tenantScope = "default" } = {}) {
+    let e164;
+    try {
+      e164 = normalizeE164(rawNumber);
+    } catch {
+      return null;
+    }
+    const scope = String(tenantScope || "default").slice(0, 80);
+    const fp = fingerprint(e164, scope);
+    for (const n of this.numbers.values()) {
+      if (n.tenantScope !== scope) continue;
+      if (n.fingerprint !== fp) continue;
+      if (n.state !== "ENABLED") continue;
+      if (n.activation?.state !== "ACTIVE") continue;
+      return this._safe({ ...n });
+    }
+    return null;
+  }
+
   setState(id, to, { actor = "SYSTEM", reason = "", level = 0 } = {}) {
     const n = this.numbers.get(String(id || ""));
     if (!n) throw fail("NUMBER_NOT_FOUND", String(id));
@@ -269,6 +328,15 @@ export class WhatsAppNumberRegistry {
       throw fail("NUMBER_NOT_VERIFIED", `current state ${n.state}; verify metadata first.`);
     }
     if (next === "DISABLED") n.isDefault = false;
+    if ((next === "SUSPENDED" || next === "DISABLED") && n.activation) {
+      n.activation = {
+        ...n.activation,
+        state: next,
+        reason: `NUMBER_${next}`,
+        actor: String(actor).slice(0, 120),
+        at: nowIso()
+      };
+    }
     this._touch(n, next, { actor, reason });
     this._audit(`NUMBER_${next}`, { id: n.id, masked: n.masked });
     return this._safe({ ...n });

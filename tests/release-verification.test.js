@@ -21,4 +21,33 @@ test("community build produces verified artifact", () => {
   execFileSync(process.execPath,["scripts/build-community.mjs"],{stdio:"pipe"});
   const artifact=path.join(root,"dist","ade-community-edition.zip"); const manifest=path.join(root,"dist","build-manifest.json");
   assert.ok(fs.statSync(artifact).size>0); const m=JSON.parse(fs.readFileSync(manifest,"utf8")); assert.equal(m.size_bytes,fs.statSync(artifact).size); assert.match(m.sha256_hash,/^[a-f0-9]{64}$/);
+  const listing = process.platform === "win32"
+    ? execFileSync("tar.exe",["-tf",artifact],{encoding:"utf8",stdio:["ignore","pipe","ignore"]})
+    : execFileSync("unzip",["-Z1",artifact],{encoding:"utf8",stdio:["ignore","pipe","ignore"]});
+  const entries = listing.split(/\r?\n/).map((line) => line.trim().replace(/^\.\//, "")).filter(Boolean);
+  assert.ok(entries.length > 100, "archive must contain the community source tree");
+  assert.ok(entries.includes("package.json"), "archive keeps the release package manifest");
+  assert.ok(entries.includes("src/server.js"), "archive keeps the server entry point");
+  assert.ok(entries.includes("src/data/PublicDataRegistry.js"), "archive keeps safe static source assets");
+  const forbidden = [
+    /^data(\/|$)/,
+    /^data\/runtime-config\//,
+    /^data\/snapshots\//,
+    /(^|\/)(audit_ledger|kernel_state)\.json$/,
+    /^admin\.json$/,
+    /^debug\.log$/i,
+    /\.bundle$/i,
+    /^\.keys(\/|$)/,
+    /^\.env($|\.)/,
+    /^\.opencode(?:[-_.]|$)/,
+    /^\.ade_(storage|capability_store|session_revocations|feedback_queue)/,
+    /^ade_audit_persistence\./,
+    /^logs?\.(txt|log)$/,
+    /\.(pem|key|p12|pfx|crt|cer|der)$/i
+  ];
+  for (const entry of entries) {
+    for (const pattern of forbidden) {
+      assert.doesNotMatch(entry, pattern, `archive must exclude protected runtime path ${entry}`);
+    }
+  }
 });

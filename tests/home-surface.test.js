@@ -76,6 +76,21 @@ test("HOME-3d — public sign-in completes in one submit and step-up stays separ
   assert.ok(html.includes("api('/api/v1/account/pin'"), "PIN step-up remains a distinct server call");
 });
 
+test("HOME-3e - retained-case attach uses the freshly issued token, not stale render state", () => {
+  const html = readPublic("index.html");
+  assert.ok(html.includes("const tokenRef=React.useRef(token);"), "current token ref exists");
+  assert.ok(html.includes("const setToken=(v)=>{tokenRef.current=v;_setToken(v);"), "setToken updates the ref synchronously");
+  assert.ok(
+    html.includes('const authToken=tokenRef.current;if(authToken)headers.Authorization="Bearer "+authToken;'),
+    "api authorizes with the current token ref"
+  );
+  const start = html.indexOf("const openRetainedCase=async(id)=>{");
+  assert.ok(start >= 0, "openRetainedCase exists");
+  const body = html.slice(start, html.indexOf("const submitProcarta=", start));
+  assert.ok(body.includes("if(!tokenRef.current)"), "retained-case guard reads the current token");
+  assert.ok(!body.includes("if(!token)"), "retained-case guard must not read the stale render token");
+});
+
 test("HOME-3c — public surfaces expose no raw source media or manifest", () => {
   const home = readPublic("index.html");
   const experience = readPublic("ade-experience/index.html");

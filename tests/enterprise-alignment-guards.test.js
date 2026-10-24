@@ -122,7 +122,7 @@ test("INV-CLAIM-2 — claim validation never issues a session, token or cookie",
 });
 
 test("SETTINGS-MASK-1 — admin settings mask secret-shaped leaves and keep policy values", async () => {
-  const { maskSettingsSecrets } = await import(
+  const { maskSettingsSecrets, safeSettingsView, validateSettingsPatch } = await import(
     pathToFileURL(path.join(ROOT, "src/security/SettingsRedaction.js")).href
   );
   const masked = maskSettingsSecrets({
@@ -140,9 +140,30 @@ test("SETTINGS-MASK-1 — admin settings mask secret-shaped leaves and keep poli
   assert.equal(masked.num, 7);
   assert.ok(!JSON.stringify(masked).includes("re_live_1234567890"), "raw credential never survives masking");
 
+  const safe = safeSettingsView({
+    settings: { theme: "ocean", apiKey: "sk-live-should-not-leak" },
+    ui: { compact: true },
+    policies: { demoMode: false, humanApproval: "CONSEQUENTIAL_ACTIONS_ONLY" },
+    integrations: { resendApiKey: "re_live_1234567890" },
+    cases: [{ id: "CASE-1" }]
+  });
+  assert.deepEqual(Object.keys(safe).sort(), ["policies", "settings", "ui"]);
+  assert.equal(safe.settings.theme, "ocean");
+  assert.equal("apiKey" in safe.settings, false, "secret-shaped settings keys are omitted");
+  assert.equal(safe.policies.demoMode, false);
+  assert.equal("integrations" in safe, false, "non-allowlisted sections are omitted");
+  assert.equal("cases" in safe, false, "runtime collections are omitted");
+
+  assert.equal(validateSettingsPatch({ integrations: { value: 1 } }).error, "SETTINGS_SECTION_NOT_ALLOWED");
+  assert.equal(validateSettingsPatch({ policies: { apiKey: "x" } }).error, "SETTINGS_KEY_NOT_ALLOWED");
+  assert.equal(validateSettingsPatch({ policies: { demoMode: { nested: true } } }).error, "SETTINGS_VALUE_INVALID");
+  assert.equal(validateSettingsPatch({ policies: { demoMode: true, partnerMode: "standard" } }).ok, true);
+
   const app = read("src/app.js");
-  assert.ok(app.includes("maskSettingsSecrets(runtimeConfig.read())"), "GET /api/v1/admin/settings redacts on read");
-  assert.ok(app.includes("maskSettingsSecrets(d)"), "PATCH /api/v1/admin/settings redacts the write echo");
+  assert.ok(app.includes("safeSettingsView(runtimeConfig.read())"), "GET /api/v1/admin/settings returns the allowlisted safe view");
+  assert.ok(app.includes("safeSettingsView(d)"), "PATCH /api/v1/admin/settings returns the allowlisted safe view");
+  assert.ok(app.includes("validateSettingsPatch"), "PATCH /api/v1/admin/settings validates sections, keys and values");
+  assert.ok(!app.includes("settings:runtimeConfig.read()"), "overview no longer serializes the full runtime config");
 });
 
 test("CLIENT-AUTHORITY-1 — consoles configure and claim only via canonical server routes", () => {

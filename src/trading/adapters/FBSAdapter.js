@@ -193,7 +193,9 @@ export class FBSAdapter extends MarketDataAdapter {
           high: 1.1 + Math.random() * 0.01,
           low: 1.1 + Math.random() * 0.01,
           close: 1.1 + Math.random() * 0.01,
-          volume: Math.floor(Math.random() * 1000)
+          volume: Math.floor(Math.random() * 1000),
+          dataQuality: "SIMULATED",
+          source: "SIMULATED_PAPER"
         }));
       }, symbol, timeframe, limit);
     }
@@ -211,7 +213,7 @@ export class FBSAdapter extends MarketDataAdapter {
       const h = o * (1 + Math.random() * 0.001);
       const l = o * (1 - Math.random() * 0.001);
       const c = l + Math.random() * (h - l);
-      return { timestamp: t, open: o, high: h, low: l, close: c, volume: Math.floor(Math.random() * 1000) };
+      return { timestamp: t, open: o, high: h, low: l, close: c, volume: Math.floor(Math.random() * 1000), dataQuality: "SIMULATED", source: "SIMULATED_PAPER" };
     });
   }
 
@@ -220,10 +222,10 @@ export class FBSAdapter extends MarketDataAdapter {
   async _doFetchQuotes(symbols) {
     if (this.config._page) {
       return await this.config._page.evaluate((syms) => {
-        return syms.map(s => ({ symbol: s, bid: 1.1000, ask: 1.1002, spread: 0.0002 }));
+        return syms.map(s => ({ symbol: s, bid: 1.1000, ask: 1.1002, spread: 0.0002, dataQuality: "SIMULATED", source: "SIMULATED_PAPER" }));
       }, symbols);
     }
-    return symbols.map(s => ({ symbol: s, bid: 1.1000, ask: 1.1002, spread: 0.0002 }));
+    return symbols.map(s => ({ symbol: s, bid: 1.1000, ask: 1.1002, spread: 0.0002, dataQuality: "SIMULATED", source: "SIMULATED_PAPER" }));
   }
 
   async fetchAccount() {

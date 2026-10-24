@@ -60,7 +60,7 @@ export class TradingEntitlements {
         }
       : { BINARY_REGULAR: Boolean(trading), BINARY_OTC: Boolean(trading), FOREX: Boolean(trading), GAMING: Boolean(gaming) };
     const normModes = modes && typeof modes === "object" ? modes : null;
-    map[key] = { userId: key, trading: Boolean(trading) || caps.BINARY_REGULAR || caps.FOREX, gaming: Boolean(gaming) || caps.GAMING, capabilities: caps, modes: normModes, grantedBy, grantedAt: new Date().toISOString() };
+    map[key] = { userId: key, trading: Boolean(trading) || caps.BINARY_REGULAR || caps.BINARY_OTC || caps.FOREX, gaming: Boolean(gaming) || caps.GAMING, capabilities: caps, modes: normModes, grantedBy, grantedAt: new Date().toISOString() };
     this._save(map);
     try { this.eventBus?.publish?.("trading.entitlement.granted", { userId: key, trading: map[key].trading, gaming: map[key].gaming, capabilities: caps }); } catch {}
     return map[key];

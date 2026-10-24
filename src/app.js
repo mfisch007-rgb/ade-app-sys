@@ -67,7 +67,7 @@ import { AnnouncementsManager } from "./identity/AnnouncementsManager.js";
 import { registerIdentityRoutes } from "./routes/identityRoutes.js";
 import { registerCommercialRoutes } from "./routes/commercialRoutes.js";
 import { CommercialOperations } from "./commercial/CommercialOperations.js";
-import { maskSettingsSecrets } from "./security/SettingsRedaction.js";
+import { safeSettingsView, validateSettingsPatch } from "./security/SettingsRedaction.js";
 import { EditionPolicy } from "./core/EditionPolicy.js";
 import { DemoSafetyBoundary } from "./core/DemoSafetyBoundary.js";
 import { DemoOrchestrator } from "./demo/DemoOrchestrator.js";
@@ -104,7 +104,7 @@ import { LearningCandidates } from "./learning/LearningCandidates.js";
 import { CapabilityRecordStore } from "./capabilities/CapabilityRecordStore.js";
 import { ProviderGate } from "./ingestion/ProviderGate.js";
 import { WhatsAppNumberRegistry } from "./ingestion/WhatsAppNumberRegistry.js";
-import { buildKnobInventory, buildHumanChecklist } from "./ops/OperationalKnobInventory.js";
+import { buildKnobInventory, buildHumanChecklist, deriveChannelReadiness } from "./ops/OperationalKnobInventory.js";
 import { VenueRegistry } from "./trading/VenueRegistry.js";
 import { ADAPTER_CLASSES } from "./trading/adapters/index.js";
 import { TradingEntitlements } from "./trading/TradingEntitlements.js";
@@ -126,6 +126,8 @@ import { InboxManager } from "./messaging/InboxManager.js";
 import { TradingConnectionModes } from "./trading/TradingConnectionModes.js";
 import { BrokerComparisonStore } from "./trading/BrokerComparisonStore.js";
 import { AwbuliChannelAdapter } from "./injection/AwbuliChannelAdapter.js";
+import { AwbuliTransportRegistry } from "./awbuli/AwbuliTransportRegistry.js";
+import { AwbuliMessagingService } from "./awbuli/AwbuliMessagingService.js";
 import { OperationalIntelligencePipeline } from "./injection/OperationalIntelligencePipeline.js";
 import { TestBusinessAdapter } from "./ingestion/InjectionAdapter.js";
 import { InjectionToCaseMapper } from "./ingestion/InjectionToCaseMapper.js";
@@ -414,7 +416,8 @@ const injectionCaseMapper = new InjectionToCaseMapper({ intake, store: runtimeCo
 // available for supported external evidence classes only — never for free
 // text — so the pipeline runs without a text-discovery hint by design.
 const capabilityDiscovery = null;
-const awbuliChannelAdapter = new AwbuliChannelAdapter({ providerGate });
+const awbuliTransports = new AwbuliTransportRegistry({ eventBus: kernel?.eventBus });
+const awbuliChannelAdapter = new AwbuliChannelAdapter({ providerGate, transportRegistry: awbuliTransports });
 const operationalPipeline = new OperationalIntelligencePipeline({
   adapters: {
     AWBULI: awbuliChannelAdapter,
@@ -428,6 +431,13 @@ const operationalPipeline = new OperationalIntelligencePipeline({
   capabilityDiscovery,
   procarta: null,
   governance: dataGovernance,
+  eventBus: kernel?.eventBus
+});
+const awbuliMessaging = new AwbuliMessagingService({
+  numberRegistry: whatsappNumbers,
+  transports: awbuliTransports,
+  pipeline: operationalPipeline,
+  store: runtimeConfig,
   eventBus: kernel?.eventBus
 });
 const documentIntake = new DocumentIntakeService({ store: runtimeConfig, eventBus: kernel?.eventBus });
@@ -681,6 +691,19 @@ const BUILTIN_ECOSYSTEM_CAPABILITIES = [
   { action: "KERNEL_SHUTDOWN", label: "Safe Operating System Shutdown & Disconnect", category: "Kernel Control", pluginRequired: false },
   { action: "SECURITY_GATE_VERIFY", label: "Security Gate & PIN Validation", category: "System Security", pluginRequired: false }
 ];
+
+function createProductSurfaceMatrix() {
+  return new ProductSurfaceMatrix({
+    productRegistry,
+    capabilityActivation,
+    connectionFabric,
+    editionPolicy,
+    capabilityRegistry: CapabilityRegistry,
+    storageProvider,
+    builtinCatalog: BUILTIN_ECOSYSTEM_CAPABILITIES,
+    awbuliMessaging
+  });
+}
 
 // GATE 1 & 2: Auth
 app.post("/api/v1/auth/pin", authRateLimit(), async (req, res) => {
@@ -1440,7 +1463,7 @@ app.get('/api/v1/attention', security.requireLevel(2), async(req,res)=>{
     res.json({success:true, attention:{intakes,candidates,pilots,partners:parts,connections:conns,cases,notifications:notifs,stats}, time:new Date().toISOString()});
   }catch(e){ res.status(500).json({success:false, error:'ATTENTION_FAILED', message:e.message}); }
 });
-app.post('/api/v1/intake/:channel',requireDurableStorage,(req,res)=>{ try { const result=intake.ingest(req.params.channel,req.body||{},{source:req.body?.source||req.params.channel,authenticated:Boolean(req.headers.authorization)}); try { const body=req.body||{}; const q=result?.intake?.request; if(String(body.kind||'').toUpperCase()==='BUSINESS_PROCESS' && q && q.needsDiscovery && Number(q.confidence||0)>=0.6){ communityProgression.captureIntake({type:'USE_CASE',organization:result.intake.organization||'',contactHint:'',useCaseDescription:String(result.intake.text||'').slice(0,5000),currentEdition:editionPolicy.getEdition(),metadata:{procarta:true,caseId:result.case.id,intakeId:result.intake.intakeId,intent:q.intent}}); } } catch(_){} logEvent('INTAKE',`Created ${result.case.id} from ${req.params.channel}`); try { const body=req.body||{}; const kind=String(body.kind||'INTEREST').toUpperCase(); const org=String(result?.intake?.organization||body.organization||'').slice(0,120); const intent=String(result?.intake?.request?.intent||body.useCase||body.intent||'').slice(0,200); notificationEngine.generateInternalEvent("notification.request_status",{channel:"INTAKE",kind,caseId:result?.case?.id||null,intakeId:result?.intake?.intakeId||null,organization:org,intent,source:req.params.channel,recommendedAction:"REVIEW",at:new Date().toISOString()}); } catch(_){} res.status(201).json(result); } catch(e){res.status(400).json({success:false,error:e.message});} });
+app.post('/api/v1/intake/:channel',requireDurableStorage,async(req,res)=>{ try { await refreshCases(); try { await notificationEngine.getRecentEventsAsync(1); } catch(_){} const result=intake.ingest(req.params.channel,req.body||{},{source:req.body?.source||req.params.channel,authenticated:Boolean(req.headers.authorization)}); try { const body=req.body||{}; const q=result?.intake?.request; if(String(body.kind||'').toUpperCase()==='BUSINESS_PROCESS' && q && q.needsDiscovery && Number(q.confidence||0)>=0.6){ communityProgression.captureIntake({type:'USE_CASE',organization:result.intake.organization||'',contactHint:'',useCaseDescription:String(result.intake.text||'').slice(0,5000),currentEdition:editionPolicy.getEdition(),metadata:{procarta:true,caseId:result.case.id,intakeId:result.intake.intakeId,intent:q.intent}}); } } catch(_){} logEvent('INTAKE',`Created ${result.case.id} from ${req.params.channel}`); try { const body=req.body||{}; const kind=String(body.kind||'INTEREST').toUpperCase(); const org=String(result?.intake?.organization||body.organization||'').slice(0,120); const intent=String(result?.intake?.request?.intent||body.useCase||body.intent||'').slice(0,200); notificationEngine.generateInternalEvent("notification.request_status",{channel:"INTAKE",kind,caseId:result?.case?.id||null,intakeId:result?.intake?.intakeId||null,organization:org,intent,source:req.params.channel,recommendedAction:"REVIEW",at:new Date().toISOString()}); } catch(_){} res.status(201).json(result); } catch(e){res.status(400).json({success:false,error:e.message});} });
 // Demonstration runs persist cases with source DEMO_ORCHESTRATOR. Human
 // operational views exclude them by default so synthetic demo actors never
 // pollute Founder/Worker case lists; ?includeDemo=true opts back in and the
@@ -1482,13 +1505,13 @@ app.patch('/api/v1/cases/:id', security.requireAuth(),requireDurableStorage,asyn
   }
   const c=caseManager.update(req.params.id,req.body||{}); if(!c)return res.status(404).json({success:false,error:'CASE_NOT_FOUND'}); res.json({success:true,case:c});}catch(e){res.status(400).json({success:false,error:e.message});}});
 
-app.get('/api/v1/admin/overview', security.requireLevel(2),async(req,res)=>{ await refreshCases(); const { cases, demoExcluded } = visibleCases(req.query.includeDemo); res.json({success:true,channels:channels.list(),connections:connectionManager.list(),partners:partners.list(),cases,demoCasesExcluded:demoExcluded,settings:runtimeConfig.read()}); });
+app.get('/api/v1/admin/overview', security.requireLevel(2),async(req,res)=>{ await refreshCases(); const { cases, demoExcluded } = visibleCases(req.query.includeDemo); res.json({success:true,channels:channels.list(),connections:connectionManager.list(),partners:partners.list(),cases,demoCasesExcluded:demoExcluded}); });
 
 // === PROVIDER / CAPABILITY GOVERNANCE (Batch 10/11, L2) =====================
 // Human-gate controls for provider seams + capability/decision visibility.
 // Writes are durable-gated; secrets are never accepted (shape/presence only).
 const _govTenant = (req) => String(req.query.tenant || "default").slice(0, 80);
-const _govActor = (req) => req.person?.username || req.identity?.subject || req.body?.decidedBy || "admin";
+const _govActor = (req) => req.person?.username || req.identity?.sub || req.identity?.subject || req.body?.decidedBy || "admin";
 
 app.get('/api/v1/admin/providers', security.requireLevel(2), (req, res) => {
   try { res.json({ success: true, providers: providerGate.list({ tenantScope: req.query.tenant || null }) }); }
@@ -1551,6 +1574,18 @@ app.get('/api/v1/admin/ops-inventory', security.requireLevel(2), (req, res) => {
     try { activationRows = capabilityActivation.assess() || []; } catch {}
     let products = [];
     try { products = productRegistry.listProducts() || []; } catch {}
+    let productSurfaces = [];
+    let awbuliNumbers = { total: 0, active: 0 };
+    let awbuliTransport = null;
+    try { awbuliNumbers = whatsappNumbers.summary({ tenantScope: tenant }); } catch {}
+    try { awbuliTransport = awbuliMessaging.transportStatus({ tenantScope: tenant }); } catch {}
+    try {
+      productSurfaces = createProductSurfaceMatrix().build().map((surface) =>
+        surface.id === "awbuli"
+          ? { ...surface, transport: { ...(surface.transport || {}), totalNumbers: Number(awbuliNumbers.total || 0) } }
+          : surface
+      );
+    } catch {}
     let ai = null;
     try { ai = UniversalAIGateway.getInstance().getProviderStatus() || null; } catch {}
     let telemetry = null;
@@ -1574,7 +1609,12 @@ app.get('/api/v1/admin/ops-inventory', security.requireLevel(2), (req, res) => {
       providerGates: providerGate.list({ tenantScope: req.query.tenant || null }),
       activationRows,
       products,
+      productSurfaces,
       channels: (() => { try { return channels.list() || []; } catch { return []; } })(),
+      channelEvidence: {
+        WHATSAPP: { transport: awbuliTransport, numbers: awbuliNumbers },
+        AWBULI: { transport: awbuliTransport, numbers: awbuliNumbers }
+      },
       procarta,
       ai,
       storage: { provider: String(process.env.ADE_STORAGE_PROVIDER || "local"), configured: (() => { try { return isDurableOperational(); } catch { return false; } })() },
@@ -1616,42 +1656,105 @@ app.post('/api/v1/admin/whatsapp-numbers/:id/verify', security.requireLevel(2), 
 
 app.post('/api/v1/admin/whatsapp-numbers/:id/state', security.requireLevel(2), security.requireConfigAction("state"), requireDurableStorage, (req, res) => {
   try {
-    const rec = whatsappNumbers.setState(req.params.id, req.body?.to || req.body?.state, { actor: _govActor(req), reason: req.body?.reason || "", level: 2 });
+    const to = String(req.body?.to || req.body?.state || "").toUpperCase();
+    if (to === "ACTIVE") {
+      const result = awbuliMessaging.activate(req.params.id, { actor: _govActor(req), reason: req.body?.reason || "" });
+      if (!result.success) return res.status(409).json(result);
+      return res.json(result);
+    }
+    const rec = whatsappNumbers.setState(req.params.id, to, { actor: _govActor(req), reason: req.body?.reason || "", level: 2 });
     res.json({ success: true, number: rec });
   } catch (error) { res.status(400).json({ success: false, error: error.code || "NUMBER_STATE_FAILED", message: error.message }); }
 });
 
+app.get('/api/v1/admin/awbuli/transports', security.requireLevel(2), (req, res) => {
+  const tenantScope = String(req.query.tenant || "default").slice(0, 80);
+  res.json({
+    success: true,
+    transport: awbuliMessaging.transportStatus({ tenantScope }),
+    transports: awbuliTransports.list({ tenantScope })
+  });
+});
+
 // Public AWBULI self-onboarding entry (read-only, unauthenticated): publishes
-// the deployment-configured public business number and the START/STAR trigger
-// words. The number registry persists masked identifiers only, so the full
-// number can come ONLY from AWBULI_PUBLIC_NUMBER configuration. Never claims LIVE.
-app.get('/api/v1/awbuli/entry', (req, res) => {
+// the deployment-configured or Admin-approved public business number and the
+// START/STAR trigger words. The number registry persists masked identifiers
+// only, so the public line is a separate opt-in setting. Never claims LIVE.
+function awbuliPublicEntryView({ includeActor = false } = {}) {
+  let setting = {};
+  try { setting = runtimeConfig.read()?.settings || {}; } catch {}
+  const envRaw = String(process.env.AWBULI_PUBLIC_NUMBER || "").replace(/[\s\-()]/g, "");
+  const settingRaw = String(setting.awbuliPublicNumber || "").replace(/[\s\-()]/g, "");
+  const chosen = [
+    { raw: envRaw, source: "ENVIRONMENT" },
+    { raw: settingRaw, source: "ADMIN_SETTINGS" }
+  ].find((candidate) => /^\+?\d{7,15}$/.test(candidate.raw)) || null;
+  const number = chosen ? (chosen.raw.startsWith("+") ? chosen.raw : `+${chosen.raw}`) : null;
+  const source = chosen?.source || null;
+  const bridgeConfigured = Boolean(process.env.AWBULI_API_URL && process.env.AWBULI_API_KEY);
+  const view = {
+    triggerWords: ["START", "STAR"],
+    number,
+    display: number,
+    configured: Boolean(number),
+    source,
+    approvalState: source === "ENVIRONMENT" ? "DEPLOYMENT_CONFIGURED" : source === "ADMIN_SETTINGS" ? "ADMIN_APPROVED" : "NOT_PUBLISHED",
+    providerState: bridgeConfigured ? "CONFIGURED_UNVERIFIED" : "NOT_CONFIGURED",
+    live: false,
+    commandGrammarVersion: AWBULI_COMMAND_VERSION,
+    commandEntry: "POST /api/v1/awbuli/commands (L2 + PIN)",
+    note: number
+      ? `Public business line published from ${source === "ENVIRONMENT" ? "deployment configuration" : "Admin-approved settings"}. Inbound START / STAR routes only when the recipient number is ACTIVE on an authorized WhatsApp transport; otherwise activation stays BLOCKED and no live delivery is claimed.`
+      : "No public WhatsApp number is configured on this deployment yet — an Admin can publish an approved business line in the Admin Console (Providers), or the ADE team provisions it via deployment configuration."
+  };
+  if (includeActor) {
+    view.approvedBy = source === "ADMIN_SETTINGS" ? (setting.awbuliPublicApprovedBy || null) : (source === "ENVIRONMENT" ? "DEPLOYMENT_ENV" : null);
+    view.approvedAt = source === "ADMIN_SETTINGS" ? (setting.awbuliPublicApprovedAt || null) : null;
+  }
+  return view;
+}
+app.get('/api/v1/admin/awbuli/public-entry', security.requireLevel(2), (req, res) => {
+  try { res.json({ success: true, editable: true, entry: awbuliPublicEntryView({ includeActor: true }) }); }
+  catch (error) { res.status(500).json({ success: false, error: "AWBULI_PUBLIC_ENTRY_FAILED", message: error.message }); }
+});
+app.post('/api/v1/admin/awbuli/public-entry', security.requireLevel(2), security.requireConfigAction("provider-configure"), requireDurableStorage, (req, res) => {
   try {
-    const raw = String(process.env.AWBULI_PUBLIC_NUMBER || "").replace(/[\s\-()]/g, "");
-    const number = /^\+?\d{7,15}$/.test(raw) ? (raw.startsWith("+") ? raw : `+${raw}`) : null;
-    const bridgeConfigured = Boolean(process.env.AWBULI_API_URL && process.env.AWBULI_API_KEY);
-    res.json({
-      success: true,
-      entry: {
-        triggerWords: ["START", "STAR"],
-        number,
-        display: number,
-        configured: Boolean(number),
-        providerState: bridgeConfigured ? "CONFIGURED_UNVERIFIED" : "NOT_CONFIGURED",
-        live: false,
-        commandGrammarVersion: AWBULI_COMMAND_VERSION,
-        commandEntry: "POST /api/v1/awbuli/commands (L2 + PIN)",
-        note: number
-          ? "Public business line published from server configuration. Inbound START / STAR is normalized by the canonical AWBULI adapter and stays SIMULATED until the provider gate is VERIFIED + ENABLED."
-          : "No public WhatsApp number is configured on this deployment yet — the ADE team provisions sender identities via the Admin Console."
-      }
-    });
-  } catch (error) { res.status(500).json({ success: false, error: "AWBULI_ENTRY_FAILED" }); }
+    const raw = String(req.body?.number || "").replace(/[\s\-()]/g, "");
+    if (!/^\+?\d{7,15}$/.test(raw)) {
+      return res.status(400).json({ success: false, error: "AWBULI_PUBLIC_NUMBER_INVALID", message: "Enter a 7–15 digit public business number in E.164 form." });
+    }
+    const e164 = raw.startsWith("+") ? raw : `+${raw}`;
+    const actor = _govActor(req);
+    const at = new Date().toISOString();
+    const current = (() => { try { return runtimeConfig.read()?.settings || {}; } catch { return {}; } })();
+    runtimeConfig.writeSection("settings", { ...(current && typeof current === "object" ? current : {}), awbuliPublicNumber: e164, awbuliPublicApprovedBy: actor, awbuliPublicApprovedAt: at });
+    try { kernel?.eventBus?.publish?.("audit.log.created", { category: "AWBULI_PUBLIC_ENTRY", action: "PUBLIC_ENTRY_PUBLISHED", actor, last4: e164.slice(-4), at }); } catch {}
+    return res.json({ success: true, entry: awbuliPublicEntryView({ includeActor: true }) });
+  } catch (error) {
+    return res.status(500).json({ success: false, error: "AWBULI_PUBLIC_ENTRY_FAILED", message: error.message });
+  }
+});
+app.delete('/api/v1/admin/awbuli/public-entry', security.requireLevel(2), security.requireConfigAction("provider-configure"), requireDurableStorage, (req, res) => {
+  try {
+    const actor = _govActor(req);
+    const at = new Date().toISOString();
+    const current = (() => { try { return runtimeConfig.read()?.settings || {}; } catch { return {}; } })();
+    runtimeConfig.writeSection("settings", { ...(current && typeof current === "object" ? current : {}), awbuliPublicNumber: null, awbuliPublicApprovedBy: null, awbuliPublicApprovedAt: null });
+    try { kernel?.eventBus?.publish?.("audit.log.created", { category: "AWBULI_PUBLIC_ENTRY", action: "PUBLIC_ENTRY_UNPUBLISHED", actor, at }); } catch {}
+    return res.json({ success: true, entry: awbuliPublicEntryView({ includeActor: true }) });
+  } catch (error) {
+    return res.status(500).json({ success: false, error: "AWBULI_PUBLIC_ENTRY_FAILED", message: error.message });
+  }
+});
+app.get('/api/v1/awbuli/entry', (req, res) => {
+  try { res.json({ success: true, entry: awbuliPublicEntryView() }); }
+  catch (error) { res.status(500).json({ success: false, error: "AWBULI_ENTRY_FAILED" }); }
 });
 // AWBULI command grammar + operations. Read/interpret endpoints are
 // deliberately side-effect free; recording requires L2 + PIN + durable
-// storage. No route claims a live WhatsApp transport: every payload says
-// `live: false` and the connector analysis remains the source of truth.
+// storage. Public payloads expose only transport state reachability (never
+// transport handles, owner fields or tenant internals). With no registered
+// authorized transport both live and inboundWebhook stay false.
 const _awbuliUnitContext = (tenantScope, unitId) => {
   if (!unitId) return { unitId: null, organization: null };
   const unit = orgUnits.get(String(unitId), { tenantScope });
@@ -1717,15 +1820,18 @@ app.get('/api/v1/awbuli/capabilities', hybridRateLimit, (req, res) => {
   try {
     const adapter = new AwbuliAdapter();
     const connector = adapter.status();
+    const transport = awbuliMessaging.publicStatus({ tenantScope: String(req.query.tenant || "default") });
     res.json({
       success: true,
       product: { id: "awbuli", name: "ADE-AWBULI", version: "1.0.0" },
-      live: false,
+      live: transport.live,
       transport: {
-        state: connector.configured ? "CONFIGURED_UNVERIFIED" : "NOT_CONFIGURED",
-        live: false,
-        inboundWebhook: false,
-        note: "No live WhatsApp transport is established. Commands recorded through the authorized operator path are local ledger entries."
+        ...transport,
+        externalBridge: {
+          configured: connector.configured,
+          mode: connector.mode,
+          requiredConfig: connector.requiredConfig || []
+        }
       },
       commandGrammar: { version: AWBULI_COMMAND_VERSION, commands: describeAwbuliCommands() },
       operations: awbuliBusinessLedger.status(),
@@ -1859,16 +1965,26 @@ app.get('/api/v1/connect/platforms', security.requireLevel(2), (req, res) => {
 });
 // Provider-truth channel & connector states (AWBULI + Connect). Vocabulary is
 // strictly AVAILABLE | CONFIGURATION_REQUIRED | PROVIDER_REQUIRED |
-// NOT_ENTITLED. LIVE is never reported: a venue reads CONNECTED only when
-// liveEligibility() verifies it, otherwise CONFIGURATION_REQUIRED. Read-only
-// projection over existing authorities; no state changes here.
+// NOT_ENTITLED. Channels derive readiness from bound routes, transport state
+// and active sender identity. LIVE is never reported: a venue reads CONNECTED
+// only when liveEligibility() verifies it. Read-only projection over existing
+// authorities; no state changes here.
 app.get('/api/v1/connect/channel-states', security.requireLevel(1), (req, res) => {  try {
     const truth = (s) => ["AVAILABLE", "CONFIGURATION_REQUIRED", "PROVIDER_REQUIRED", "NOT_ENTITLED", "CONNECTED"].includes(String(s)) ? String(s) : "CONFIGURATION_REQUIRED";
     const out = { success: true, vocabulary: ["AVAILABLE", "CONFIGURATION_REQUIRED", "PROVIDER_REQUIRED", "NOT_ENTITLED"], channels: [], connectors: [], venues: [] };
     try {
+      const tenantScope = String(req.query.tenant || "default").slice(0, 80);
+      const awbuliNumbers = whatsappNumbers.summary({ tenantScope });
+      const awbuliTransport = awbuliMessaging.transportStatus({ tenantScope });
+      const opsToState = (readiness) => readiness.status === "READY" ? "AVAILABLE" : readiness.status === "PROVIDER_REQUIRED" ? "PROVIDER_REQUIRED" : "CONFIGURATION_REQUIRED";
       for (const c of (channels.list?.() || [])) {
-        const configured = Boolean(c?.configured ?? c?.enabled ?? c?.verified);
-        out.channels.push({ id: c?.id || c?.channel || "unknown", label: c?.label || null, state: truth(configured ? "AVAILABLE" : "CONFIGURATION_REQUIRED") });
+        const channel = { id: c?.id || c?.channel || "unknown", label: c?.label || null, enabled: c?.enabled, configured: c?.configured, inbound: c?.inbound };
+        const readiness = deriveChannelReadiness(channel, { transport: awbuliTransport, numbers: awbuliNumbers });
+        out.channels.push({
+          id: channel.id, label: channel.label, state: truth(opsToState(readiness)),
+          userAvailability: readiness.userAvailability, delivery: readiness.delivery,
+          runtime: readiness.runtime, reason: readiness.reason
+        });
       }
     } catch {}
     try {
@@ -2006,7 +2122,7 @@ app.get('/api/v1/engagement/live-feeds', security.requireAuth(), hybridRateLimit
       success: true,
       feeds: {
         forex: { ...feedState("fbs"), badge: feedState("fbs").state === "CONNECTED" ? "LIVE" : "SIMULATED", otc: false, gate: "SignalQualityGate" },
-        binary: { ...feedState("pocketoption"), badge: feedState("pocketoption").state === "CONNECTED" ? "LIVE" : "SIMULATED", otc: true, regular: true, gate: "SignalQualityGate" },
+        binary: { ...feedState("pocket-option"), badge: feedState("pocket-option").state === "CONNECTED" ? "LIVE" : "SIMULATED", otc: true, regular: true, gate: "SignalQualityGate" },
         aviator: (() => { try { const h = aviatorHistory.stats?.() || null; return { state: "AVAILABLE", badge: "SIMULATED", note: "Aviator/Virtual Engine — educational analytics, paper simulation only", venue: "aviator", engine: "AviatorAnalyticsEngine", stats: h }; } catch (e) { return { state: "AVAILABLE", badge: "SIMULATED", note: "Aviator engine ready", venue: "aviator" }; } })(),
         soccer: { ...soccer, badge: soccer.state === "CONNECTED" ? "LIVE" : "SIMULATED", gate: "SignalQualityGate" },
         comparison: { state: "AVAILABLE", badge: "SIMULATED", note: "Market Data Comparison — broker comparison store", link: "/api/v1/trading/broker-comparisons" }
@@ -2079,29 +2195,65 @@ app.post('/api/v1/procarta/assessment', hybridRateLimit, requireDurableStorage, 
 // Loss Equation. Read-only projection over the backend CaseManager — full
 // case execution stays in CaseManager; nothing here mutates state.
 const PROCARTA_STAGES = ["INTAKE", "ASSESS", "DECIDE", "EXECUTE", "FEEDBACK"];
-function procartaTopologyFor(caseRec) {
-  const status = String(caseRec?.status || "INTAKE").toUpperCase();
-  const currentIdx = Math.max(0, PROCARTA_STAGES.indexOf(status) >= 0 ? PROCARTA_STAGES.indexOf(status) : 0);
-  const nodes = PROCARTA_STAGES.map((stage, i) => ({
-    stage,
+const PROCARTA_STATUS_STAGE = Object.freeze({
+  RECEIVED: "INTAKE",
+  TRIAGED: "INTAKE",
+  INFORMATION_REQUESTED: "INTAKE",
+  DISCOVERY_REQUIRED: "ASSESS",
+  DISCOVERY_IN_PROGRESS: "ASSESS",
+  ANALYSIS_READY: "DECIDE",
+  DECISION_PENDING: "DECIDE",
+  HUMAN_REVIEW: "DECIDE",
+  ROUTED: "EXECUTE",
+  ADE_EXECUTION: "EXECUTE",
+  PARTNER_RECOMMENDED: "EXECUTE",
+  EXECUTION_IN_PROGRESS: "EXECUTE",
+  EVALUATION: "FEEDBACK",
+  FEEDBACK_PENDING: "FEEDBACK",
+  CLOSED: "FEEDBACK"
+});
+function procartaStatusStage(caseRec) {
+  let status = String(caseRec?.status || "INTAKE").toUpperCase();
+  if (status === "FAILED" || status === "CANCELLED") {
+    const history = Array.isArray(caseRec?.history) ? caseRec.history : [];
+    const lastKnown = [...history].reverse().find((h) => PROCARTA_STATUS_STAGE[String(h?.to || "").toUpperCase()]);
+    status = String(lastKnown?.to || "RECEIVED").toUpperCase();
+  }
+  return { status, stage: PROCARTA_STATUS_STAGE[status] || "INTAKE" };
+}
+export function procartaTopologyFor(caseRec) {
+  const { status, stage } = procartaStatusStage(caseRec);
+  const stageIdx = PROCARTA_STAGES.indexOf(stage);
+  const currentIdx = status === "CLOSED" ? PROCARTA_STAGES.length : Math.max(0, stageIdx);
+  const nodes = PROCARTA_STAGES.map((s, i) => ({
+    stage: s,
     state: i < currentIdx ? "COMPLETE" : i === currentIdx ? "ACTIVE" : "PENDING",
     x: 20 + i * 150, y: 60
   }));
-  const edges = PROCARTA_STAGES.slice(1).map((stage, i) => ({ from: PROCARTA_STAGES[i], to: stage }));
+  const edges = PROCARTA_STAGES.slice(1).map((s, i) => ({ from: PROCARTA_STAGES[i], to: s }));
   // Bottleneck Loss Equation: Loss = throughputDrop x valuePerUnit x timeHorizon.
   // Inputs are caller-supplied estimates; the equation itself is deterministic.
-  return { stages: PROCARTA_STAGES, currentStage: PROCARTA_STAGES[currentIdx], nodes, edges };
+  return {
+    stages: PROCARTA_STAGES,
+    currentStage: PROCARTA_STAGES[Math.min(currentIdx, PROCARTA_STAGES.length - 1)],
+    caseStatus: caseRec?.status || null,
+    terminal: status === "CLOSED" || caseRec?.status === "FAILED" || caseRec?.status === "CANCELLED",
+    nodes,
+    edges
+  };
 }
 function procartaTopologySvg(topo, caseId) {
+  const safeCaseId = String(caseId || "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   const nodeSvg = topo.nodes.map((n) => {
     const fill = n.state === "COMPLETE" ? "#1d7a4f" : n.state === "ACTIVE" ? "#b98a1f" : "#3a4356";
     return `<g><rect x="${n.x}" y="${n.y}" width="130" height="44" rx="8" fill="${fill}" stroke="#e8e2d4" stroke-width="1.5"/><text x="${n.x + 65}" y="${n.y + 27}" text-anchor="middle" fill="#fff" font-size="12" font-family="sans-serif">${n.stage}</text></g>`;
   }).join("");
   const edgeSvg = topo.nodes.slice(1).map((n) => `<line x1="${n.x - 20}" y1="${n.y + 22}" x2="${n.x}" y2="${n.y + 22}" stroke="#8a93a8" stroke-width="2" marker-end="url(#arr)"/>`).join("");
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="790" height="160" role="img" aria-label="PROCARTA process topology for case ${String(caseId || "")}"><defs><marker id="arr" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#8a93a8"/></marker></defs><text x="20" y="24" fill="#e8e2d4" font-size="13" font-family="sans-serif">PROCARTA Topology — case ${String(caseId || "preview")}</text>${edgeSvg}${nodeSvg}</svg>`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="790" height="160" role="img" aria-label="PROCARTA process topology for case ${safeCaseId}"><defs><marker id="arr" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#8a93a8"/></marker></defs><text x="20" y="24" fill="#e8e2d4" font-size="13" font-family="sans-serif">PROCARTA Topology - case ${safeCaseId || "preview"}</text>${edgeSvg}${nodeSvg}</svg>`;
 }
-app.get('/api/v1/procarta/topology', (req, res) => {
+app.get('/api/v1/procarta/topology', async (req, res) => {
   try {
+    await refreshCases();
     const caseId = String(req.query.caseId || "").trim();
     let caseRec = null;
     try { caseRec = caseId ? caseManager.get(caseId) : null; } catch {}
@@ -2124,7 +2276,8 @@ app.get('/api/v1/procarta/topology', (req, res) => {
 });
 // Watermarked Executive Dossier Preview: redacted summary only. Full dossier
 // generation/execution stays in the backend CaseManager + DecisionEngine.
-app.get('/api/v1/procarta/dossier/preview', (req, res) => {
+app.get('/api/v1/procarta/dossier/preview', async (req, res) => {
+  try { await refreshCases(); } catch {}
   try {
     const caseId = String(req.query.caseId || "").trim();
     let caseRec = null;
@@ -2598,9 +2751,11 @@ app.get('/api/v1/integrations/awbuli/status', hybridRateLimit, (req, res) => {
   try {
     const adapter = new AwbuliAdapter();
     const status = adapter.status();
+    const transport = awbuliMessaging.publicStatus({ tenantScope: String(req.query.tenant || "default") });
     res.json({
       success: true,
       connector: status,
+      transport,
       inRepoEngine: {
         name: "AwbuliEngine",
         location: "products/awbuli/AwbuliEngine.js",
@@ -2612,9 +2767,11 @@ app.get('/api/v1/integrations/awbuli/status', hybridRateLimit, (req, res) => {
       supportedOperations: status.configured ? ["ANALYZE","CONNECT","SYNC","DISCONNECT","RECHECK"] : ["ANALYZE"],
       integrationMode: status.configured ? "API_WEBHOOK_BRIDGE" : "ADE_NATIVE_INTEGRATION",
       commandGrammarVersion: AWBULI_COMMAND_VERSION,
-      inboundWebhook: false,
+      inboundWebhook: transport.inboundWebhook === true,
       operations: awbuliBusinessLedger.status(),
-      truthDisclosure: "External AWBULI connection is NOT established. No database/auth/API credentials are configured. No inbound WhatsApp webhook is mounted; recorded commands are local ledger entries."
+      truthDisclosure: transport.live
+        ? "An authorized first-party transport is registered for inbound routing. External AWBULI bridge credentials remain optional; no outbound delivery is claimed."
+        : "No authorized first-party WhatsApp transport is available. Recorded commands are local ledger entries; external bridge credentials are optional and are not fabricated."
     });
   } catch (error) {
     res.status(500).json({ success: false, error: "AWBULI_STATUS_FAILED" });
@@ -2648,8 +2805,8 @@ app.post('/api/v1/admin/partners', security.requireLevel(2),requireDurableStorag
 // are masked on EVERY response (read and write-echo) via the canonical
 // redaction helper, so credentials written through PATCH are never echoed
 // back raw in any API response.
-app.get('/api/v1/admin/settings', security.requireLevel(2),(req,res)=>res.json({success:true,settings:maskSettingsSecrets(runtimeConfig.read()),secretsMasked:true}));
-app.patch('/api/v1/admin/settings', security.requireLevel(2),requireDurableStorage,(req,res)=>{const body=req.body||{}; let d=runtimeConfig.read(); for(const [section,values] of Object.entries(body)){for(const [k,v] of Object.entries(values||{})) d=runtimeConfig.write(section,k,v);} res.json({success:true,settings:maskSettingsSecrets(d),secretsMasked:true});});
+app.get('/api/v1/admin/settings', security.requireLevel(2),(req,res)=>{try{res.json({success:true,settings:safeSettingsView(runtimeConfig.read()),secretsMasked:true,sections:["settings","ui","policies"],note:"Only allowlisted safe settings are returned. Credentials and non-scalar runtime records are never exposed here."});}catch(error){res.status(500).json({success:false,error:"SETTINGS_READ_FAILED",message:error.message});}});
+app.patch('/api/v1/admin/settings', security.requireLevel(2),requireDurableStorage,(req,res)=>{const check=validateSettingsPatch(req.body||{});if(!check.ok)return res.status(400).json({success:false,error:check.error,message:check.message});try{let d=runtimeConfig.read();for(const [section,values] of Object.entries(check.sections)){for(const [k,v] of Object.entries(values))d=runtimeConfig.write(section,k,v);}res.json({success:true,settings:safeSettingsView(d),secretsMasked:true,sections:["settings","ui","policies"]});}catch(error){res.status(500).json({success:false,error:"SETTINGS_WRITE_FAILED",message:error.message});}});
 app.post('/api/v1/assessment/public-discovery',async(req,res)=>{try{if(!req.body?.authorization?.publicAnalysis)return res.status(403).json({success:false,error:'PUBLIC_ANALYSIS_AUTHORIZATION_REQUIRED'}); const result=await publicDiscovery(req.body.url); res.json(result);}catch(e){res.status(400).json({success:false,error:e.message});}});
 
 // === BUSINESS HEALTH / BEFORE-AND-AFTER MEASUREMENT ========================
@@ -2793,7 +2950,7 @@ app.post('/api/v1/features/request', security.requireAuth(), requireDurableStora
     const id = `FREQ-${Date.now().toString(36).toUpperCase()}`;
     const request = {
       id,
-      userId: req.person?.id || req.claims?.sub || "anonymous",
+      userId: req.person?.id || req.person?.username || req.identity?.personId || req.identity?.sub || req.claims?.personId || req.claims?.sub || "anonymous",
       featureName: body.featureName || "",
       description: body.description || "",
       status: "PENDING",
@@ -2870,6 +3027,44 @@ app.get('/api/v1/market/signals', security.requireAuth(), (req, res) => {
   }
 });
 
+function tradingActorCandidates(req) {
+  const raw = [req.person?.id, req.person?.username, req.claims?.personId, req.claims?.sub, req.identity?.personId, req.identity?.sub];
+  return [...new Set(raw.filter(Boolean).map((v) => String(v)))];
+}
+
+function tradingIsFounder(req) {
+  const level = Number(req.claims?.level ?? req.identity?.level ?? req.person?.level ?? 0);
+  const role = String(req.person?.role || req.claims?.role || req.identity?.persona || "").toUpperCase();
+  return level >= 3 || role === "FOUNDER";
+}
+
+function tradingFeatureForSignal(signal = {}) {
+  const market = String(signal.market || "").toUpperCase();
+  const state = String(signal.state || "").toUpperCase();
+  if (market === "BINARY" || state.startsWith("CONFIRMED_")) {
+    return String(signal.marketType || "").toUpperCase() === "OTC" ? "BINARY_OTC" : "BINARY_REGULAR";
+  }
+  if (market === "FOREX" || state === "CONFIRMED") return "FOREX";
+  return "trading";
+}
+
+function tradingSignalMarketValid(signal = {}) {
+  const market = String(signal.market || "").toUpperCase();
+  const state = String(signal.state || "").toUpperCase();
+  if (state.startsWith("CONFIRMED_") && market !== "BINARY") return false;
+  if (state === "CONFIRMED" && market && market !== "FOREX") return false;
+  return true;
+}
+
+function tradingFeatureForVenue(venue, marketType = null) {
+  const id = String(venue || "").toLowerCase();
+  if (id === "fbs" || id.includes("deriv") || id.includes("mt5") || id.includes("mt4")) return "FOREX";
+  if (id.includes("pocket") || id.includes("iq") || id.includes("expert") || id.includes("quotex")) {
+    return String(marketType || "").toUpperCase() === "OTC" ? "BINARY_OTC" : "BINARY_REGULAR";
+  }
+  return "GAMING";
+}
+
 // === FOUNDER MARKET INTELLIGENCE (PAPER MODE) ==============================
 // Deterministic paper-mode analytics over caller-supplied candles.
 // No live broker exists: live execution always BROKER_NOT_CONFIGURED.
@@ -2901,11 +3096,8 @@ app.post('/api/v1/trading/analyze', security.requireLevel(2), (req, res) => {
     try {
       signalGate = signalQualityGate.gate(result || {}, {
         minConfidence,
-        // Alias-aware entitlement subject: the grant may sit under the
-        // username while the session leads with the opaque personId.
-        // requireLevel middleware exposes claims as req.identity.
-        userId: [req.person?.id, req.person?.username, req.claims?.personId, req.claims?.sub, req.identity?.personId, req.identity?.sub].filter(Boolean),
-        feature: String(body.gateFeature || "trading")
+        userId: tradingActorCandidates(req),
+        feature: tradingFeatureForSignal(result || {})
       });
     } catch (gateError) {
       signalGate = { pass: false, score: 0, state: "GATE_ERROR", reason: "SIGNAL_GATE_FAILED", requiredAction: gateError?.message || "Gate unavailable." };
@@ -2920,8 +3112,12 @@ app.post('/api/v1/trading/paper', security.requireLevel(2), requireDurableStorag
   try {
     const actor = req.identity?.sub || req.identity?.subject || "founder";
     const body = req.body || {};
+    const signal = body.signal || {};
+    if (!tradingSignalMarketValid(signal)) {
+      return res.status(400).json({ success: false, error: "SIGNAL_MARKET_INVALID", message: "Signal state does not match its declared market." });
+    }
     // Proven integration repair: the canonical SignalQualityGate MUST sit on
-    // the execution path, not just beside /trading/analyze. Fail closed —
+    // the execution path, not just beside /trading/analyze. Fail closed �?"
     // a gate rejection or gate outage blocks paper execution (422), exactly
     // like the engine's own RISK_REJECTED path. Engine risk/cooldown stops
     // remain enforced inside executePaper; this adds the missing minimum
@@ -2931,10 +3127,10 @@ app.post('/api/v1/trading/paper', security.requireLevel(2), requireDurableStorag
     const minConfidence = Number.isFinite(parsed) ? Math.max(0, Math.min(1, parsed)) : 0.6;
     let signalGate = null;
     try {
-      signalGate = signalQualityGate.gate(body.signal || {}, {
+      signalGate = signalQualityGate.gate(signal, {
         minConfidence,
-        userId: [req.person?.id, req.person?.username, req.claims?.personId, req.claims?.sub, req.identity?.personId, req.identity?.sub].filter(Boolean),
-        feature: String(body.gateFeature || "trading")
+        userId: tradingActorCandidates(req),
+        feature: tradingFeatureForSignal(signal)
       });
     } catch (gateError) {
       return res.status(422).json({ success: false, error: "QUALITY_THRESHOLD_BLOCKED", message: "Signal quality gate unavailable — execution blocked fail-closed.", gate: { pass: false, reason: "SIGNAL_GATE_FAILED", requiredAction: gateError?.message || "Gate unavailable." } });
@@ -2953,17 +3149,29 @@ app.post('/api/v1/trading/paper', security.requireLevel(2), requireDurableStorag
 
 app.post('/api/v1/trading/paper/:id/close', security.requireLevel(2), requireDurableStorage, (req, res) => {
   try {
-    const record = signalEngine.closePaper({ id: req.params.id, ...(req.body || {}) });
+    const record = signalEngine.closePaper({
+      id: req.params.id,
+      ...(req.body || {}),
+      actor: tradingActorCandidates(req),
+      allowAnyActor: tradingIsFounder(req)
+    });
     res.json({ success: true, position: record });
   } catch (error) {
     const code = error.code || "PAPER_CLOSE_FAILED";
-    res.status(code === "PAPER_ALREADY_CLOSED" ? 409 : code === "PAPER_NOT_FOUND" ? 404 : 400).json({ success: false, error: code, message: error.message });
+    res.status(code === "PAPER_ALREADY_CLOSED" ? 409 : code === "PAPER_NOT_FOUND" ? 404 : code === "PAPER_NOT_AUTHORIZED" ? 403 : 400).json({ success: false, error: code, message: error.message });
   }
 });
 
 app.get('/api/v1/trading/ledger', security.requireLevel(2), (req, res) => {
   try {
-    res.json({ success: true, positions: signalEngine.listLedger(Number(req.query.limit) || 50, { actor: req.query.actor || null }) });
+    const requested = req.query.actor ? String(req.query.actor) : null;
+    const candidates = tradingActorCandidates(req);
+    const founder = tradingIsFounder(req);
+    if (requested && !founder && !candidates.includes(requested)) {
+      return res.status(403).json({ success: false, error: "NOT_AUTHORIZED", message: "Ledger scope is limited to your own actor." });
+    }
+    const actor = founder ? (requested || null) : candidates;
+    res.json({ success: true, positions: signalEngine.listLedger(Number(req.query.limit) || 50, { actor }) });
   } catch (error) {
     res.status(500).json({ success: false, error: "TRADING_LEDGER_FAILED" });
   }
@@ -3071,14 +3279,18 @@ app.post('/api/v1/trading/live', security.requireLevel(2), requireDurableStorage
 
 app.post('/api/v1/trading/emergency-stop', security.requireLevel(2), requireDurableStorage, (req, res) => {
   try {
-    const outcome = signalEngine.setEmergencyStop(req.body?.on === true);
+    const engaging = req.body?.on === true;
+    if (!engaging && !tradingIsFounder(req)) {
+      return res.status(403).json({ success: false, error: "FOUNDER_RELEASE_REQUIRED", message: "Releasing the emergency stop requires Founder authority." });
+    }
+    const outcome = signalEngine.setEmergencyStop(engaging);
     try {
       kernel?.eventBus?.publish?.("trading.emergency-stop", {
         on: req.body?.on === true,
         timestamp: new Date().toISOString(),
-        actorId: req.person?.id ?? req.claims?.personId ?? req.claims?.sub ?? null,
-        actor: req.person?.username ?? req.claims?.sub ?? "unknown",
-        role: req.person?.role ?? req.claims?.role ?? null,
+        actorId: req.person?.id ?? req.identity?.personId ?? req.identity?.sub ?? req.claims?.personId ?? req.claims?.sub ?? null,
+        actor: req.person?.username ?? req.identity?.sub ?? req.claims?.sub ?? "unknown",
+        role: req.person?.role ?? req.identity?.persona ?? req.claims?.role ?? null,
         action: req.body?.on === true ? "EMERGENCY_STOP_ENGAGED" : "EMERGENCY_STOP_RELEASED"
       });
     } catch {}
@@ -3287,9 +3499,9 @@ app.post('/api/v1/admin/capabilities/:id/activate', security.requireLevel(2), re
       kernel?.eventBus?.publish?.("trading.capability.activated", {
         capabilityId: req.params.id,
         timestamp: new Date().toISOString(),
-        actorId: req.person?.id ?? req.claims?.personId ?? req.claims?.sub ?? null,
-        actor: req.person?.username ?? req.claims?.sub ?? req.identity?.sub ?? "founder",
-        role: req.person?.role ?? req.claims?.role ?? null,
+        actorId: req.person?.id ?? req.identity?.personId ?? req.identity?.sub ?? req.claims?.personId ?? req.claims?.sub ?? null,
+        actor: req.person?.username ?? req.identity?.sub ?? req.claims?.sub ?? "founder",
+        role: req.person?.role ?? req.identity?.persona ?? req.claims?.role ?? null,
         action: "CAPABILITY_ACTIVATED"
       });
     } catch {}
@@ -3485,7 +3697,14 @@ app.delete('/api/v1/admin/trading/entitlements/:userId', security.requireLevel(3
 app.post('/api/v1/trading/signal-gate', security.requireLevel(2), (req, res) => {
   try {
     const { analysis, minConfidence, userId, feature } = req.body || {};
-    res.json({ success: true, ...signalQualityGate.gate(analysis || {}, { minConfidence: minConfidence ?? 0.6, userId: userId || null, feature: feature || "trading" }) });
+    const candidates = tradingActorCandidates(req);
+    const founder = tradingIsFounder(req);
+    if (userId && !founder && !candidates.includes(String(userId))) {
+      return res.status(403).json({ success: false, error: "NOT_AUTHORIZED", message: "Signal gate scope is limited to your own actor." });
+    }
+    const subject = founder && userId ? String(userId) : candidates;
+    const gateFeature = founder && feature ? feature : tradingFeatureForSignal(analysis || {});
+    res.json({ success: true, ...signalQualityGate.gate(analysis || {}, { minConfidence: minConfidence ?? 0.6, userId: subject, feature: gateFeature }) });
   } catch (error) {
     res.status(500).json({ success: false, error: "SIGNAL_GATE_FAILED", message: error.message });
   }
@@ -3493,7 +3712,15 @@ app.post('/api/v1/trading/signal-gate', security.requireLevel(2), (req, res) => 
 
 app.post('/api/v1/trading/auto-mode', security.requireLevel(2), (req, res) => {
   try {
-    res.json({ success: true, ...signalQualityGate.autoMode(req.body || {}) });
+    const body = req.body || {};
+    const candidates = tradingActorCandidates(req);
+    const founder = tradingIsFounder(req);
+    if (body.userId && !founder && !candidates.includes(String(body.userId))) {
+      return res.status(403).json({ success: false, error: "NOT_AUTHORIZED", message: "Auto-mode scope is limited to your own actor." });
+    }
+    const subject = founder && body.userId ? String(body.userId) : candidates;
+    const gateFeature = founder && body.feature ? body.feature : tradingFeatureForSignal(body.analysis || {});
+    res.json({ success: true, ...signalQualityGate.autoMode({ ...body, userId: subject, feature: gateFeature }) });
   } catch (error) {
     res.status(500).json({ success: false, error: "AUTO_MODE_FAILED", message: error.message });
   }
@@ -3502,30 +3729,88 @@ app.post('/api/v1/trading/auto-mode', security.requireLevel(2), (req, res) => {
 // === TRADING CONNECTION MODES (explicit mode contract, surrounding only) ===
 app.get('/api/v1/trading/connection-modes', security.requireAuth(), (req, res) => {
   try {
-    const uid = req.claims?.personId || req.claims?.sub || req.person?.id || null;
+    const uid = req.person?.id || req.person?.username || req.identity?.personId || req.identity?.sub || req.claims?.personId || req.claims?.sub || null;
     // Canonical tenant fallback: never undefined (resolves CONNECTION_MODES_FAILED).
     const tenant = resolveTenantId(req);
     const tenantStore = tenantForStore(tenant);
-    // L2 sees all; others see own scoped
-    const isL2 = Number(req.claims?.level||0) >=2 || ["FOUNDER","ADMIN"].includes(String(req.person?.role||"").toUpperCase());
-    const list = isL2 ? tradingConnectionModes.list({ tenantId: null }) : tradingConnectionModes.list({ userId: uid, tenantId: tenantStore });
+    // L2 is tenant-scoped; only Founder L3 sees across tenants.
+    const isL2 = Number(req.identity?.level ?? req.claims?.level ?? 0) >= 2 || ["FOUNDER","ADMIN"].includes(String(req.person?.role || req.identity?.persona || "").toUpperCase());
+    const founder = tradingIsFounder(req);
+    const list = founder
+      ? tradingConnectionModes.list({ tenantId: null })
+      : isL2
+        ? tradingConnectionModes.list({ tenantId: tenantStore })
+        : tradingConnectionModes.list({ userId: uid, tenantId: tenantStore });
     res.json({ success: true, modes: list, isL2, tenantId: tenant });
   } catch (e){ res.status(500).json({success:false, error:"CONNECTION_MODES_FAILED", message:e.message}); }
 });
 app.post('/api/v1/trading/connection-modes', security.requireLevel(2), requireDurableStorage, (req, res) => {
   try {
-    const rec = tradingConnectionModes.upsert({ ...req.body, requestedBy: req.identity?.sub || req.person?.username || "founder" });
+    const body = { ...(req.body || {}) };
+    const candidates = tradingActorCandidates(req);
+    const founder = tradingIsFounder(req);
+    if (!founder) {
+      if (body.userId && !candidates.includes(String(body.userId))) {
+        return res.status(403).json({ success: false, error: "NOT_AUTHORIZED", message: "Connection modes can only be created for your own actor." });
+      }
+      const ownTenant = tenantForStore(resolveTenantId(req));
+      if (body.tenantId && String(body.tenantId) !== String(ownTenant)) {
+        return res.status(403).json({ success: false, error: "NOT_AUTHORIZED", message: "Connection modes cannot cross tenant boundaries." });
+      }
+      body.userId = body.userId ? String(body.userId) : candidates[0];
+      body.tenantId = ownTenant;
+    }
+    if (!founder && String(body.activeMode || "").toUpperCase() === "LIVE") {
+      const feature = tradingFeatureForVenue(body.venue || body.platform, body.marketType);
+      if (!candidates.some((id) => tradingEntitlements.can(id, feature))) {
+        return res.status(403).json({ success: false, error: "NOT_ENTITLED", message: `LIVE mode requires a '${feature}' grant.` });
+      }
+    }
+    const rec = tradingConnectionModes.upsert({ ...body, requestedBy: candidates[0] || "founder" });
     res.status(201).json({ success: true, mode: rec });
   } catch (e){ res.status(400).json({success:false, error:e.code||"CONNECTION_MODE_FAILED", message:e.message}); }
 });
 app.patch('/api/v1/trading/connection-modes/:id', security.requireLevel(2), requireDurableStorage, (req, res) => {
   try {
-    const rec = tradingConnectionModes.setMode(req.params.id, req.body?.activeMode, { requestedBy: req.identity?.sub || req.person?.username || "founder" });
+    const existing = tradingConnectionModes.get(req.params.id);
+    if (!existing) return res.status(404).json({ success: false, error: "CONNECTION_NOT_FOUND", message: "Connection mode not found." });
+    const candidates = tradingActorCandidates(req);
+    const founder = tradingIsFounder(req);
+    if (!founder) {
+      if (!existing.userId || !candidates.includes(String(existing.userId))) {
+        return res.status(403).json({ success: false, error: "NOT_AUTHORIZED", message: "Connection mode belongs to another actor." });
+      }
+      const ownTenant = tenantForStore(resolveTenantId(req));
+      if (existing.tenantId && String(existing.tenantId) !== String(ownTenant) && String(existing.tenantId) !== "default") {
+        return res.status(403).json({ success: false, error: "NOT_AUTHORIZED", message: "Connection modes cannot cross tenant boundaries." });
+      }
+    }
+    if (!founder && String(req.body?.activeMode || "").toUpperCase() === "LIVE") {
+      const feature = tradingFeatureForVenue(existing.venue, existing.marketType);
+      if (!candidates.some((id) => tradingEntitlements.can(id, feature))) {
+        return res.status(403).json({ success: false, error: "NOT_ENTITLED", message: `LIVE mode requires a '${feature}' grant.` });
+      }
+    }
+    const rec = tradingConnectionModes.setMode(req.params.id, req.body?.activeMode, { requestedBy: candidates[0] || "founder" });
     res.json({ success: true, mode: rec });
   } catch (e){ res.status(e.code==="CONNECTION_NOT_FOUND"?404:400).json({success:false, error:e.code||"MODE_UPDATE_FAILED", message:e.message}); }
 });
 app.post('/api/v1/trading/connection-modes/:id/verify', security.requireLevel(2), (req, res) => {
-  try { res.json({ success: true, mode: tradingConnectionModes.verify(req.params.id) }); }
+  try {
+    const existing = tradingConnectionModes.get(req.params.id);
+    if (!existing) return res.status(404).json({ success: false, error: "CONNECTION_NOT_FOUND", message: "Connection mode not found." });
+    const candidates = tradingActorCandidates(req);
+    if (!tradingIsFounder(req)) {
+      if (!existing.userId || !candidates.includes(String(existing.userId))) {
+        return res.status(403).json({ success: false, error: "NOT_AUTHORIZED", message: "Connection mode belongs to another actor." });
+      }
+      const ownTenant = tenantForStore(resolveTenantId(req));
+      if (existing.tenantId && String(existing.tenantId) !== String(ownTenant) && String(existing.tenantId) !== "default") {
+        return res.status(403).json({ success: false, error: "NOT_AUTHORIZED", message: "Connection modes cannot cross tenant boundaries." });
+      }
+    }
+    res.json({ success: true, mode: tradingConnectionModes.verify(req.params.id) });
+  }
   catch(e){ res.status(e.code==="CONNECTION_NOT_FOUND"?404:400).json({success:false, error:e.code||"VERIFY_FAILED", message:e.message}); }
 });
 app.get('/api/v1/trading/entitlements/me', security.requireAuth(), (req, res) => {
@@ -3636,11 +3921,11 @@ app.post('/api/v1/inbox/:id/read', inboxAuth, requireDurableStorage, (req,res)=>
 
 // === FBS / MT5 HANDOFF + DERIV BOUNDARY + BROKER COMPARISON (scoped) ===
 // FBS signal → MT5 handoff: validates entitlement + venue verification + mode,
-// then returns handoff proposal; execution requires explicit confirmed:true.
+// then records an approval-aware handoff proposal. ADE transmits no order.
 app.post('/api/v1/trading/fbs/signal-handoff', security.requireAuth(), (req,res)=>{
   try{
-    const uid = req.claims?.personId || req.claims?.sub || req.person?.id || req.person?.username;
-    const candidateIds = [req.claims?.personId, req.claims?.sub, req.person?.id, req.person?.username].filter(Boolean);
+    const candidateIds = [req.person?.id, req.person?.username, req.claims?.personId, req.claims?.sub, req.identity?.personId, req.identity?.sub].filter(Boolean);
+    const uid = candidateIds[0];
     const entitled = (feat) => candidateIds.some((id) => { try { return tradingEntitlements.can(id, feat); } catch { return false; } });
     const tenant = tenantForStore(resolveTenantId(req));
     const { signal, connectionId, confirmed } = req.body||{};
@@ -3648,21 +3933,57 @@ app.post('/api/v1/trading/fbs/signal-handoff', security.requireAuth(), (req,res)
     // entitlement (alias-aware: grant may be recorded under username while session presents personId, or vice versa)
     if(!entitled("FOREX") && !entitled("trading")) return res.status(403).json({success:false, error:"NOT_ENTITLED", message:"Founder has not granted Forex to this user."});
     const modeRec = connectionId ? tradingConnectionModes.get(connectionId) : null;
+    if (connectionId && !modeRec) return res.status(404).json({ success: false, error: "CONNECTION_NOT_FOUND", message: "The supplied connection mode does not exist." });
+    if (modeRec) {
+      const owner = modeRec.userId ? String(modeRec.userId) : null;
+      if (owner && !candidateIds.map(String).includes(owner)) {
+        return res.status(403).json({ success: false, error: "CONNECTION_NOT_OWNED", message: "The supplied connection mode belongs to another actor." });
+      }
+      if (String(modeRec.venue || "").toLowerCase() !== "fbs") {
+        return res.status(400).json({ success: false, error: "CONNECTION_VENUE_MISMATCH", message: "FBS handoff requires an FBS connection mode." });
+      }
+      if (modeRec.tenantId && String(modeRec.tenantId) !== String(tenant) && String(modeRec.tenantId) !== "default") {
+        return res.status(403).json({ success: false, error: "TENANT_MISMATCH", message: "The supplied connection mode is outside your tenant." });
+      }
+    }
     const venueElig = venueRegistry.liveEligibility("fbs");
     const activeMode = modeRec?.activeMode || "DEMO";
-    const connectionState = venueElig.eligible ? "CONNECTED" : venueElig.reason?.includes("CONFIGURED") ? "CONFIGURATION_REQUIRED" : "NOT_CONFIGURED";
+    const liveHandoff = venueElig.eligible && activeMode === "LIVE" && modeRec?.verificationState === "VERIFIED";
+    const classification = confirmed === true
+      ? (liveHandoff ? "HANDOFF_CONFIRMED" : "HANDOFF_APPROVAL_RECORDED")
+      : "ANALYSIS_ONLY";
+    let handoffRecord = null;
+    if(confirmed===true){
+      handoffRecord = brokerComparisonStore.recordHandoff({
+        tenantId: tenant,
+        userId: uid,
+        signal: { ...signal, fingerprint: signal.fingerprint || signal.evidence?.fingerprint || null },
+        mode: activeMode,
+        classification,
+        liveEligible: liveHandoff,
+        connectionId,
+        requestedBy: uid,
+        confirmedAt: new Date().toISOString()
+      });
+    }
+    const connectionState = venueElig.eligible ? "HANDOFF_ONLY" : venueElig.reason?.includes("CONFIGURED") ? "CONFIGURATION_REQUIRED" : "NOT_CONFIGURED";
     const proposal = {
       signal: { instrument: signal.instrument, direction: signal.direction, state: signal.state, confidence: signal.confidence, fingerprint: signal.fingerprint || signal.evidence?.fingerprint || null },
       venue: "fbs", adapter: "FBSAdapter (MT5)", protocol: "MT5 web/REST (official)",
       connectionState, verificationState: venueElig.eligible ? "VERIFIED" : "UNVERIFIED",
       activeMode, supportedModes: ["DEMO","PAPER","SANDBOX","LIVE"],
-      executionCapability: venueElig.eligible && activeMode==="LIVE" ? "ORDER/EXECUTION REQUEST (requires explicit confirmation)" : "SIGNAL DELIVERY / HANDOFF (user executes in MT5 client)",
-      classification: venueElig.eligible && activeMode==="LIVE" && confirmed===true ? "EXECUTION_REQUEST" : confirmed===true ? "SIGNAL_DELIVERY" : "ANALYSIS_ONLY",
-      note: venueElig.eligible ? (activeMode==="LIVE" ? (confirmed===true ? "Order would route via official adapter — explicit human approval recorded." : "Set confirmed:true to submit via official adapter (still requires human approval).") : "Paper/Sandbox mode — signal delivered, no live order.") : `Live blocked: ${venueElig.reason} Configure ${venueRegistry.get("fbs")?.requiredFields?.join(", ")} then verify. MT5 desktop/mobile remains the client surface.`
+      executionCapability: "SIGNAL DELIVERY / HANDOFF (no order is transmitted by ADE; user executes in MT5 client)",
+      classification,
+      accepted: true,
+      routed: Boolean(handoffRecord),
+      submittedToTransport: false,
+      externallyDelivered: false,
+      executed: false,
+      exchange: "NONE",
+      deliveryState: "NOT_SENT",
+      handoffRecordId: handoffRecord?.handoffId || null,
+      note: venueElig.eligible ? (activeMode==="LIVE" ? (confirmed===true ? "Handoff approval recorded. No order is transmitted by ADE; execute in the MT5 client." : "Handoff only. No order is transmitted by ADE; set confirmed:true to record approval, then execute in MT5.") : (confirmed===true ? "Handoff approval marker recorded for paper/sandbox preview; no signal or order is transmitted by ADE." : "Paper/Sandbox mode — handoff preview only; no signal or order is transmitted by ADE.")) : `Live blocked: ${venueElig.reason} Configure ${venueRegistry.get("fbs")?.requiredFields?.join(", ")} then verify.${confirmed===true ? " Approval marker recorded for review only." : ""} MT5 desktop/mobile remains the client surface.`
     };
-    if(confirmed===true && venueElig.eligible && activeMode==="LIVE"){
-      try{ const auditRec = { signal: proposal.signal, venue:"fbs", mode:"LIVE", userId: uid, tenantId: tenant, confirmedAt: new Date().toISOString() }; (store=>{ try{ const list=brokerComparisonStore._load(); list.push({comparisonId:`handoff_${Date.now()}`, tenantId: tenant, userId: uid, platform:"FBS_MT5", asset: signal.instrument, direction: signal.direction, handoff: auditRec, createdAt:new Date().toISOString()}); /* lightweight audit */ }catch{} })(); }catch{}
-    }
     res.json({success:true, handoff: proposal});
   }catch(e){ res.status(500).json({success:false, error:"FBS_HANDOFF_FAILED", message:e.message}); }
 });
@@ -3676,24 +3997,27 @@ app.get('/api/v1/trading/deriv/status', security.requireAuth(), (req,res)=>{
 // Broker comparison: same signal across unsupported binary platforms (manual external)
 app.post('/api/v1/trading/broker-comparisons', security.requireAuth(), requireDurableStorage, (req,res)=>{
   try{
-    const uid = req.claims?.personId || req.claims?.sub || req.person?.id || req.person?.username;
-    const candidateIds = [req.claims?.personId, req.claims?.sub, req.person?.id, req.person?.username].filter(Boolean);
+    const candidateIds = [req.person?.id, req.person?.username, req.claims?.personId, req.claims?.sub, req.identity?.personId, req.identity?.sub].filter(Boolean);
+    const uid = candidateIds[0];
     const entitled = (feat) => candidateIds.some((id) => { try { return tradingEntitlements.can(id, feat); } catch { return false; } });
     const tenant = tenantForStore(resolveTenantId(req));
     // entitlement: any trading capability
     if(!entitled("BINARY_REGULAR") && !entitled("BINARY_OTC") && !entitled("trading"))
       return res.status(403).json({success:false, error:"NOT_ENTITLED", message:"Binary capability not granted."});
     const { platform, asset, marketType, direction, expiry, entryWindow, confidence, quality, signalTimestamp, signalEvidence, fingerprint } = req.body||{};
-    const rec=brokerComparisonStore.create({ tenantId, userId: uid, platform, asset, marketType, direction, expiry, entryWindow, confidence, quality, signalTimestamp, signalEvidence, fingerprint });
+    const rec=brokerComparisonStore.create({ tenantId: tenant, userId: uid, platform, asset, marketType, direction, expiry, entryWindow, confidence, quality, signalTimestamp, signalEvidence, fingerprint });
     res.status(201).json({success:true, comparison: rec});
   }catch(e){ res.status(e.code==="PLATFORM_NOT_SUPPORTED"||e.code==="INVALID_MARKET_TYPE"||e.code==="SIGNAL_REQUIRED"?400:500).json({success:false, error:e.code||"COMPARISON_CREATE_FAILED", message:e.message}); }
 });
 app.get('/api/v1/trading/broker-comparisons', security.requireAuth(), (req,res)=>{
   try{
-    const uid = req.claims?.personId || req.claims?.sub || req.person?.id || req.person?.username;
+    const candidates = tradingActorCandidates(req);
+    const uid = candidates[0];
     const tenant = tenantForStore(resolveTenantId(req));
-    const isL2 = Number(req.claims?.level||0)>=2 || ["FOUNDER","ADMIN"].includes(String(req.person?.role||"").toUpperCase());
-    const list = isL2 ? brokerComparisonStore.list({ tenantId: null }) : brokerComparisonStore.list({ tenantId, userId: uid });
+    const founder = tradingIsFounder(req);
+    const list = founder
+      ? brokerComparisonStore.list({ tenantId: null })
+      : brokerComparisonStore.list({ tenantId: tenant, userId: uid });
     // optional filters
     const { platform, marketType, outcome } = req.query||{};
     let filtered=list;
@@ -3705,23 +4029,26 @@ app.get('/api/v1/trading/broker-comparisons', security.requireAuth(), (req,res)=
 });
 app.get('/api/v1/trading/broker-comparisons/:id', security.requireAuth(), (req,res)=>{
   try{
-    const uid = req.claims?.personId || req.claims?.sub || req.person?.id || req.person?.username;
+    const candidates = tradingActorCandidates(req);
     const rec=brokerComparisonStore.get(req.params.id);
     if(!rec) return res.status(404).json({success:false, error:"COMPARISON_NOT_FOUND"});
-    const isL2 = Number(req.claims?.level||0)>=2 || ["FOUNDER","ADMIN"].includes(String(req.person?.role||"").toUpperCase());
     const tenant = tenantForStore(resolveTenantId(req));
-    if(!isL2 && (rec.userId!==String(uid) || rec.tenantId!==String(tenant) && rec.tenantId!=="default")) return res.status(403).json({success:false, error:"NOT_AUTHORIZED"});
+    const owns = candidates.includes(String(rec.userId));
+    const sameTenant = !rec.tenantId || String(rec.tenantId) === String(tenant) || String(rec.tenantId) === "default";
+    if(!tradingIsFounder(req) && (!owns || !sameTenant)) return res.status(403).json({success:false, error:"NOT_AUTHORIZED"});
     res.json({success:true, comparison: rec});
   }catch(e){ res.status(500).json({success:false, error:"COMPARISON_GET_FAILED", message:e.message}); }
 });
 app.patch('/api/v1/trading/broker-comparisons/:id/result', security.requireAuth(), requireDurableStorage, (req,res)=>{
   try{
-    const uid = req.claims?.personId || req.claims?.sub || req.person?.id || req.person?.username;
+    const candidates = tradingActorCandidates(req);
+    const uid = candidates[0];
     const rec=brokerComparisonStore.get(req.params.id);
     if(!rec) return res.status(404).json({success:false, error:"COMPARISON_NOT_FOUND"});
-    const isL2 = Number(req.claims?.level||0)>=2 || ["FOUNDER","ADMIN"].includes(String(req.person?.role||"").toUpperCase());
     const tenant = tenantForStore(resolveTenantId(req));
-    if(!isL2 && rec.userId!==String(uid)) return res.status(403).json({success:false, error:"NOT_AUTHORIZED"});
+    const owns = candidates.includes(String(rec.userId));
+    const sameTenant = !rec.tenantId || String(rec.tenantId) === String(tenant) || String(rec.tenantId) === "default";
+    if(!tradingIsFounder(req) && (!owns || !sameTenant)) return res.status(403).json({success:false, error:"NOT_AUTHORIZED"});
     const updated=brokerComparisonStore.recordResult(req.params.id, req.body||{}, uid);
     res.json({success:true, comparison: updated});
   }catch(e){ res.status(e.code==="COMPARISON_NOT_FOUND"?404:400).json({success:false, error:e.code||"RESULT_FAILED", message:e.message}); }
@@ -4265,11 +4592,7 @@ app.get('/api/v1/ops/graph', async (req, res) => {
         }
       }
     } catch {}
-    const matrix = new ProductSurfaceMatrix({
-      productRegistry, capabilityActivation, connectionFabric, editionPolicy,
-      capabilityRegistry: CapabilityRegistry, storageProvider,
-      builtinCatalog: BUILTIN_ECOSYSTEM_CAPABILITIES
-    });
+    const matrix = createProductSurfaceMatrix();
     initOperationalGraph().deps.productSurfaceMatrix = matrix;
     res.json(initOperationalGraph().graph(ctx));
   } catch (error) {
@@ -4313,15 +4636,7 @@ app.get('/api/v1/icx/status', security.requireLevel(2), async (req, res) => {
 // (names/states/requiredAction only — never env values, keys or tokens).
 app.get('/api/v1/product-surface', (req, res) => {
   try {
-    const matrix = new ProductSurfaceMatrix({
-      productRegistry,
-      capabilityActivation,
-      connectionFabric,
-      editionPolicy,
-      capabilityRegistry: CapabilityRegistry,
-      storageProvider,
-      builtinCatalog: BUILTIN_ECOSYSTEM_CAPABILITIES
-    });
+    const matrix = createProductSurfaceMatrix();
     res.json({ success: true, edition: editionPolicy.getEdition(), summary: matrix.summary(), surfaces: matrix.build() });
   } catch (error) {
     res.status(500).json({ success: false, error: "PRODUCT_SURFACE_FAILED", message: error.message });
@@ -4401,6 +4716,7 @@ app.get('/api/v1/partners', security.requireAuth(), (req, res) => {
 app.get('/api/v1/notifications/recent', async (req, res) => {
   try {
     const limit = Math.min(100, Math.max(1, Number(req.query.limit || 50)));
+    res.set('Cache-Control', 'no-store');
     res.json({ success: true, events: await notificationEngine.getRecentEventsAsync(limit) });
   } catch (error) {
     res.status(500).json({ success: false, error: "NOTIFICATIONS_FAILED", message: error.message });
@@ -4538,5 +4854,5 @@ app.get("*", (req, res) => {
   res.send(`<!DOCTYPE html><html><head><title>ADE-APEX EOS</title></head><body><h1>ADE-APEX ENTERPRISE OS OPERATIONAL</h1></body></html>`);
 });
 
-export { app, kernel, kernelReady, storageProvider, storageHydration, registry };
+export { app, kernel, kernelReady, storageProvider, storageHydration, registry, awbuliMessaging, awbuliTransports };
 export default app;

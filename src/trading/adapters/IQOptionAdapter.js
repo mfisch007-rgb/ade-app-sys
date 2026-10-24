@@ -217,7 +217,7 @@ export class IQOptionAdapter extends MarketDataAdapter {
       }
       await new Promise(r => setTimeout(r, 500));
     }
-    return symbols.map(s => ({ symbol: s, bid: 1.1000, ask: 1.1002 }));
+    return symbols.map(s => ({ symbol: s, bid: 1.1000, ask: 1.1002, dataQuality: "SIMULATED", source: "SIMULATED_PAPER" }));
   }
 
   liveEligibility() {
@@ -252,7 +252,7 @@ export class IQOptionAdapter extends MarketDataAdapter {
       const h = o * (1 + Math.random() * 0.001);
       const l = o * (1 - Math.random() * 0.001);
       const c = l + Math.random() * (h - l);
-      return { timestamp: t, open: o, high: h, low: l, close: c, volume: Math.floor(Math.random() * 1000) };
+      return { timestamp: t, open: o, high: h, low: l, close: c, volume: Math.floor(Math.random() * 1000), dataQuality: "SIMULATED", source: "SIMULATED_PAPER" };
     });
   }
 

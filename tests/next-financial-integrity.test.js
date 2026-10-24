@@ -275,6 +275,15 @@ test("FIN-24 capability discovery is truthful; read-only respected", () => {
   assert.deepEqual(flw.capabilities, []);
   const adapter = new PaystackFinancialAdapter({ environment: "TEST", secretKey: "k", readOnly: true });
   assert.throws(() => adapter._requireWrite("refund"), /READ_ONLY/);
+
+  // Registry must not reuse a TEST adapter for a LIVE request (environment confusion).
+  const reg = new FinancialAdapterRegistry({ secrets: { getSecret: () => "sk_test_x" } });
+  const testAdapter = reg.get("PAYSTACK", { tenantScope: "default", environment: "TEST" });
+  const liveAdapter = reg.get("PAYSTACK", { tenantScope: "default", environment: "LIVE" });
+  assert.notEqual(testAdapter, liveAdapter);
+  assert.equal(testAdapter.environment, "TEST");
+  assert.equal(liveAdapter.environment, "LIVE");
+  assert.equal(reg.discover("PAYSTACK", { tenantScope: "default", environment: "LIVE" }).state, "READY");
 });
 
 // Security: replay, cross-tenant, spoofing, secret exposure, env confusion
@@ -292,6 +301,15 @@ test("SEC cross-tenant read rejected; secrets and PANs masked", () => {
   // test/live confusion: TEST adapter never claims LIVE
   const a = new PaystackFinancialAdapter({ environment: "TEST", secretKey: "sk_test_x" });
   assert.equal(a.describe().live, false);
+  assert.equal(a.describe().state, "TEST");
+  // LIVE credentials are READY, not falsely advertised as verified/live
+  const live = new PaystackFinancialAdapter({ environment: "LIVE", secretKey: "sk_live_x" });
+  assert.equal(live.describe().configured, true);
+  assert.equal(live.describe().state, "READY");
+  assert.equal(live.describe().live, false);
+  // configured state cannot be claimed without credentials
+  const empty = new PaystackFinancialAdapter({ environment: "LIVE" });
+  assert.equal(empty.describe().state, "NOT_CONFIGURED");
   // normalization preserves provider raw state
   assert.equal(normalizeTxState("success"), "SUCCESS");
   assert.equal(normalizeTxState("weird-state-xyz"), "UNKNOWN");

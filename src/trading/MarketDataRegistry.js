@@ -7,7 +7,7 @@
  */
 
 import EnterpriseEventBus from "../kernel/EnterpriseEventBus.js";
-import { MarketDataAdapter } from "./MarketDataAdapter.js";
+import { MarketDataAdapter, safeConfigKeys } from "./MarketDataAdapter.js";
 import { VenueRegistry } from "./VenueRegistry.js";
 
 export class MarketDataRegistry {
@@ -146,7 +146,7 @@ export class MarketDataRegistry {
         providerId: a.getId(),
         providerName: a.getName(),
         providerKind: a.getKind(),
-        configKeys: Object.keys(a.config),
+        configKeys: safeConfigKeys(a.config),
         status: a.state.connection
       }));
       if (typeof this.store?.writeSection === "function") this.store.writeSection("marketDataRegistry", list);

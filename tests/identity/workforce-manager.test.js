@@ -239,14 +239,24 @@ test("workforce: last active admin is protected except for founder recovery", as
 });
 
 test("workforce: AI agent identities are registered and managed", async (t) => {
-  const wf = new WorkforceManager({ store: tempStore(t) });
+  const store = tempStore(t);
+  const wf = new WorkforceManager({ store });
   await wf.provisionFounder(FOUNDER);
 
+  await assert.rejects(() => wf.createAgent({ name: "no-purpose" }), /INVALID_AGENT_PURPOSE/);
   const agent = await wf.createAgent({ name: "procarta-agent", purpose: "Process intake analysis", createdBy: "founder" });
   assert.equal(agent.status, "ACTIVE");
+  assert.equal(agent.purpose, "Process intake analysis");
 
   const updated = await wf.updateAgent(agent.id, { status: "SUSPENDED" });
   assert.equal(updated.status, "SUSPENDED");
+  await assert.rejects(() => wf.updateAgent(agent.id, { purpose: "" }), /INVALID_AGENT_PURPOSE/);
+
+  const used = await wf.markAgentUsed(agent.id);
+  assert.ok(used.lastUsedAt);
+  const reread = new WorkforceManager({ store });
+  const persisted = (await reread.listAgents()).find((a) => a.id === agent.id);
+  assert.ok(persisted.lastUsedAt, "lastUsedAt must persist across manager instances");
 
   const agents = await wf.listAgents();
   assert.equal(agents.length, 1);

@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { app, kernelReady } from "../src/app.js";
 import IdentityOnboarding from "../src/kernel/IdentityOnboarding.js";
 import { FounderSignalEngine } from "../src/trading/FounderSignalEngine.js";
+import { BrokerComparisonStore } from "../src/trading/BrokerComparisonStore.js";
 
 // Paper-mode trading: deterministic analytics on supplied candles only.
 // No live broker, no invented prices, no fake fills.
@@ -96,6 +97,38 @@ test("live: always BROKER_NOT_CONFIGURED", () => {
   assert.throws(() => eng.executeLive(), /BROKER_NOT_CONFIGURED/);
 });
 
+test("handoff store: durable approval record never becomes an order or delivery", () => {
+  const sections = new Map();
+  const store = {
+    readSection: (name) => sections.get(name) || null,
+    writeSection: (name, value) => { sections.set(name, value); }
+  };
+  const comparisons = new BrokerComparisonStore({ store });
+  const rec = comparisons.recordHandoff({
+    tenantId: "tenant-a",
+    userId: "trade-test",
+    signal: { instrument: "EURUSD", direction: "LONG", state: "CONFIRMED", confidence: 0.72, fingerprint: "fp-1" },
+    mode: "LIVE",
+    classification: "HANDOFF_CONFIRMED",
+    liveEligible: true,
+    connectionId: "conn-1"
+  });
+  assert.equal(rec.executionState, "NOT_SENT");
+  assert.equal(rec.deliveryState, "NOT_SENT");
+  assert.equal(rec.exchange, "NONE");
+  assert.equal(rec.liveEligible, true);
+  assert.equal(rec.orderId, null);
+  assert.equal(rec.classification, "HANDOFF_CONFIRMED");
+  assert.equal(rec.venue, "fbs");
+  assert.equal(rec.platform, "FBS_MT5");
+  assert.equal(comparisons.listHandoffs({ tenantId: "tenant-a" }).length, 1);
+  assert.equal(comparisons.listHandoffs({ tenantId: "tenant-b" }).length, 0);
+  assert.throws(
+    () => comparisons.recordHandoff({ userId: "trade-test", signal: { instrument: "EURUSD" }, mode: "ORDER" }),
+    (e) => e.code === "HANDOFF_MODE_INVALID"
+  );
+});
+
 let server = null;
 let baseUrl = null;
 const opToken = () =>
@@ -155,6 +188,42 @@ test("trading routes: auth gating + paper lifecycle over HTTP", async () => {
   const live = await fetch(`${baseUrl}/api/v1/trading/live`, { method: "POST", headers: H, body: "{}" });
   assert.equal(live.status, 503);
   assert.equal((await live.json()).error, "BROKER_NOT_CONFIGURED");
+});
+
+test("trading routes: FBS handoff persists an approval marker, never an order or execution", async () => {
+  const token = opToken();
+  const H = { "Content-Type": "application/json", Authorization: `Bearer ${token}` };
+  const founderToken = IdentityOnboarding.getInstance().issueSession({ subject: "trade-handoff", tier: "ENTERPRISE", level: 3, persona: "FOUNDER" }).token;
+  const FH = { "Content-Type": "application/json", Authorization: `Bearer ${founderToken}` };
+  try {
+    const grant = await fetch(`${baseUrl}/api/v1/admin/trading/entitlements`, { method: "POST", headers: FH, body: JSON.stringify({ userId: "trade-test", trading: true }) });
+    assert.equal(grant.status, 201);
+    const res = await fetch(`${baseUrl}/api/v1/trading/fbs/signal-handoff`, {
+      method: "POST",
+      headers: H,
+      body: JSON.stringify({
+        signal: { instrument: "EURUSD", direction: "LONG", state: "CONFIRMED", confidence: 0.72 },
+        confirmed: true
+      })
+    });
+    assert.equal(res.status, 200);
+    const body = await res.json();
+    assert.equal(body.handoff.classification, "HANDOFF_APPROVAL_RECORDED");
+    assert.match(body.handoff.executionCapability, /no order is transmitted/i);
+    assert.equal(body.handoff.accepted, true);
+    assert.equal(body.handoff.routed, true);
+    assert.equal(body.handoff.submittedToTransport, false);
+    assert.equal(body.handoff.externallyDelivered, false);
+    assert.equal(body.handoff.executed, false);
+    assert.equal(body.handoff.exchange, "NONE");
+    assert.equal(body.handoff.deliveryState, "NOT_SENT");
+    assert.equal(body.handoff.orderId, undefined);
+    assert.match(body.handoff.handoffRecordId, /^hnd_/);
+    assert.notEqual(body.handoff.connectionState, "CONNECTED");
+    assert.doesNotMatch(body.handoff.note, /signal delivered|order routed/i);
+  } finally {
+    await fetch(`${baseUrl}/api/v1/admin/trading/entitlements/trade-test`, { method: "DELETE", headers: FH }).catch(() => null);
+  }
 });
 
 test("trading routes: SignalQualityGate enforced server-side on paper execution", async () => {

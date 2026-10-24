@@ -216,3 +216,30 @@ test("All adapters: executeOrder returns PAPER/NOT_SUPPORTED without creds", asy
     assert.equal(result.success, false);
   }
 });
+test("MarketDataRegistry: persisted config keys exclude credentials and account identifiers", () => {
+  const writes = [];
+  const store = { writeSection: (section, value) => writes.push({ section, value }) };
+  const registry = new MarketDataRegistry({ eventBus: makeBus(), store });
+  class TestAdapter extends MarketDataAdapter {
+    constructor() {
+      super({
+        providerId: "safe-keys",
+        providerName: "Safe Keys",
+        providerKind: "FOREX_BROKER",
+        eventBus: makeBus(),
+        config: {
+          apiBaseUrl: "https://example.invalid",
+          FBS_API_TOKEN: "secret",
+          FBS_MT5_LOGIN: "123456",
+          POCKET_OPTION_SSID: "abc",
+          accountEmail: "ops@example.invalid",
+          enabled: true
+        }
+      });
+    }
+  }
+  registry.registerAdapter(new TestAdapter());
+  const persisted = writes.find((entry) => entry.section === "marketDataRegistry");
+  assert.ok(persisted, "registry persistence ran");
+  assert.deepEqual(persisted.value[0].configKeys, ["apiBaseUrl", "enabled"]);
+});

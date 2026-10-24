@@ -40,18 +40,33 @@ export class ProductNotificationEngine {
   _restoreDurable() {
     try {
       const rows = this.store?.readSection?.(this.durableSection);
-      if (Array.isArray(rows)) {
-        for (const e of rows.slice(-this.maxEvents)) {
-          if (e?.eventId && !this.internalEvents.some((x) => x.eventId === e.eventId)) {
-            this.internalEvents.push(e);
-          }
-        }
-      }
+      if (Array.isArray(rows)) this._mergeEvents(rows.slice(-this.maxEvents));
     } catch {}
+  }
+
+  _eventTime(event) {
+    return Date.parse(event?.generatedAt || 0) || 0;
+  }
+
+  _mergeEvents(rows) {
+    if (!Array.isArray(rows)) return;
+    const byId = new Map(this.internalEvents.map((e) => [e?.eventId, e]));
+    for (const e of rows) {
+      if (!e?.eventId) continue;
+      const current = byId.get(e.eventId);
+      if (!current || this._eventTime(e) > this._eventTime(current)) {
+        byId.set(e.eventId, e);
+      }
+    }
+    this.internalEvents = Array.from(byId.values())
+      .sort((a, b) => this._eventTime(a) - this._eventTime(b));
+    this._trimEvents();
   }
 
   _persistDurable() {
     try {
+      const stored = this.store?.readSection?.(this.durableSection);
+      if (Array.isArray(stored)) this._mergeEvents(stored.slice(-this.maxEvents));
       this.store?.writeSection?.(this.durableSection, this.internalEvents.slice(-this.durableLimit));
     } catch {}
   }
@@ -94,22 +109,16 @@ export class ProductNotificationEngine {
     try {
       if (this.store && typeof this.store.readSectionAsync === "function") {
         const rows = await this.store.readSectionAsync(this.durableSection);
-        if (Array.isArray(rows)) {
-          for (const e of rows) {
-            if (e?.eventId && !this.internalEvents.some((x) => x.eventId === e.eventId)) {
-              this.internalEvents.push(e);
-            }
-          }
-          this._trimEvents();
-        }
+        this._mergeEvents(rows);
+        this._persistDurable();
       }
     } catch {}
     return this.getRecentEvents(limit);
   }
 
   _merged() {
-    // Memory is authoritative for recency; durable rows fill gaps left by
-    // instance boundaries. Dedupe by eventId, preserve insertion order.
+    // Durable rows fill gaps left by instance boundaries; memory rows retain
+    // same-instance recency. Dedupe by eventId and order by generation time.
     const seen = new Set();
     const out = [];
     for (const e of this.internalEvents) {
@@ -118,7 +127,7 @@ export class ProductNotificationEngine {
         out.push(e);
       }
     }
-    return out;
+    return out.sort((a, b) => this._eventTime(a) - this._eventTime(b));
   }
 
   _trimEvents() {

@@ -45,6 +45,12 @@ export const CONNECTION_STATES = Object.freeze([
 
 export const EXECUTION_MODES = Object.freeze(["PUBLIC", "PAPER", "SANDBOX", "LIVE"]);
 
+const SENSITIVE_CONFIG_KEY_RE = /(api[_-]?key|secret|token|password|passphrase|private[_-]?key|client[_-]?secret|authorization|bearer|credential|ssid|login|account|email|phone|username|user[_-]?id)/i;
+
+export function safeConfigKeys(config) {
+  return Object.keys(config && typeof config === "object" ? config : {}).filter((key) => !SENSITIVE_CONFIG_KEY_RE.test(String(key)));
+}
+
 function normalizeSymbol(s) {
   return String(s || "").trim().toUpperCase();
 }
@@ -134,7 +140,7 @@ export class MarketDataAdapter {
         sourceQualityScore: Math.max(0, 1 - (this.state.parseErrors + this.state.authErrors) * 0.05)
       },
       capabilities: { ...this.capabilities },
-      configKeys: Object.keys(this.config).filter(k => !k.toLowerCase().includes("secret") && !k.toLowerCase().includes("token") && !k.toLowerCase().includes("key"))
+      configKeys: safeConfigKeys(this.config)
     };
     return base;
   }
@@ -290,10 +296,10 @@ export class MarketDataAdapter {
       tickVolume: this._num(c.tickVolume ?? c.tv),
       timeframe,
       spread: this._num(c.spread),
-      source: this.providerId,
+      source: c.source || this.providerId,
       sequence: this._num(c.sequence ?? c.id ?? i),
       receivedAt: new Date().toISOString(),
-      dataQuality: "LIVE"
+      dataQuality: c.dataQuality || "LIVE"
     })).filter(c => c.timestamp && Number.isFinite(c.open) && Number.isFinite(c.high) && Number.isFinite(c.low) && Number.isFinite(c.close));
   }
 
@@ -351,9 +357,9 @@ export class MarketDataAdapter {
       bid: this._num(q.bid ?? q.b ?? q.bestBid),
       ask: this._num(q.ask ?? q.a ?? q.bestAsk),
       spread: this._num(q.spread ?? (q.ask - q.bid)),
-      source: this.providerId,
+      source: q.source || this.providerId,
       receivedAt: new Date().toISOString(),
-      dataQuality: "LIVE"
+      dataQuality: q.dataQuality || "LIVE"
     })).filter(q => q.symbol && Number.isFinite(q.bid) && Number.isFinite(q.ask));
   }
 

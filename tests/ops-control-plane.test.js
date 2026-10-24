@@ -195,6 +195,12 @@ test("16+17 — founder/admin route exposes controls; anonymous cannot mutate", 
   assert.ok(inv.inventory.total > 10);
   assert.ok(inv.checklist.total > 0);
   assert.ok(inv.inventory.knobs.every((k) => k.id && k.status && k.nextHumanAction !== undefined));
+  const states = await call(auth, "GET", "/api/v1/connect/channel-states");
+  assert.equal(states.success, true);
+  assert.equal(states.channels.find((c) => c.id === "WEB").state, "AVAILABLE");
+  const waState = states.channels.find((c) => c.id === "WHATSAPP");
+  assert.equal(waState.state, "PROVIDER_REQUIRED");
+  assert.ok(waState.reason.includes("transport"));
   const add = await call(auth, "POST", "/api/v1/admin/whatsapp-numbers", { number: "+2347038272792", purpose: "E2E" });
   assert.equal(add.success, true);
   assert.ok(add.number.masked.includes("…"));
@@ -226,6 +232,85 @@ test("19 — verification never falsely claims LIVE", () => {
     assert.ok(["VERIFIED", "VERIFICATION_FAILED", "CONFIGURED"].includes(v.state));
     assert.equal(v.health.live, false);
   });
+});
+
+test("21 — product readiness separates lifecycle from availability", () => {
+  const inv = buildKnobInventory({
+    products: [
+      { id: "ade-platform", label: "ADE Platform", status: "ACTIVE" },
+      { id: "awbuli", label: "AWBULI", status: "INTEGRATED" }
+    ],
+    productSurfaces: [
+      {
+        id: "ade-platform", status: "ACTIVATED",
+        activation: { state: "ACTIVATED", detail: "Registered and callable through dispatch." },
+        registry: { status: "ACTIVE", pluginRequired: false }, connection: null, transport: null
+      },
+      {
+        id: "awbuli", status: "CONFIGURATION_REQUIRED",
+        activation: { state: "EXTERNAL_CREDENTIAL_REQUIRED", detail: "Catalog entry; live use needs the external credential." },
+        connection: { grip: 0, requiredAction: "configure AWBULI_API_URL + AWBULI_API_KEY" },
+        transport: { state: "TRANSPORT_UNAVAILABLE", live: false, activeNumbers: 0, totalNumbers: 2 }
+      }
+    ]
+  });
+  const platform = inv.knobs.find((k) => k.id === "product:ade-platform");
+  assert.equal(platform.status, "READY");
+  assert.equal(platform.lifecycle, "ACTIVE");
+  assert.equal(platform.userAvailability, "ACTIVATED");
+  const awbuli = inv.knobs.find((k) => k.id === "product:awbuli");
+  assert.equal(awbuli.status, "NOT_CONFIGURED");
+  assert.equal(awbuli.lifecycle, "INTEGRATED");
+  assert.equal(awbuli.userAvailability, "UNAVAILABLE");
+  assert.ok(awbuli.reason.includes("No authorized WhatsApp transport"));
+  assert.ok(!awbuli.reason.includes("external credential"), "optional AWBULI env keys are not required config");
+  assert.ok(awbuli.requiredConfig.includes("authorized WhatsApp transport"));
+  assert.ok(awbuli.requiredConfig.includes("verified active sender identity"));
+  assert.ok(!awbuli.nextHumanAction.includes("traffic routing changes"));
+});
+
+test("22 — channel readiness distinguishes routes, providers and sender identity", () => {
+  const inv = buildKnobInventory({
+    channels: [
+      { id: "WEB", label: "ADE Portal", enabled: true, inbound: true },
+      { id: "EMAIL", label: "Email", enabled: true, inbound: true },
+      { id: "WHATSAPP", label: "WhatsApp / AWBULI", enabled: true, inbound: true }
+    ],
+    channelEvidence: {
+      WHATSAPP: {
+        transport: { live: false, state: "TRANSPORT_UNAVAILABLE", reason: "NO_AUTHORIZED_TRANSPORT" },
+        numbers: { total: 1, active: 0 }
+      }
+    }
+  });
+  const web = inv.knobs.find((k) => k.id === "channel:WEB");
+  assert.equal(web.status, "READY");
+  assert.equal(web.userAvailability, "AVAILABLE_FOR_INBOUND");
+  const email = inv.knobs.find((k) => k.id === "channel:EMAIL");
+  assert.equal(email.status, "NOT_CONFIGURED");
+  assert.equal(email.configuration, "REQUIRED");
+  assert.equal(email.userAvailability, "UNAVAILABLE");
+  const whatsapp = inv.knobs.find((k) => k.id === "channel:WHATSAPP");
+  assert.equal(whatsapp.status, "PROVIDER_REQUIRED");
+  assert.equal(whatsapp.userAvailability, "UNAVAILABLE");
+  assert.equal(whatsapp.delivery, "NOT_AVAILABLE");
+  assert.ok(whatsapp.requiredConfig.includes("authorized WhatsApp transport"));
+  assert.ok(whatsapp.reason.includes("NO_AUTHORIZED_TRANSPORT"));
+
+  const ready = buildKnobInventory({
+    channels: [{ id: "WHATSAPP", label: "WhatsApp / AWBULI", enabled: true, inbound: true }],
+    channelEvidence: {
+      WHATSAPP: {
+        transport: { live: true, state: "ACTIVE" },
+        numbers: { total: 1, active: 1 }
+      }
+    }
+  });
+  const inboundOnly = ready.knobs.find((k) => k.id === "channel:WHATSAPP");
+  assert.equal(inboundOnly.status, "READY");
+  assert.equal(inboundOnly.userAvailability, "AVAILABLE_FOR_INBOUND");
+  assert.equal(inboundOnly.delivery, "INBOUND_ONLY_OUTBOUND_NOT_PROVEN");
+  assert.ok(inboundOnly.reason.includes("Outbound delivery is not proven"));
 });
 
 test("20 — one canonical authority per domain; no duplicate engine created", () => {

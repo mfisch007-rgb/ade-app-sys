@@ -182,7 +182,7 @@ export class AgentRegistry {
     };
     this.runs.push(run);
     this._persist();
-    try { this.workforce?.markAgentUsed?.(agentId); } catch {}
+    try { await this.workforce?.markAgentUsed?.(agentId); } catch {}
     this._audit("AGENT_RUN", { runId: run.runId, agentId, capability: intent, success: run.success, tenantScope: scope });
     try { this.eventBus?.publish?.("agent.run.completed", { runId: run.runId, agentId, capability: intent, success: run.success, tenantScope: scope }); } catch {}
     return { ...run, input: undefined };

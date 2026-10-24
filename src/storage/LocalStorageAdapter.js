@@ -27,19 +27,35 @@ export class LocalStorageAdapter extends StorageProvider {
     }
   }
 
+  isDurable() {
+    return !this._memoryOnly;
+  }
+
+  storageStatus() {
+    return {
+      durable: this.isDurable(),
+      provider: "LocalStorageAdapter",
+      filePath: this.filePath
+    };
+  }
+
   #readState() {
+    if (this._memoryOnly) return {};
     try {
-      if (this._memoryOnly) return {};
       return JSON.parse(
         fs.readFileSync(this.filePath, "utf8")
       );
-    } catch {
-      return {};
+    } catch (error) {
+      if (error?.code === "ENOENT") return {};
+      throw new Error("STORAGE_READ_FAILED");
     }
   }
 
   #writeState(state) {
-    if (this._memoryOnly) return;
+    if (this._memoryOnly) {
+      // Never report a successful write when the backing file is unavailable.
+      throw new Error("STORAGE_WRITE_FAILED");
+    }
     try {
       const tmp = `${this.filePath}.${process.pid}.${Date.now()}.tmp`;
       fs.writeFileSync(

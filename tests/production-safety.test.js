@@ -98,3 +98,29 @@ test("production-ephemeral: anonymous protected routes still 401 (not 503)", asy
   assert.equal((await get("/api/v1/attention")).status, 401);
   assert.equal((await post("/api/v1/community/intake", { type: "USE_CASE" })).status, 503);
 });
+
+test("production-ephemeral: workforce login is a storage 503, never invalid credentials", async () => {
+  const r = await post("/api/v1/account/login", {
+    username: "founder",
+    password: "FounderPass!1"
+  });
+  const body = await r.json();
+  assert.equal(r.status, 503);
+  assert.equal(body.error, "STORAGE_NOT_CONFIGURED");
+  assert.match(body.message, /durable production storage/i);
+});
+
+test("production-ephemeral: admin settings returns only allowlisted safe sections", async () => {
+  const token = opToken();
+  const r = await get("/api/v1/admin/settings", token);
+  assert.equal(r.status, 200);
+  const body = await r.json();
+  assert.deepEqual(Object.keys(body.settings).sort(), ["policies", "settings", "ui"]);
+  assert.equal(body.secretsMasked, true);
+  const serialized = JSON.stringify(body);
+  for (const forbidden of ["fbsHandoffs", "marketDataRegistry", "venueRegistry", "tradingEntitlements", "channels", "connections", "cases"]) {
+    assert.ok(!serialized.includes(forbidden), `settings response must not include ${forbidden}`);
+  }
+  const overview = await (await get("/api/v1/admin/overview", token)).json();
+  assert.equal("settings" in overview, false, "overview must not serialize the full runtime config");
+});

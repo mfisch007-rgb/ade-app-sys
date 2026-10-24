@@ -461,7 +461,8 @@ export class ProductSurfaceMatrix {
     editionPolicy = null,
     capabilityRegistry = null,
     storageProvider = null,
-    builtinCatalog = []
+    builtinCatalog = [],
+    awbuliMessaging = null
   } = {}) {
     this.productRegistry = productRegistry;
     this.capabilityActivation = capabilityActivation;
@@ -470,6 +471,7 @@ export class ProductSurfaceMatrix {
     this.capabilityRegistry = capabilityRegistry;
     this.storageProvider = storageProvider;
     this.builtinCatalog = builtinCatalog;
+    this.awbuliMessaging = awbuliMessaging;
   }
 
   build() {
@@ -521,9 +523,20 @@ export class ProductSurfaceMatrix {
       const entitlement = this._evaluateEntitlement(decl, byIntent);
 
       // Honest user-facing status.
-      const status = this._deriveStatus(decl, { activation, fabric, registry, entitlement, storageConfigured });
-
-      const requiredAction = this._requiredAction(decl, { activation, fabric, status });
+      let status = this._deriveStatus(decl, { activation, fabric, registry, entitlement, storageConfigured });
+      let requiredAction = this._requiredAction(decl, { activation, fabric, status });
+      const awbuliTransport = decl.id === "awbuli"
+        ? this._safe(() => this.awbuliMessaging?.transportStatus?.({ tenantScope: "default" }) || null, null)
+        : null;
+      const awbuliActiveNumbers = decl.id === "awbuli"
+        ? this._safe(() => Number(this.awbuliMessaging?.numberRegistry?.summary?.({ tenantScope: "default" })?.active || 0), 0)
+        : 0;
+      if (decl.id === "awbuli" && awbuliTransport?.live && awbuliActiveNumbers > 0) {
+        status = "AVAILABLE";
+        requiredAction = null;
+      } else if (decl.id === "awbuli" && awbuliTransport?.live) {
+        requiredAction = "Activate a registered sender identity on the authorized WhatsApp transport.";
+      }
 
       return {
         id: decl.id,
@@ -552,6 +565,13 @@ export class ProductSurfaceMatrix {
               grip: Number(fabric.grip || 0),
               state: fabric.state || null,
               requiredAction: fabric.requiredAction || fabric.failureReason || null
+            }
+          : null,
+        transport: awbuliTransport
+          ? {
+              state: awbuliTransport.state || null,
+              live: awbuliTransport.live === true,
+              activeNumbers: awbuliActiveNumbers
             }
           : null,
         registry: registry

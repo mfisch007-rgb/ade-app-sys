@@ -33,12 +33,12 @@ function tempStore(t) {
   return new LocalStorageAdapter(file);
 }
 
-async function bootRoutes(t) {
+async function bootRoutes(t, { workforceStore = null } = {}) {
   const { default: expressMod } = await import("express");
   const app = expressMod();
   app.use(expressMod.json({ limit: "1mb" }));
 
-  const workforce = new WorkforceManager({ store: tempStore(t) });
+  const workforce = new WorkforceManager({ store: workforceStore || tempStore(t) });
   const announcements = new AnnouncementsManager({ store: tempStore(t) });
   const credentialStore = {
     getCredentialVersion: () => 1,
@@ -106,6 +106,35 @@ test("identity-routes: anonymous access to protected surfaces is rejected", asyn
   const { request } = await bootRoutes(t);
   const res = await request(null, "GET", "/api/v1/workforce");
   assert.equal(res.status, 401);
+});
+
+test("identity-routes: non-durable identity storage fails 503, never invalid credentials", async (t) => {
+  const store = {
+    isDurable: () => false,
+    get: async () => ({}),
+    set: async () => {}
+  };
+  const { request, session } = await bootRoutes(t, { workforceStore: store });
+
+  const login = await request(null, "POST", "/api/v1/account/login", {
+    username: "founder",
+    password: "FounderPass!1"
+  });
+  const loginBody = await login.json();
+  assert.equal(login.status, 503);
+  assert.equal(loginBody.error, "AUTH_STORAGE_UNAVAILABLE");
+  assert.match(loginBody.message, /storage is unavailable/i);
+
+  const token = session({
+    subject: "founder",
+    persona: "WORKFORCE",
+    level: 3,
+    edition: "COMMUNITY",
+    metadata: { role: "FOUNDER", personId: "missing", pinVerified: true }
+  });
+  const current = await request(token, "GET", "/api/v1/account/session");
+  assert.equal(current.status, 503);
+  assert.equal((await current.json()).error, "AUTH_STORAGE_UNAVAILABLE");
 });
 
 test("identity-routes: legacy level-2 admin PIN session is an elevated operator on the control plane", async (t) => {

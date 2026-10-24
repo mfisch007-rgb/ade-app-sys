@@ -907,7 +907,7 @@ export class FounderSignalEngine {
       e.code = "SIGNAL_NOT_CONFIRMED";
       throw e;
     }
-    const fp = this._fingerprint([signal.instrument, signal.direction, signal.entry ?? signal.timeframe, "paper"]);
+    const fp = this._fingerprint([actor, signal.instrument, signal.direction, signal.entry ?? signal.timeframe, "paper"]);
     if (!this._cooldownOk(`exec:${fp}`, now)) {
       const e = new Error("DUPLICATE_SUPPRESSED: identical paper execution is in cooldown.");
       e.code = "DUPLICATE_SUPPRESSED";
@@ -954,12 +954,20 @@ export class FounderSignalEngine {
     return record;
   }
 
-  closePaper({ id, outcome = "MANUAL", pnl = 0, exitPrice = null, now = Date.now() } = {}) {
+  closePaper({ id, outcome = "MANUAL", pnl = 0, exitPrice = null, now = Date.now(), actor = null, allowAnyActor = false } = {}) {
     const rec = this._state.ledger.find((r) => r.id === id);
     if (!rec) {
       const e = new Error("PAPER_NOT_FOUND: no paper position with that id.");
       e.code = "PAPER_NOT_FOUND";
       throw e;
+    }
+    if (!allowAnyActor && actor) {
+      const actors = (Array.isArray(actor) ? actor : [actor]).map(String);
+      if (!actors.includes(String(rec.actor || "founder"))) {
+        const e = new Error("PAPER_NOT_AUTHORIZED: this paper position belongs to another actor.");
+        e.code = "PAPER_NOT_AUTHORIZED";
+        throw e;
+      }
     }
     if (rec.closedAt) {
       const e = new Error("PAPER_ALREADY_CLOSED: position is already closed.");
@@ -983,7 +991,8 @@ export class FounderSignalEngine {
   }
 
   listLedger(limit = 50, { actor = null } = {}) {
-    const rows = actor ? this._state.ledger.filter((r) => String(r.actor) === String(actor)) : this._state.ledger;
+    const actors = actor ? (Array.isArray(actor) ? actor : [actor]).map(String) : null;
+    const rows = actors ? this._state.ledger.filter((r) => actors.includes(String(r.actor))) : this._state.ledger;
     return rows.slice(-Math.max(1, Math.min(200, limit))).reverse();
   }
 

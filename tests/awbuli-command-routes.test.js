@@ -149,3 +149,49 @@ test("awbuli-routes-3 — read commands execute no writes; invalid intent still 
   assert.equal(badUnit.status, 400);
   assert.equal(badUnit.body.error, "ORG_UNIT_NOT_FOUND");
 });
+
+test("awbuli-routes-5 — ACTIVE is blocked truthfully when no authorized transport exists", async () => {
+  const token = await elevatedFounder();
+  const added = await call(token, "POST", "/api/v1/admin/whatsapp-numbers", {
+    number: "+2348098765432",
+    tenantScope: "default",
+    label: "Routing test line",
+    purpose: "GENERAL"
+  });
+  assert.equal(added.status, 201);
+  const id = added.body.number.id;
+  assert.equal(added.body.number.activation, null);
+
+  const verified = await call(token, "POST", `/api/v1/admin/whatsapp-numbers/${id}/verify`, {
+    method: "HUMAN_ATTESTATION",
+    evidenceRef: "operator-attestation-1"
+  });
+  assert.equal(verified.status, 200);
+
+  const blocked = await call(token, "POST", `/api/v1/admin/whatsapp-numbers/${id}/state`, {
+    to: "ACTIVE",
+    reason: "activate after provisioning"
+  });
+  assert.equal(blocked.status, 409);
+  assert.equal(blocked.body.success, false);
+  assert.equal(blocked.body.error, "TRANSPORT_UNAVAILABLE");
+  assert.equal(blocked.body.number.state, "VERIFIED");
+  assert.equal(blocked.body.number.activation.state, "BLOCKED");
+  assert.equal(blocked.body.number.activation.reason, "TRANSPORT_UNAVAILABLE");
+  assert.equal(blocked.body.deliveryClaimed, undefined);
+  assert.equal(blocked.body.number.activation.transportId, null);
+  assert.equal(blocked.body.number.history.filter((h) => h.to === "ENABLED").length, 0, "blocked activation must not mark the number ENABLED");
+  assert.equal(blocked.body.number.history.filter((h) => h.to === "VERIFIED").length, 1, "blocked activation must not duplicate state transitions");
+
+  assert.equal((await call(null, "GET", "/api/v1/admin/awbuli/transports")).status, 401);
+
+  const listed = await call(token, "GET", "/api/v1/admin/whatsapp-numbers");
+  assert.equal(listed.status, 200);
+  assert.equal(listed.body.numbers.find((n) => n.id === id).activation.state, "BLOCKED");
+
+  const transports = await call(token, "GET", "/api/v1/admin/awbuli/transports");
+  assert.equal(transports.status, 200);
+  assert.equal(transports.body.transport.live, false);
+  assert.equal(transports.body.transport.state, "TRANSPORT_UNAVAILABLE");
+  assert.deepEqual(transports.body.transports, []);
+});

@@ -15,6 +15,15 @@ for (const file of [artifact, manifestPath]) if (fs.existsSync(file)) fs.rmSync(
 
 function gitSha() { try { return execFileSync("git", ["rev-parse", "HEAD"], { cwd: root, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim(); } catch { return "UNAVAILABLE"; } }
 function excluded(full, name) {
+  const rel = path.relative(root, full).replace(/\\/g, "/");
+  if (rel === "data" || rel.startsWith("data/")) return true;
+  if (/^\.opencode(?:[-_.]|$)/i.test(name)) return true;
+  if (rel === "logs.txt" || rel === "logs.log") return true;
+  // Root-level runtime state and crash logs: these are deployment-local data,
+  // never community source. `data/` is excluded above; these duplicates live
+  // at the repo root and must not leak into the release archive.
+  if (rel === "admin.json" || rel === "audit_ledger.json") return true;
+  if (/\.log$/i.test(name) || /\.bundle$/i.test(name)) return true;
   return /[\\/]node_modules[\\/]/.test(full) || /[\\/]\.git[\\/]/.test(full) || /[\\/]dist[\\/]/.test(full) || /[\\/]\.keys[\\/]/.test(full) || /(^|[\\/])\.env($|\.)/.test(name) || /\.(pem|key|p12|pfx|crt|cer|der|bundle|zip)$/i.test(name) || /credentials|secret/i.test(name) || /^ade_audit_persistence\./i.test(name) || /^\.ade_(storage|capability_store|session_revocations|feedback_queue)/i.test(name) || /(^|[\\/])\$log$/.test(full) || /^\$log$/.test(name) || /\.smoke-(err|out)\.log$/i.test(name) || /^\.opencode-final-checkpoint\.json$/i.test(name) || /^ADE_BATCH/i.test(name) || /^ADE-BATCH/i.test(name) || /^ADE-GIT-RELEASE-EVIDENCE/i.test(name) || /^ADE-RELEASE-CLOSURE-EVIDENCE/i.test(name) || /^ADE-CRITICAL-MISSING-FILES/i.test(name) || /^ADE_FINAL_TRUTH_GATE/i.test(name) || /^ADE_MASTER_FORENSIC/i.test(name) || /^ADE_MASTER_ENGINEERING_BATCH/i.test(name) || /^CLAUDE_BATCH/i.test(name) || /^RUN-ADE-ENGAGEMENT-RECONCILIATION/i.test(name) || /^live_root\.html$/i.test(name) || /^live-desktop\.png$/i.test(name) || /^public\/index\.html\.fixed$/i.test(full) || /backup/i.test(name) || /backup/i.test(full) || /^ade-(post-syntax-verification|safe-verification|verification-repair|server-forensic-backup|server-syntax-backup|reconciliation-backup)-/i.test(name) || /^\.ade-(batch-b-backup|reconciliation-backup)-/i.test(name) || /\.g(17aa4|18-httpsec|17z)-backup/i.test(name) || /^data2$/.test(name) || /(^|[\\/])data[\\/]admin-credential\.json$/i.test(full) || /(^|[\\/])data[\\/]snapshots[\\/]/i.test(full) || /\.bak$/i.test(name);
 }
 // The excluded() regexes require a trailing separator, so a bare directory

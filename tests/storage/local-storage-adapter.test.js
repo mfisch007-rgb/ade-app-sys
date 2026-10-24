@@ -240,3 +240,27 @@ test("LocalStorageAdapter transaction surfaces failed persistence truthfully", a
     []
   );
 });
+
+test("LocalStorageAdapter reports non-durable storage and never fakes writes", async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "ade-storage-blocked-"));
+  const parentFile = path.join(dir, "not-a-directory");
+  fs.writeFileSync(parentFile, "blocked", "utf8");
+  const adapter = new LocalStorageAdapter(path.join(parentFile, "state.json"));
+
+  try {
+    assert.equal(adapter.isDurable(), false);
+    assert.equal(adapter.storageStatus().durable, false);
+    await assert.rejects(adapter.set("alpha", { value: 1 }), /STORAGE_WRITE_FAILED/);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("LocalStorageAdapter surfaces corrupt state instead of reading it as empty", async () => {
+  const file = tempFile();
+  const adapter = new LocalStorageAdapter(file);
+  fs.writeFileSync(file, "{not-json", "utf8");
+
+  assert.throws(() => adapter.getSync("alpha"), /STORAGE_READ_FAILED/);
+  await assert.rejects(adapter.get("alpha"), /STORAGE_READ_FAILED/);
+});

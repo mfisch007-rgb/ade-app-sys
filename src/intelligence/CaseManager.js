@@ -7,18 +7,39 @@ export class CaseManager {
     this.eventBus = eventBus;
     this.store = store;
     this.cases = new Map();
+    this._mergeStored(this._readStored());
+  }
+
+  _readStored() {
     try {
       const loaded =
-        typeof store?.readSection === "function"
-          ? store.readSection("cases")
-          : store?.read?.().cases;
+        typeof this.store?.readSection === "function"
+          ? this.store.readSection("cases")
+          : this.store?.read?.().cases;
+      return Array.isArray(loaded) ? loaded : null;
+    } catch (_) {
+      return null;
+    }
+  }
 
-      if (Array.isArray(loaded)) {
-        for (const c of loaded) {
-          if (c?.id) this.cases.set(c.id, c);
-        }
+  _mergeStored(loaded) {
+    if (!Array.isArray(loaded)) return this.cases;
+    const merged = new Map();
+    for (const c of loaded) {
+      if (c?.id) merged.set(c.id, c);
+    }
+    for (const [id, current] of this.cases) {
+      const stored = merged.get(id);
+      if (!stored) {
+        merged.set(id, current);
+        continue;
       }
-    } catch (_) {}
+      const currentAt = Date.parse(current.updatedAt || current.createdAt || 0) || 0;
+      const storedAt = Date.parse(stored.updatedAt || stored.createdAt || 0) || 0;
+      if (currentAt >= storedAt) merged.set(id, current);
+    }
+    this.cases = merged;
+    return this.cases;
   }
 
   createCase(input = {}) {
@@ -175,19 +196,13 @@ export class CaseManager {
   }
 
   reload() {
-    try {
-      const loaded =
-        typeof this.store?.readSection === "function"
-          ? this.store.readSection("cases")
-          : this.store?.read?.().cases;
-
-      if (Array.isArray(loaded)) {
-        this.cases.clear();
-        for (const c of loaded) {
-          if (c?.id) this.cases.set(c.id, c);
-        }
+    const loaded = this._readStored();
+    if (Array.isArray(loaded)) {
+      this.cases.clear();
+      for (const c of loaded) {
+        if (c?.id) this.cases.set(c.id, c);
       }
-    } catch (_) {}
+    }
     return this.cases.size;
   }
 
@@ -213,6 +228,7 @@ export class CaseManager {
 
   persist() {
     try {
+      this._mergeStored(this._readStored());
       if (typeof this.store?.writeSection === "function") {
         this.store.writeSection("cases", this.list());
       } else if (this.store?.write) {
