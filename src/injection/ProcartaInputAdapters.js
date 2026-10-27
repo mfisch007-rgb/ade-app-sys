@@ -31,7 +31,8 @@ const ASSESSMENT_AREAS = Object.freeze([
 // ---------- L1: structured operational assessment forms ----------
 export function buildAssessmentEvidence(form = {}, { tenantScope = "default", actor = "SYSTEM" } = {}) {
   const scope = String(tenantScope || "default");
-  if (!form.organization && !form.industry && !form.assessment) {
+  const organization = str(form.organization || form.companyName, 200);
+  if (!organization && !form.industry && !form.assessment) {
     throw fail("ASSESSMENT_EMPTY", "organization/industry/assessment context is required.");
   }
   const answers = form.answers && typeof form.answers === "object" ? form.answers : {};
@@ -45,8 +46,11 @@ export function buildAssessmentEvidence(form = {}, { tenantScope = "default", ac
   const evidence = {
     schemaVersion: 1,
     kind: "OPERATIONAL_ASSESSMENT",
-    organization: str(form.organization, 200),
+    organization,
     industry: str(form.industry, 120),
+    businessType: str(form.businessType, 120),
+    orgSize: str(form.orgSize, 80),
+    regNo: str(form.regNo || form.registrationNumber, 80),
     branches: Number.isFinite(Number(form.branches)) ? Number(form.branches) : null,
     employees: Number.isFinite(Number(form.employees)) ? Number(form.employees) : null,
     departments: Array.isArray(form.departments) ? form.departments.map((d) => String(d).slice(0, 80)).slice(0, 50) : [],
@@ -59,6 +63,9 @@ export function buildAssessmentEvidence(form = {}, { tenantScope = "default", ac
     findings: findings.slice(0, 20),
     evidence: findings.slice(0, 20),
     confidence: findings.length ? 0.6 : 0.3,
+    signatureConfirmed: Boolean(form.signatureConfirmed),
+    signatureVerified: false,
+    signatureAssertedByClient: true,
     tenantScope: scope,
     submittedBy: String(actor).slice(0, 120),
     submittedAt: nowIso()

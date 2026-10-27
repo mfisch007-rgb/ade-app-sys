@@ -1,3 +1,4 @@
+import crypto from "node:crypto";
 import { authRateLimit } from "../security/RateLimiter.js";
 import { validateRoleInvitation } from "../identity/RoleInvitationAuthority.js";
 
@@ -210,6 +211,9 @@ export function registerIdentityRoutes({
     }
     if (person.status !== "ACTIVE") {
       return res.status(403).json({ success: false, error: "ACCOUNT_NOT_ACTIVE" });
+    }
+    if (Number(person.accessExpiryAt) > 0 && Date.now() > Number(person.accessExpiryAt)) {
+      return res.status(403).json({ success: false, error: "ACCESS_EXPIRED" });
     }
     if (claims.pinVerified !== true) {
       return res.status(403).json({ success: false, error: "ELEVATED_PIN_REQUIRED" });
@@ -478,22 +482,48 @@ export function registerIdentityRoutes({
     return res.json({ success: true, persons, agents, stats: workforce.stats() });
   });
 
+  const provisionFounder = async (req, res) => {
+    try {
+      const person = await workforce.provisionFounder(req.body || {});
+      return res.status(201).json({ success: true, person, status: "FOUNDER_PROVISIONED" });
+    } catch (error) {
+      return routeError(res, error, "FOUNDER_PROVISION_FAILED");
+    }
+  };
+
   app.post("/api/v1/workforce/provision-founder", gate, async (req, res) => {
     try {
       const count = await workforce.personCount();
+      // Bootstrap is complete: subsequent/provision attempts are ordinary
+      // authenticated admin actions. Delegate to the canonical guard and
+      // respond only from its continuation or its denial path. No timer race.
       if (count > 0) {
-        // Bootstrap is complete: any further provision attempt is an
-        // authenticated admin action that truthfully fails with
-        // FOUNDER_ALREADY_PROVISIONED (409). Never hang the request.
-        let nextCalled = false;
-        await new Promise((resolve) => {
-          requireWorkforceAdmin(req, res, () => { nextCalled = true; resolve(); });
-          setImmediate(() => resolve());
-        });
-        if (!nextCalled) return;
+        return requireWorkforceAdmin(req, res, () => provisionFounder(req, res));
       }
-      const person = await workforce.provisionFounder(req.body || {});
-      return res.status(201).json({ success: true, person, status: "FOUNDER_PROVISIONED" });
+      const production = String(runtimeMode || "").toUpperCase() === "PRODUCTION" ||
+        process.env.VERCEL_ENV === "production" ||
+        process.env.NODE_ENV === "production";
+      if (production) {
+        const expected = String(process.env.ADE_BOOTSTRAP_SECRET || "");
+        if (!expected) {
+          return res.status(503).json({
+            success: false,
+            error: "BOOTSTRAP_SECRET_NOT_CONFIGURED",
+            message: "Founder bootstrap is disabled until ADE_BOOTSTRAP_SECRET is configured."
+          });
+        }
+        const supplied = String(req.get("x-ade-bootstrap-secret") || req.body?.bootstrapSecret || "");
+        const a = Buffer.from(supplied);
+        const b = Buffer.from(expected);
+        if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) {
+          return res.status(401).json({
+            success: false,
+            error: "BOOTSTRAP_SECRET_INVALID",
+            message: "Founder bootstrap requires the configured bootstrap secret."
+          });
+        }
+      }
+      return provisionFounder(req, res);
     } catch (error) {
       return routeError(res, error, "FOUNDER_PROVISION_FAILED");
     }
@@ -598,11 +628,17 @@ export function registerIdentityRoutes({
     }
   });
 
-  app.get("/api/v1/audit", requireWorkforceAdmin, (req, res) => {
+  app.get("/api/v1/audit", requireWorkforceAdmin, async (req, res) => {
     try {
-      const limit = Math.min(500, Math.max(1, Number(req.query.limit || 100)));
+      const requested = Number(req.query.limit ?? 100);
+      const limit = Number.isFinite(requested)
+        ? Math.min(500, Math.max(1, Math.floor(requested)))
+        : 100;
       const type = String(req.query.type || "").trim();
-      let entries = auditStore ? auditStore.query(limit) : [];
+      let entries = auditStore ? await auditStore.query(limit) : [];
+      if (typeof auditStore?.lastError === "function" && auditStore.lastError()) {
+        return res.status(503).json({ success: false, error: "AUDIT_STORAGE_UNAVAILABLE" });
+      }
       if (type) {
         entries = entries.filter((e) => {
           const candidate = e.payload?.type ?? e.type ?? e.topic;
@@ -611,7 +647,7 @@ export function registerIdentityRoutes({
       }
       return res.json({ success: true, count: entries.length, entries });
     } catch (error) {
-      return res.status(500).json({ success: false, error: "AUDIT_READ_FAILED" });
+      return res.status(503).json({ success: false, error: "AUDIT_STORAGE_UNAVAILABLE" });
     }
   });
 

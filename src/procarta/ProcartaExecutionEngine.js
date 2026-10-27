@@ -322,12 +322,12 @@ export class ProcartaExecutionEngine {
     const request = normalized.request || {};
 
     if (isNew) {
-      if (typeof this.caseManager.createCase !== "function") {
+      if (typeof this.caseManager.createCase !== "function" && typeof this.caseManager.createCaseAsync !== "function") {
         const error = new Error("PROCARTA_CASE_BOUNDARY_UNAVAILABLE");
         error.code = "PROCARTA_CASE_BOUNDARY_UNAVAILABLE";
         throw error;
       }
-      record = this.caseManager.createCase({
+      const createInput = {
         source: normalized.source || "PROCARTA",
         channel: normalized.channel || "API",
         organization: normalized.organization || null,
@@ -340,7 +340,10 @@ export class ProcartaExecutionEngine {
         },
         nextAction: request.needsDiscovery ? "DISCOVERY" : "HUMAN_REVIEW",
         requiredCapabilities: ["PROCARTA_EXECUTE"]
-      });
+      };
+      record = typeof this.caseManager.createCaseAsync === "function"
+        ? await this.caseManager.createCaseAsync(createInput)
+        : this.caseManager.createCase(createInput);
     }
 
     const caseId = String(record.id);
@@ -378,29 +381,53 @@ export class ProcartaExecutionEngine {
       findings,
       recommendedNextActions,
       ai,
-      stored: true,
-      audited: true,
+      stored: false,
+      audited: false,
       triggeredBy: "PROCARTA_EXECUTE",
       executedAt: new Date().toISOString(),
       startedAt
     };
 
-    let contextPersisted = true;
+    let contextPersisted = false;
     let contextWarning = null;
-    if (typeof this.caseManager.update === "function") {
+    const contextPatch = {
+      procarta: {
+        executionMode: "LIVE",
+        executedAt: result.executedAt,
+        intent: result.intent,
+        confidence: result.confidence,
+        findings,
+        recommendedNextActions
+      },
+      analysis,
+      decision
+    };
+    if (typeof this.caseManager.updateAsync === "function") {
       try {
-        this.caseManager.update(caseId, {
-          procarta: {
-            executionMode: "LIVE",
-            executedAt: result.executedAt,
-            intent: result.intent,
-            confidence: result.confidence,
-            findings,
-            recommendedNextActions
-          },
-          analysis,
-          decision
-        });
+        await this.caseManager.updateAsync(caseId, contextPatch);
+        result.stored = true;
+        contextPersisted = true;
+      } catch (error) {
+        contextPersisted = false;
+        contextWarning = `PROCARTA_CONTEXT_UPDATE_FAILED: ${error?.message || "unknown"}`;
+      }
+    } else if (typeof this.caseManager.update === "function") {
+      try {
+        this.caseManager.update(caseId, contextPatch);
+        if (typeof this.caseManager.persistAsync === "function") {
+          await this.caseManager.persistAsync();
+        }
+        result.stored = true;
+        contextPersisted = true;
+      } catch (error) {
+        contextPersisted = false;
+        contextWarning = `PROCARTA_CONTEXT_UPDATE_FAILED: ${error?.message || "unknown"}`;
+      }
+    } else if (typeof this.caseManager.persistAsync === "function") {
+      try {
+        await this.caseManager.persistAsync();
+        result.stored = true;
+        contextPersisted = true;
       } catch (error) {
         contextPersisted = false;
         contextWarning = `PROCARTA_CONTEXT_UPDATE_FAILED: ${error?.message || "unknown"}`;
@@ -421,7 +448,7 @@ export class ProcartaExecutionEngine {
         await this.eventBus.publish("procarta.executed", { caseId, result });
       } catch {}
       try {
-        await this.eventBus.publish("audit.log.created", {
+        const auditDelivery = await this.eventBus.publish("audit.log.created", {
           category: "PROCARTA",
           caseId,
           executionMode: "LIVE",
@@ -430,6 +457,7 @@ export class ProcartaExecutionEngine {
           findings: findings.map((f) => f.id),
           timestamp: result.executedAt
         });
+        result.audited = auditDelivery?.success === true;
       } catch {}
     }
 

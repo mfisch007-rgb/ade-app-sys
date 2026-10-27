@@ -1,10 +1,29 @@
 import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
-import { app, kernelReady } from "../src/app.js";
-import { CaseManager } from "../src/intelligence/CaseManager.js";
-import IdentityOnboarding from "../src/kernel/IdentityOnboarding.js";
+import bcrypt from "bcryptjs";
+
+const CREDENTIAL_FILE = path.join(
+  os.tmpdir(),
+  `ade-case-attach-${process.pid}-${Date.now()}.json`
+);
+const previousCredentialStoreFile = process.env.ADE_CREDENTIAL_STORE_FILE;
+process.env.ADE_CREDENTIAL_STORE_FILE = CREDENTIAL_FILE;
+
+const { default: CredentialLifecycleStore } = await import(
+  "../src/security/CredentialLifecycleStore.js"
+);
+await new CredentialLifecycleStore(CREDENTIAL_FILE).initialize(
+  await bcrypt.hash("123456", 12)
+);
+
+const { app, kernelReady } = await import("../src/app.js");
+const { CaseManager } = await import("../src/intelligence/CaseManager.js");
+const { default: IdentityOnboarding } = await import(
+  "../src/kernel/IdentityOnboarding.js"
+);
 
 /**
  * Case continuity — canonical case-to-account linkage.
@@ -15,14 +34,6 @@ import IdentityOnboarding from "../src/kernel/IdentityOnboarding.js";
  * {attachToAccount:true}. The account is derived server-side from the
  * verified session; client-supplied accountIds are ignored.
  */
-
-const __root = path.resolve(import.meta.dirname, "..");
-const CREDENTIAL_FILE = path.join(__root, "data", "admin-credential.json");
-const authBootstrap =
-  !fs.existsSync(CREDENTIAL_FILE) && !process.env.ADE_ADMIN_PIN_HASH;
-if (authBootstrap) {
-  process.env.ADE_ADMIN_PIN_HASH = process.env.ADE_ADMIN_PIN_HASH || "REGENERATE_AFTER_TEST";
-}
 
 let server = null;
 let baseUrl = null;
@@ -39,10 +50,12 @@ before(async () => {
 
 after(async () => {
   if (server) await new Promise((r) => server.close(r));
-  if (authBootstrap) {
-    delete process.env.ADE_ADMIN_PIN_HASH;
-    fs.rmSync(CREDENTIAL_FILE, { force: true });
+  if (previousCredentialStoreFile === undefined) {
+    delete process.env.ADE_CREDENTIAL_STORE_FILE;
+  } else {
+    process.env.ADE_CREDENTIAL_STORE_FILE = previousCredentialStoreFile;
   }
+  fs.rmSync(CREDENTIAL_FILE, { force: true });
 });
 
 function spyStore() {

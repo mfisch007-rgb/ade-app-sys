@@ -408,6 +408,7 @@ test("G26.11 — a failed case-context write is reported truthfully, never silen
     throw new Error("disk full");
   };
   caseManager.update = failingUpdate;
+  caseManager.updateAsync = failingUpdate;
   const engine = new ProcartaExecutionEngine({
     kernel: { resolve: () => null, container: { get: () => null } },
     caseManager,

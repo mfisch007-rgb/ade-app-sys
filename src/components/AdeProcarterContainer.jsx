@@ -386,7 +386,7 @@ function SignaturePad({ label, role, onSave, saved }) {
 // POST /api/v1/payments/start. Never fabricates confirmation — the modal only
 // reports what the server (PaymentService.availability/startPayment) returns.
 // CLAIMED_UNVERIFIED until a configured provider verifies.
-function PaymentModal({ amount, companyName, onClose, onPaid }) {
+function PaymentModal({ amount, companyName, email, onClose }) {
   const [tab] = useState("card");
   const [loading, setLoading] = useState(false);
   const [done, setDone] = useState(false);
@@ -395,19 +395,38 @@ function PaymentModal({ amount, companyName, onClose, onPaid }) {
   const simulate = async () => {
     setLoading(true);
     setNotice("");
+    const cleanEmail = String(email || "").trim();
+    if (!cleanEmail || !cleanEmail.includes("@")) {
+      setLoading(false);
+      setNotice("A valid company email is required by the payment provider. No charge was attempted.");
+      return;
+    }
     try {
+      const amountKobo = Math.round(Number(amount) * 100);
       const r = await fetch("/api/v1/payments/start", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ amount, company: companyName, gateway: tab, currency: activeCurrency.code }),
+        body: JSON.stringify({
+          amountKobo,
+          email: cleanEmail,
+          callbackUrl: typeof window !== "undefined" ? window.location.href : null,
+          metadata: {
+            company: companyName,
+            quoteTotalNgn: Number(amount),
+            currency: "NGN",
+            source: "PROCARTA_V4_ONBOARDING",
+            product: "PROCARTA_MAPS",
+            partnerRef: getPartnerRef()
+          }
+        }),
       });
       const j = await r.json().catch(() => null);
-      if (r.ok && (j?.success || j?.payment || j?.authorizationUrl)) {
+      const payment = j?.payment || null;
+      if (r.ok && payment?.reference) {
         setLoading(false); setDone(true);
-        setNotice(j?.message || "Payment initialized via canonical billing. Complete with provider; entitlement grants on verified webhook only.");
-        await fireNotification("PAYMENT_RECEIVED", { company: companyName, amount, currency: activeCurrency.code, gateway: tab, state: "CLAIMED_UNVERIFIED" });
-        setTimeout(() => onPaid(tab), 1200);
+        setNotice(`${payment.note || "Payment request prepared; provider was not contacted."} Reference ${payment.reference}; entitlement grants only after a verified provider webhook.`);
+        await fireNotification("PAYMENT_REQUEST_PREPARED", { company: companyName, amountKobo, reference: payment.reference, state: "CLAIMED_UNVERIFIED" });
         return;
       }
       setLoading(false);
@@ -422,21 +441,21 @@ function PaymentModal({ amount, companyName, onClose, onPaid }) {
     <div style={{ position: "fixed", inset: 0, background: hexToRgba("#000", 0.75), display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, fontFamily: "Rajdhani,sans-serif", padding: 16 }}>
       <div style={{ width: "100%", maxWidth: 540, background: BRAND.surface, border: `2px solid ${hexToRgba(BRAND.gold, 0.35)}`, borderRadius: 14, overflow: "hidden" }}>
         <div style={{ padding: "16px 20px", background: hexToRgba(BRAND.gold, 0.07), borderBottom: `1px solid ${hexToRgba(BRAND.gold, 0.2)}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <div><div style={{ fontFamily: "Cinzel", fontSize: 13, color: BRAND.gold, fontWeight: 700 }}>SECURE PAYMENT GATEWAY</div>
+          <div><div style={{ fontFamily: "Cinzel", fontSize: 13, color: BRAND.gold, fontWeight: 700 }}>PAYMENT REQUEST (NOT CONTACTED)</div>
           <div style={{ fontSize: 11, color: hexToRgba(BRAND.sub, 0.7) }}>{companyName} · <strong style={{ color: BRAND.gold }}>{fmt(amount)}</strong></div></div>
           <button onClick={onClose} style={{ background: "transparent", border: `1px solid ${hexToRgba(BRAND.sub, 0.3)}`, borderRadius: 4, color: BRAND.sub, padding: "5px 11px", cursor: "pointer", fontFamily: "Cinzel", fontSize: 10 }}>✕ CLOSE</button>
         </div>
         {done ? (
           <div style={{ padding: "40px 20px", textAlign: "center" }}>
             <div style={{ fontSize: 48, marginBottom: 14 }}>✅</div>
-            <div style={{ fontFamily: "Cinzel", fontSize: 16, color: BRAND.success }}>PAYMENT INITIALIZED (CLAIMED_UNVERIFIED)</div>
-            <div style={{ fontSize: 12, color: BRAND.sub, fontFamily: "Rajdhani" }}>{notice || "Complete with provider; entitlement grants on verified webhook only."}</div>
+            <div style={{ fontFamily: "Cinzel", fontSize: 16, color: BRAND.success }}>PAYMENT REQUEST PREPARED (NOT CONTACTED)</div>
+            <div style={{ fontSize: 12, color: BRAND.sub, fontFamily: "Rajdhani" }}>{notice || "Provider checkout was not opened. Entitlement grants only after a signed, amount-matched webhook."}</div>
           </div>
         ) : (
           <div style={{ padding: 20, display: "flex", flexDirection: "column", gap: 14 }}>
             <div style={{ fontSize: 12, color: BRAND.sub }}>Selected Payment Provider: <strong style={{ color: BRAND.gold }}>{tab.toUpperCase()}</strong></div>
             {notice && <div style={{ fontSize: 11, color: BRAND.warn, fontFamily: "Rajdhani" }}>{notice}</div>}
-            <button className="btn-g" onClick={simulate} disabled={loading}>{loading ? "CONTACTING CANONICAL BILLING..." : `AUTHORIZE PAYMENT OF ${fmt(amount)} →`}</button>
+            <button className="btn-g" onClick={simulate} disabled={loading}>{loading ? "PREPARING CANONICAL PAYMENT REQUEST..." : `PREPARE PAYMENT REQUEST FOR ${fmt(amount)} →`}</button>
           </div>
         )}
       </div>
@@ -452,7 +471,7 @@ function PaymentModal({ amount, companyName, onClose, onPaid }) {
 function generateFallbackMaps(fd) {
   return [
     {
-      id: 1, name: "Core Operational Workflow", variant: "operational", tagline: "End-to-end execution flow across internal divisions", recommended: true, complexity_score: 8,
+      id: 1, name: "Core Operational Workflow", variant: "operational", tagline: "Generic request-to-fulfilment projection (not measured)", recommended: true, complexity_score: 8,
       lanes: [
         { id: "l1", name: "Client / Front Office", color: "#1E88E5", icon: "🌐" },
         { id: "l2", name: "Operations / Logistics", color: "#43A047", icon: "⚙️" },
@@ -473,13 +492,13 @@ function generateFallbackMaps(fd) {
         { id: "c5", from: "n4", to: "n5", label: "Approved", weight: "normal" }
       ],
       report_sections: [
-        { title: "Executive Summary", content: `Operational synthesis for ${fd.companyName}. Identifies direct paths to efficiency.` },
-        { title: "Risk Mitigation", content: "Bottlenecks reduced by establishing automated routing rules at decision points." },
-        { title: "Automation Pathway", content: "Implement API integration between intake channels and operational execution software." }
+        { title: "Executive Summary", content: `Template projection for ${fd.companyName}. Lists a generic request-to-fulfilment flow for discussion only.` },
+        { title: "Risk Mitigation", content: "No bottleneck reduction is claimed. Validate each decision point with observed process evidence before changing it." },
+        { title: "Automation Pathway", content: "Candidate discussion area only: confirm whether intake-to-execution integration is actually needed." }
       ]
     },
     {
-      id: 2, name: "Strategic Governance Architecture", variant: "strategic", tagline: "Executive oversight, risk gating & compliance model", recommended: false, complexity_score: 6,
+      id: 2, name: "Strategic Governance Architecture", variant: "strategic", tagline: "Generic governance projection (not a compliance assessment)", recommended: false, complexity_score: 6,
       lanes: [
         { id: "l1", name: "Strategic Leadership", color: "#FFA726", icon: "👑" },
         { id: "l2", name: "Quality Assurance", color: "#26A69A", icon: "🛡️" }
@@ -494,7 +513,7 @@ function generateFallbackMaps(fd) {
         { id: "c11", from: "n11", to: "n12", label: "Pass" }
       ],
       report_sections: [
-        { title: "Strategic Audit", content: "Oversight structure engineered for regulatory compliance and audit readiness." }
+        { title: "Strategic Audit", content: "Template governance lanes only; this is not a compliance or audit-readiness assessment." }
       ]
     }
   ];
@@ -545,7 +564,9 @@ export default function ADEProcarta() {
   // server CaseManager remains the authority. Stored under the existing
   // ade_pending_case key consumed by workspace retrieval.
   const [caseId, setCaseId] = useState(null);
+  const [formError, setFormError] = useState("");
   const [projectionNotice, setProjectionNotice] = useState("");
+  const [paymentAvailable, setPaymentAvailable] = useState(false);
   // Crown unlock state: display-only. Any privileged action behind the crown
   // MUST re-verify server-side L3/Founder RBAC per tap — this state never
   // grants access on its own.
@@ -561,6 +582,17 @@ export default function ADEProcarta() {
       document.head.appendChild(link);
     }
   }, []);
+
+  // Payment button is server-gated; DISABLED/customer-OFF removes it entirely.
+  useEffect(() => {
+    if (screen !== "maps") return undefined;
+    let canceled = false;
+    fetch("/api/v1/payments/availability?upgrade=1", { credentials: "include" })
+      .then(r => r.json())
+      .then(j => { if (!canceled) setPaymentAvailable(Boolean(j?.showPayment)); })
+      .catch(() => { if (!canceled) setPaymentAvailable(false); });
+    return () => { canceled = true; };
+  }, [screen]);
 
   // Crown 5-tap trigger: counts to 5, then delegates EVERYTHING to the
   // server. The client never unlocks capability — it only asks the canonical
@@ -585,7 +617,15 @@ export default function ADEProcarta() {
       setCrownStatus({ state: "OFFLINE", message: "Server unreachable — no elevation granted." });
     }
   };
-  const handleFormNext = () => setScreen("quote");
+  const handleFormNext = () => {
+    const email = String(formData.companyEmail || "").trim();
+    if (!formData.companyName.trim() || !formData.industry.trim() || !formData.staffCount.trim() || !formData.processes.trim() || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
+      setFormError("Company name, industry, staff scale, primary processes and a valid company email are required.");
+      return;
+    }
+    setFormError("");
+    setScreen("quote");
+  };
   const handleQuoteConfirm = (quote) => { setActiveQuote(quote); setScreen("sigs"); };
   const handleSigsComplete = () => setScreen("consent");
   
@@ -598,22 +638,32 @@ export default function ADEProcarta() {
     // projection (existing generateFallbackMaps) and are explicitly labeled
     // as such unless the server returns a live topology for this case.
     let serverCaseId = null;
+    let procartaMode = "NOT_EXECUTED";
+    let procartaWarning = "";
     try {
       const r = await fetch("/api/v1/procarta/assessment", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          companyName: formData.companyName, regNo: formData.regNo, industry: formData.industry,
+          organization: formData.companyName, companyName: formData.companyName,
+          regNo: formData.regNo, industry: formData.industry,
           staffCount: formData.staffCount, processes: formData.processes, painPoints: formData.painPoints,
-          automationGoals: formData.automationGoals, officers: formData.officers, quoteTotal: activeQuote?.total || null,
+          automationGoals: formData.automationGoals,
+          contactEmail: formData.companyEmail, email: formData.companyEmail,
+          officers: formData.officers.filter(o => o.name || o.role).map(({ name, role }) => ({ name, role })),
+          quoteTotal: activeQuote?.total || null, quoteCurrency: "NGN",
+          signatureConfirmed: signatures.length > 0 && signatures.every(s => !!s.sig),
+          consent: { accepted: true, at: new Date().toISOString(), termsVersion: "PROCARTA-ONBOARDING-V4" },
         }),
       });
       const j = await r.json().catch(() => null);
       serverCaseId = j?.caseId || j?.assessment?.caseId || j?.case?.id || null;
+      procartaMode = j?.procarta?.executionMode || "NOT_EXECUTED";
+      procartaWarning = j?.procartaError?.code || "";
       if (serverCaseId) {
         setCaseId(serverCaseId);
         try { window.localStorage.setItem("ade_pending_case", serverCaseId); } catch {}
-        setProjectionNotice(`Case ${serverCaseId} recorded server-side. Maps below are a DETERMINISTIC STRUCTURAL PROJECTION from your submitted form — not server-measured BPMN. Live topology: GET /api/v1/procarta/topology?caseId=${encodeURIComponent(serverCaseId)}`);
+        setProjectionNotice(`Case ${serverCaseId} recorded server-side. PROCARTA execution: ${procartaMode}${procartaWarning ? ` (${procartaWarning})` : ""}. Maps below are a DETERMINISTIC STRUCTURAL PROJECTION from your submitted form — not server-measured BPMN. Live topology: GET /api/v1/procarta/topology?caseId=${encodeURIComponent(serverCaseId)}`);
       } else {
         setProjectionNotice("Server assessment unavailable — maps below are a DETERMINISTIC STRUCTURAL PROJECTION from your submitted form data only.");
       }
@@ -623,7 +673,7 @@ export default function ADEProcarta() {
     setTimeout(() => {
       const fallbacks = generateFallbackMaps(formData);
       setMapsData(fallbacks);
-      setAnalysisText(`System optimization analysis complete for ${formData.companyName}${serverCaseId ? ` (case ${serverCaseId})` : ""}. Operational efficiency projected to increase by up to 38% under ADE automated architecture.`);
+      setAnalysisText(`Assessment recorded for ${formData.companyName}${serverCaseId ? ` (case ${serverCaseId})` : ""}. The diagrams below are a DETERMINISTIC STRUCTURAL PROJECTION assembled from the submitted form. They are not server-measured BPMN, and no efficiency, cost or risk outcome is measured or guaranteed.`);
       setScreen("maps");
     }, 3000);
   };
@@ -653,9 +703,11 @@ export default function ADEProcarta() {
             <SectionHeader content="Company Identity" />
             <FormField label="COMPANY NAME" req><input className="inp" value={formData.companyName} onChange={e => dispatchForm({ type: "SET", key: "companyName", value: e.target.value })} /></FormField>
             <FormField label="INDUSTRY" req><input className="inp" value={formData.industry} onChange={e => dispatchForm({ type: "SET", key: "industry", value: e.target.value })} /></FormField>
+            <FormField label="COMPANY EMAIL" req><input className="inp" type="email" value={formData.companyEmail} onChange={e => { dispatchForm({ type: "SET", key: "companyEmail", value: e.target.value }); if (formError) setFormError(""); }} /></FormField>
             <FormField label="STAFF SCALE" req><input className="inp" value={formData.staffCount} placeholder="e.g. Small (21–100)" onChange={e => dispatchForm({ type: "SET", key: "staffCount", value: e.target.value })} /></FormField>
             <FormField label="PRIMARY PROCESSES" req col="1/-1"><textarea className="inp" style={{ minHeight: 80 }} value={formData.processes} onChange={e => dispatchForm({ type: "SET", key: "processes", value: e.target.value })} /></FormField>
           </div>
+          {formError && <div style={{ color: BRAND.err, fontSize: 12, marginTop: 16 }}>{formError}</div>}
           <button className="btn-g" style={{ width: "100%", marginTop: 24 }} onClick={handleFormNext}>PROCEED TO QUOTE →</button>
         </div>
       )}
@@ -689,8 +741,8 @@ export default function ADEProcarta() {
         <div style={{ maxWidth: 700, margin: "0 auto", padding: 24 }}>
           <TopBar L={<CrownLogo size={32} />} C={<div style={{ fontFamily: "Cinzel", color: BRAND.gold }}>TERMS & CONSENT</div>} />
           <div style={{ padding: 20, background: BRAND.surface, border: `1px solid ${BRAND.border}`, borderRadius: 8, marginTop: 20, fontSize: 12, lineHeight: 1.6 }}>
-            <p style={{ marginBottom: 16 }}>By clicking proceed, you agree to the execution of business process mapping under Alpha-Aliph ADE protocols, confirming authority and data accuracy.</p>
-            <button className="btn-g" style={{ width: "100%" }} onClick={handleConsentComplete}>GENERATE AI PROCESS MAPS →</button>
+            <p style={{ marginBottom: 16 }}>By clicking proceed, you confirm authority and data accuracy and request a deterministic structural projection. Signature images remain in this browser session only; the server receives your consent event and officer name/role confirmation, not the signature image.</p>
+            <button className="btn-g" style={{ width: "100%" }} onClick={handleConsentComplete}>GENERATE STRUCTURAL PROJECTION →</button>
           </div>
         </div>
       )}
@@ -698,13 +750,13 @@ export default function ADEProcarta() {
       {screen === "processing" && (
         <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
           <CrownLogo size={80} />
-          <p style={{ fontFamily: "Cinzel", color: BRAND.gold, marginTop: 20 }}>SYNTHESIZING LIVING BPMN MAPS...</p>
+          <p style={{ fontFamily: "Cinzel", color: BRAND.gold, marginTop: 20 }}>BUILDING DETERMINISTIC STRUCTURAL PROJECTION...</p>
         </div>
       )}
 
       {screen === "maps" && (
         <div style={{ maxWidth: 1100, margin: "0 auto", padding: 24 }}>
-          <TopBar L={<CrownLogo size={32} />} C={<div style={{ fontFamily: "Cinzel", color: BRAND.gold }}>ADE PROCESS INTELLIGENCE GALLERY</div>} R={<button className="btn-g" style={{ padding: "6px 16px" }} onClick={() => setShowPayment(true)}>PAYMENT OPTIONS</button>} />
+          <TopBar L={<CrownLogo size={32} />} C={<div style={{ fontFamily: "Cinzel", color: BRAND.gold }}>ADE STRUCTURAL PROJECTION GALLERY</div>} R={paymentAvailable ? <button className="btn-g" style={{ padding: "6px 16px" }} onClick={() => setShowPayment(true)}>PAYMENT OPTIONS</button> : null} />
           <p style={{ margin: "16px 0", color: BRAND.sub, fontFamily: "Rajdhani" }}>{analysisText}</p>
           {(caseId || projectionNotice) && (
             <div style={{ margin: "0 0 16px 0", padding: 12, background: hexToRgba(BRAND.blue, 0.08), border: `1px solid ${hexToRgba(BRAND.blue, 0.3)}`, borderRadius: 8, fontFamily: "Share Tech Mono", fontSize: 11, color: BRAND.text }}>
@@ -745,7 +797,7 @@ export default function ADEProcarta() {
       )}
 
       {showPayment && (
-        <PaymentModal amount={activeQuote?.total || 50000} companyName={formData.companyName} onClose={() => setShowPayment(false)} onPaid={() => setShowPayment(false)} />
+        <PaymentModal amount={activeQuote?.total || 50000} companyName={formData.companyName} email={formData.companyEmail} onClose={() => setShowPayment(false)} />
       )}
     </div>
   );

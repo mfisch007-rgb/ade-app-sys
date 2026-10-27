@@ -66,12 +66,72 @@ export class HttpSecurityBoundary {
     });
   }
 
+  #live(level) {
+    // Authenticate at the lowest level first so the signed token is verified,
+    // then hydrate the live workforce record, and only then enforce the
+    // requested level. Checking the requested level against stale token
+    // claims allowed a demoted/suspended identity to keep its old authority.
+    const base = this.identity.middleware({ level: 1 });
+    return (req, res, next) => base(req, res, (error) => {
+      if (error) return next(error);
+      this.#hydrateLiveIdentity(req, res, (hydrateError) => {
+        if (hydrateError) return next(hydrateError);
+        return this.#enforceLevel(level, req, res, next);
+      });
+    });
+  }
+
+  #enforceLevel(level, req, res, next) {
+    const required = Number(level);
+    const liveLevel = Number(req.person?.level ?? req.identity?.level ?? req.claims?.level ?? 0);
+    if (!Number.isFinite(required) || required < 1) {
+      return res.status(500).json({ success: false, error: "AUTHORIZATION_CONFIG_INVALID" });
+    }
+    if (!Number.isFinite(liveLevel) || liveLevel < required) {
+      return res.status(403).json({ success: false, error: "INSUFFICIENT_AUTHORIZATION" });
+    }
+    return next();
+  }
+
+  async #hydrateLiveIdentity(req, res, next) {
+    const claims = req.identity || {};
+    const personId = String(claims.personId || claims.sub || "").trim();
+    const isWorkforce = String(claims.persona || "").toUpperCase() === "WORKFORCE" || Boolean(claims.personId);
+    if (!this.workforce || !isWorkforce || !personId) return next();
+    try {
+      let person = await this.workforce.getPersonRecord(personId);
+      if (!person && claims.sub && typeof this.workforce.getPersonByUsername === "function") {
+        person = await this.workforce.getPersonByUsername(claims.sub);
+      }
+      if (!person) return res.status(401).json({ success: false, error: "SESSION_PERSON_MISSING" });
+      const status = String(person.status || "ACTIVE").toUpperCase();
+      if (status !== "ACTIVE") return res.status(403).json({ success: false, error: "ACCOUNT_NOT_ACTIVE", status });
+      const expiry = Number(person.accessExpiryAt);
+      if (Number.isFinite(expiry) && expiry > 0 && Date.now() > expiry) {
+        return res.status(403).json({ success: false, error: "ACCESS_EXPIRED" });
+      }
+      req.person = person;
+      req.claims = claims;
+      claims.personId = person.id;
+      claims.role = person.role;
+      claims.level = Number(person.level) || claims.level;
+      claims.persona = "WORKFORCE";
+      return next();
+    } catch (error) {
+      const message = String(error?.message || "");
+      if (message.includes("STORAGE") || message.includes("UNAVAILABLE")) {
+        return res.status(503).json({ success: false, error: "AUTH_STORAGE_UNAVAILABLE" });
+      }
+      return res.status(401).json({ success: false, error: "SESSION_PERSON_MISSING" });
+    }
+  }
+
   requireAuth() {
-    return this.identity.middleware({ level: 1 });
+    return this.#live(1);
   }
 
   requireLevel(level) {
-    return this.identity.middleware({ level });
+    return this.#live(level);
   }
 
   // Action-specific authorization for AWBULI/WhatsApp sender-identity and

@@ -100,6 +100,7 @@ export class WorkforceManager {
 
   #state = null;
   #ready = null;
+  #provisionQueue = Promise.resolve();
 
   #audit(type, payload = {}) {
     try {
@@ -175,6 +176,20 @@ export class WorkforceManager {
     try {
       await this.store.set(STORE_KEY, this.#state);
     } catch {
+      // The in-memory record was mutated before the write. Restore from the
+      // authoritative store when possible so a failed write never leaves a
+      // phantom role/status change visible to the rest of the process.
+      try {
+        const fresh = await this.store.get(STORE_KEY, null);
+        if (
+          fresh &&
+          typeof fresh === "object" &&
+          typeof fresh.persons === "object" &&
+          typeof fresh.agents === "object"
+        ) {
+          this.#state = fresh;
+        }
+      } catch {}
       throw new Error("WORKFORCE_STORAGE_UNAVAILABLE");
     }
   }
@@ -309,39 +324,45 @@ export class WorkforceManager {
   }
 
   async provisionFounder({ fullName, username, password, pin } = {}) {
-    await this.#ensureFreshState();
-    const count = Object.keys(this.#state.persons).length;
-    if (count > 0) {
-      throw new Error("FOUNDER_ALREADY_PROVISIONED");
-    }
-    this.#assertFullName(fullName);
-    const normalizedUsername = this.#assertUsernameAvailable(username);
-    this.#assertPasswordStrength(password);
-    this.#assertPinFormat(pin);
-    const id = this.#nextId();
-    const now = new Date().toISOString();
-    this.#state.persons[id] = {
-      id,
-      username: normalizedUsername,
-      fullName: fullName.trim(),
-      role: "FOUNDER",
-      level: roleLevel("FOUNDER"),
-      status: "ACTIVE",
-      passwordHash: hash(password),
-      pinHash: hash(pin),
-      recoveryHashes: [],
-      invitation: null,
-      accessExpiryAt: null,
-      credentialVersion: 1,
-      createdAt: now,
-      createdBy: null,
-      lastLoginAt: null,
-      updatedAt: now,
-      note: "Founder"
-    };
-    await this.#persist();
-    this.#audit("WORKFORCE_FOUNDER_PROVISIONED", { personId: id });
-    return redact(this.#state.persons[id]);
+    // Serialize first-provision attempts within this process so two
+    // concurrent requests cannot both observe count=0 and create founders.
+    const run = this.#provisionQueue.then(async () => {
+      await this.#ensureFreshState();
+      const count = Object.keys(this.#state.persons).length;
+      if (count > 0) {
+        throw new Error("FOUNDER_ALREADY_PROVISIONED");
+      }
+      this.#assertFullName(fullName);
+      const normalizedUsername = this.#assertUsernameAvailable(username);
+      this.#assertPasswordStrength(password);
+      this.#assertPinFormat(pin);
+      const id = this.#nextId();
+      const now = new Date().toISOString();
+      this.#state.persons[id] = {
+        id,
+        username: normalizedUsername,
+        fullName: fullName.trim(),
+        role: "FOUNDER",
+        level: roleLevel("FOUNDER"),
+        status: "ACTIVE",
+        passwordHash: hash(password),
+        pinHash: hash(pin),
+        recoveryHashes: [],
+        invitation: null,
+        accessExpiryAt: null,
+        credentialVersion: 1,
+        createdAt: now,
+        createdBy: null,
+        lastLoginAt: null,
+        updatedAt: now,
+        note: "Founder"
+      };
+      await this.#persist();
+      this.#audit("WORKFORCE_FOUNDER_PROVISIONED", { personId: id });
+      return redact(this.#state.persons[id]);
+    });
+    this.#provisionQueue = run.then(() => {}, () => {});
+    return run;
   }
 
   async invite({ fullName, role = "OPERATOR", expiresInDays = DEFAULT_INVITE_WINDOW_DAYS, createdBy = null, actor = null } = {}) {

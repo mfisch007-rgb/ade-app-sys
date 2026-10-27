@@ -7,7 +7,32 @@ export class CaseManager {
     this.eventBus = eventBus;
     this.store = store;
     this.cases = new Map();
+    this.lastPersistError = null;
+    this._mutationQueue = Promise.resolve();
     this._mergeStored(this._readStored());
+  }
+
+  #enqueueMutation(task) {
+    const run = this._mutationQueue.then(task);
+    this._mutationQueue = run.then(() => {}, () => {});
+    return run;
+  }
+
+  async #refreshForMutation() {
+    let loaded;
+    if (typeof this.store?.readSectionStrictAsync === "function") {
+      loaded = await this.store.readSectionStrictAsync("cases");
+    } else if (typeof this.store?.readSectionAsync === "function") {
+      loaded = await this.store.readSectionAsync("cases");
+    } else if (typeof this.store?.readSection === "function") {
+      loaded = this.store.readSection("cases");
+    } else if (this.store?.read) {
+      loaded = this.store.read().cases;
+    }
+    if (loaded !== undefined && loaded !== null && !Array.isArray(loaded)) {
+      throw new Error("CASE_STORE_CORRUPT");
+    }
+    if (Array.isArray(loaded)) this._mergeStored(loaded);
   }
 
   _readStored() {
@@ -42,11 +67,11 @@ export class CaseManager {
     return this.cases;
   }
 
-  createCase(input = {}) {
+  #newRecord(input = {}) {
     const id = `CASE-${new Date().getFullYear()}-${crypto.randomBytes(4).toString("hex").toUpperCase()}`;
     const now = new Date().toISOString();
 
-    const record = {
+    return {
       id,
       status: input.status || "DISCOVERY_REQUIRED",
       source: input.source || "UNKNOWN",
@@ -75,12 +100,40 @@ export class CaseManager {
       createdAt: now,
       updatedAt: now
     };
+  }
 
-    this.cases.set(id, record);
-    this.persist();
+  #publishCreated(record) {
     this.publish("case.created", record);
     this.publish(EngagementEvents.CASE_CREATED, record);
+  }
+
+  #publishUpdated(next) {
+    this.publish("case.updated", next);
+    this.publish(EngagementEvents.CASE_UPDATED, next);
+  }
+
+  createCase(input = {}) {
+    const record = this.#newRecord(input);
+    this.cases.set(record.id, record);
+    this.persist();
+    this.#publishCreated(record);
     return record;
+  }
+
+  async createCaseAsync(input = {}) {
+    return this.#enqueueMutation(async () => {
+      await this.#refreshForMutation();
+      const record = this.#newRecord(input);
+      this.cases.set(record.id, record);
+      try {
+        await this.persistAsync({ merge: false });
+      } catch (error) {
+        this.cases.delete(record.id);
+        throw error;
+      }
+      this.#publishCreated(record);
+      return record;
+    });
   }
 
   list() {
@@ -92,7 +145,7 @@ export class CaseManager {
     return this.cases.get(id) || null;
   }
 
-  transition(id, targetStatus, context = {}) {
+  #nextTransition(id, targetStatus, context = {}) {
     const current = this.get(id);
     if (!current) return null;
 
@@ -117,22 +170,53 @@ export class CaseManager {
       ]
     };
 
-    this.cases.set(id, next);
-    this.persist();
+    return { current, next };
+  }
 
-    this.publish("case.updated", next);
-    this.publish(EngagementEvents.CASE_UPDATED, next);
+  #publishTransition(id, targetStatus, current, next) {
     this.publish(EngagementEvents.CASE_TRANSITIONED, {
       caseId: id,
       from: current.status,
       to: targetStatus,
       case: next
     });
-
-    return next;
   }
 
-  update(id, patch = {}) {
+  transition(id, targetStatus, context = {}) {
+    const result = this.#nextTransition(id, targetStatus, context);
+    if (!result) return null;
+
+    this.cases.set(id, result.next);
+    this.persist();
+
+    this.#publishUpdated(result.next);
+    this.#publishTransition(id, targetStatus, result.current, result.next);
+
+    return result.next;
+  }
+
+  async transitionAsync(id, targetStatus, context = {}) {
+    return this.#enqueueMutation(async () => {
+      await this.#refreshForMutation();
+      const result = this.#nextTransition(id, targetStatus, context);
+      if (!result) return null;
+
+      this.cases.set(id, result.next);
+      try {
+        await this.persistAsync({ merge: false });
+      } catch (error) {
+        this.cases.set(id, result.current);
+        throw error;
+      }
+
+      this.#publishUpdated(result.next);
+      this.#publishTransition(id, targetStatus, result.current, result.next);
+
+      return result.next;
+    });
+  }
+
+  #nextUpdate(id, patch = {}) {
     const current = this.get(id);
     if (!current) return null;
 
@@ -145,17 +229,47 @@ export class CaseManager {
       Object.entries(patch).filter(([key]) => !forbidden.includes(key))
     );
 
-    const next = {
-      ...current,
-      ...safePatch,
-      updatedAt: new Date().toISOString()
+    return {
+      current,
+      next: {
+        ...current,
+        ...safePatch,
+        updatedAt: new Date().toISOString()
+      }
     };
+  }
 
-    this.cases.set(id, next);
-    this.persist();
+  #publishNativeUpdate(next) {
     this.publish("case.updated", next);
     this.publish(EngagementEvents.CASE_UPDATED, next);
-    return next;
+  }
+
+  update(id, patch = {}) {
+    const result = this.#nextUpdate(id, patch);
+    if (!result) return null;
+
+    this.cases.set(id, result.next);
+    this.persist();
+    this.#publishNativeUpdate(result.next);
+    return result.next;
+  }
+
+  async updateAsync(id, patch = {}) {
+    return this.#enqueueMutation(async () => {
+      await this.#refreshForMutation();
+      const result = this.#nextUpdate(id, patch);
+      if (!result) return null;
+
+      this.cases.set(id, result.next);
+      try {
+        await this.persistAsync({ merge: false });
+      } catch (error) {
+        this.cases.set(id, result.current);
+        throw error;
+      }
+      this.#publishNativeUpdate(result.next);
+      return result.next;
+    });
   }
 
   getAllowedTransitions(id) {
@@ -168,7 +282,7 @@ export class CaseManager {
   // MUST be derived server-side from the verified session — never accepted
   // from the client. Idempotent for the owning account; refuses to steal a
   // case already attached to a different account. Status is untouched.
-  attachCaseToAccount(caseId, accountId, sessionContext = {}) {
+  #nextAttach(caseId, accountId, sessionContext = {}) {
     if (!caseId || typeof caseId !== "string") throw new Error("CASE_ID_REQUIRED");
     if (!accountId || typeof accountId !== "string") throw new Error("ACCOUNT_ID_REQUIRED");
     const current = this.get(caseId);
@@ -176,7 +290,7 @@ export class CaseManager {
     if (current.accountId && current.accountId !== accountId) {
       throw new Error("CASE_ALREADY_ATTACHED");
     }
-    if (current.accountId === accountId) return current;
+    if (current.accountId === accountId) return { current, next: current, changed: false };
     const now = new Date().toISOString();
     const actor = sessionContext.actor || sessionContext.username || "ACCOUNT_HOLDER";
     const next = {
@@ -188,11 +302,33 @@ export class CaseManager {
         { from: current.status, to: current.status, reason: "CASE_ATTACHED_TO_ACCOUNT", actor, at: now }
       ]
     };
-    this.cases.set(caseId, next);
+    return { current, next, changed: true };
+  }
+
+  attachCaseToAccount(caseId, accountId, sessionContext = {}) {
+    const result = this.#nextAttach(caseId, accountId, sessionContext);
+    if (!result.changed) return result.current;
+    this.cases.set(caseId, result.next);
     this.persist();
-    this.publish("case.updated", next);
-    this.publish(EngagementEvents.CASE_UPDATED, next);
-    return next;
+    this.#publishNativeUpdate(result.next);
+    return result.next;
+  }
+
+  async attachCaseToAccountAsync(caseId, accountId, sessionContext = {}) {
+    return this.#enqueueMutation(async () => {
+      await this.#refreshForMutation();
+      const result = this.#nextAttach(caseId, accountId, sessionContext);
+      if (!result.changed) return result.current;
+      this.cases.set(caseId, result.next);
+      try {
+        await this.persistAsync({ merge: false });
+      } catch (error) {
+        this.cases.set(caseId, result.current);
+        throw error;
+      }
+      this.#publishNativeUpdate(result.next);
+      return result.next;
+    });
   }
 
   reload() {
@@ -234,7 +370,34 @@ export class CaseManager {
       } else if (this.store?.write) {
         this.store.write("cases", this.list());
       }
-    } catch (_) {}
+      this.lastPersistError = null;
+    } catch (error) {
+      this.lastPersistError = error;
+    }
+  }
+
+  async persistAsync({ merge = true } = {}) {
+    try {
+      if (merge) {
+        if (typeof this.store?.readSectionAsync === "function") {
+          const loaded = await this.store.readSectionAsync("cases");
+          this._mergeStored(loaded);
+        } else {
+          this._mergeStored(this._readStored());
+        }
+      }
+      if (typeof this.store?.writeSectionAsync === "function") {
+        await this.store.writeSectionAsync("cases", this.list());
+      } else if (typeof this.store?.writeSection === "function") {
+        this.store.writeSection("cases", this.list());
+      } else if (this.store?.write) {
+        this.store.write("cases", this.list());
+      }
+      this.lastPersistError = null;
+    } catch (error) {
+      this.lastPersistError = error;
+      throw error;
+    }
   }
 
   publish(type, payload) {

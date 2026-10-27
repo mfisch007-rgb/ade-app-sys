@@ -16,6 +16,8 @@ export class LocalDocumentStorageAdapter extends DocumentStorageProvider {
     this.filePath = path.resolve(filePath);
     this.defaultValue = defaultValue;
     this._memoryOnly = false;
+    this._lastReadError = null;
+    this._lastWriteError = null;
 
     try {
       this.#ensureFile();
@@ -45,12 +47,27 @@ export class LocalDocumentStorageAdapter extends DocumentStorageProvider {
   readSync(defaultValue = this.defaultValue) {
     try {
       if (this._memoryOnly) return this.#cloneDefault();
-      return JSON.parse(
+      const parsed = JSON.parse(
         fs.readFileSync(this.filePath, "utf8")
       );
-    } catch {
+      this._lastReadError = null;
+      return parsed;
+    } catch (error) {
+      this._lastReadError = error;
       return JSON.parse(JSON.stringify(defaultValue));
     }
+  }
+
+  lastReadError() {
+    return this._lastReadError || null;
+  }
+
+  lastError() {
+    return this._lastReadError || this._lastWriteError || null;
+  }
+
+  isHealthy() {
+    return !this._lastReadError && !this._lastWriteError;
   }
 
   writeSync(value) {
@@ -83,11 +100,16 @@ export class LocalDocumentStorageAdapter extends DocumentStorageProvider {
           throw new Error("DOCUMENT_STORAGE_WRITE_FAILED");
         }
       }
-    } catch {
+    } catch (error) {
       // tmp write failed OR finalization failed after cleanup.
-      throw new Error("DOCUMENT_STORAGE_WRITE_FAILED");
+      const failure = error?.message === "DOCUMENT_STORAGE_WRITE_FAILED"
+        ? error
+        : new Error("DOCUMENT_STORAGE_WRITE_FAILED");
+      this._lastWriteError = failure;
+      throw failure;
     }
 
+    this._lastWriteError = null;
     return value;
   }
 

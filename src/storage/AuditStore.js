@@ -4,11 +4,15 @@ import crypto from "node:crypto";
 
 const DEFAULT_AUDIT_FILE = path.resolve("data/audit_ledger.json");
 const MAX_LEDGER_ENTRIES = 5000;
+const DEFAULT_PROVIDER_PREFIX = "ade:audit:";
 
 export class AuditStore {
   constructor(options = {}) {
     this.file = path.resolve(options.file || DEFAULT_AUDIT_FILE);
-    this.ensureStorage();
+    this.provider = options.provider || null;
+    this.providerPrefix = options.providerPrefix || DEFAULT_PROVIDER_PREFIX;
+    this._lastError = null;
+    if (!this.provider) this.ensureStorage();
   }
 
   ensureStorage() {
@@ -25,26 +29,50 @@ export class AuditStore {
     }
   }
 
-  #read() {
-    try {
-      if (fs.existsSync(this.file)) {
-        const raw = fs.readFileSync(this.file, "utf8").replace(/^\uFEFF/, "");
-        const parsed = JSON.parse(raw || "[]");
-        return Array.isArray(parsed) ? parsed : [];
-      }
-    } catch (e) {
-      console.error("[AUDIT STORE READ ERROR]", e.message);
-    }
-    return [];
+  lastError() {
+    return this._lastError;
   }
 
-  append(event) {
-    const record = {
+  #read() {
+    try {
+      if (!fs.existsSync(this.file)) return [];
+      const raw = fs.readFileSync(this.file, "utf8").replace(/^\uFEFF/, "");
+      const parsed = JSON.parse(raw || "[]");
+      if (!Array.isArray(parsed)) throw new Error("AUDIT_STORE_CORRUPT");
+      this._lastError = null;
+      return parsed;
+    } catch (e) {
+      this._lastError = e;
+      console.error("[AUDIT STORE READ ERROR]", e.message);
+      throw e;
+    }
+  }
+
+  #record(event) {
+    return {
       timestamp: new Date().toISOString(),
       ...event
     };
+  }
+
+  async #appendProvider(record) {
     try {
-      const logs = this.#read();
+      const key = `${this.providerPrefix}${Date.now()}:${crypto.randomUUID()}`;
+      await this.provider.set(key, record);
+      this._lastError = null;
+      return record;
+    } catch (error) {
+      this._lastError = error;
+      console.error("[AUDIT STORE WRITE FAILED]", error?.message || String(error));
+      throw error;
+    }
+  }
+
+  append(event) {
+    const record = this.#record(event);
+    if (this.provider) return this.#appendProvider(record);
+    try {
+      let logs = this.#read();
       logs.push(record);
 
       if (logs.length > MAX_LEDGER_ENTRIES) {
@@ -72,14 +100,36 @@ export class AuditStore {
           throw new Error("AUDIT_STORE_WRITE_FAILED");
         }
       }
+      this._lastError = null;
+      return record;
     } catch (e) {
-      console.log("[AUDIT LOG FALLBACK]", record);
+      this._lastError = e;
+      console.error("[AUDIT STORE WRITE FAILED]", e?.message || String(e));
+      throw e;
+    }
+  }
+
+  async #queryProvider(limit) {
+    try {
+      const rows = await this.provider.list(this.providerPrefix);
+      const values = (Array.isArray(rows) ? rows : [])
+        .map((row) => row?.value)
+        .filter(Boolean)
+        .sort((a, b) => String(a.timestamp || "").localeCompare(String(b.timestamp || "")));
+      this._lastError = null;
+      return values.slice(-Math.max(0, limit));
+    } catch (error) {
+      this._lastError = error;
+      console.error("[AUDIT STORE READ FAILED]", error?.message || String(error));
+      throw error;
     }
   }
 
   query(limit = 50) {
+    const safeLimit = Number.isFinite(Number(limit)) ? Math.max(0, Math.floor(Number(limit))) : 50;
+    if (this.provider) return this.#queryProvider(safeLimit);
     const logs = this.#read();
-    return logs.slice(-Math.max(0, limit));
+    return logs.slice(-safeLimit);
   }
 }
 

@@ -32,6 +32,7 @@ if (!ADE_RUNTIME_MODE_CONTRACT.includes(ADE_RUNTIME_MODE)) {
 
 
 import express from "express";
+import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -302,6 +303,9 @@ const announcements = new AnnouncementsManager({
   store: storageProvider,
   eventBus: kernel?.eventBus
 });
+// Live authorization: resolve role/level from the current workforce record
+// for every authenticated request instead of trusting a session snapshot.
+security.workforce = workforce;
 
 // Canonical workforce + announcement manager initialization (lazy on first use
 // when the provider is remote; eager here for local state).
@@ -340,7 +344,19 @@ const runtimeConfig = new RuntimeConfigStore(
 // Central storage-readiness gate — distinguishes durable configured vs ephemeral.
 // Flat error envelope {success, error: CODE-string, message} matches existing
 // Pilot/route conventions so founder UI `new Error(d.error)` stays readable.
-function isDurableOperational(){ return durableStorageEnabled === true; }
+function storageHealth(){
+  const provider = runtimeConfig.provider();
+  return {
+    durable: durableStorageEnabled === true,
+    hydrated: typeof provider?.isHydrated === "function" ? provider.isHydrated() : true,
+    healthy: typeof provider?.isHealthy === "function" ? provider.isHealthy() : true,
+    lastError: typeof provider?.lastError === "function" ? provider.lastError()?.message || null : null
+  };
+}
+function isDurableOperational(){
+  const health = storageHealth();
+  return health.durable === true && health.healthy === true;
+}
 function isProductionEphemeral(){
   const isProd = Boolean(process.env.VERCEL || process.env.VERCEL_ENV === 'production' || process.env.NODE_ENV === 'production');
   return isProd && !isDurableOperational();
@@ -594,7 +610,9 @@ console.log("[KERNEL ARCHITECTURE] Enterprise Kernel, Plugin Registry & Observat
 // G18 — durable audit persistence. The canonical bus forwards security and
 // audit events into the purposed AuditStore, which writes atomically to the
 // audit ledger. This closes the gap where audit events only lived in memory.
-const auditStore = new AuditStore();
+const auditStore = durableStorageEnabled
+  ? new AuditStore({ provider: storageProvider })
+  : new AuditStore();
 if (kernel?.eventBus && typeof kernel.eventBus.subscribe === "function") {
   // Operational control topics ride the same durable ledger so every manual,
   // semi-automated, or administrative trigger is auditable with timestamp,
@@ -611,8 +629,8 @@ if (kernel?.eventBus && typeof kernel.eventBus.subscribe === "function") {
     "ai.provider.configured", "ai.provider.removed",
     "integrations.uptimerobot.configured"]) {
     try {
-      kernel.eventBus.subscribe(topic, (payload, envelope) => {
-        auditStore.append({
+      kernel.eventBus.subscribe(topic, async (payload, envelope) => {
+        await auditStore.append({
           topic,
           eventId: envelope?.eventId,
           payload: payload ?? {}
@@ -668,7 +686,8 @@ const storageHydration = (async () => {
     } catch {}
   }
 })().catch((error) => {
-  console.log("[STORAGE][WARN] storage hydration fallback:", error?.message || error);
+  console.error("[STORAGE][FATAL] authoritative hydration failed; refusing ephemeral fallback:", error?.message || error);
+  throw error;
 });
 
 // Ecosystem Capabilities Catalog
@@ -1463,7 +1482,7 @@ app.get('/api/v1/attention', security.requireLevel(2), async(req,res)=>{
     res.json({success:true, attention:{intakes,candidates,pilots,partners:parts,connections:conns,cases,notifications:notifs,stats}, time:new Date().toISOString()});
   }catch(e){ res.status(500).json({success:false, error:'ATTENTION_FAILED', message:e.message}); }
 });
-app.post('/api/v1/intake/:channel',requireDurableStorage,async(req,res)=>{ try { await refreshCases(); try { await notificationEngine.getRecentEventsAsync(1); } catch(_){} const result=intake.ingest(req.params.channel,req.body||{},{source:req.body?.source||req.params.channel,authenticated:Boolean(req.headers.authorization)}); try { const body=req.body||{}; const q=result?.intake?.request; if(String(body.kind||'').toUpperCase()==='BUSINESS_PROCESS' && q && q.needsDiscovery && Number(q.confidence||0)>=0.6){ communityProgression.captureIntake({type:'USE_CASE',organization:result.intake.organization||'',contactHint:'',useCaseDescription:String(result.intake.text||'').slice(0,5000),currentEdition:editionPolicy.getEdition(),metadata:{procarta:true,caseId:result.case.id,intakeId:result.intake.intakeId,intent:q.intent}}); } } catch(_){} logEvent('INTAKE',`Created ${result.case.id} from ${req.params.channel}`); try { const body=req.body||{}; const kind=String(body.kind||'INTEREST').toUpperCase(); const org=String(result?.intake?.organization||body.organization||'').slice(0,120); const intent=String(result?.intake?.request?.intent||body.useCase||body.intent||'').slice(0,200); notificationEngine.generateInternalEvent("notification.request_status",{channel:"INTAKE",kind,caseId:result?.case?.id||null,intakeId:result?.intake?.intakeId||null,organization:org,intent,source:req.params.channel,recommendedAction:"REVIEW",at:new Date().toISOString()}); } catch(_){} res.status(201).json(result); } catch(e){res.status(400).json({success:false,error:e.message});} });
+app.post('/api/v1/intake/:channel',requireDurableStorage,async(req,res)=>{ try { await refreshCases(); try { await notificationEngine.getRecentEventsAsync(1); } catch(_){} const result=intake.ingest(req.params.channel,req.body||{},{source:req.body?.source||req.params.channel,authenticated:Boolean(req.headers.authorization)}); await caseManager.persistAsync(); try { const body=req.body||{}; const q=result?.intake?.request; if(String(body.kind||'').toUpperCase()==='BUSINESS_PROCESS' && q && q.needsDiscovery && Number(q.confidence||0)>=0.6){ communityProgression.captureIntake({type:'USE_CASE',organization:result.intake.organization||'',contactHint:'',useCaseDescription:String(result.intake.text||'').slice(0,5000),currentEdition:editionPolicy.getEdition(),metadata:{procarta:true,caseId:result.case.id,intakeId:result.intake.intakeId,intent:q.intent}}); } } catch(_){} logEvent('INTAKE',`Created ${result.case.id} from ${req.params.channel}`); try { const body=req.body||{}; const kind=String(body.kind||'INTEREST').toUpperCase(); const org=String(result?.intake?.organization||body.organization||'').slice(0,120); const intent=String(result?.intake?.request?.intent||body.useCase||body.intent||'').slice(0,200); notificationEngine.generateInternalEvent("notification.request_status",{channel:"INTAKE",kind,caseId:result?.case?.id||null,intakeId:result?.intake?.intakeId||null,organization:org,intent,source:req.params.channel,recommendedAction:"REVIEW",at:new Date().toISOString()}); } catch(_){} res.status(201).json(result); } catch(e){res.status(400).json({success:false,error:e.message});} });
 // Demonstration runs persist cases with source DEMO_ORCHESTRATOR. Human
 // operational views exclude them by default so synthetic demo actors never
 // pollute Founder/Worker case lists; ?includeDemo=true opts back in and the
@@ -1480,9 +1499,9 @@ function visibleCases(includeDemo){
 // the same case truth. Never throws — falls back to the in-memory snapshot.
 const refreshCases = async () => { try { await caseManager.refresh(); } catch (_) {} };
 app.get('/api/v1/cases', security.requireAuth(),async(req,res)=>{ await refreshCases(); const { cases, demoExcluded } = visibleCases(req.query.includeDemo); res.json({success:true,count:cases.length,cases,demoExcluded}); });
-app.post('/api/v1/cases/:id/process', security.requireAuth(),requireDurableStorage,async(req,res)=>{try{await refreshCases();const result=await engagementOrchestrator.process(req.params.id,req.body||{});res.json({success:true,case:result});}catch(e){res.status(e.message==='CASE_NOT_FOUND'?404:400).json({success:false,error:e.message});}});
-app.post('/api/v1/cases/:id/execute', security.requireAuth(),requireDurableStorage,async(req,res)=>{try{await refreshCases();const result=await engagementOrchestrator.executeCase(req.params.id);res.json({success:true,case:result});}catch(e){res.status(e.message==='CASE_NOT_FOUND'?404:400).json({success:false,error:e.message});}});
-app.post('/api/v1/cases/:id/feedback', security.requireAuth(),requireDurableStorage,async(req,res)=>{try{await refreshCases();const result=await engagementOrchestrator.ingestFeedback(req.params.id,req.body||{});res.json({success:true,case:result});}catch(e){res.status(e.message==='CASE_NOT_FOUND'?404:400).json({success:false,error:e.message});}});
+app.post('/api/v1/cases/:id/process', security.requireAuth(),requireDurableStorage,async(req,res)=>{try{await refreshCases();const result=await engagementOrchestrator.process(req.params.id,req.body||{});await caseManager.persistAsync();res.json({success:true,case:result});}catch(e){res.status(e.message==='CASE_NOT_FOUND'?404:400).json({success:false,error:e.message});}});
+app.post('/api/v1/cases/:id/execute', security.requireAuth(),requireDurableStorage,async(req,res)=>{try{await refreshCases();const result=await engagementOrchestrator.executeCase(req.params.id);await caseManager.persistAsync();res.json({success:true,case:result});}catch(e){res.status(e.message==='CASE_NOT_FOUND'?404:400).json({success:false,error:e.message});}});
+app.post('/api/v1/cases/:id/feedback', security.requireAuth(),requireDurableStorage,async(req,res)=>{try{await refreshCases();const result=await engagementOrchestrator.ingestFeedback(req.params.id,req.body||{});await caseManager.persistAsync();res.json({success:true,case:result});}catch(e){res.status(e.message==='CASE_NOT_FOUND'?404:400).json({success:false,error:e.message});}});
 app.get('/api/v1/cases/:id/transitions', security.requireAuth(),async(req,res)=>{await refreshCases();const c=caseManager.get(req.params.id);if(!c)return res.status(404).json({success:false,error:'CASE_NOT_FOUND'});res.json({success:true,status:c.status,allowedTransitions:caseManager.getAllowedTransitions(req.params.id)});});
 app.get('/api/v1/cases/:id', security.requireAuth(),async(req,res)=>{await refreshCases();const c=caseManager.get(req.params.id); if(!c)return res.status(404).json({success:false,error:'CASE_NOT_FOUND'}); res.json({success:true,case:c});});
 app.patch('/api/v1/cases/:id', security.requireAuth(),requireDurableStorage,async(req,res)=>{await refreshCases();try{
@@ -1495,7 +1514,7 @@ app.patch('/api/v1/cases/:id', security.requireAuth(),requireDurableStorage,asyn
     const accountId = String(sess.id ?? sess.personId ?? sess.username ?? sess.sub ?? "").trim();
     if(!accountId) return res.status(401).json({success:false,error:'ACCOUNT_IDENTITY_REQUIRED'});
     try{
-      const c = caseManager.attachCaseToAccount(req.params.id, accountId, { actor: sess.username || sess.sub || accountId, role: sess.role, level: sess.level });
+      const c = await caseManager.attachCaseToAccountAsync(req.params.id, accountId, { actor: sess.username || sess.sub || accountId, role: sess.role, level: sess.level });
       return res.json({success:true,case:c,attached:true,accountId});
     }catch(e){
       if(e.message==='CASE_NOT_FOUND') return res.status(404).json({success:false,error:'CASE_NOT_FOUND'});
@@ -1503,7 +1522,7 @@ app.patch('/api/v1/cases/:id', security.requireAuth(),requireDurableStorage,asyn
       return res.status(400).json({success:false,error:e.message});
     }
   }
-  const c=caseManager.update(req.params.id,req.body||{}); if(!c)return res.status(404).json({success:false,error:'CASE_NOT_FOUND'}); res.json({success:true,case:c});}catch(e){res.status(400).json({success:false,error:e.message});}});
+  const c=await caseManager.updateAsync(req.params.id,req.body||{}); if(!c)return res.status(404).json({success:false,error:'CASE_NOT_FOUND'}); res.json({success:true,case:c});}catch(e){res.status(400).json({success:false,error:e.message});}});
 
 app.get('/api/v1/admin/overview', security.requireLevel(2),async(req,res)=>{ await refreshCases(); const { cases, demoExcluded } = visibleCases(req.query.includeDemo); res.json({success:true,channels:channels.list(),connections:connectionManager.list(),partners:partners.list(),cases,demoCasesExcluded:demoExcluded}); });
 
@@ -2151,43 +2170,168 @@ app.post('/api/v1/injection/ingest', security.requireLevel(1), hybridRateLimit, 
 // L1: structured operational assessment -> PROCARTA evidence -> case
 app.post('/api/v1/procarta/assessment', hybridRateLimit, requireDurableStorage, async (req, res) => {
   try {
-    const tenantScope = String(req.body?.tenantScope || req.query.tenant || "default");
-    const actor = req.person?.username || req.identity?.subject || req.body?.submittedBy || "public";
-    const evidence = buildAssessmentEvidence(req.body || {}, { tenantScope, actor });
-    const text = assessmentToIntakeText(evidence);
+    // Public assessment: never trust a caller-supplied tenant. Authenticated
+    // principals are not established on this route, so the public intake stays
+    // in the default tenant.
+    const tenantScope = "default";
+    const actor = req.person?.username || req.identity?.subject || "public";
+    const body = req.body || {};
+    const evidence = buildAssessmentEvidence(body, { tenantScope, actor });
+    const text = [
+      assessmentToIntakeText(evidence),
+      typeof body.processes === "string" && body.processes.trim() ? `Processes: ${body.processes.trim().slice(0, 2000)}` : null,
+      typeof body.painPoints === "string" && body.painPoints.trim() ? `Pain points: ${body.painPoints.trim().slice(0, 2000)}` : null,
+      typeof body.automationGoals === "string" && body.automationGoals.trim() ? `Automation goals: ${body.automationGoals.trim().slice(0, 2000)}` : null
+    ].filter(Boolean).join(" ").slice(0, 5000);
+    const contact = {
+      organization: evidence.organization || null,
+      email: typeof body.email === "string" ? body.email.slice(0, 254) : (typeof body.contactEmail === "string" ? body.contactEmail.slice(0, 254) : null),
+      phone: typeof body.phone === "string" ? body.phone.slice(0, 40) : (typeof body.contactPhone === "string" ? body.contactPhone.slice(0, 40) : null),
+      name: typeof body.contactName === "string" ? body.contactName.slice(0, 120) : null,
+      regNo: evidence.regNo || null
+    };
+    const authorization = body.authorization && typeof body.authorization === "object"
+      ? {
+          publicAnalysis: Boolean(body.authorization.publicAnalysis),
+          connectedSystems: Boolean(body.authorization.connectedSystems)
+        }
+      : { publicAnalysis: false, connectedSystems: false };
+    const officers = Array.isArray(body.officers)
+      ? body.officers.slice(0, 20).map((o) => ({
+          name: typeof o?.name === "string" ? o.name.slice(0, 120) : null,
+          role: typeof o?.role === "string" ? o.role.slice(0, 120) : null
+        }))
+      : [];
+    const quoteTotal = body.quoteTotal === null || body.quoteTotal === undefined || body.quoteTotal === ""
+      ? null
+      : Number(body.quoteTotal);
+    const intakeContext = {
+      industry: evidence.industry || (typeof body.industry === "string" ? body.industry.slice(0, 120) : null),
+      businessType: evidence.businessType || null,
+      orgSize: evidence.orgSize || null,
+      regNo: evidence.regNo || null,
+      staffCount: typeof body.staffCount === "string" ? body.staffCount.slice(0, 80) : null,
+      processes: typeof body.processes === "string" ? body.processes.slice(0, 2000) : null,
+      painPoints: typeof body.painPoints === "string" ? body.painPoints.slice(0, 2000) : null,
+      automationGoals: typeof body.automationGoals === "string" ? body.automationGoals.slice(0, 2000) : null,
+      officers,
+      commercial: {
+        quoteTotalNgn: Number.isFinite(quoteTotal) && quoteTotal >= 0 ? quoteTotal : null,
+        quoteCurrency: "NGN",
+        claimedOnly: true,
+        verified: false
+      },
+      consent: body.consent && typeof body.consent === "object"
+        ? {
+            accepted: Boolean(body.consent.accepted),
+            at: typeof body.consent.at === "string" ? body.consent.at.slice(0, 40) : null,
+            termsVersion: typeof body.consent.termsVersion === "string" ? body.consent.termsVersion.slice(0, 80) : null,
+            assertedByClient: true,
+            verified: false
+          }
+        : null,
+      signatureConfirmed: Boolean(body.signatureConfirmed),
+      signatureImagesTransmitted: false
+    };
     // Full operational payload: the authoritative pipeline/case layer (and its
     // PROCARTA context + DecisionEngine consumers) must see contact, channel,
-    // systems, authorization and business context — not just text+assessment.
-    const body = req.body || {};
+    // systems, authorization and business context - not just text+assessment.
+    // Dedupe identity includes contact + organization + process context so a
+    // second lead with the same process text cannot overwrite the first.
+    const idempotencyMaterial = JSON.stringify({
+      organization: evidence.organization || null,
+      contact: { email: contact.email, phone: contact.phone, name: contact.name, regNo: contact.regNo },
+      industry: intakeContext.industry,
+      businessType: intakeContext.businessType,
+      orgSize: intakeContext.orgSize,
+      branches: evidence.branches,
+      employees: evidence.employees,
+      departments: evidence.departments,
+      processes: intakeContext.processes,
+      painPoints: intakeContext.painPoints,
+      automationGoals: intakeContext.automationGoals,
+      useCase: typeof body.useCase === "string" ? body.useCase.slice(0, 500) : (typeof body.focus === "string" ? body.focus.slice(0, 500) : null)
+    });
+    const assessmentEventId = `evt-assessment-${crypto.createHash("sha256").update(idempotencyMaterial).digest("hex").slice(0, 24)}`;
     const result = await operationalPipeline.run({
       source: "FORM",
       input: {
         text,
+        eventId: assessmentEventId,
+        idempotencyKey: `idem-${assessmentEventId}`,
         organization: evidence.organization,
         channel: "FORM",
-        contact: {
-          organization: evidence.organization || null,
-          email: body.email || body.contactEmail || null,
-          phone: body.phone || body.contactPhone || null,
-          name: body.contactName || body.contact || null
-        },
+        contact,
         systems: Array.isArray(body.systems) ? body.systems.slice(0, 50) : [],
-        authorization: body.authorization && typeof body.authorization === "object"
-          ? body.authorization
-          : { publicAnalysis: false, connectedSystems: false },
-        industry: evidence.industry || body.industry || body.businessType || null,
-        businessType: body.businessType || evidence.industry || null,
-        orgSize: body.orgSize || null,
+        authorization,
+        industry: intakeContext.industry,
+        businessType: intakeContext.businessType,
+        orgSize: intakeContext.orgSize,
+        regNo: intakeContext.regNo,
         branches: evidence.branches,
         employees: evidence.employees,
         departments: evidence.departments,
-        useCase: body.useCase || body.focus || null,
+        useCase: typeof body.useCase === "string" ? body.useCase.slice(0, 500) : (typeof body.focus === "string" ? body.focus.slice(0, 500) : null),
+        signature: {
+          confirmed: Boolean(body.signatureConfirmed),
+          assertedByClient: true,
+          verified: false,
+          imageTransmitted: false
+        },
         assessment: { area: evidence.area, confidence: evidence.confidence, evidence: evidence.findings }
       },
       tenantScope, actor, purpose: "PROCARTA_ASSESSMENT"
     });
-    try { kernel?.eventBus?.publish?.("audit.log.created", { category: "PROCARTA", action: "FORM_SUBMITTED", tenantScope, caseId: result.caseId, at: new Date().toISOString() }); } catch {}
-    res.status(201).json({ success: true, evidence, caseId: result.caseId, intakeId: result.intakeId, eventId: result.eventId });
+    // The generic injection mapper intentionally minimizes payloads. This
+    // route is commercial intake, so retain the submitted context on the
+    // canonical case before PROCARTA executes.
+    if (result.caseId) {
+      await caseManager.updateAsync(result.caseId, {
+        organization: evidence.organization || null,
+        contact,
+        intakeContext
+      });
+    }
+    let procarta = null;
+    let procartaError = null;
+    if (procartaEngine && result.caseId) {
+      try {
+        procarta = await procartaEngine.execute({
+          caseId: result.caseId,
+          text,
+          organization: evidence.organization || null,
+          channel: "WEB",
+          contact,
+          systems: Array.isArray(body.systems) ? body.systems.slice(0, 50) : [],
+          authorization,
+          source: "FORM"
+        });
+      } catch (e) {
+        procartaError = { code: e.code || "PROCARTA_EXECUTION_FAILED", message: String(e.message || e).slice(0, 300) };
+      }
+    }
+    await caseManager.persistAsync();
+    try {
+      kernel?.eventBus?.publish?.("audit.log.created", {
+        category: "PROCARTA",
+        action: "FORM_SUBMITTED",
+        tenantScope,
+        caseId: result.caseId,
+        procartaExecuted: Boolean(procarta),
+        procartaError: procartaError?.code || null,
+        at: new Date().toISOString()
+      });
+    } catch {}
+    res.status(201).json({
+      success: true,
+      evidence,
+      caseId: result.caseId,
+      intakeId: result.intakeId,
+      eventId: result.eventId,
+      contactPersisted: Boolean(result.caseId),
+      procarta,
+      procartaError
+    });
   } catch (e) { res.status(400).json({ success: false, error: e.code || "ASSESSMENT_FAILED", message: e.message }); }
 });
 
@@ -2276,7 +2420,7 @@ app.get('/api/v1/procarta/topology', async (req, res) => {
 });
 // Watermarked Executive Dossier Preview: redacted summary only. Full dossier
 // generation/execution stays in the backend CaseManager + DecisionEngine.
-app.get('/api/v1/procarta/dossier/preview', async (req, res) => {
+app.get('/api/v1/procarta/dossier/preview', security.requireAuth(), async (req, res) => {
   try { await refreshCases(); } catch {}
   try {
     const caseId = String(req.query.caseId || "").trim();
@@ -2287,9 +2431,9 @@ app.get('/api/v1/procarta/dossier/preview', async (req, res) => {
     res.json({
       success: true, preview: true, watermark: "ADE-APEX PREVIEW — NOT AUTHORITATIVE",
       caseId: caseId || null,
-      organization: caseRec?.organization || null, status: caseRec?.status || topo.currentStage,
+      status: caseRec?.status || topo.currentStage,
       currentStage: topo.currentStage, stages: topo.stages,
-      redacted: ["financials", "credentials", "pii"],
+      redacted: ["organization", "financials", "credentials", "pii"],
       note: "Preview only. Full case execution remains in the backend CaseManager."
     });
   } catch (e) { res.status(500).json({ success: false, error: "DOSSIER_PREVIEW_FAILED", message: e.message }); }
@@ -2407,16 +2551,31 @@ app.post('/api/v1/admin/payments/customer-facing', security.requireLevel(2), req
 // Customer-facing availability gate (public; truthful; never leaks secrets)
 app.get('/api/v1/payments/availability', (req, res) => {
   try {
+    // Public availability is intentionally fixed to the public tenant; a
+    // caller-supplied tenant must not reveal another tenant's payment state.
     res.json({
       success: true,
-      ...paymentService.availability({ tenantScope: req.query.tenant || "default", customerTier: req.query.tier || "COMMUNITY", upgradeRequired: String(req.query.upgrade || "") === "1" })
+      ...paymentService.availability({ tenantScope: "default", customerTier: req.query.tier || "COMMUNITY", upgradeRequired: String(req.query.upgrade || "") === "1" })
     });
   } catch (e) { res.status(500).json({ success: false, error: "PAYMENT_AVAILABILITY_FAILED" }); }
 });
 // Server-side payment start (enabled state only; secret never leaves server)
-app.post('/api/v1/payments/start', requireDurableStorage, (req, res) => {
+app.post('/api/v1/payments/start', hybridRateLimit, requireDurableStorage, (req, res) => {
   try {
-    const out = paymentService.startPayment({ ...(req.body || {}), tenantScope: req.body?.tenantScope || req.query.tenant || "default" });
+    const body = req.body || {};
+    const amountKobo = Number(body.amountKobo);
+    const email = typeof body.email === "string" ? body.email.slice(0, 254) : "";
+    const tenantScope = "default";
+    const metadata = body.metadata && typeof body.metadata === "object" ? { ...body.metadata } : {};
+    delete metadata.adminInitiated;
+    const out = paymentService.startPayment({
+      tenantScope,
+      amountKobo,
+      email,
+      planCode: body.planCode ? String(body.planCode).slice(0, 120) : null,
+      callbackUrl: body.callbackUrl ? String(body.callbackUrl).slice(0, 500) : null,
+      metadata
+    });
     res.status(201).json({ success: true, payment: out });
   } catch (e) { res.status(400).json({ success: false, error: e.code || "PAYMENT_START_FAILED", message: e.message }); }
 });
@@ -2448,7 +2607,7 @@ app.post('/api/v1/payments/webhook/paystack', requireDurableStorage, async (req,
       // applied on first delivery — return both without re-executing.
       return res.json({ success: true, duplicate: true, financial: fin.outcome, entitlement: paymentService.entitlementFor(tenantScope) });
     }
-    const out = paymentService.handleWebhook({
+    const out = await paymentService.handleWebhookAsync({
       tenantScope, rawBody, signature, event: req.body && req.body.event ? req.body : null
     });
     // Evidence-based transactions: webhook claims stay OBSERVED_FACT until the
@@ -3660,8 +3819,9 @@ app.post('/api/v1/trading/venues/:id/verify', security.requireLevel(3), requireD
   }
 });
 
-app.get('/api/v1/admin/trading/entitlements', security.requireLevel(2), (req, res) => {
+app.get('/api/v1/admin/trading/entitlements', security.requireLevel(2), async (req, res) => {
   try {
+    await tradingEntitlements.refresh();
     const list = tradingEntitlements.list();
     // L3 Founder isolation: Admin L2 sees presence only — private financial
     // controls (granular capabilities, modes, grantor) stay Founder-private.
@@ -3676,26 +3836,38 @@ app.get('/api/v1/admin/trading/entitlements', security.requireLevel(2), (req, re
   }
 });
 
-app.post('/api/v1/admin/trading/entitlements', security.requireLevel(3), requireDurableStorage, (req, res) => {
+const tradingStorageStatus = (error) => {
+  const code = String(error?.code || "");
+  if (code === "USER_ID_REQUIRED" || code === "INVALID_ROLE") return 400;
+  if (/STORAGE|UNAVAILABLE|READ_FAILED|WRITE_FAILED/.test(`${code} ${error?.message || ""}`)) return 503;
+  return 500;
+};
+
+app.post('/api/v1/admin/trading/entitlements', security.requireLevel(3), requireDurableStorage, async (req, res) => {
   try {
     const { userId, trading, gaming, capabilities, modes } = req.body || {};
-    const rec = tradingEntitlements.grant(userId, { trading, gaming, capabilities, modes, grantedBy: req.identity?.sub || "founder" });
+    if (!String(userId || "").trim()) {
+      return res.status(400).json({ success: false, error: "USER_ID_REQUIRED" });
+    }
+    const rec = await tradingEntitlements.grantAsync(userId, { trading, gaming, capabilities, modes, grantedBy: req.identity?.sub || "founder" });
     res.status(201).json({ success: true, entitlement: rec });
   } catch (error) {
-    res.status(400).json({ success: false, error: error.code || "ENTITLEMENT_GRANT_FAILED", message: error.message });
+    res.status(tradingStorageStatus(error, "ENTITLEMENT_GRANT_FAILED")).json({ success: false, error: error.code || "ENTITLEMENT_GRANT_FAILED", message: error.message });
   }
 });
 
-app.delete('/api/v1/admin/trading/entitlements/:userId', security.requireLevel(3), requireDurableStorage, (req, res) => {
+app.delete('/api/v1/admin/trading/entitlements/:userId', security.requireLevel(3), requireDurableStorage, async (req, res) => {
   try {
-    res.json({ success: true, ...(tradingEntitlements.revoke(req.params.userId, { revokedBy: req.identity?.sub || "founder" }) || { revoked: false }) });
+    const result = await tradingEntitlements.revokeAsync(req.params.userId, { revokedBy: req.identity?.sub || "founder" });
+    res.json({ success: true, ...(result || { revoked: false }) });
   } catch (error) {
-    res.status(500).json({ success: false, error: "ENTITLEMENT_REVOKE_FAILED", message: error.message });
+    res.status(tradingStorageStatus(error, "ENTITLEMENT_REVOKE_FAILED")).json({ success: false, error: error.code || "ENTITLEMENT_REVOKE_FAILED", message: error.message });
   }
 });
 
-app.post('/api/v1/trading/signal-gate', security.requireLevel(2), (req, res) => {
+app.post('/api/v1/trading/signal-gate', security.requireLevel(2), async (req, res) => {
   try {
+    await tradingEntitlements.refresh();
     const { analysis, minConfidence, userId, feature } = req.body || {};
     const candidates = tradingActorCandidates(req);
     const founder = tradingIsFounder(req);
@@ -3710,8 +3882,9 @@ app.post('/api/v1/trading/signal-gate', security.requireLevel(2), (req, res) => 
   }
 });
 
-app.post('/api/v1/trading/auto-mode', security.requireLevel(2), (req, res) => {
+app.post('/api/v1/trading/auto-mode', security.requireLevel(2), async (req, res) => {
   try {
+    await tradingEntitlements.refresh();
     const body = req.body || {};
     const candidates = tradingActorCandidates(req);
     const founder = tradingIsFounder(req);
@@ -3813,8 +3986,9 @@ app.post('/api/v1/trading/connection-modes/:id/verify', security.requireLevel(2)
   }
   catch(e){ res.status(e.code==="CONNECTION_NOT_FOUND"?404:400).json({success:false, error:e.code||"VERIFY_FAILED", message:e.message}); }
 });
-app.get('/api/v1/trading/entitlements/me', security.requireAuth(), (req, res) => {
+app.get('/api/v1/trading/entitlements/me', security.requireAuth(), async (req, res) => {
   try {
+    await tradingEntitlements.refresh();
     // Alias-aware lookup: the grant may be recorded under the username while
     // the session presents the opaque personId first (or vice versa).
     // requireAuth exposes claims as req.identity.
@@ -4150,7 +4324,16 @@ app.get('/api/v1/edition', (req, res) => {
       edition: editionPolicy.getEdition(),
       isDemoMode: editionPolicy.isDemoMode(),
       badge: editionPolicy.getEditionBadge(),
-      limits: editionPolicy.getLimits(),
+      limits: {
+        ...editionPolicy.getLimits(),
+        persistentState: isDurableOperational() ? "durable" : "ephemeral"
+      },
+      runtime: {
+        storage: (() => {
+          const { lastError: _internalError, ...publicHealth } = storageHealth();
+          return publicHealth;
+        })()
+      },
       capabilities: editionPolicy.listCapabilities()
     });
   } catch (error) {
@@ -4271,7 +4454,9 @@ app.get('/api/v1/runtime', (req, res) => {
       },
       storage: {
         provider: storageProvider?.constructor?.name || "UNKNOWN",
-        configured: storageProvider?.isConfigured?.() ?? true
+        configured: storageProvider?.isConfigured?.() ?? true,
+        durable: durableStorageEnabled,
+        ...storageHealth()
       },
       ai: {
         configured: Boolean(UniversalAIGateway.getInstance().getProviderStatus()?.configuredProviderCount)

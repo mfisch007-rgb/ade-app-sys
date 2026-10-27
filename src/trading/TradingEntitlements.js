@@ -18,18 +18,42 @@ export class TradingEntitlements {
   constructor({ store = null, eventBus = null } = {}) {
     this.store = store;
     this.eventBus = eventBus;
+    this.lastPersistError = null;
+  }
+
+  #normalize(sec) {
+    if (Array.isArray(sec)) {
+      const map = {};
+      for (const row of sec) if (row?.userId) map[row.userId] = row;
+      return map;
+    }
+    return sec && typeof sec === "object" ? sec : {};
   }
 
   _all() {
     try {
       const sec = this.store?.readSection?.("tradingEntitlements") ?? this.store?.read?.()?.tradingEntitlements ?? {};
-      if (Array.isArray(sec)) {
-        const m = {};
-        for (const r of sec) if (r?.userId) m[r.userId] = r;
-        return m;
-      }
-      return sec && typeof sec === "object" ? sec : {};
-    } catch { return {}; }
+      return this.#normalize(sec);
+    } catch {
+      return {};
+    }
+  }
+
+  // Mutation reads must not fall back to an empty snapshot: writing that
+  // would erase grants whenever the backing read fails. Let the error surface.
+  _allOrThrow() {
+    const sec = this.store?.readSection?.("tradingEntitlements") ?? this.store?.read?.()?.tradingEntitlements ?? {};
+    return this.#normalize(sec);
+  }
+
+  async _allFresh() {
+    if (typeof this.store?.readSectionStrictAsync === "function") {
+      return this.#normalize(await this.store.readSectionStrictAsync("tradingEntitlements"));
+    }
+    if (typeof this.store?.readSectionAsync === "function") {
+      return this.#normalize(await this.store.readSectionAsync("tradingEntitlements"));
+    }
+    return this._all();
   }
 
   _save(map) {
@@ -38,19 +62,27 @@ export class TradingEntitlements {
       else if (typeof this.store?.write === "function") {
         for (const [k, v] of Object.entries(map)) this.store.write("tradingEntitlements", k, v);
       }
-    } catch {}
+      this.lastPersistError = null;
+    } catch (error) {
+      this.lastPersistError = error;
+      throw error;
+    }
   }
 
-  /**
-   * Grant/replace entitlement. Caller (route) must enforce L2 Founder/Admin.
-   * Supports legacy {trading,gaming} and granular {capabilities: {BINARY_REGULAR, BINARY_OTC, FOREX, GAMING}}.
-   */
-  grant(userId, { trading = false, gaming = false, capabilities = null, modes = null, grantedBy = "founder" } = {}) {
+  async _saveAsync(map) {
+    try {
+      if (typeof this.store?.writeSectionAsync === "function") await this.store.writeSectionAsync("tradingEntitlements", map);
+      else this._save(map);
+      this.lastPersistError = null;
+    } catch (error) {
+      this.lastPersistError = error;
+      throw error;
+    }
+  }
+
+  #record(userId, { trading = false, gaming = false, capabilities = null, modes = null, grantedBy = "founder" } = {}) {
     const id = String(userId || "").trim().slice(0, 120);
     if (!id) { const e = new Error("USER_ID_REQUIRED"); e.code = "USER_ID_REQUIRED"; throw e; }
-    const map = this._all();
-    const existingKey = Object.keys(map).find((k) => k.toLowerCase() === id.toLowerCase());
-    const key = existingKey || id;
     const caps = capabilities && typeof capabilities === "object"
       ? {
           BINARY_REGULAR: Boolean(capabilities.BINARY_REGULAR ?? capabilities.binaryRegular ?? trading),
@@ -60,21 +92,83 @@ export class TradingEntitlements {
         }
       : { BINARY_REGULAR: Boolean(trading), BINARY_OTC: Boolean(trading), FOREX: Boolean(trading), GAMING: Boolean(gaming) };
     const normModes = modes && typeof modes === "object" ? modes : null;
-    map[key] = { userId: key, trading: Boolean(trading) || caps.BINARY_REGULAR || caps.BINARY_OTC || caps.FOREX, gaming: Boolean(gaming) || caps.GAMING, capabilities: caps, modes: normModes, grantedBy, grantedAt: new Date().toISOString() };
+    return { id, caps, normModes, record: { userId: id, trading: Boolean(trading) || caps.BINARY_REGULAR || caps.BINARY_OTC || caps.FOREX, gaming: Boolean(gaming) || caps.GAMING, capabilities: caps, modes: normModes, grantedBy, grantedAt: new Date().toISOString() } };
+  }
+
+  #keyFor(map, id) {
+    return Object.keys(map).find((k) => k.toLowerCase() === id.toLowerCase()) || id;
+  }
+
+  #publishGranted(record) {
+    try {
+      this.eventBus?.publish?.("trading.entitlement.granted", {
+        userId: record.userId,
+        trading: record.trading,
+        gaming: record.gaming,
+        capabilities: record.capabilities
+      });
+    } catch {}
+  }
+
+  #publishRevoked(userId, revokedBy) {
+    try {
+      this.eventBus?.publish?.("trading.entitlement.revoked", { userId, revokedBy });
+    } catch {}
+  }
+
+  /**
+   * Grant/replace entitlement. Caller (route) must enforce L2 Founder/Admin.
+   * Supports legacy {trading,gaming} and granular {capabilities: {BINARY_REGULAR, BINARY_OTC, FOREX, GAMING}}.
+   */
+  grant(userId, options = {}) {
+    const { id, record } = this.#record(userId, options);
+    const map = this._allOrThrow();
+    const key = this.#keyFor(map, id);
+    map[key] = { ...record, userId: key };
     this._save(map);
-    try { this.eventBus?.publish?.("trading.entitlement.granted", { userId: key, trading: map[key].trading, gaming: map[key].gaming, capabilities: caps }); } catch {}
+    this.#publishGranted(map[key]);
+    return map[key];
+  }
+
+  async grantAsync(userId, options = {}) {
+    const { id, record } = this.#record(userId, options);
+    const map = await this._allFresh();
+    const key = this.#keyFor(map, id);
+    map[key] = { ...record, userId: key };
+    await this._saveAsync(map);
+    this.#publishGranted(map[key]);
     return map[key];
   }
 
   revoke(userId, { revokedBy = "founder" } = {}) {
     const id = String(userId || "").trim();
-    const map = this._all();
+    const map = this._allOrThrow();
     const key = Object.keys(map).find((k) => k.toLowerCase() === id.toLowerCase()) || id;
     if (!map[key]) return null;
     delete map[key];
     this._save(map);
-    try { this.eventBus?.publish?.("trading.entitlement.revoked", { userId: key, revokedBy }); } catch {}
+    this.#publishRevoked(key, revokedBy);
     return { userId: key, revoked: true };
+  }
+
+  async revokeAsync(userId, { revokedBy = "founder" } = {}) {
+    const id = String(userId || "").trim();
+    const map = await this._allFresh();
+    const key = Object.keys(map).find((k) => k.toLowerCase() === id.toLowerCase()) || id;
+    if (!map[key]) return null;
+    delete map[key];
+    await this._saveAsync(map);
+    this.#publishRevoked(key, revokedBy);
+    return { userId: key, revoked: true };
+  }
+
+  async refresh() {
+    if (typeof this.store?.readSectionStrictAsync === "function") {
+      await this.store.readSectionStrictAsync("tradingEntitlements");
+    } else if (typeof this.store?.readSectionAsync === "function") {
+      await this.store.readSectionAsync("tradingEntitlements");
+    }
+    return this._all();
   }
 
   _resolveKey(userId) {

@@ -38,6 +38,8 @@ export class PaymentService {
     this.editionPolicy = editionPolicy || null;
     this.tenants = new Map();
     this.entitlements = new Map(); // tenantScope -> { plan, ... }
+    this._pending = new Map(); // reference -> checkout intent
+    this._hydrationError = null;
     this._hydrate();
   }
 
@@ -47,15 +49,51 @@ export class PaymentService {
       const obj = saved && typeof saved === "object" ? saved : {};
       for (const [tenant, cfg] of Object.entries(obj.tenants || {})) this.tenants.set(tenant, cfg);
       for (const [tenant, ent] of Object.entries(obj.entitlements || {})) this.entitlements.set(tenant, ent);
-    } catch {}
+      for (const [reference, intent] of Object.entries(obj.pending || {})) this._pending.set(reference, intent);
+    } catch (error) {
+      this._hydrationError = error;
+    }
   }
+
+  _assertHydrated() {
+    if (this._hydrationError) {
+      throw fail("PAYMENT_STATE_UNAVAILABLE", "payment state could not be read; refusing to mutate or overwrite it.");
+    }
+  }
+
+  #snapshot() {
+    return {
+      tenants: new Map(this.tenants),
+      entitlements: new Map(this.entitlements),
+      pending: new Map([...this._pending].map(([reference, intent]) => [reference, { ...intent }]))
+    };
+  }
+
+  #restore(snapshot) {
+    this.tenants = snapshot.tenants;
+    this.entitlements = snapshot.entitlements;
+    this._pending = snapshot.pending;
+  }
+
   _persist() {
-    try {
-      this.store?.writeSection?.(SECTION, {
+    this._assertHydrated();
+    this.store?.writeSection?.(SECTION, {
+      tenants: Object.fromEntries(this.tenants),
+      entitlements: Object.fromEntries(this.entitlements),
+      pending: Object.fromEntries(this._pending)
+    });
+  }
+
+  async _persistAsync() {
+    if (typeof this.store?.writeSectionAsync === "function") {
+      await this.store.writeSectionAsync(SECTION, {
         tenants: Object.fromEntries(this.tenants),
-        entitlements: Object.fromEntries(this.entitlements)
+        entitlements: Object.fromEntries(this.entitlements),
+        pending: Object.fromEntries(this._pending)
       });
-    } catch {}
+      return;
+    }
+    this._persist();
   }
   _audit(action, fields = {}) {
     try { this.eventBus?.publish?.("audit.log.created", { category: "PAYMENTS", action, at: nowIso(), ...fields }); } catch {}
@@ -63,13 +101,26 @@ export class PaymentService {
 
   _config(tenantScope) {
     const scope = String(tenantScope || "default");
-    return this.tenants.get(scope) || {
+    const existing = this.tenants.get(scope);
+    return existing ? { ...existing } : {
       tenantScope: scope, provider: "PAYSTACK", state: "DISABLED", customerFacing: "OFF",
       environment: "TEST", verified: false, lastVerifiedAt: null, lastError: null,
       updatedBy: null, updatedAt: null, history: []
     };
   }
-  _save(scope, cfg) { this.tenants.set(scope, cfg); this._persist(); return cfg; }
+  _save(scope, cfg) {
+    this._assertHydrated();
+    const previous = this.tenants.get(scope);
+    this.tenants.set(scope, cfg);
+    try {
+      this._persist();
+    } catch (error) {
+      if (previous) this.tenants.set(scope, previous);
+      else this.tenants.delete(scope);
+      throw error;
+    }
+    return cfg;
+  }
   _touch(cfg, { actor, reason, extra = {} }) {
     cfg.history = [...(cfg.history || []), { at: nowIso(), actor: String(actor).slice(0, 120), reason: String(reason || "").slice(0, 500), ...extra }].slice(-50);
     cfg.updatedBy = String(actor).slice(0, 120);
@@ -97,6 +148,7 @@ export class PaymentService {
   }
 
   configure({ tenantScope = "default", environment = "TEST", secretKey = null, publicKey = null, planMappings = {}, actor = "SYSTEM", reason = "" } = {}) {
+    this._assertHydrated();
     const scope = String(tenantScope || "default");
     const env = String(environment || "TEST").toUpperCase();
     if (!["TEST", "LIVE"].includes(env)) throw fail("PAYMENT_ENV_INVALID");
@@ -119,6 +171,7 @@ export class PaymentService {
 
   /** Syntactic verification: presence + env/prefix match. Never claims LIVE money. */
   verify({ tenantScope = "default", actor = "SYSTEM" } = {}) {
+    this._assertHydrated();
     const scope = String(tenantScope || "default");
     const secret = this.secrets?.getSecret?.(`ADE_PAYSTACK_${scope}`) || process.env.PAYSTACK_SECRET_KEY || null;
     const cfg = this._config(scope);
@@ -145,6 +198,7 @@ export class PaymentService {
   }
 
   setState({ tenantScope = "default", to = "DISABLED", actor = "SYSTEM", reason = "" } = {}) {
+    this._assertHydrated();
     const scope = String(tenantScope || "default");
     const target = String(to || "").toUpperCase();
     if (!VALID_STATES.includes(target)) throw fail("PAYMENT_STATE_INVALID", to);
@@ -172,6 +226,7 @@ export class PaymentService {
   }
 
   setCustomerFacing({ tenantScope = "default", on = false, actor = "SYSTEM", reason = "" } = {}) {
+    this._assertHydrated();
     const scope = String(tenantScope || "default");
     if (!actor || !reason) throw fail("APPROVAL_IDENTITY_AND_REASON_REQUIRED");
     const cfg = this._config(scope);
@@ -206,8 +261,9 @@ export class PaymentService {
     };
   }
 
-  /** Server-side checkout start. Requires enabled state; never exposes secret. */
+  /** Prepare a server-side checkout intent. No provider network call is made. */
   startPayment({ tenantScope = "default", amountKobo = 0, email = "", planCode = null, callbackUrl = null, metadata = {} } = {}) {
+    this._assertHydrated();
     const scope = String(tenantScope || "default");
     const cfg = this._config(scope);
     if (cfg.state === "DISABLED") throw fail("PAYMENT_DISABLED", "payments are disabled for this tenant.");
@@ -217,16 +273,45 @@ export class PaymentService {
     const secret = this.secrets?.getSecret?.(`ADE_PAYSTACK_${scope}`) || process.env.PAYSTACK_SECRET_KEY || null;
     const provider = new PaystackProvider({ environment: cfg.environment, secretKey: secret, planMappings: cfg.planMappings });
     const checkout = provider.initializePayment({ amountKobo, email, planCode, callbackUrl, metadata });
-    this._audit("PAYMENT_INITIATED", { tenantScope: scope, reference: checkout.reference, environment: cfg.environment });
-    try { this.eventBus?.publish?.("payment.initiated", { tenantScope: scope, reference: checkout.reference }); } catch {}
-    return checkout;
+    const intent = {
+      reference: checkout.reference,
+      tenantScope: scope,
+      amountKobo: checkout.amountKobo,
+      email: checkout.email,
+      planCode: checkout.planCode,
+      status: "PREPARED",
+      providerContacted: false,
+      createdAt: nowIso(),
+      expiresAt: Date.now() + 30 * 60 * 1000
+    };
+    this._pending.set(checkout.reference, intent);
+    if (this._pending.size > 500) {
+      const oldest = [...this._pending.entries()].sort((a, b) => String(a[1].createdAt).localeCompare(String(b[1].createdAt)))[0];
+      if (oldest) this._pending.delete(oldest[0]);
+    }
+    try {
+      this._persist();
+    } catch (error) {
+      this._pending.delete(checkout.reference);
+      throw error;
+    }
+    this._audit("PAYMENT_REQUEST_PREPARED", { tenantScope: scope, reference: checkout.reference, environment: cfg.environment, providerContacted: false });
+    try { this.eventBus?.publish?.("payment.prepared", { tenantScope: scope, reference: checkout.reference, providerContacted: false }); } catch {}
+    return {
+      ...checkout,
+      status: "PAYMENT_REQUEST_PREPARED",
+      providerContacted: false,
+      checkoutUrl: null,
+      accessCode: null
+    };
   }
 
   /**
-   * Webhook handler — the ONLY path that mutates entitlements.
+   * Webhook handler - the ONLY path that mutates entitlements.
    * Client redirects/success URLs never grant anything.
    */
   handleWebhook({ tenantScope = "default", rawBody = "", signature = "", event = null } = {}) {
+    this._assertHydrated();
     const scope = String(tenantScope || "default");
     const secret = this.secrets?.getSecret?.(`ADE_PAYSTACK_${scope}`) || process.env.PAYSTACK_SECRET_KEY || null;
     const cfg = this._config(scope);
@@ -240,25 +325,92 @@ export class PaymentService {
     }
     const mapping = provider.mapEventToEntitlement(verified);
     if (mapping.outcome === "GRANT") {
+      const reference = mapping.reference;
+      if (!reference) throw fail("PAYMENT_REFERENCE_REQUIRED", "verified grant carries no transaction reference.");
+      const existing = this.entitlements.get(scope);
+      if (existing?.reference === reference && existing?.plan) {
+        const grantedIntent = this._pending.get(reference);
+        if (grantedIntent) grantedIntent.status = "GRANTED";
+        return { success: true, duplicate: true, outcome: "GRANT", entitlement: { ...existing } };
+      }
+      const intent = this._pending.get(reference);
+      if (!intent || intent.tenantScope !== scope) {
+        throw fail("PAYMENT_INTENT_NOT_FOUND", "no prepared checkout intent matches this transaction.");
+      }
+      if (Number(intent.expiresAt) > 0 && Date.now() > Number(intent.expiresAt)) {
+        throw fail("PAYMENT_INTENT_EXPIRED", "checkout intent has expired.");
+      }
+      const eventAmount = Number(verified.data?.amount);
+      if (Number.isFinite(eventAmount) && eventAmount > 0 && Number(intent.amountKobo) > 0 && eventAmount !== Number(intent.amountKobo)) {
+        throw fail("PAYMENT_AMOUNT_MISMATCH", "verified amount does not match the prepared checkout intent.");
+      }
+      const unresolvedEventPlan = mapping.planCode ? String(mapping.planCode) : null;
+      const eventPlan = unresolvedEventPlan && cfg.planMappings?.[unresolvedEventPlan]
+        ? String(cfg.planMappings[unresolvedEventPlan])
+        : unresolvedEventPlan;
+      const expectedPlan = intent.planCode
+        ? String(cfg.planMappings?.[intent.planCode] || intent.planCode)
+        : null;
+      if (eventPlan && expectedPlan && eventPlan.toLowerCase() !== expectedPlan.toLowerCase()) {
+        throw fail("PAYMENT_PLAN_MISMATCH", "verified plan does not match the prepared checkout intent.");
+      }
       const plan = (mapping.planCode && cfg.planMappings?.[mapping.planCode]) || mapping.planCode || "PROFESSIONAL";
-      const ent = { plan: String(plan).toUpperCase().slice(0, 40), via: `PAYSTACK:${verified.event}`, reference: mapping.reference, at: nowIso() };
+      const ent = { plan: String(plan).toUpperCase().slice(0, 40), via: `PAYSTACK:${verified.event}`, reference, at: nowIso() };
+      const previousEntitlement = existing;
       this.entitlements.set(scope, ent);
-      this._persist();
-      this._audit("PAYMENT_VERIFIED", { tenantScope: scope, event: verified.event, reference: mapping.reference });
-      this._audit("ENTITLEMENT_GRANTED", { tenantScope: scope, plan: ent.plan, reference: mapping.reference });
+      intent.status = "GRANTED";
+      intent.grantedAt = ent.at;
+      try {
+        this._persist();
+      } catch (error) {
+        if (previousEntitlement) this.entitlements.set(scope, previousEntitlement);
+        else this.entitlements.delete(scope);
+        intent.status = "PREPARED";
+        delete intent.grantedAt;
+        throw error;
+      }
+      this._audit("PAYMENT_VERIFIED", { tenantScope: scope, event: verified.event, reference });
+      this._audit("ENTITLEMENT_GRANTED", { tenantScope: scope, plan: ent.plan, reference });
       try { this.eventBus?.publish?.("entitlement.granted", { tenantScope: scope, plan: ent.plan }); } catch {}
       return { success: true, outcome: "GRANT", entitlement: { ...ent } };
     }
     if (mapping.outcome === "REVOKE") {
-      const ent = { plan: "COMMUNITY", via: `PAYSTACK:${verified.event}`, reference: mapping.reference, at: nowIso() };
+      const reference = mapping.reference;
+      const intent = reference ? this._pending.get(reference) : null;
+      const current = this.entitlements.get(scope);
+      if (reference && !intent && current?.reference !== reference) {
+        throw fail("PAYMENT_INTENT_NOT_FOUND", "no prepared checkout intent matches this revocation.");
+      }
+      const ent = { plan: "COMMUNITY", via: `PAYSTACK:${verified.event}`, reference: reference || null, at: nowIso() };
+      const previousEntitlement = current;
+      if (intent) intent.status = "REVOKED";
       this.entitlements.set(scope, ent);
-      this._persist();
-      this._audit("ENTITLEMENT_REVOKED", { tenantScope: scope, event: verified.event, reference: mapping.reference });
+      try {
+        this._persist();
+      } catch (error) {
+        if (previousEntitlement) this.entitlements.set(scope, previousEntitlement);
+        else this.entitlements.delete(scope);
+        if (intent) intent.status = "GRANTED";
+        throw error;
+      }
+      this._audit("ENTITLEMENT_REVOKED", { tenantScope: scope, event: verified.event, reference });
       try { this.eventBus?.publish?.("entitlement.revoked", { tenantScope: scope }); } catch {}
       return { success: true, outcome: "REVOKE", entitlement: { ...ent } };
     }
     this._audit("PAYMENT_FAILED", { tenantScope: scope, event: verified.event, reference: mapping.reference });
     return { success: true, outcome: mapping.outcome, entitlement: this.entitlements.get(scope) || { plan: "COMMUNITY", via: "DEFAULT", at: null } };
+  }
+
+  async handleWebhookAsync(args = {}) {
+    const snapshot = this.#snapshot();
+    try {
+      const result = this.handleWebhook(args);
+      await this._persistAsync();
+      return result;
+    } catch (error) {
+      this.#restore(snapshot);
+      throw error;
+    }
   }
 
   entitlementFor(tenantScope = "default") {

@@ -78,7 +78,7 @@ export class PaystackProvider extends PaymentProvider {
   initializePayment({ amountKobo = 0, email = "", reference = null, planCode = null, callbackUrl = null, metadata = {} } = {}) {
     if (!this.isConfigured()) throw fail("PAYSTACK_NOT_CONFIGURED", "secret key is absent; payment cannot start.");
     const amount = Number(amountKobo);
-    if (!Number.isFinite(amount) || amount <= 0) throw fail("PAYMENT_AMOUNT_INVALID");
+    if (!Number.isInteger(amount) || amount <= 0) throw fail("PAYMENT_AMOUNT_INVALID");
     if (!email || !String(email).includes("@")) throw fail("PAYMENT_EMAIL_REQUIRED");
     const ref = reference || `ade-${this.environment.toLowerCase()}-${crypto.randomBytes(8).toString("hex")}`;
     return {
@@ -92,9 +92,11 @@ export class PaystackProvider extends PaymentProvider {
       callbackUrl: callbackUrl ? String(callbackUrl).slice(0, 500) : null,
       metadata: metadata && typeof metadata === "object" ? metadata : {},
       verificationRequired: true,
-      note: this.environment === "LIVE"
-        ? "Live transaction; provider fees apply per Paystack Nigeria pricing (external policy)."
-        : "Test transaction; no real charge."
+      providerContacted: false,
+      checkoutUrl: null,
+      accessCode: null,
+      status: "PAYMENT_REQUEST_PREPARED",
+      note: "Checkout request prepared locally; no provider network call has been made and no charge exists yet."
     };
   }
 
