@@ -11,3 +11,4 @@ data/snapshots/
 .ade_capability_store.json.*.tmp
 .vercel
 .env*
+!.env.example
