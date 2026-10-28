@@ -25,6 +25,16 @@ export class StorageProvider {
     throw new Error("StorageProvider.append() not implemented.");
   }
 
+  /**
+   * Optional atomic create-if-absent primitive. Durable adapters that can
+   * guarantee uniqueness across instances must override this. Implementations
+   * return { claimed: boolean, value } where `value` is the existing value when
+   * the key was already present.
+   */
+  async insertIfAbsent(_key, _value) {
+    throw new Error("StorageProvider.insertIfAbsent() not implemented.");
+  }
+
   async transaction(_callback) {
     throw new Error("StorageProvider.transaction() not implemented.");
   }

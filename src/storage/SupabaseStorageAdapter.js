@@ -259,6 +259,40 @@ export class SupabaseStorageAdapter extends StorageProvider {
     return (data || []).map((row) => ({ key: row.k, value: row.v }));
   }
 
+  async insertIfAbsent(key, value) {
+    this.#assertConfigured();
+    const client = await this.#client();
+    if (!client) {
+      const res = await fetch(`${this.#restBase()}?on_conflict=k`, {
+        method: "POST",
+        headers: this.#restHeaders({
+          Prefer: "resolution=ignore-duplicates,return=representation"
+        }),
+        body: JSON.stringify({ k: key, v: value })
+      });
+      if (res.status === 409) {
+        return { claimed: false, value: await this.get(key, null) };
+      }
+      if (!res.ok) throw await this.#restError(res, "SUPABASE_STORAGE_CLAIM_FAILED");
+      const rows = await res.json().catch(() => []);
+      if (Array.isArray(rows) && rows.length > 0) {
+        return { claimed: true, value: rows[0]?.v ?? value };
+      }
+      return { claimed: false, value: await this.get(key, null) };
+    }
+    const { data, error } = await client
+      .from(this.config.table)
+      .upsert({ k: key, v: value }, { onConflict: "k", ignoreDuplicates: true })
+      .select("k,v");
+    if (error) {
+      throw new Error(`SUPABASE_STORAGE_CLAIM_FAILED: ${error.message}`);
+    }
+    if (Array.isArray(data) && data.length > 0) {
+      return { claimed: true, value: data[0]?.v ?? value };
+    }
+    return { claimed: false, value: await this.get(key, null) };
+  }
+
   async append(key, value) {
     const current = await this.get(key, []);
     const next = Array.isArray(current) ? [...current, value] : [value];

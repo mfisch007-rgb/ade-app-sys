@@ -138,6 +138,16 @@ export class LocalStorageAdapter extends StorageProvider {
     return this.listSync(prefix);
   }
 
+  insertIfAbsent(key, value) {
+    const state = this.#readState();
+    if (Object.prototype.hasOwnProperty.call(state, key)) {
+      return { claimed: false, value: state[key] };
+    }
+    state[key] = value;
+    this.#writeState(state);
+    return { claimed: true, value };
+  }
+
   async append(key, value) {
     const current = this.getSync(key, []);
     const next = Array.isArray(current)

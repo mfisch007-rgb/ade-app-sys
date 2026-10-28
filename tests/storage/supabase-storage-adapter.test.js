@@ -140,3 +140,51 @@ test("G17: local adapter is durable across restart via factory", async () => {
     restoreEnv(prev);
   }
 });
+
+test("durable adapter claims via PostgREST ignore-duplicates without overwriting the winner", async () => {
+  const originalFetch = global.fetch;
+  const calls = [];
+  let stored = null;
+  global.fetch = async (url, options = {}) => {
+    const method = options.method || "GET";
+    calls.push({ url: String(url), method, headers: options.headers, body: options.body });
+    if (method === "POST") {
+      const payload = JSON.parse(options.body);
+      if (stored === null) {
+        stored = payload;
+        return new Response(JSON.stringify([payload]), {
+          status: 201,
+          headers: { "content-type": "application/json" }
+        });
+      }
+      return new Response("[]", {
+        status: 201,
+        headers: { "content-type": "application/json" }
+      });
+    }
+    return new Response(JSON.stringify(stored ? [{ k: stored.k, v: stored.v }] : []), {
+      status: 200,
+      headers: { "content-type": "application/json" }
+    });
+  };
+  try {
+    const adapter = new SupabaseStorageAdapter({
+      url: "https://example.supabase.co",
+      key: "service-key",
+      table: "ade_store"
+    });
+    adapter._restMode = true;
+    const first = await adapter.insertIfAbsent("claim", { owner: "a" });
+    assert.equal(first.claimed, true);
+    assert.deepEqual(first.value, { owner: "a" });
+    assert.match(calls[0].url, /on_conflict=k/);
+    assert.match(calls[0].headers.Prefer, /ignore-duplicates/);
+
+    const second = await adapter.insertIfAbsent("claim", { owner: "b" });
+    assert.equal(second.claimed, false);
+    assert.deepEqual(second.value, { owner: "a" });
+    assert.equal(calls.length, 3, "duplicate claim reads the existing winner");
+  } finally {
+    global.fetch = originalFetch;
+  }
+});

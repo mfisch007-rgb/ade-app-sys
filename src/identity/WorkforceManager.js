@@ -2,6 +2,7 @@ import crypto from "node:crypto";
 import bcrypt from "bcryptjs";
 
 const STORE_KEY = "ade:workforce:v1";
+export const FOUNDER_BOOTSTRAP_KEY = "ade:workforce:founder-bootstrap:v1";
 const BCRYPT_ROUNDS = 10;
 const USERNAME_PATTERN = /^[a-zA-Z0-9._-]{3,32}$/;
 const PIN_PATTERN = /^\d{6}$/;
@@ -63,6 +64,14 @@ function generateCode(length, alphabet) {
     out += alphabet[bytes[i] % alphabet.length];
   }
   return out;
+}
+
+function workforceId(seq) {
+  return `WRF-${String(seq).padStart(5, "0")}-${crypto.randomUUID().slice(0, 8).toUpperCase()}`;
+}
+
+function hasPersons(state) {
+  return Boolean(state && typeof state === "object" && state.persons && typeof state.persons === "object" && Object.keys(state.persons).length > 0);
 }
 
 function redact(person) {
@@ -127,6 +136,10 @@ export class WorkforceManager {
       } catch {
         throw new Error("WORKFORCE_STORAGE_UNAVAILABLE");
       }
+      if (!hasPersons(state)) {
+        const recovered = await this.#recoverFounderBootstrap(state);
+        if (recovered) state = recovered;
+      }
       if (state === null) {
         state = { persons: {}, agents: {}, seq: 0 };
       }
@@ -147,6 +160,27 @@ export class WorkforceManager {
     return this.#ready || this.initialize();
   }
 
+  async #recoverFounderBootstrap(state) {
+    if (hasPersons(state)) return state;
+    let claim;
+    try {
+      claim = await this.store.get(FOUNDER_BOOTSTRAP_KEY, null);
+    } catch {
+      return state;
+    }
+    const claimed = claim?.state;
+    if (!hasPersons(claimed)) return state;
+    const founders = Object.values(claimed.persons).filter((p) => p?.role === "FOUNDER");
+    if (founders.length !== 1) return state;
+    try {
+      await this.store.set(STORE_KEY, claimed);
+    } catch {
+      throw new Error("WORKFORCE_STORAGE_UNAVAILABLE");
+    }
+    this.#audit("WORKFORCE_FOUNDER_BOOTSTRAP_RECOVERED", { personId: founders[0].id });
+    return claimed;
+  }
+
   async #refreshState() {
     this.#assertDurableStore();
     let fresh;
@@ -154,6 +188,10 @@ export class WorkforceManager {
       fresh = await this.store.get(STORE_KEY, null);
     } catch {
       throw new Error("WORKFORCE_STORAGE_UNAVAILABLE");
+    }
+    if (!hasPersons(fresh)) {
+      const recovered = await this.#recoverFounderBootstrap(fresh);
+      if (recovered) fresh = recovered;
     }
     if (fresh === null) return;
     if (
@@ -196,7 +234,7 @@ export class WorkforceManager {
 
   #nextId() {
     this.#state.seq += 1;
-    return `WRF-${String(this.#state.seq).padStart(5, "0")}-${crypto.randomUUID().slice(0, 8).toUpperCase()}`;
+    return workforceId(this.#state.seq);
   }
 
   #getPerson(id) {
@@ -324,21 +362,23 @@ export class WorkforceManager {
   }
 
   async provisionFounder({ fullName, username, password, pin } = {}) {
-    // Serialize first-provision attempts within this process so two
-    // concurrent requests cannot both observe count=0 and create founders.
+    // In-process serialization plus an atomic create-if-absent claim prevents
+    // two instances from both observing an empty workforce and creating a
+    // Founder. The claim holds the full bootstrap document so a crash between
+    // claim and canonical persistence is recoverable on the next read.
     const run = this.#provisionQueue.then(async () => {
       await this.#ensureFreshState();
-      const count = Object.keys(this.#state.persons).length;
-      if (count > 0) {
+      if (Object.keys(this.#state.persons).length > 0) {
         throw new Error("FOUNDER_ALREADY_PROVISIONED");
       }
       this.#assertFullName(fullName);
       const normalizedUsername = this.#assertUsernameAvailable(username);
       this.#assertPasswordStrength(password);
       this.#assertPinFormat(pin);
-      const id = this.#nextId();
+      const nextSeq = Number(this.#state.seq || 0) + 1;
+      const id = workforceId(nextSeq);
       const now = new Date().toISOString();
-      this.#state.persons[id] = {
+      const founder = {
         id,
         username: normalizedUsername,
         fullName: fullName.trim(),
@@ -357,7 +397,60 @@ export class WorkforceManager {
         updatedAt: now,
         note: "Founder"
       };
-      await this.#persist();
+      const candidate = {
+        persons: { ...this.#state.persons, [id]: founder },
+        agents: { ...this.#state.agents },
+        seq: nextSeq
+      };
+
+      let claimResult = null;
+      let atomic = typeof this.store.insertIfAbsent === "function";
+      if (atomic) {
+        try {
+          claimResult = await this.store.insertIfAbsent(FOUNDER_BOOTSTRAP_KEY, {
+            version: 1,
+            personId: id,
+            claimedAt: now,
+            state: candidate
+          });
+        } catch (error) {
+          if (/insertIfAbsent\(\) not implemented/.test(String(error?.message || ""))) {
+            atomic = false;
+          } else {
+            throw error;
+          }
+        }
+      }
+
+      if (atomic) {
+        if (!claimResult?.claimed) {
+          await this.#refreshState();
+          if (Object.keys(this.#state.persons).length > 0) {
+            throw new Error("FOUNDER_ALREADY_PROVISIONED");
+          }
+          const claimedState = claimResult?.value?.state;
+          if (hasPersons(claimedState)) {
+            try {
+              await this.store.set(STORE_KEY, claimedState);
+              this.#state = claimedState;
+            } catch {
+              throw new Error("WORKFORCE_STORAGE_UNAVAILABLE");
+            }
+          }
+          throw new Error("FOUNDER_ALREADY_PROVISIONED");
+        }
+        this.#state = candidate;
+      } else {
+        this.#state.persons[id] = founder;
+        this.#state.seq = nextSeq;
+      }
+
+      try {
+        await this.#persist();
+      } catch (error) {
+        if (atomic) this.#state = { persons: {}, agents: {}, seq: 0 };
+        throw error;
+      }
       this.#audit("WORKFORCE_FOUNDER_PROVISIONED", { personId: id });
       return redact(this.#state.persons[id]);
     });

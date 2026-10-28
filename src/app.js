@@ -141,6 +141,7 @@ import WebhookApiAdapter from "./injection/WebhookApiAdapter.js";
 import ExternalConnectorModel from "./injection/ExternalConnectorModel.js";
 import PaymentService from "./payments/PaymentService.js";
 import CommercialEntitlement from "./commerce/CommercialEntitlement.js";
+import AccessAdministration from "./commerce/AccessAdministration.js";
 import DataGovernance from "./governance/DataGovernance.js";
 import ConnectPlatformsBoard from "./connect/ConnectPlatformsBoard.js";
 import FinancialLedger from "./finance/FinancialLedger.js";
@@ -425,6 +426,7 @@ const whatsappNumbers = new WhatsAppNumberRegistry({ store: runtimeConfig, event
 const dataGovernance = new DataGovernance({ eventBus: kernel?.eventBus });
 const paymentService = new PaymentService({ store: runtimeConfig, secrets, eventBus: kernel?.eventBus, editionPolicy });
 const commercialEntitlement = new CommercialEntitlement({ editionPolicy, paymentService });
+const accessAdministration = new AccessAdministration({ store: runtimeConfig, eventBus: kernel?.eventBus });
 const commercialOps = new CommercialOperations({ store: runtimeConfig, eventBus: kernel?.eventBus });
 const injectionCaseMapper = new InjectionToCaseMapper({ intake, store: runtimeConfig, eventBus: kernel?.eventBus });
 // Capability routing authority stays with the canonical intake/case layer
@@ -653,6 +655,7 @@ registerIdentityRoutes({
   identity: security.identity,
   workforce,
   announcements,
+  accessAdministration,
   auditStore,
   runtimeMode: ADE_RUNTIME_MODE,
   requireDurableStorage

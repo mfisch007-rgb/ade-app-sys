@@ -1,6 +1,7 @@
 import crypto from "node:crypto";
 import { authRateLimit } from "../security/RateLimiter.js";
 import { validateRoleInvitation } from "../identity/RoleInvitationAuthority.js";
+import { ACCESS_PRODUCTS } from "../commerce/AccessAdministration.js";
 
 function parseBearer(req) {
   const header = String(req.get("authorization") || "");
@@ -23,6 +24,7 @@ export function registerIdentityRoutes({
   identity,
   workforce,
   announcements,
+  accessAdministration = null,
   auditStore,
   runtimeMode = "COMMUNITY",
   requireDurableStorage = null
@@ -258,6 +260,25 @@ export function registerIdentityRoutes({
       LAST_ADMIN_PROTECTED: 403,
       ELEVATED_PIN_REQUIRED: 403,
       INSUFFICIENT_AUTHORIZATION: 403,
+      ACCOUNT_REQUIRED: 400,
+      ACCOUNT_NOT_FOUND: 404,
+      ACCESS_PRODUCT_INVALID: 400,
+      ACCESS_TIER_INVALID: 400,
+      ACCESS_TIER_NOT_PERMITTED: 403,
+      ACCESS_WINDOW_INVALID: 400,
+      TRIAL_WINDOW_INVALID: 400,
+      ACCESS_WINDOW_EXCEEDED: 409,
+      TRIAL_WINDOW_EXCEEDED: 409,
+      ACCESS_GRANT_NOT_FOUND: 404,
+      ACCESS_GRANT_NOT_ACTIVE: 409,
+      ACCESS_GRANT_ALREADY_REVOKED: 409,
+      ACCESS_GRANT_SUPERSEDED: 409,
+      SELF_GRANT_FORBIDDEN: 403,
+      FOUNDER_ACCESS_INHERENT: 403,
+      REASON_REQUIRED: 400,
+      APPROVAL_IDENTITY_REQUIRED: 400,
+      ACCESS_STORAGE_UNAVAILABLE: 503,
+      ACCESS_STORE_CORRUPT: 503,
       WORKFORCE_STORAGE_UNAVAILABLE: 503,
       WORKFORCE_STORE_CORRUPT: 503,
       STORAGE_READ_FAILED: 503,
@@ -266,6 +287,47 @@ export function registerIdentityRoutes({
     const code = error?.message || fallback;
     const status = statusMap[code] ?? 400;
     return res.status(status).json({ success: false, error: code });
+  };
+
+  const accessTenant = (req) => {
+    const raw = String(req.tenantId || "default");
+    return (raw === "default_tenant" ? "default" : raw).slice(0, 80);
+  };
+  const accessActor = (req) => ({
+    id: req.person?.id ?? null,
+    username: req.person?.username || req.identity?.subject || req.claims?.sub || "admin",
+    role: req.person?.role || req.claims?.role
+  });
+  const requireAccessAdministration = (res) => {
+    if (!accessAdministration) {
+      res.status(503).json({
+        success: false,
+        error: "ACCESS_ADMINISTRATION_UNAVAILABLE",
+        message: "Access administration is unavailable on this runtime."
+      });
+      return false;
+    }
+    return true;
+  };
+  const resolveAccountTarget = async (value) => {
+    const raw = String(value || "").trim().slice(0, 120);
+    if (!raw) throw new Error("ACCOUNT_REQUIRED");
+    let person = null;
+    try {
+      person = await workforce.getPersonRecord(raw);
+    } catch (error) {
+      if (isStorageFailure(error)) throw error;
+      if (error?.message !== "PERSON_NOT_FOUND") throw error;
+    }
+    if (!person) person = await workforce.getPersonByUsername(raw);
+    if (!person) throw new Error("ACCOUNT_NOT_FOUND");
+    if (person.status !== "ACTIVE") throw new Error("ACCOUNT_NOT_ACTIVE");
+    return {
+      id: person.id,
+      username: person.username,
+      fullName: person.fullName,
+      role: person.role
+    };
   };
 
   app.post("/api/v1/account/login", gate, authRateLimit(), async (req, res) => {
@@ -387,6 +449,26 @@ export function registerIdentityRoutes({
     }
   });
 
+  app.get("/api/v1/account/access", loadAuthenticated, async (req, res) => {
+    if (!requireAccessAdministration(res)) return;
+    try {
+      const accountId = String(req.person.id || req.person.username);
+      const tenantScope = accessTenant(req);
+      const grants = await accessAdministration.list({ tenantScope, accountId, limit: 500 });
+      const effective = {};
+      for (const product of ACCESS_PRODUCTS) {
+        effective[product] = await accessAdministration.effectiveAccess({
+          tenantScope,
+          accountId,
+          product
+        });
+      }
+      return res.json({ success: true, tenantScope, grants, effective });
+    } catch (error) {
+      return routeError(res, error, "ACCOUNT_ACCESS_READ_FAILED");
+    }
+  });
+
   app.post("/api/v1/account/logout", loadAuthenticated, (req, res) => {
     try {
       identity.revokeSession(req.token);
@@ -480,6 +562,83 @@ export function registerIdentityRoutes({
       workforce.listAgents()
     ]);
     return res.json({ success: true, persons, agents, stats: workforce.stats() });
+  });
+
+  app.get("/api/v1/admin/access/grants", requireWorkforceAdmin, async (req, res) => {
+    if (!requireAccessAdministration(res)) return;
+    try {
+      const tenantScope = accessTenant(req);
+      const accountQuery = req.query.account ? String(req.query.account).trim() : null;
+      const account = accountQuery ? await resolveAccountTarget(accountQuery) : null;
+      const grants = await accessAdministration.list({
+        tenantScope,
+        accountId: account?.id || null,
+        product: req.query.product || null,
+        status: req.query.status || null,
+        limit: req.query.limit
+      });
+      return res.json({
+        success: true,
+        tenantScope,
+        grants,
+        summary: await accessAdministration.summary({ tenantScope })
+      });
+    } catch (error) {
+      return routeError(res, error, "ACCESS_LIST_FAILED");
+    }
+  });
+
+  app.post("/api/v1/admin/access/grants", loadAuthenticated, requireElevatedPin, requireWorkforceAdmin, gate, async (req, res) => {
+    if (!requireAccessAdministration(res)) return;
+    try {
+      const body = req.body || {};
+      const account = await resolveAccountTarget(body.account || body.accountId || body.username);
+      const grant = await accessAdministration.grant({
+        tenantScope: accessTenant(req),
+        account,
+        product: body.product,
+        tier: body.tier,
+        days: body.days,
+        actor: accessActor(req),
+        reason: body.reason
+      });
+      return res.status(201).json({ success: true, grant });
+    } catch (error) {
+      return routeError(res, error, "ACCESS_GRANT_FAILED");
+    }
+  });
+
+  app.post("/api/v1/admin/access/grants/:id/extend", loadAuthenticated, requireElevatedPin, requireWorkforceAdmin, gate, async (req, res) => {
+    if (!requireAccessAdministration(res)) return;
+    try {
+      const body = req.body || {};
+      const grant = await accessAdministration.extend({
+        tenantScope: accessTenant(req),
+        grantId: req.params.id,
+        days: body.days,
+        actor: accessActor(req),
+        reason: body.reason
+      });
+      return res.json({ success: true, grant });
+    } catch (error) {
+      return routeError(res, error, "ACCESS_EXTEND_FAILED");
+    }
+  });
+
+  app.post("/api/v1/admin/access/grants/:id/revoke", loadAuthenticated, requireElevatedPin, requireWorkforceAdmin, gate, async (req, res) => {
+    if (!requireAccessAdministration(res)) return;
+    try {
+      const body = req.body || {};
+      const grant = await accessAdministration.revoke({
+        tenantScope: accessTenant(req),
+        grantId: req.params.id,
+        actor: accessActor(req),
+        reason: body.reason
+      });
+      return res.json({ success: true, grant });
+    } catch (error) {
+      return routeError(res, error, "ACCESS_REVOKE_FAILED");
+    }
   });
 
   const provisionFounder = async (req, res) => {

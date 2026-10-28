@@ -264,3 +264,15 @@ test("LocalStorageAdapter surfaces corrupt state instead of reading it as empty"
   assert.throws(() => adapter.getSync("alpha"), /STORAGE_READ_FAILED/);
   await assert.rejects(adapter.get("alpha"), /STORAGE_READ_FAILED/);
 });
+
+test("LocalStorageAdapter insertIfAbsent claims once and returns the winner", async () => {
+  const adapter = new LocalStorageAdapter(tempFile());
+  const first = await adapter.insertIfAbsent("claim", { owner: "a" });
+  assert.equal(first.claimed, true);
+  assert.deepEqual(first.value, { owner: "a" });
+
+  const second = await adapter.insertIfAbsent("claim", { owner: "b" });
+  assert.equal(second.claimed, false);
+  assert.deepEqual(second.value, { owner: "a" });
+  assert.deepEqual(await adapter.get("claim"), { owner: "a" });
+});
