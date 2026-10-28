@@ -25,6 +25,7 @@ export function registerIdentityRoutes({
   workforce,
   announcements,
   accessAdministration = null,
+  commercialEntitlement = null,
   auditStore,
   runtimeMode = "COMMUNITY",
   requireDurableStorage = null
@@ -290,7 +291,15 @@ export function registerIdentityRoutes({
   };
 
   const accessTenant = (req) => {
-    const raw = String(req.tenantId || "default");
+    const raw = String(
+      req.person?.tenantId ||
+      req.claims?.tenantId ||
+      req.claims?.tid ||
+      req.identity?.tenantId ||
+      req.identity?.tid ||
+      req.tenantId ||
+      "default"
+    );
     return (raw === "default_tenant" ? "default" : raw).slice(0, 80);
   };
   const accessActor = (req) => ({
@@ -457,11 +466,20 @@ export function registerIdentityRoutes({
       const grants = await accessAdministration.list({ tenantScope, accountId, limit: 500 });
       const effective = {};
       for (const product of ACCESS_PRODUCTS) {
-        effective[product] = await accessAdministration.effectiveAccess({
+        const access = await accessAdministration.effectiveAccess({
           tenantScope,
           accountId,
           product
         });
+        const runtime = commercialEntitlement
+          ? await commercialEntitlement.resolveRuntimeTier({ tenantScope, accountId, product })
+          : null;
+        effective[product] = {
+          ...access,
+          runtimeTier: runtime?.tier || access.tier,
+          runtimeSource: runtime?.source || access.via,
+          runtimeGrantId: runtime?.grantId || access.grantId || null
+        };
       }
       return res.json({ success: true, tenantScope, grants, effective });
     } catch (error) {

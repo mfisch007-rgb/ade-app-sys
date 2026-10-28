@@ -141,7 +141,7 @@ import WebhookApiAdapter from "./injection/WebhookApiAdapter.js";
 import ExternalConnectorModel from "./injection/ExternalConnectorModel.js";
 import PaymentService from "./payments/PaymentService.js";
 import CommercialEntitlement from "./commerce/CommercialEntitlement.js";
-import AccessAdministration from "./commerce/AccessAdministration.js";
+import AccessAdministration, { ACCESS_PRODUCTS } from "./commerce/AccessAdministration.js";
 import DataGovernance from "./governance/DataGovernance.js";
 import ConnectPlatformsBoard from "./connect/ConnectPlatformsBoard.js";
 import FinancialLedger from "./finance/FinancialLedger.js";
@@ -209,6 +209,49 @@ function tenantForStore(tenant) {
   try { return _tenantForStore(tenant); } catch {}
   if (tenant === "default_tenant" || tenant === "default") return "default";
   return tenant;
+}
+function runtimeCommercialScope(req) {
+  const resolved = req.person?.tenantId ||
+    req.claims?.tenantId ||
+    req.claims?.tid ||
+    req.identity?.tenantId ||
+    req.identity?.tid ||
+    req.tenantId ||
+    resolveTenantId(req);
+  return tenantForStore(resolved);
+}
+function runtimeAccountId(req) {
+  const value = req.person?.id ||
+    req.identity?.personId ||
+    req.identity?.sub ||
+    req.identity?.subject ||
+    req.claims?.personId ||
+    req.claims?.sub ||
+    "";
+  return String(value || "").trim() || null;
+}
+function requirePaymentAdmin(req, res, next) {
+  const persona = String(req.identity?.persona || "").toUpperCase();
+  const legacyAdmin = persona === "ADMIN" && Number(req.identity?.level) >= 2;
+  const role = String(req.person?.role || "").toUpperCase();
+  if (legacyAdmin || role === "FOUNDER" || role === "ADMIN") return next();
+  return res.status(403).json({ success: false, error: "INSUFFICIENT_AUTHORIZATION", message: "Payment administration requires an Administrator or Founder identity." });
+}
+
+async function commercialGate(req, capability, usage) {
+  const tenantScope = runtimeCommercialScope(req);
+  const accountId = runtimeAccountId(req);
+  const resolved = await commercialEntitlement.resolveRuntimeTier({
+    tenantScope,
+    accountId,
+    capability
+  });
+  return commercialEntitlement.check({
+    tenantScope,
+    capability,
+    usage,
+    tier: resolved.tier
+  });
 }
 app.use(tenantExtractionMiddleware);
 app.use((req, _res, next) => {
@@ -425,8 +468,8 @@ const whatsappNumbers = new WhatsAppNumberRegistry({ store: runtimeConfig, event
 // no new bus, engine, registry, or isolation mechanism.
 const dataGovernance = new DataGovernance({ eventBus: kernel?.eventBus });
 const paymentService = new PaymentService({ store: runtimeConfig, secrets, eventBus: kernel?.eventBus, editionPolicy });
-const commercialEntitlement = new CommercialEntitlement({ editionPolicy, paymentService });
 const accessAdministration = new AccessAdministration({ store: runtimeConfig, eventBus: kernel?.eventBus });
+const commercialEntitlement = new CommercialEntitlement({ editionPolicy, paymentService, accessAdministration });
 const commercialOps = new CommercialOperations({ store: runtimeConfig, eventBus: kernel?.eventBus });
 const injectionCaseMapper = new InjectionToCaseMapper({ intake, store: runtimeConfig, eventBus: kernel?.eventBus });
 // Capability routing authority stays with the canonical intake/case layer
@@ -656,6 +699,7 @@ registerIdentityRoutes({
   workforce,
   announcements,
   accessAdministration,
+  commercialEntitlement,
   auditStore,
   runtimeMode: ADE_RUNTIME_MODE,
   requireDurableStorage
@@ -1713,25 +1757,66 @@ function awbuliPublicEntryView({ includeActor = false } = {}) {
   ].find((candidate) => /^\+?\d{7,15}$/.test(candidate.raw)) || null;
   const number = chosen ? (chosen.raw.startsWith("+") ? chosen.raw : `+${chosen.raw}`) : null;
   const source = chosen?.source || null;
-  const bridgeConfigured = Boolean(process.env.AWBULI_API_URL && process.env.AWBULI_API_KEY);
+  const normalizeNumber = (value) => {
+    const raw = String(value || "").replace(/[\s\-()]/g, "");
+    return /^\+?\d{7,15}$/.test(raw) ? (raw.startsWith("+") ? raw : `+${raw}`) : null;
+  };
+  const clickSetting = normalizeNumber(setting.awbuliClickToChatDestination);
+  const clickToChatDestination = clickSetting || number;
+  const clickToChatDigits = clickToChatDestination ? clickToChatDestination.replace(/\D/g, "") : null;
+  const clickToChatUrl = clickToChatDigits
+    ? `https://wa.me/${clickToChatDigits}?text=${encodeURIComponent("START")}`
+    : null;
+  const phoneNumberId = String(process.env.AWBULI_PHONE_NUMBER_ID || setting.awbuliPhoneNumberId || "").trim() || null;
+  const webhookUrl = String(process.env.AWBULI_WEBHOOK_URL || setting.awbuliWebhookUrl || "").trim() || null;
+  const providerTokenConfigured = Boolean(
+    process.env.AWBULI_API_KEY ||
+    process.env.AWBULI_PROVIDER_TOKEN ||
+    process.env.WHATSAPP_ACCESS_TOKEN
+  );
+  const webhookVerificationConfigured = Boolean(
+    process.env.AWBULI_WEBHOOK_VERIFY_TOKEN ||
+    process.env.WHATSAPP_VERIFY_TOKEN
+  );
+  const bridgeConfigured = Boolean(process.env.AWBULI_API_URL && providerTokenConfigured);
+  const webhookConfigured = Boolean(webhookUrl && webhookVerificationConfigured);
   const view = {
     triggerWords: ["START", "STAR"],
     number,
+    publicBusinessNumber: number,
     display: number,
     configured: Boolean(number),
     source,
     approvalState: source === "ENVIRONMENT" ? "DEPLOYMENT_CONFIGURED" : source === "ADMIN_SETTINGS" ? "ADMIN_APPROVED" : "NOT_PUBLISHED",
+    clickToChatDestination,
+    clickToChatUrl,
+    clickToChatConfigured: Boolean(clickToChatUrl),
+    cta: clickToChatUrl
+      ? { label: "Chat on WhatsApp", href: clickToChatUrl, triggerWord: "START", enabled: true }
+      : null,
+    phoneNumberIdConfigured: Boolean(phoneNumberId),
+    providerTokenConfigured,
+    webhook: {
+      configured: webhookConfigured,
+      url: includeActor ? webhookUrl : null,
+      verificationConfigured: webhookVerificationConfigured,
+      verified: false,
+      state: webhookConfigured ? "CONFIGURED_UNVERIFIED" : "NOT_CONFIGURED"
+    },
     providerState: bridgeConfigured ? "CONFIGURED_UNVERIFIED" : "NOT_CONFIGURED",
     live: false,
     commandGrammarVersion: AWBULI_COMMAND_VERSION,
     commandEntry: "POST /api/v1/awbuli/commands (L2 + PIN)",
     note: number
-      ? `Public business line published from ${source === "ENVIRONMENT" ? "deployment configuration" : "Admin-approved settings"}. Inbound START / STAR routes only when the recipient number is ACTIVE on an authorized WhatsApp transport; otherwise activation stays BLOCKED and no live delivery is claimed.`
+      ? `Public business line published from ${source === "ENVIRONMENT" ? "deployment configuration" : "Admin-approved settings"}. The click-to-chat destination is ${clickToChatDestination}. Inbound START / STAR routes only when the recipient number is ACTIVE on an authorized WhatsApp transport; otherwise activation stays BLOCKED and no live delivery is claimed.`
       : "No public WhatsApp number is configured on this deployment yet — an Admin can publish an approved business line in the Admin Console (Providers), or the ADE team provisions it via deployment configuration."
   };
   if (includeActor) {
     view.approvedBy = source === "ADMIN_SETTINGS" ? (setting.awbuliPublicApprovedBy || null) : (source === "ENVIRONMENT" ? "DEPLOYMENT_ENV" : null);
     view.approvedAt = source === "ADMIN_SETTINGS" ? (setting.awbuliPublicApprovedAt || null) : null;
+    view.phoneNumberId = phoneNumberId;
+    view.providerToken = providerTokenConfigured ? "CONFIGURED" : "NOT_CONFIGURED";
+    view.webhookUrl = webhookUrl;
   }
   return view;
 }
@@ -1741,16 +1826,60 @@ app.get('/api/v1/admin/awbuli/public-entry', security.requireLevel(2), (req, res
 });
 app.post('/api/v1/admin/awbuli/public-entry', security.requireLevel(2), security.requireConfigAction("provider-configure"), requireDurableStorage, (req, res) => {
   try {
-    const raw = String(req.body?.number || "").replace(/[\s\-()]/g, "");
-    if (!/^\+?\d{7,15}$/.test(raw)) {
+    const normalize = (value) => {
+      const raw = String(value || "").replace(/[\s\-()]/g, "");
+      return /^\+?\d{7,15}$/.test(raw) ? (raw.startsWith("+") ? raw : `+${raw}`) : null;
+    };
+    const e164 = normalize(req.body?.number);
+    if (!e164) {
       return res.status(400).json({ success: false, error: "AWBULI_PUBLIC_NUMBER_INVALID", message: "Enter a 7–15 digit public business number in E.164 form." });
     }
-    const e164 = raw.startsWith("+") ? raw : `+${raw}`;
+    const clickRaw = req.body?.clickToChatDestination;
+    const clickDestination = clickRaw == null || clickRaw === "" ? e164 : normalize(clickRaw);
+    if (!clickDestination) {
+      return res.status(400).json({ success: false, error: "AWBULI_CLICK_TO_CHAT_INVALID", message: "Click-to-chat destination must be a 7–15 digit number in E.164 form." });
+    }
+    const current = (() => { try { return runtimeConfig.read()?.settings || {}; } catch { return {}; } })();
+    const settings = { ...(current && typeof current === "object" ? current : {}) };
+    const requestedPhoneNumberId = req.body?.phoneNumberId;
+    if (requestedPhoneNumberId !== undefined) {
+      const value = String(requestedPhoneNumberId || "").trim();
+      if (value && !/^[A-Za-z0-9_-]{3,80}$/.test(value)) {
+        return res.status(400).json({ success: false, error: "AWBULI_PHONE_NUMBER_ID_INVALID", message: "Phone-number ID must be 3–80 letters, digits, underscores or hyphens." });
+      }
+      settings.awbuliPhoneNumberId = value || null;
+    }
+    const requestedWebhookUrl = req.body?.webhookUrl;
+    if (requestedWebhookUrl !== undefined) {
+      const value = String(requestedWebhookUrl || "").trim();
+      let parsed = null;
+      if (value) {
+        try { parsed = new URL(value); } catch {}
+        if (!parsed || parsed.protocol !== "https:") {
+          return res.status(400).json({ success: false, error: "AWBULI_WEBHOOK_URL_INVALID", message: "Webhook URL must be an absolute HTTPS URL." });
+        }
+      }
+      settings.awbuliWebhookUrl = parsed ? parsed.toString() : null;
+    }
     const actor = _govActor(req);
     const at = new Date().toISOString();
-    const current = (() => { try { return runtimeConfig.read()?.settings || {}; } catch { return {}; } })();
-    runtimeConfig.writeSection("settings", { ...(current && typeof current === "object" ? current : {}), awbuliPublicNumber: e164, awbuliPublicApprovedBy: actor, awbuliPublicApprovedAt: at });
-    try { kernel?.eventBus?.publish?.("audit.log.created", { category: "AWBULI_PUBLIC_ENTRY", action: "PUBLIC_ENTRY_PUBLISHED", actor, last4: e164.slice(-4), at }); } catch {}
+    runtimeConfig.writeSection("settings", {
+      ...settings,
+      awbuliPublicNumber: e164,
+      awbuliClickToChatDestination: clickDestination,
+      awbuliPublicApprovedBy: actor,
+      awbuliPublicApprovedAt: at
+    });
+    try { kernel?.eventBus?.publish?.("audit.log.created", {
+      category: "AWBULI_PUBLIC_ENTRY",
+      action: "PUBLIC_ENTRY_PUBLISHED",
+      actor,
+      last4: e164.slice(-4),
+      clickLast4: clickDestination.slice(-4),
+      phoneNumberIdConfigured: Boolean(settings.awbuliPhoneNumberId),
+      webhookConfigured: Boolean(settings.awbuliWebhookUrl),
+      at
+    }); } catch {}
     return res.json({ success: true, entry: awbuliPublicEntryView({ includeActor: true }) });
   } catch (error) {
     return res.status(500).json({ success: false, error: "AWBULI_PUBLIC_ENTRY_FAILED", message: error.message });
@@ -1761,7 +1890,15 @@ app.delete('/api/v1/admin/awbuli/public-entry', security.requireLevel(2), securi
     const actor = _govActor(req);
     const at = new Date().toISOString();
     const current = (() => { try { return runtimeConfig.read()?.settings || {}; } catch { return {}; } })();
-    runtimeConfig.writeSection("settings", { ...(current && typeof current === "object" ? current : {}), awbuliPublicNumber: null, awbuliPublicApprovedBy: null, awbuliPublicApprovedAt: null });
+    runtimeConfig.writeSection("settings", {
+      ...(current && typeof current === "object" ? current : {}),
+      awbuliPublicNumber: null,
+      awbuliClickToChatDestination: null,
+      awbuliPhoneNumberId: null,
+      awbuliWebhookUrl: null,
+      awbuliPublicApprovedBy: null,
+      awbuliPublicApprovedAt: null
+    });
     try { kernel?.eventBus?.publish?.("audit.log.created", { category: "AWBULI_PUBLIC_ENTRY", action: "PUBLIC_ENTRY_UNPUBLISHED", actor, at }); } catch {}
     return res.json({ success: true, entry: awbuliPublicEntryView({ includeActor: true }) });
   } catch (error) {
@@ -2519,35 +2656,52 @@ app.get('/api/v1/commerce/entitlement', (req, res) => {
   try { res.json({ success: true, ...commercialEntitlement.snapshot({ tenantScope: req.query.tenant || "default" }) }); }
   catch (e) { res.status(500).json({ success: false, error: "ENTITLEMENT_READ_FAILED" }); }
 });
+app.get('/api/v1/account/runtime-entitlement', security.requireLevel(1), async (req, res) => {
+  try {
+    const tenantScope = runtimeCommercialScope(req);
+    const accountId = runtimeAccountId(req);
+    const products = {};
+    for (const product of ACCESS_PRODUCTS) {
+      products[product] = await commercialEntitlement.resolveRuntimeTier({
+        tenantScope,
+        accountId,
+        product
+      });
+    }
+    res.json({ success: true, tenantScope, accountId, products });
+  } catch {
+    res.status(500).json({ success: false, error: "ENTITLEMENT_READ_FAILED" });
+  }
+});
 
 // ---- Payments: optional commercial capability (Paystack provider) ----
 // Admin control plane: configure -> verify -> DISABLED/TEST/LIVE + customer-facing OFF/ON.
-app.get('/api/v1/admin/payments/status', security.requireLevel(2), (req, res) => {
-  try { res.json({ success: true, payment: paymentService.status({ tenantScope: req.query.tenant || "default" }) }); }
+app.get('/api/v1/admin/payments/status', security.requireLevel(2), requirePaymentAdmin, (req, res) => {
+  try { res.json({ success: true, payment: paymentService.status({ tenantScope: runtimeCommercialScope(req) }) }); }
   catch (e) { res.status(500).json({ success: false, error: "PAYMENT_STATUS_FAILED" }); }
 });
-app.post('/api/v1/admin/payments/configure', security.requireLevel(2), requireDurableStorage, (req, res) => {
+app.post('/api/v1/admin/payments/configure', security.requireLevel(2), requirePaymentAdmin, security.requireConfigAction("payment-configure"), requireDurableStorage, (req, res) => {
   try {
-    const out = paymentService.configure({ ...(req.body || {}), tenantScope: req.body?.tenantScope || req.query.tenant || "default", actor: req.person?.username || req.identity?.subject || "admin", reason: req.body?.reason || "payment configured" });
+    const out = paymentService.configure({ ...(req.body || {}), tenantScope: runtimeCommercialScope(req), actor: req.person?.username || req.identity?.subject || "admin", reason: req.body?.reason || "payment configured" });
     res.json({ success: true, payment: out });
   } catch (e) { res.status(400).json({ success: false, error: e.code || "PAYMENT_CONFIGURE_FAILED", message: e.message }); }
 });
-app.post('/api/v1/admin/payments/verify', security.requireLevel(2), requireDurableStorage, (req, res) => {
+app.post('/api/v1/admin/payments/verify', security.requireLevel(2), requirePaymentAdmin, security.requireConfigAction("payment-verify"), requireDurableStorage, (req, res) => {
   try {
-    const out = paymentService.verify({ tenantScope: req.body?.tenantScope || req.query.tenant || "default", actor: req.person?.username || req.identity?.subject || "admin" });
+    const out = paymentService.verify({ tenantScope: runtimeCommercialScope(req), actor: req.person?.username || req.identity?.subject || "admin" });
     res.json({ success: true, payment: out });
   } catch (e) { res.status(400).json({ success: false, error: e.code || "PAYMENT_VERIFY_FAILED", message: e.message }); }
 });
-app.post('/api/v1/admin/payments/state', security.requireLevel(2), requireDurableStorage, (req, res) => {
+app.post('/api/v1/admin/payments/state', security.requireLevel(2), requirePaymentAdmin, security.requireConfigAction("payment-state"), requireDurableStorage, (req, res) => {
   try {
-    const out = paymentService.setState({ tenantScope: req.body?.tenantScope || req.query.tenant || "default", to: req.body?.to || req.body?.state, actor: req.person?.username || req.identity?.subject || "admin", reason: req.body?.reason || "" });
+    const out = paymentService.setState({ tenantScope: runtimeCommercialScope(req), to: req.body?.to || req.body?.state, actor: req.person?.username || req.identity?.subject || "admin", reason: req.body?.reason || "" });
     res.json({ success: true, payment: out });
   } catch (e) { res.status(400).json({ success: false, error: e.code || "PAYMENT_STATE_FAILED", message: e.message }); }
 });
-app.post('/api/v1/admin/payments/customer-facing', security.requireLevel(2), requireDurableStorage, (req, res) => {
+app.post('/api/v1/admin/payments/customer-facing', security.requireLevel(2), requirePaymentAdmin, security.requireConfigAction("payment-customer-facing"), requireDurableStorage, (req, res) => {
   try {
     const on = req.body?.on === true || String(req.body?.customerFacing || "").toUpperCase() === "ON";
-    const out = paymentService.setCustomerFacing({ tenantScope: req.body?.tenantScope || req.query.tenant || "default", on, actor: req.person?.username || req.identity?.subject || "admin", reason: req.body?.reason || "" });
+    const out = paymentService.setCustomerFacing({ tenantScope: runtimeCommercialScope(req), on, actor: req.person?.username || req.identity?.subject || "admin", reason: req.body?.reason || "" });
     res.json({ success: true, payment: out });
   } catch (e) { res.status(400).json({ success: false, error: e.code || "PAYMENT_CUSTOMER_FAILED", message: e.message }); }
 });
@@ -2790,11 +2944,12 @@ app.post('/api/v1/finance/claims/extract', security.requireLevel(1), requireDura
 
 // ---------- Community/MVP operational routes (additive) ----------
 // Organization units: branches, departments, teams (L1 read, L2 write).
-app.post('/api/v1/org/units', security.requireLevel(2), requireDurableStorage, (req, res) => {
+app.post('/api/v1/org/units', security.requireLevel(2), requireDurableStorage, async (req, res) => {
   try {
-    const gate = commercialEntitlement.check({ tenantScope: req.body?.tenantScope || req.query.tenant || "default", capability: "branches", usage: orgUnits.count({ tenantScope: req.body?.tenantScope || req.query.tenant || "default" }) });
+    const tenantScope = runtimeCommercialScope(req);
+    const gate = await commercialGate(req, "branches", orgUnits.count({ tenantScope }));
     if (!gate.allowed) return res.status(403).json({ success: false, error: gate.reason || "ENTITLEMENT_GATED", tier: gate.tier });
-    const unit = orgUnits.create({ ...(req.body || {}), tenantScope: req.body?.tenantScope || req.query.tenant || "default", actor: req.person?.username || req.identity?.subject || "admin" });
+    const unit = orgUnits.create({ ...(req.body || {}), tenantScope, actor: req.person?.username || req.identity?.subject || "admin" });
     res.status(201).json({ success: true, unit });
   } catch (e) { res.status(400).json({ success: false, error: e.code || "ORG_CREATE_FAILED", message: e.message }); }
 });
@@ -2815,10 +2970,10 @@ app.post('/api/v1/org/units/:id/status', security.requireLevel(2), requireDurabl
   } catch (e) { res.status(400).json({ success: false, error: e.code || "ORG_STATUS_FAILED", message: e.message }); }
 });
 // Customers / leads (L1; deduplicated; CASE opens canonical intake case).
-app.post('/api/v1/customers', security.requireLevel(1), requireDurableStorage, (req, res) => {
+app.post('/api/v1/customers', security.requireLevel(1), requireDurableStorage, async (req, res) => {
   try {
-    const scope = req.body?.tenantScope || req.query.tenant || "default";
-    const gate = commercialEntitlement.check({ tenantScope: scope, capability: "customers", usage: customers.count({ tenantScope: scope }) });
+    const scope = runtimeCommercialScope(req);
+    const gate = await commercialGate(req, "customers", customers.count({ tenantScope: scope }));
     if (!gate.allowed) return res.status(403).json({ success: false, error: gate.reason || "ENTITLEMENT_GATED", tier: gate.tier });
     const customer = customers.register({ ...(req.body || {}), tenantScope: scope, actor: req.person?.username || req.identity?.subject || "operator" });
     res.status(201).json({ success: true, customer });
@@ -2836,10 +2991,10 @@ app.post('/api/v1/customers/:id/transition', security.requireLevel(1), requireDu
   } catch (e) { res.status(400).json({ success: false, error: e.code || "CUSTOMER_TRANSITION_FAILED", message: e.message }); }
 });
 // Field tasks (L1; assignee-bound transitions; outcomes emit canonical events).
-app.post('/api/v1/field/tasks', security.requireLevel(1), requireDurableStorage, (req, res) => {
+app.post('/api/v1/field/tasks', security.requireLevel(1), requireDurableStorage, async (req, res) => {
   try {
-    const scope = req.body?.tenantScope || req.query.tenant || "default";
-    const gate = commercialEntitlement.check({ tenantScope: scope, capability: "fieldTasks", usage: fieldTasks.count({ tenantScope: scope }) });
+    const scope = runtimeCommercialScope(req);
+    const gate = await commercialGate(req, "fieldTasks", fieldTasks.count({ tenantScope: scope }));
     if (!gate.allowed) return res.status(403).json({ success: false, error: gate.reason || "ENTITLEMENT_GATED", tier: gate.tier });
     const task = fieldTasks.create({ ...(req.body || {}), tenantScope: scope, actor: req.person?.username || req.identity?.subject || "operator" });
     res.status(201).json({ success: true, task });
@@ -2859,8 +3014,8 @@ app.post('/api/v1/field/tasks/:id/transition', security.requireLevel(1), require
 // AI workers: bind existing workforce agent identities (L2), run capability-bound (L1).
 app.post('/api/v1/agents/bind', security.requireLevel(2), requireDurableStorage, async (req, res) => {
   try {
-    const scope = req.body?.tenantScope || req.query.tenant || "default";
-    const gate = commercialEntitlement.check({ tenantScope: scope, capability: "aiWorkers", usage: agentRegistry.list({ tenantScope: scope }).length });
+    const scope = runtimeCommercialScope(req);
+    const gate = await commercialGate(req, "aiWorkers", agentRegistry.list({ tenantScope: scope }).length);
     if (!gate.allowed) return res.status(403).json({ success: false, error: gate.reason || "ENTITLEMENT_GATED", tier: gate.tier });
     const binding = await agentRegistry.bind({ ...(req.body || {}), tenantScope: scope, actor: req.person?.username || req.identity?.subject || "admin" });
     res.status(201).json({ success: true, binding });
@@ -5042,5 +5197,5 @@ app.get("*", (req, res) => {
   res.send(`<!DOCTYPE html><html><head><title>ADE-APEX EOS</title></head><body><h1>ADE-APEX ENTERPRISE OS OPERATIONAL</h1></body></html>`);
 });
 
-export { app, kernel, kernelReady, storageProvider, storageHydration, registry, awbuliMessaging, awbuliTransports };
+export { app, kernel, kernelReady, storageProvider, storageHydration, registry, awbuliMessaging, awbuliTransports, accessAdministration, commercialEntitlement };
 export default app;

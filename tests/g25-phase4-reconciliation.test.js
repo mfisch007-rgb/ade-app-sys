@@ -4,12 +4,6 @@ import bcrypt from "bcryptjs";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import {
-  app,
-  kernel,
-  kernelReady,
-  registry
-} from "../src/app.js";
 import { PluginRegistry } from "../src/kernel/PluginRegistry.js";
 import IdentityOnboarding from "../src/kernel/IdentityOnboarding.js";
 import AuditStore from "../src/storage/AuditStore.js";
@@ -25,17 +19,17 @@ import AuditStore from "../src/storage/AuditStore.js";
  */
 
 const __root = path.resolve(import.meta.dirname, "..");
-const CREDENTIAL_FILE = path.join(__root, "data", "admin-credential.json");
 const AUTH_PIN = "482716";
+const credentialDir = fs.mkdtempSync(path.join(os.tmpdir(), "ade-g25-credential-"));
+const previousCredentialStore = process.env.ADE_CREDENTIAL_STORE_FILE;
+const previousPinHash = process.env.ADE_ADMIN_PIN_HASH;
+process.env.ADE_CREDENTIAL_STORE_FILE = path.join(credentialDir, "admin-credential.json");
+process.env.ADE_ADMIN_PIN_HASH = bcrypt.hashSync(AUTH_PIN, 8);
+
+const { app, kernel, kernelReady, registry } = await import("../src/app.js");
 
 let server = null;
 let baseUrl = null;
-// Evaluated at registration time (before() runs after test definition).
-const authBootstrap =
-  !fs.existsSync(CREDENTIAL_FILE) && !process.env.ADE_ADMIN_PIN_HASH;
-if (authBootstrap) {
-  process.env.ADE_ADMIN_PIN_HASH = bcrypt.hashSync(AUTH_PIN, 8);
-}
 
 before(async () => {
   await kernelReady;
@@ -48,11 +42,12 @@ before(async () => {
 });
 
 after(async () => {
-  if (authBootstrap) {
-    delete process.env.ADE_ADMIN_PIN_HASH;
-    fs.rmSync(CREDENTIAL_FILE, { force: true });
-  }
   if (server) await new Promise((r) => server.close(r));
+  if (previousCredentialStore === undefined) delete process.env.ADE_CREDENTIAL_STORE_FILE;
+  else process.env.ADE_CREDENTIAL_STORE_FILE = previousCredentialStore;
+  if (previousPinHash === undefined) delete process.env.ADE_ADMIN_PIN_HASH;
+  else process.env.ADE_ADMIN_PIN_HASH = previousPinHash;
+  fs.rmSync(credentialDir, { recursive: true, force: true });
 });
 
 const issueOperatorToken = (level = 1) =>
@@ -156,9 +151,7 @@ test("FIX2 — admin UI participates in canonical auth flow (static contract)", 
   assert.ok(!ui.includes("SUPREME_FOUNDER_KEY"), "no hardcoded credential in admin UI");
 });
 
-test("FIX2 — canonical level-2 auth round-trip: login → protected 200 → revoke → 401", {
-  skip: !authBootstrap ? "credential is already configured in this environment; positive flow not safe to bootstrap" : false
-}, async () => {
+test("FIX2 — canonical level-2 auth round-trip: login → protected 200 → revoke → 401", async () => {
   const wrong = await fetch(`${baseUrl}/api/v1/auth/pin`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },

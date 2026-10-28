@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import crypto from "node:crypto";
 import PaymentService from "../src/payments/PaymentService.js";
 import PaystackProvider, { verifyPaystackSignature } from "../src/payments/PaystackProvider.js";
+import CommercialEntitlement from "../src/commerce/CommercialEntitlement.js";
 
 function stubStore() {
   const sections = {};
@@ -110,6 +111,55 @@ test("PAY-05/06 verified success grants, failure does not", () => {
   const revoked = svc.handleWebhook({ rawBody: revBody, signature: revSig });
   assert.equal(revoked.outcome, "REVOKE");
   assert.equal(svc.entitlementFor({}).plan, "COMMUNITY");
+});
+
+test("PAY-16 verified settlement raises the runtime tier; revocation restores it", async () => {
+  const { svc } = svcWithSecret(null);
+  const secret = "sk_test_runtime_tier";
+  svc.configure({ environment: "TEST", secretKey: secret, actor: "admin", reason: "t", planMappings: { PLN_gold: "PROFESSIONAL" } });
+  svc.verify({ actor: "admin" });
+  svc.setState({ to: "TEST", actor: "admin", reason: "t" });
+  const entitlement = new CommercialEntitlement({ paymentService: svc });
+  const before = await entitlement.resolveRuntimeTier({ tenantScope: "default" });
+  assert.equal(before.tier, "COMMUNITY");
+  assert.equal(before.source, "EDITION_POLICY");
+
+  const intent = svc.startPayment({
+    amountKobo: 250000,
+    email: "buyer@example.com",
+    planCode: "PLN_gold",
+    metadata: { adminInitiated: true }
+  });
+  const body = JSON.stringify({ event: "charge.success", data: { reference: intent.reference, amount: 250000, plan: { plan_code: "PLN_gold" } } });
+  const signature = crypto.createHmac("sha512", secret).update(body).digest("hex");
+  svc.handleWebhook({ rawBody: body, signature });
+
+  const paid = await entitlement.resolveRuntimeTier({ tenantScope: "default", capability: "branches" });
+  assert.equal(paid.tier, "PAID");
+  assert.equal(paid.source, "PAYSTACK:charge.success");
+  assert.equal(paid.plan, "PROFESSIONAL");
+  assert.ok(paid.reference);
+  const gate = entitlement.check({ tenantScope: "default", capability: "branches", usage: 3, tier: paid.tier });
+  assert.equal(gate.allowed, true);
+  assert.equal(gate.tier, "PAID");
+
+  const revBody = JSON.stringify({ event: "subscription.disable", data: { reference: intent.reference } });
+  const revSig = crypto.createHmac("sha512", secret).update(revBody).digest("hex");
+  svc.handleWebhook({ rawBody: revBody, signature: revSig });
+  const revoked = await entitlement.resolveRuntimeTier({ tenantScope: "default", capability: "branches" });
+  assert.equal(revoked.tier, "COMMUNITY");
+  assert.equal(revoked.source, "EDITION_POLICY");
+  const blockedAgain = entitlement.check({ tenantScope: "default", capability: "branches", usage: 3, tier: revoked.tier });
+  assert.equal(blockedAgain.allowed, false);
+});
+
+test("PAY-17 only provider-derived payment entitlements can raise runtime access", async () => {
+  const { svc } = svcWithSecret(null);
+  svc.entitlements.set("default", { plan: "PROFESSIONAL", via: "ADMIN_CLAIM", reference: null, at: new Date().toISOString() });
+  const entitlement = new CommercialEntitlement({ paymentService: svc });
+  const resolved = await entitlement.resolveRuntimeTier({ tenantScope: "default", capability: "branches" });
+  assert.equal(resolved.tier, "COMMUNITY");
+  assert.equal(resolved.source, "EDITION_POLICY");
 });
 
 test("PAY-14 unreadable payment state cannot be overwritten", () => {

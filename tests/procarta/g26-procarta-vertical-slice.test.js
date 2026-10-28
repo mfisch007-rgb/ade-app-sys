@@ -40,14 +40,6 @@ import IdentityOnboarding from "../../src/kernel/IdentityOnboarding.js";
  */
 
 const __root = path.resolve(import.meta.dirname, "../..");
-const CREDENTIAL_FILE = path.join(__root, "data", "admin-credential.json");
-const AUTH_PIN = "482716";
-
-const authBootstrap =
-  !fs.existsSync(CREDENTIAL_FILE) && !process.env.ADE_ADMIN_PIN_HASH;
-if (authBootstrap) {
-  process.env.ADE_ADMIN_PIN_HASH = process.env.ADE_ADMIN_PIN_HASH || "REGENERATE_AFTER_TEST";
-}
 
 let server = null;
 let baseUrl = null;
@@ -56,6 +48,7 @@ before(async () => {
   await kernelReady;
   await new Promise((resolve) => {
     server = app.listen(0, () => {
+      server.keepAliveTimeout = 120000;
       baseUrl = `http://127.0.0.1:${server.address().port}`;
       resolve();
     });
@@ -64,10 +57,6 @@ before(async () => {
 
 after(async () => {
   if (server) await new Promise((r) => server.close(r));
-  if (authBootstrap) {
-    delete process.env.ADE_ADMIN_PIN_HASH;
-    fs.rmSync(CREDENTIAL_FILE, { force: true });
-  }
 });
 
 const issueOperatorToken = (level = 1) =>
@@ -576,9 +565,7 @@ test("G26.16 — registry-bound execution is single-authority: executeCapability
 // 19 — LOCAL RUNTIME SMOKE (HTTP proof the capability actually executes)
 // ========================================================================
 
-test("G26.19 — local runtime smoke: authenticated command executes PROCARTA over HTTP", {
-  skip: !authBootstrap ? "credential already configured in env; positive HTTP flow not safe to bootstrap" : false
-}, async () => {
+test("G26.19 — local runtime smoke: authenticated command executes PROCARTA over HTTP", async () => {
   const token = issueOperatorToken(1);
 
   const res = await fetch(`${baseUrl}/api/command/execute`, {

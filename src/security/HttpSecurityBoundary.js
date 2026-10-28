@@ -93,8 +93,36 @@ export class HttpSecurityBoundary {
     return next();
   }
 
+  #applyAuthenticatedTenant(req, claims = {}, person = null) {
+    const tenant =
+      person?.tenantId ||
+      claims?.tenantId ||
+      claims?.tid ||
+      claims?.metadata?.tenantId ||
+      claims?.metadata?.tid ||
+      null;
+    if (!tenant) return;
+    const scope = String(tenant).slice(0, 80);
+    if (!scope) return;
+    req.tenantId = scope;
+    try {
+      if (req.query && typeof req.query === "object") {
+        req.query.tenant = scope;
+        req.query.tenantId = scope;
+      }
+    } catch {}
+    try {
+      if (req.body && typeof req.body === "object" && !Array.isArray(req.body)) {
+        for (const key of ["tenant", "tenantId", "tenantScope"]) {
+          if (Object.prototype.hasOwnProperty.call(req.body, key)) req.body[key] = scope;
+        }
+      }
+    } catch {}
+  }
+
   async #hydrateLiveIdentity(req, res, next) {
     const claims = req.identity || {};
+    this.#applyAuthenticatedTenant(req, claims);
     const personId = String(claims.personId || claims.sub || "").trim();
     const isWorkforce = String(claims.persona || "").toUpperCase() === "WORKFORCE" || Boolean(claims.personId);
     if (!this.workforce || !isWorkforce || !personId) return next();
@@ -112,6 +140,7 @@ export class HttpSecurityBoundary {
       }
       req.person = person;
       req.claims = claims;
+      this.#applyAuthenticatedTenant(req, claims, person);
       claims.personId = person.id;
       claims.role = person.role;
       claims.level = Number(person.level) || claims.level;

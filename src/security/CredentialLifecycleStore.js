@@ -3,16 +3,14 @@ import path from "node:path";
 import bcrypt from "bcryptjs";
 import crypto from "node:crypto";
 
-const DEFAULT_STORE_PATH =
-  path.resolve(
-    process.env.ADE_CREDENTIAL_STORE_FILE ||
-    "data/admin-credential.json"
-  );
-
 const PIN_PATTERN = /^\d{6}$/;
 
 export class CredentialLifecycleStore {
-  constructor(filePath = DEFAULT_STORE_PATH, eventBus = null) {
+  constructor(
+    filePath = process.env.ADE_CREDENTIAL_STORE_FILE ||
+      "data/admin-credential.json",
+    eventBus = null
+  ) {
     this.filePath = path.resolve(filePath);
     this.eventBus = eventBus;
   }

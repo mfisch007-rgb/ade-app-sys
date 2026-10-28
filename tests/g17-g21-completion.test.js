@@ -4,7 +4,12 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
-import { app, storageProvider } from "../src/app.js";
+const credentialDir = fs.mkdtempSync(path.join(os.tmpdir(), "ade-g18-credential-"));
+const previousCredentialStore = process.env.ADE_CREDENTIAL_STORE_FILE;
+const previousPinHash = process.env.ADE_ADMIN_PIN_HASH;
+process.env.ADE_CREDENTIAL_STORE_FILE = path.join(credentialDir, "admin-credential.json");
+delete process.env.ADE_ADMIN_PIN_HASH;
+
 import EnterpriseEventBus from "../src/kernel/EnterpriseEventBus.js";
 import EnterpriseKernelMaster from "../src/kernel/EnterpriseKernelMaster.js";
 import KernelEventBus from "../src/core/EventBus.js";
@@ -18,6 +23,8 @@ import { PartnerRegistry } from "../src/integrations/PartnerRegistry.js";
 import { FeedbackPipeline } from "../src/kernel/FeedbackPipeline.js";
 import EngagementOrchestrator from "../src/engagement/EngagementOrchestrator.js";
 import CapabilityRegistry from "../src/core/CapabilityRegistry.js";
+
+const { app, storageProvider } = await import("../src/app.js");
 
 /**
  * G17–G21 REALITY-AUDIT COMPLETION SUITE
@@ -48,6 +55,11 @@ before(async () => {
 
 after(async () => {
   if (server) await new Promise(r => server.close(r));
+  if (previousCredentialStore === undefined) delete process.env.ADE_CREDENTIAL_STORE_FILE;
+  else process.env.ADE_CREDENTIAL_STORE_FILE = previousCredentialStore;
+  if (previousPinHash === undefined) delete process.env.ADE_ADMIN_PIN_HASH;
+  else process.env.ADE_ADMIN_PIN_HASH = previousPinHash;
+  fs.rmSync(credentialDir, { recursive: true, force: true });
 });
 
 // ========================================================================
@@ -121,29 +133,16 @@ test("G17.C — default runtime persistence stays on the local adapter unless a 
 // G18 — AUTH NOT CONFIGURED IS 503, NOT 500
 // ========================================================================
 
-test("G18.A — unconfigured PIN auth returns 503 AUTH_NOT_CONFIGURED (never 500)", {
-  skip:
-    Boolean(process.env.ADE_ADMIN_PIN_HASH) ||
-    fs.existsSync(path.resolve("data/admin-credential.json"))
-      ? "environment has auth configured; cannot prove first-run state"
-      : false
-}, async () => {
-  const previous = process.env.ADE_ADMIN_PIN_HASH;
-  delete process.env.ADE_ADMIN_PIN_HASH;
-  try {
-    const res = await fetch(`${baseUrl}/api/v1/auth/pin`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ pin: "123456" })
-    });
-    assert.equal(res.status, 503);
-    const body = await res.json();
-    assert.equal(body.success, false);
-    assert.equal(body.error, "AUTH_NOT_CONFIGURED");
-  } finally {
-    if (previous === undefined) delete process.env.ADE_ADMIN_PIN_HASH;
-    else process.env.ADE_ADMIN_PIN_HASH = previous;
-  }
+test("G18.A — unconfigured PIN auth returns 503 AUTH_NOT_CONFIGURED (never 500)", async () => {
+  const res = await fetch(`${baseUrl}/api/v1/auth/pin`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ pin: "123456" })
+  });
+  assert.equal(res.status, 503);
+  const body = await res.json();
+  assert.equal(body.success, false);
+  assert.equal(body.error, "AUTH_NOT_CONFIGURED");
 });
 
 // ========================================================================
