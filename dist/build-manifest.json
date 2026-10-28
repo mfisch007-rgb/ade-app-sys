@@ -1,9 +1,9 @@
 {
   "artifact": "dist/ade-community-edition.zip",
   "relative_path": "dist/ade-community-edition.zip",
-  "size_bytes": 22171715,
-  "sha256_hash": "db67bfb9bc5cfc4864a488c5c341829594bdfa20c43b46e45727e6635c740e5f",
-  "build_timestamp": "2026-10-28T12:57:21.583Z",
+  "size_bytes": 22186916,
+  "sha256_hash": "3118bb468988236a72594074f9cc87db540deca4fe143590cc96749fc6f851f5",
+  "build_timestamp": "2026-10-28T17:41:09.739Z",
   "build_version": "COMMUNITY",
-  "commit_sha": "b636d0c5935670a17af2c7d07e6ba97828783cd8"
+  "commit_sha": "a1296c818bf20c9eab1ff5515936bd0794c71392"
 }
