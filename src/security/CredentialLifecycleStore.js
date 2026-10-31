@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import bcrypt from "bcryptjs";
-import crypto from "node:crypto";
+import { atomicWriteFileSync } from "../storage/atomicWrite.js";
 
 const PIN_PATTERN = /^\d{6}$/;
 
@@ -76,47 +76,14 @@ export class CredentialLifecycleStore {
     this.#ensureDirectory();
 
     try {
-      const temporaryPath =
-        `${this.filePath}.${process.pid}.${crypto.randomUUID()}.tmp`;
-
-      fs.writeFileSync(
-        temporaryPath,
+      atomicWriteFileSync(
+        this.filePath,
         JSON.stringify(record, null, 2),
         {
           encoding: "utf8",
           mode: 0o600
         }
       );
-
-      try {
-        fs.renameSync(
-          temporaryPath,
-          this.filePath
-        );
-      } catch (error) {
-        try {
-          if (fs.existsSync(this.filePath)) {
-            fs.rmSync(
-              this.filePath,
-              { force: true }
-            );
-          }
-
-          fs.renameSync(
-            temporaryPath,
-            this.filePath
-          );
-        } catch {
-          try {
-            fs.rmSync(
-              temporaryPath,
-              { force: true }
-            );
-          } catch {}
-
-          throw error;
-        }
-      }
     } catch {
       // Filesystem unavailable (e.g. serverless) — credential state is in-memory only.
     }

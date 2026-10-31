@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import KernelEventBus from "../kernel/EnterpriseEventBus.js";
+import { atomicWriteFileSync } from "../storage/atomicWrite.js";
 
 const DEFAULT_STORE = path.resolve(process.env.ADE_CAPABILITY_STORE || ".ade_capability_store.json");
 
@@ -43,22 +44,7 @@ export class CapabilityRegistry {
         subsystems: [...this.subsystems.entries()],
         revoked: [...this.revoked]
       };
-      const tmp = `${this.storePath}.${process.pid}.${Date.now()}.${Math.random().toString(36).slice(2, 8)}.tmp`;
-      fs.writeFileSync(tmp, JSON.stringify(state, null, 2), "utf8");
-      const tryRename = (attempts) => {
-        try {
-          fs.renameSync(tmp, this.storePath);
-          return true;
-        } catch (error) {
-          if (attempts <= 0) throw error;
-          return tryRename(attempts - 1);
-        }
-      };
-      try {
-        tryRename(3);
-      } catch {
-        fs.writeFileSync(this.storePath, JSON.stringify(state, null, 2), "utf8");
-      }
+      atomicWriteFileSync(this.storePath, JSON.stringify(state, null, 2), "utf8");
     } catch {
       // Filesystem unavailable (e.g. serverless runtime) — operate in-memory only.
     }

@@ -2,21 +2,21 @@ import {
   isDemoModeActive,
   evaluateDemoPolicy,
   assertSafeExecution,
-} from '../../lib/core/demoGuard';
+} from '../../lib/core/demoGuard.js';
 
-import { canExecuteCapability } from '../../lib/core/edition';
+import { canExecuteCapability } from '../../lib/core/edition.ts';
 
 import {
   EXECUTION_STATE_REGISTRY,
-} from '../../types/ade/execution';
+} from '../../types/ade/execution.ts';
 
 import {
   evaluateVerificationRequirement,
-} from '../../types/ade/verification';
+} from '../../types/ade/verification.ts';
 
 import {
   ADE_MEDIA_REGISTRY,
-} from '../../lib/core/mediaRegistry';
+} from '../../lib/core/mediaRegistry.ts';
 
 describe('ADE Block 01 — Architectural Foundation Suite', () => {
 

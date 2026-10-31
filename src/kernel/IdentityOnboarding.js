@@ -4,6 +4,7 @@ import crypto from "node:crypto";
 import KeyManager from "../security/KeyManager.js";
 import EnterpriseEventBus from "./EnterpriseEventBus.js";
 import CredentialLifecycleStore from "../security/CredentialLifecycleStore.js";
+import { atomicWriteFileSync } from "../storage/atomicWrite.js";
 
 const SESSION_TTL_SECONDS = Number(process.env.ADE_SESSION_TTL_SECONDS || 3600);
 
@@ -35,11 +36,11 @@ export class IdentityOnboarding {
 
   #persistRevocations() {
     try {
-      const dir = path.dirname(this.revocationPath);
-      fs.mkdirSync(dir, { recursive: true });
-      const tmp = `${this.revocationPath}.${process.pid}.${Date.now()}.${Math.random().toString(36).slice(2, 8)}.tmp`;
-      fs.writeFileSync(tmp, JSON.stringify([...this.revoked].slice(-5000), null, 2), "utf8");
-      fs.renameSync(tmp, this.revocationPath);
+      atomicWriteFileSync(
+        this.revocationPath,
+        JSON.stringify([...this.revoked].slice(-5000), null, 2),
+        "utf8"
+      );
     } catch {
       // Filesystem unavailable (e.g. serverless) — revocations survive only in this instance.
     }

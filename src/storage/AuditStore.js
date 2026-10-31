@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";
+import { atomicWriteFileSync } from "./atomicWrite.js";
 
 const DEFAULT_AUDIT_FILE = path.resolve("data/audit_ledger.json");
 const MAX_LEDGER_ENTRIES = 5000;
@@ -82,24 +83,7 @@ export class AuditStore {
       const dir = path.dirname(this.file);
       fs.mkdirSync(dir, { recursive: true });
 
-      const temporaryPath = `${this.file}.${process.pid}.${crypto.randomUUID()}.tmp`;
-      fs.writeFileSync(temporaryPath, JSON.stringify(logs, null, 2), "utf8");
-
-      try {
-        fs.renameSync(temporaryPath, this.file);
-      } catch {
-        try {
-          if (fs.existsSync(this.file)) {
-            fs.rmSync(this.file, { force: true });
-          }
-          fs.renameSync(temporaryPath, this.file);
-        } catch {
-          try {
-            fs.rmSync(temporaryPath, { force: true });
-          } catch {}
-          throw new Error("AUDIT_STORE_WRITE_FAILED");
-        }
-      }
+      atomicWriteFileSync(this.file, JSON.stringify(logs, null, 2), "utf8");
       this._lastError = null;
       return record;
     } catch (e) {

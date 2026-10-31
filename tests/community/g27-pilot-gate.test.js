@@ -19,8 +19,7 @@ import IdentityOnboarding from "../../src/kernel/IdentityOnboarding.js";
  * the HTTP surface enforces the level-2 gate.
  */
 
-const __root = path.resolve(import.meta.dirname, "../..");
-const CREDENTIAL_FILE = path.join(__root, "data", "admin-credential.json");
+const CREDENTIAL_FILE = path.resolve("data", "admin-credential.json");
 
 const authBootstrap = !fs.existsSync(CREDENTIAL_FILE) && !process.env.ADE_ADMIN_PIN_HASH;
 if (authBootstrap) {

@@ -7,8 +7,8 @@
 <link rel="icon" type="image/png" href="/ADE-LOGO.png">
 <link rel="apple-touch-icon" href="/ADE-LOGO.png">
 <title>ADE ADVANCED FOUNDER CONTROLS</title>
-<script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script crossorigin="anonymous" integrity="sha384-DGyLxAyjq0f9SPpVevD6IgztCFlnMF6oW/XQGmfe+IsZ8TqEiDrcHkMLKI6fiB/Z" src="https://unpkg.com/react@18.3.1/umd/react.production.min.js"></script>
+<script crossorigin="anonymous" integrity="sha384-gTGxhz21lVGYNMcdJOyq01Edg0jhn/c22nsx0kyqP0TxaV5WVdsSH1fSDUf5YJj1" src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js"></script>
 <style>
 :root{
  --bg:#07111f;--bg2:#0c1a2e;--surface:rgba(14,26,47,.92);--surface2:rgba(20,36,62,.88);
@@ -284,8 +284,14 @@ const ShieldSvg=(size=36)=>h('svg',{className:'emptyShield',width:size,height:si
 const EmptyState=(opts)=>{const title=opts.title||'Nothing here yet';const desc=opts.desc||'';const actionLabel=opts.actionLabel;const actionFn=opts.actionFn;const hint=opts.hint;return h('div',{className:'emptyState'}, ShieldSvg(opts.iconSize||36), h('div',{className:'esTitle'},title), desc?h('div',{className:'esDesc'},desc):null, hint?h('div',{style:{fontSize:'11px',color:'var(--faint)',marginTop:'4px'}},hint):null, actionLabel?h('div',{className:'esAction'},h('button',{className:'btn sm primary',onClick:actionFn||(()=>{})},actionLabel)):null);};
 const heroShieldBg='url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' viewBox=\'0 0 100 100\' opacity=\'0.06\'%3E%3Cpath d=\'M50 8 L78 20 V48 C78 64 68 80 50 88 C32 80 22 64 22 48 V20 Z\' fill=\'none\' stroke=\'%23d4a843\' stroke-width=\'2\'/%3E%3C/svg%3E")';
 
- function App(){
-  const [token,_setToken]=useState(()=>{try{return sessionStorage.getItem('ade_founder_token')||localStorage.getItem('ade_founder_token')||sessionStorage.getItem('ade_token')||localStorage.getItem('ade_token')||null}catch{return null}});
+// Privileged browser state is session-scoped. Legacy localStorage values are
+// migrated once into sessionStorage and then removed; new writes never touch
+// localStorage, so a token, identity or elevation mirror cannot survive the
+// browser session or be read by a later user of the same profile.
+function readSessionOnly(key){try{var s=sessionStorage.getItem(key);if(s)return s;var legacy=localStorage.getItem(key);if(legacy){try{sessionStorage.setItem(key,legacy);localStorage.removeItem(key);}catch(e){}return legacy;}return null;}catch(e){return null;}}
+function writeSessionOnly(key,value){try{if(value==null){sessionStorage.removeItem(key);}else{sessionStorage.setItem(key,value);}localStorage.removeItem(key);}catch(e){}}
+function App(){
+  const [token,_setToken]=useState(()=>readSessionOnly('ade_founder_token')||readSessionOnly('ade_token')||null);
   // Founder elevation is mirrored to the shared ade_token key so the Account
   // & Security surface (which reads ade_token) always reflects the live
   // server-issued session instead of a stale BASE snapshot.
@@ -300,13 +306,13 @@ const heroShieldBg='url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/200
   // requested, so the re-validation dispatch happens at most once per token.
   const cookieRecheck=useRef(null);
   useEffect(()=>{tokenRef.current=token},[token]);
-  const setToken=(v)=>{tokenRef.current=v;_setToken(v);try{if(v){sessionStorage.setItem('ade_founder_token',v);localStorage.setItem('ade_founder_token',v);sessionStorage.setItem('ade_token',v);localStorage.setItem('ade_token',v);}else{sessionStorage.removeItem('ade_founder_token');localStorage.removeItem('ade_founder_token');sessionStorage.removeItem('ade_token');localStorage.removeItem('ade_token');}}catch{}};
-  const [identity,setIdentity]=useState(()=>{try{const a=sessionStorage.getItem('ade_founder_identity');const b=localStorage.getItem('ade_founder_identity');const s=a||b;return s?JSON.parse(s):null}catch{return null}});
-   const [sessionMeta,setSessionMeta]=useState(()=>{try{const a=sessionStorage.getItem('ade_founder_session_meta');const b=localStorage.getItem('ade_founder_session_meta');const s=a||b;return s?JSON.parse(s):null}catch{return null}});
+  const setToken=(v)=>{tokenRef.current=v;_setToken(v);writeSessionOnly('ade_founder_token',v);writeSessionOnly('ade_token',v);};
+  const [identity,setIdentity]=useState(()=>{try{const s=readSessionOnly('ade_founder_identity');return s?JSON.parse(s):null}catch{return null}});
+   const [sessionMeta,setSessionMeta]=useState(()=>{try{const s=readSessionOnly('ade_founder_session_meta');return s?JSON.parse(s):null}catch{return null}});
    // Server-truth auth: serverAuth is set ONLY from GET /api/v1/account/session.
    // authPhase: 'login' (no token) | 'checking' (validating) | 'failed' (unreachable) | 'pin' (base session, PIN required) | 'active' (validated).
    const [serverAuth,setServerAuth]=useState(null);
-   const [authPhase,setAuthPhase]=useState(()=>{try{return (sessionStorage.getItem('ade_founder_token')||localStorage.getItem('ade_founder_token')||sessionStorage.getItem('ade_token')||localStorage.getItem('ade_token'))?'checking':'login'}catch{return 'login'}});
+   const [authPhase,setAuthPhase]=useState(()=>{return (readSessionOnly('ade_founder_token')||readSessionOnly('ade_token'))?'checking':'login'});
    const [validateSeq,setValidateSeq]=useState(0);
    const [loginUser,setLoginUser]=useState('');
    const [loginPass,setLoginPass]=useState('');
@@ -474,7 +480,7 @@ const heroShieldBg='url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/200
      const role=String((person&&person.role)||claims.role||'').toUpperCase();
      const subj=(person&&person.username)||claims.sub||(decodeClaims(token)||{}).sub||'unknown';
      setIdentity({subject:subj,role:role||'—',level:(person&&person.level)!=null?person.level:claims.level,tier:claims.tier||'COMMUNITY',persona:String(claims.persona||'').toUpperCase()||'WORKFORCE',edition:claims.edition||'COMMUNITY',pinVerified:claims.pinVerified===true});
-      try{sessionStorage.setItem('ade_founder_identity',JSON.stringify({subject:subj,role}));localStorage.setItem('ade_founder_identity',JSON.stringify({subject:subj,role}));}catch{}
+      try{writeSessionOnly('ade_founder_identity',JSON.stringify({subject:subj,role}));}catch{}
       try{window.ADE_PIN_STATE&&ADE_PIN_STATE.hydrateFromClaims({person,claims})}catch{}
       setAuthPhase('active');
     }catch(e){
@@ -594,7 +600,7 @@ const heroShieldBg='url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/200
      if(!r.ok)throw new Error((d&&(d.message||d.error))||'Invalid credentials');
      setToken(d.token);
      try{setValidateSeq(s=>s+1)}catch{}
-     if(d.expiresAt){const meta={expiresAt:d.expiresAt,expiresIn:d.expiresIn||null};setSessionMeta(meta);try{sessionStorage.setItem('ade_founder_session_meta',JSON.stringify(meta));localStorage.setItem('ade_founder_session_meta',JSON.stringify(meta));}catch{}}
+     if(d.expiresAt){const meta={expiresAt:d.expiresAt,expiresIn:d.expiresIn||null};setSessionMeta(meta);try{writeSessionOnly('ade_founder_session_meta',JSON.stringify(meta));}catch{}}
      setLoginPass('');
      setLoginBusy(false);setLoginMsg({type:'ok',text:'✓ Identity verified — enter the six-digit authorization PIN to elevate.'});
      notify('Identity verified — PIN required');
@@ -616,7 +622,7 @@ const heroShieldBg='url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/200
      // never render stale BASE state; the server revalidation below confirms.
      try{if(d.person||d.claims||d.identity){setServerAuth(prev=>({person:(d.person||(prev&&prev.person)||null),claims:{...((prev&&prev.claims)||{}),...(d.claims||{}),pinVerified:true}}));setIdentity(prev=>({...((prev)||{}),role:((d.person&&d.person.role)||(prev&&prev.role)||'—'),pinVerified:true}))}}catch{}
      try{setValidateSeq(s=>s+1)}catch{}
-     if(d.expiresAt){const meta={expiresAt:d.expiresAt,expiresIn:d.expiresIn||null};setSessionMeta(meta);try{sessionStorage.setItem('ade_founder_session_meta',JSON.stringify(meta));localStorage.setItem('ade_founder_session_meta',JSON.stringify(meta));}catch{}}
+     if(d.expiresAt){const meta={expiresAt:d.expiresAt,expiresIn:d.expiresIn||null};setSessionMeta(meta);try{writeSessionOnly('ade_founder_session_meta',JSON.stringify(meta));}catch{}}
      setLoginBusy(false);setLoginMsg({type:'ok',text:'✓ SESSION ELEVATED — PIN verified'});
      notify('SESSION ELEVATED');
     }catch(e){setLoginBusy(false);setLoginMsg({type:'err',text:'✕ '+(e.message||'Invalid PIN')});notify(e.message)}
@@ -651,8 +657,8 @@ const heroShieldBg='url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/200
      if(!r.ok)throw new Error((d&&(d.message||d.error))||'Invalid PIN');
      setToken(d.token);
      try{window.ADE_PIN_STATE&&ADE_PIN_STATE.set({method:'ADMIN_RECOVERY',role:'ADMIN_L2',level:2,subject:(d.identity&&d.identity.subject)||null})}catch{}
-     if(d.identity){setIdentity(d.identity);try{sessionStorage.setItem('ade_founder_identity',JSON.stringify(d.identity));localStorage.setItem('ade_founder_identity',JSON.stringify(d.identity));}catch{}}
-     if(d.expiresAt){const meta={expiresAt:d.expiresAt,expiresIn:d.expiresIn||null};setSessionMeta(meta);try{sessionStorage.setItem('ade_founder_session_meta',JSON.stringify(meta));localStorage.setItem('ade_founder_session_meta',JSON.stringify(meta));}catch{}}
+     if(d.identity){setIdentity(d.identity);try{writeSessionOnly('ade_founder_identity',JSON.stringify(d.identity));}catch{}}
+     if(d.expiresAt){const meta={expiresAt:d.expiresAt,expiresIn:d.expiresIn||null};setSessionMeta(meta);try{writeSessionOnly('ade_founder_session_meta',JSON.stringify(meta));}catch{}}
      setLoginBusy(false);setLoginMsg({type:'ok',text:'✓ ADMINISTRATOR SESSION AUTHENTICATED (recovery PIN — not Founder step-up)'});
      notify('ADMINISTRATOR SESSION AUTHENTICATED');
     }catch(e){setLoginBusy(false);setLoginMsg({type:'err',text:'✕ '+e.message});notify(e.message)}
@@ -1754,7 +1760,7 @@ const TAB_AWBULI= () => {
     const [command,setCommand]=React.useState('sold 5 bags rice for 25k');
     const [parsed,setParsed]=React.useState(null);
     const [parseMsg,setParseMsg]=React.useState('');
-    const tokenOf=()=>{try{return sessionStorage.getItem('ade_founder_token')||localStorage.getItem('ade_founder_token')||sessionStorage.getItem('ade_token')||localStorage.getItem('ade_token')||''}catch(e){return ''}};
+    const tokenOf=()=>readSessionOnly('ade_founder_token')||readSessionOnly('ade_token')||'';
     const load=()=>{
         const t=tokenOf();
         fetch('/api/v1/integrations/awbuli/status').then(r=>r.json()).then(j=>{if(j&&j.success)setStatus(j)}).catch(()=>{});
@@ -1847,7 +1853,7 @@ window.TAB_AWBULI = TAB_AWBULI;
  function sset(s,k,v){try{s.setItem(k,v)}catch(e){}}
  function readAll(){try{var s=sget(sessionStorage,KEY)||sget(localStorage,KEY);var o=s?JSON.parse(s):{};return o&&typeof o==='object'?o:{}}catch(e){return{}}}
  function saveAll(o){try{var s=JSON.stringify(o);sset(localStorage,KEY,s);sset(sessionStorage,KEY,s)}catch(e){}}
- function token(){return sget(sessionStorage,'ade_admin_token')||sget(localStorage,'ade_admin_token')||sget(sessionStorage,'ade_founder_token')||sget(localStorage,'ade_founder_token')||''}
+ function token(){return sget(sessionStorage,'ade_admin_token')||sget(sessionStorage,'ade_founder_token')||''}
  function norm(el){try{return String(el.textContent||'').replace(/\s+/g,' ').trim()}catch(e){return''}}
  function labelOf(el){try{var card=el.closest('.card,.wsCard,section');var head=card?String((card.querySelector('h3,h4,.panelTitle,.cardTitle')||{}).textContent||'').replace(/\s+/g,' ').trim():'';var own=norm(el);return head||own||'Provider configuration'}catch(e){return'Provider configuration'}}
  function keyOf(el,label){try{var scope=el.closest('[data-testid]');var sid=scope?scope.getAttribute('data-testid'):'';return(sid?sid+'::':'')+label.slice(0,90)}catch(e){return label.slice(0,90)}}

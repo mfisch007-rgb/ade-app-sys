@@ -5,7 +5,9 @@
  * Execution: PAPER only unless official API verified.
  */
 
+import crypto from "node:crypto";
 import { MarketDataAdapter } from "../MarketDataAdapter.js";
+import { openWebSocket } from "./WebSocketTransport.js";
 
 export class IQOptionAdapter extends MarketDataAdapter {
   constructor(config = {}) {
@@ -29,6 +31,7 @@ export class IQOptionAdapter extends MarketDataAdapter {
     };
     this._ws = null;
     this._ssid = null;
+    this._authConfirmed = false;
     this._candleBuffer = new Map();
   }
 
@@ -40,7 +43,7 @@ export class IQOptionAdapter extends MarketDataAdapter {
       const wsOk = await this._connectWebSocket(this._ssid);
       if (wsOk) {
         await this._loadSymbolsViaWS();
-        return { authenticated: true };
+        return { authenticated: this._authConfirmed === true };
       }
     }
 
@@ -51,7 +54,7 @@ export class IQOptionAdapter extends MarketDataAdapter {
       const wsOk = await this._connectWebSocket(this._ssid);
       if (wsOk) {
         await this._loadSymbolsViaWS();
-        return { authenticated: true };
+        return { authenticated: this._authConfirmed === true };
       }
     }
 
@@ -60,33 +63,54 @@ export class IQOptionAdapter extends MarketDataAdapter {
   }
 
   async _connectWebSocket(ssid) {
+    const socket = await openWebSocket(this.config.IQ_OPTION_WS_URL);
+    if (!socket) {
+      this.state.lastError = "WEBSOCKET_TRANSPORT_UNAVAILABLE";
+      return false;
+    }
+    this._ws = socket;
+    this._authConfirmed = false;
+
     return new Promise((resolve) => {
-      try {
-        const WebSocket = require("ws");
-        this._ws = new WebSocket(this.config.IQ_OPTION_WS_URL);
+      let settled = false;
+      const finish = (ok) => {
+        if (settled) return;
+        settled = true;
+        resolve(ok === true && socket.readyState === 1);
+      };
 
-        this._ws.on("open", () => {
-          this._ws.send(JSON.stringify({
-            name: "ssid",
-            msg: ssid,
-            request_id: crypto.randomUUID()
-          }));
-        });
+      socket.on("open", () => {
+        socket.send(JSON.stringify({
+          name: "ssid",
+          msg: ssid,
+          request_id: crypto.randomUUID()
+        }));
+      });
 
-        this._ws.on("message", (data) => {
-          try {
-            const msg = JSON.parse(data);
-            this._onWSMessage(msg);
-          } catch {}
-        });
+      socket.on("message", (data) => {
+        try {
+          this._onWSMessage(JSON.parse(data));
+        } catch {}
+      });
 
-        this._ws.on("error", () => resolve(false));
-        this._ws.on("close", () => { this.state.connection = "DISCONNECTED"; });
+      socket.on("error", () => finish(false));
+      socket.on("close", () => { this.state.connection = "DISCONNECTED"; });
 
-        setTimeout(() => resolve(this._ws.readyState === 1), 10000);
-      } catch {
-        resolve(false);
-      }
+      const startedAt = Date.now();
+      const poll = setInterval(() => {
+        if (this._authConfirmed) {
+          clearInterval(poll);
+          finish(true);
+        } else if (Date.now() - startedAt >= 8000) {
+          clearInterval(poll);
+          finish(socket.readyState === 1);
+        }
+      }, 200);
+
+      setTimeout(() => {
+        clearInterval(poll);
+        finish(socket.readyState === 1);
+      }, 10000);
     });
   }
 
@@ -101,7 +125,10 @@ export class IQOptionAdapter extends MarketDataAdapter {
         .map(a => String(a.name || a.symbol).toUpperCase())
         .filter(Boolean);
     } else if (msg.name === "profile" || msg.name === "balance") {
+      this._authConfirmed = true;
       this.config._accountInfo = msg.msg;
+    } else if (msg.name === "success" || msg.name === "authorization") {
+      this._authConfirmed = true;
     }
   }
 

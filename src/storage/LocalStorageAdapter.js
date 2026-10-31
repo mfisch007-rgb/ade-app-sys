@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import StorageProvider from "./StorageProvider.js";
+import { atomicWriteFileSync } from "./atomicWrite.js";
 
 export class LocalStorageAdapter extends StorageProvider {
   constructor(filePath = path.resolve(".ade_storage.json")) {
@@ -57,32 +58,13 @@ export class LocalStorageAdapter extends StorageProvider {
       throw new Error("STORAGE_WRITE_FAILED");
     }
     try {
-      const tmp = `${this.filePath}.${process.pid}.${Date.now()}.tmp`;
-      fs.writeFileSync(
-        tmp,
+      atomicWriteFileSync(
+        this.filePath,
         JSON.stringify(state, null, 2),
         "utf8"
       );
-      try {
-        fs.renameSync(tmp, this.filePath);
-      } catch {
-        try {
-          if (fs.existsSync(this.filePath)) {
-            fs.rmSync(this.filePath, { force: true });
-          }
-          fs.renameSync(tmp, this.filePath);
-        } catch {
-          if (fs.existsSync(tmp)) {
-            try {
-              fs.rmSync(tmp, { force: true });
-            } catch {}
-          }
-          // Durability cannot be achieved — never report silent success.
-          throw new Error("STORAGE_WRITE_FAILED");
-        }
-      }
     } catch {
-      // tmp write failed OR finalization failed after cleanup.
+      // Durability cannot be achieved — never report silent success.
       throw new Error("STORAGE_WRITE_FAILED");
     }
   }

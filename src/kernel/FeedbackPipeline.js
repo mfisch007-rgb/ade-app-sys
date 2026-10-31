@@ -2,6 +2,7 @@ import fs from "node:fs";
 import crypto from "node:crypto";
 import path from "node:path";
 import EnterpriseEventBus from "./EnterpriseEventBus.js";
+import { atomicWriteFileSync } from "../storage/atomicWrite.js";
 
 const DEFAULT_QUEUE = path.resolve(process.env.ADE_FEEDBACK_QUEUE || ".ade_feedback_queue.json");
 const PII = [
@@ -30,9 +31,11 @@ export class FeedbackPipeline {
   }
   #persist() {
     try {
-      const tmp = `${this.queuePath}.${process.pid}.${Date.now()}.${Math.random().toString(36).slice(2, 8)}.tmp`;
-      fs.writeFileSync(tmp, JSON.stringify(this.queue.slice(-1000), null, 2), "utf8");
-      fs.renameSync(tmp, this.queuePath);
+      atomicWriteFileSync(
+        this.queuePath,
+        JSON.stringify(this.queue.slice(-1000), null, 2),
+        "utf8"
+      );
     } catch (_err) {
       // Filesystem persistence failed. In-memory state is preserved.
       // Durability is degraded but the API contract does not require durable-write success.

@@ -6,8 +6,8 @@
 <meta name="description" content="ADE Market & Simulation Lab — honest market data, paper execution and simulation with explicit LIVE / PAPER / PROVIDER_REQUIRED states.">
 <link rel="stylesheet" href="/ade-design-system.css">
 <title>ADE Market & Simulation Lab</title>
-<script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script crossorigin="anonymous" integrity="sha384-DGyLxAyjq0f9SPpVevD6IgztCFlnMF6oW/XQGmfe+IsZ8TqEiDrcHkMLKI6fiB/Z" src="https://unpkg.com/react@18.3.1/umd/react.production.min.js"></script>
+<script crossorigin="anonymous" integrity="sha384-gTGxhz21lVGYNMcdJOyq01Edg0jhn/c22nsx0kyqP0TxaV5WVdsSH1fSDUf5YJj1" src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js"></script>
 <style>
 :root{--bg:#07111f;--surface:rgba(14,26,47,.92);--gold:#d4a843;--goldDim:rgba(212,168,67,.18);--goldBright:#f0c75e;--ink:#e8ecf2;--muted:#8a9bb8;--line:rgba(212,168,67,.12);--good:#00c853;--warn:#ffb300;--bad:#ff5252;--radius:16px;--radiusSm:12px;--touch:44px}
 *{box-sizing:border-box}html,body,#root{margin:0;width:100%}body{background:var(--bg);color:var(--ink);font-family:Inter,system-ui,sans-serif}
@@ -46,7 +46,7 @@ function Badge({kind}){
 function Card({title,children}){ return h('div',{className:'card'}, h('h3',null,title), children); }
 
 function Lab(){
-  const [auth,setAuth]=useState({token:localStorage.getItem('ade_lab_token')||'', level:0});
+  const [auth,setAuth]=useState(()=>{try{const legacy=localStorage.getItem('ade_lab_token');if(legacy){sessionStorage.setItem('ade_lab_token',legacy);localStorage.removeItem('ade_lab_token');return{token:legacy,level:0};}return{token:sessionStorage.getItem('ade_lab_token')||'',level:0};}catch{return{token:'',level:0}}});
   const [health,setHealth]=useState(null);
   const [market,setMarket]=useState(null);
   const [sports,setSports]=useState(null);
@@ -85,10 +85,10 @@ function Lab(){
     const pin=prompt('Founder PIN:'); if(!pin) return;
     const r=await fetch('/api/v1/auth/pin',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({pin})});
     const j=await r.json().catch(()=>null);
-    if(j?.token){ localStorage.setItem('ade_lab_token',j.token); setAuth({token:j.token, level:j.authLevel||j.identity?.level||2}); setMsg('Logged in level '+(j.authLevel||'?')); refresh(); }
+    if(j?.token){ sessionStorage.setItem('ade_lab_token',j.token); localStorage.removeItem('ade_lab_token'); setAuth({token:j.token, level:j.authLevel||j.identity?.level||2}); setMsg('Logged in level '+(j.authLevel||'?')); refresh(); }
     else setMsg('Login failed: '+(j?.error||r.status));
   };
-  const doLogout=()=>{ localStorage.removeItem('ade_lab_token'); setAuth({token:'',level:0}); setMsg('Logged out'); };
+  const doLogout=()=>{ sessionStorage.removeItem('ade_lab_token'); localStorage.removeItem('ade_lab_token'); setAuth({token:'',level:0}); setMsg('Logged out'); };
 
   return h('div',null,
     h('div',{className:'top'},

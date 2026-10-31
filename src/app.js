@@ -53,6 +53,7 @@ import FeedbackPipeline from "./kernel/FeedbackPipeline.js";
 import CapabilityRegistry from "./core/CapabilityRegistry.js";
 import { executeCapability } from "./core/CapabilityExecutor.js";
 import HttpSecurityBoundary from "./security/HttpSecurityBoundary.js";
+import { httpSecurityHeaders } from "./security/HttpSecurityHeaders.js";
 import { SecurityGate as LegacySecurityGate } from "./security/SecurityGate.js";
 import { createStorageProvider } from "./storage/SupabaseStorageAdapter.js";
 import { ProviderDocumentStorageAdapter } from "./storage/ProviderDocumentStorageAdapter.js";
@@ -168,6 +169,13 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
+// Honor proxy hops only when the deployment explicitly opts in. Vercel always
+// proxies requests; elsewhere trust is opt-in via ADE_TRUST_PROXY=true so a
+// direct client cannot spoof X-Forwarded-For into the rate limiter.
+if (process.env.VERCEL || String(process.env.ADE_TRUST_PROXY || "").toLowerCase() === "true") {
+  app.set("trust proxy", 1);
+}
+app.use(httpSecurityHeaders());
 // Capture raw body for HMAC webhook verification (Paystack uses raw bytes);
 // parsed JSON behaviour is unchanged. req.rawBody is server-side only.
 app.use(express.json({

@@ -34,7 +34,7 @@
       token =
         sessionStorage.getItem("ade_admin_token") ||
         sessionStorage.getItem("ade_founder_token") ||
-        localStorage.getItem("ade_founder_token") ||
+        sessionStorage.getItem("ade_token") ||
         null;
     } catch (e) {}
     var headers = { "Content-Type": "application/json" };

@@ -7,6 +7,7 @@
  */
 
 import { MarketDataAdapter } from "../MarketDataAdapter.js";
+import { openWebSocket } from "./WebSocketTransport.js";
 
 export class PocketOptionAdapter extends MarketDataAdapter {
   constructor(config = {}) {
@@ -31,6 +32,7 @@ export class PocketOptionAdapter extends MarketDataAdapter {
     };
     this._ws = null;
     this._ssid = null;
+    this._authConfirmed = false;
     this._candleBuffer = new Map();
   }
 
@@ -42,7 +44,7 @@ export class PocketOptionAdapter extends MarketDataAdapter {
       const wsOk = await this._connectWebSocket(this._ssid);
       if (wsOk) {
         await this._loadSymbolsViaWS();
-        return { authenticated: true };
+        return { authenticated: this._authConfirmed === true };
       }
     }
 
@@ -53,7 +55,7 @@ export class PocketOptionAdapter extends MarketDataAdapter {
       const wsOk = await this._connectWebSocket(this._ssid);
       if (wsOk) {
         await this._loadSymbolsViaWS();
-        return { authenticated: true };
+        return { authenticated: this._authConfirmed === true };
       }
     }
 
@@ -63,30 +65,51 @@ export class PocketOptionAdapter extends MarketDataAdapter {
   }
 
   async _connectWebSocket(ssid) {
+    const socket = await openWebSocket(this.config.POCKET_OPTION_WS_URL);
+    if (!socket) {
+      this.state.lastError = "WEBSOCKET_TRANSPORT_UNAVAILABLE";
+      return false;
+    }
+    this._ws = socket;
+    this._authConfirmed = false;
+
     return new Promise((resolve) => {
-      try {
-        const WebSocket = require("ws");
-        this._ws = new WebSocket(this.config.POCKET_OPTION_WS_URL);
+      let settled = false;
+      const finish = (ok) => {
+        if (settled) return;
+        settled = true;
+        resolve(ok === true && socket.readyState === 1);
+      };
 
-        this._ws.on("open", () => {
-          // Authenticate with SSID
-          this._ws.send(JSON.stringify(["auth", { ssid }]));
-        });
+      socket.on("open", () => {
+        // Authenticate with SSID
+        socket.send(JSON.stringify(["auth", { ssid }]));
+      });
 
-        this._ws.on("message", (data) => {
-          try {
-            const msg = JSON.parse(data);
-            this._onWSMessage(msg);
-          } catch {}
-        });
+      socket.on("message", (data) => {
+        try {
+          this._onWSMessage(JSON.parse(data));
+        } catch {}
+      });
 
-        this._ws.on("error", () => resolve(false));
-        this._ws.on("close", () => { this.state.connection = "DISCONNECTED"; });
+      socket.on("error", () => finish(false));
+      socket.on("close", () => { this.state.connection = "DISCONNECTED"; });
 
-        setTimeout(() => resolve(this._ws.readyState === 1), 10000);
-      } catch {
-        resolve(false);
-      }
+      const startedAt = Date.now();
+      const poll = setInterval(() => {
+        if (this._authConfirmed) {
+          clearInterval(poll);
+          finish(true);
+        } else if (Date.now() - startedAt >= 8000) {
+          clearInterval(poll);
+          finish(socket.readyState === 1);
+        }
+      }, 200);
+
+      setTimeout(() => {
+        clearInterval(poll);
+        finish(socket.readyState === 1);
+      }, 10000);
     });
   }
 
@@ -101,7 +124,10 @@ export class PocketOptionAdapter extends MarketDataAdapter {
     } else if (event === "symbols" || event === "assets") {
       this.capabilities.symbols = (payload || []).map(s => String(s.name || s.symbol || s).toUpperCase()).filter(Boolean);
     } else if (event === "profile" || event === "balance") {
+      this._authConfirmed = true;
       this.config._accountInfo = payload;
+    } else if (event === "auth" || event === "success" || event === "authorized") {
+      this._authConfirmed = true;
     }
   }
 

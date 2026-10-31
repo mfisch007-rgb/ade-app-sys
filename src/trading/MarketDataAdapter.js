@@ -432,14 +432,26 @@ export class MarketDataAdapter {
   async initBrowserContext({ headless = true, userAgent, viewport } = {}) {
     if (this._browserContext) return this._browserContext;
     try {
-      const puppeteer = require("puppeteer-core").catch(() => require("puppeteer"));
-      this._browserContext = await puppeteer.default.launch({
+      // Optional dependency: resolved through dynamic import so the adapter
+      // module loads cleanly on ESM. Browser automation is only available when
+      // the operator has installed a Puppeteer-compatible package and browser
+      // binary; it is never declared as a hard core dependency.
+      const mod = await import("puppeteer-core").catch(() => import("puppeteer").catch(() => null));
+      const puppeteer = mod?.default || mod;
+      if (!puppeteer || typeof puppeteer.launch !== "function") {
+        this.state.lastError = "BROWSER_AUTOMATION_UNAVAILABLE";
+        return null;
+      }
+      this._browserContext = await puppeteer.launch({
         headless,
         args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-blink-features=AutomationControlled"],
         ignoreDefaultArgs: ["--enable-automation"]
       });
       return this._browserContext;
-    } catch { return null; }
+    } catch (error) {
+      this.state.lastError = `BROWSER_AUTOMATION_UNAVAILABLE: ${error?.message || "launch failed"}`;
+      return null;
+    }
   }
 
   async closeBrowserContext() {

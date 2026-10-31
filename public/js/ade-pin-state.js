@@ -1,9 +1,10 @@
 /* ADE PIN ELEVATION STATE — shared client mirror of the server-verified
-   six-digit authorization step-up. Persisted in BOTH sessionStorage and
-   localStorage so sub-route navigation, refresh and page switches never drop
-   the elevated JWT scope or bounce the operator back to the root login.
-   The server remains the single authority: this mirror never grants access,
-   it only keeps the client truthful about the session it already holds. */
+   six-digit authorization step-up. Persisted in sessionStorage only so
+   sub-route navigation and refresh keep the elevated scope for this browser
+   session without leaving privileged state in localStorage. A legacy
+   localStorage value is migrated once and removed. The server remains the
+   single authority: this mirror never grants access, it only keeps the client
+   truthful about the session it already holds. */
 (function () {
   var KEY = 'ade_active_pin';
 
@@ -13,7 +14,15 @@
 
   function read() {
     try {
-      var s = safeGet(sessionStorage, KEY) || safeGet(localStorage, KEY);
+      var s = safeGet(sessionStorage, KEY);
+      if (!s) {
+        var legacy = safeGet(localStorage, KEY);
+        if (legacy) {
+          safeSet(sessionStorage, KEY, legacy);
+          safeDel(localStorage, KEY);
+          s = legacy;
+        }
+      }
       if (!s) return null;
       var o = JSON.parse(s);
       return o && typeof o === 'object' ? o : null;
@@ -24,7 +33,7 @@
     try {
       var s = JSON.stringify(state);
       safeSet(sessionStorage, KEY, s);
-      safeSet(localStorage, KEY, s);
+      safeDel(localStorage, KEY);
       return state;
     } catch (e) { return null; }
   }

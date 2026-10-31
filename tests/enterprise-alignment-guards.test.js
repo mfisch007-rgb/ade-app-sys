@@ -203,7 +203,8 @@ test("PIN-STATE-1 — the client PIN mirror never stores PIN material or bare co
   assert.ok(PS, "ADE_PIN_STATE is exposed");
 
   PS.set({ method: "PIN", role: "FOUNDER", level: 3, subject: "founder" });
-  const raw = JSON.parse(localStorage.getItem(PS.KEY));
+  const raw = JSON.parse(sessionStorage.getItem(PS.KEY));
+  assert.equal(localStorage.getItem(PS.KEY), null, "PIN mirror is session-scoped, never localStorage");
   assert.equal(raw.active, true);
   assert.equal(raw.role, "FOUNDER");
   assert.equal(raw.tier, "Level 3 (L3)");
@@ -217,7 +218,8 @@ test("PIN-STATE-1 — the client PIN mirror never stores PIN material or bare co
 
   PS.clear();
   PS.hydrateFromClaims({ person: { username: "founder", role: "ADMIN", level: 2 }, claims: { pinVerified: true } });
-  const raw2 = JSON.parse(localStorage.getItem(PS.KEY));
+  const raw2 = JSON.parse(sessionStorage.getItem(PS.KEY));
+  assert.equal(localStorage.getItem(PS.KEY), null, "re-hydration also stays session-scoped");
   assert.equal(raw2.method, "SERVER_VERIFIED");
   assert.equal(raw2.subject, "founder");
   assert.equal(raw2.role, "ADMIN");

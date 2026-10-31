@@ -28,12 +28,12 @@ ADE-APEX is a kernel-first, event-driven enterprise operations platform. The can
 
 ## Security
 
-Privileged browser state is not persisted in localStorage. Sessions are RSA-signed by the server, expiration is checked, and revocation is persisted. Production secrets belong in hosting-provider environment variables.
+Privileged browser state is session-scoped and never persisted in localStorage. Sessions are RSA-signed by the server, expiration is checked, and revocation is persisted. Responses carry CSP, HSTS (HTTPS/production), clickjacking, MIME-sniffing, referrer and permissions headers; browser libraries are pinned with SHA-384 SRI. Production secrets belong in hosting-provider environment variables.
 
 ## Validation
 
 ```text
-npm test
+npm test              # isolated temp sandbox; fails on protected-file or git-tree mutation
 npm run validate
 npm run verify:release
 npm run build:community

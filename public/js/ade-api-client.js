@@ -2,11 +2,12 @@
    ADE-APEX shared API client  ·  v1.0.0
    Plain script (no modules/bundler): assigns window.ADE.
    Conventions mirror the canonical surfaces:
-     public/index.html   -> token key "ade_token"      (local+session)
+     public/index.html   -> token key "ade_token"      (session)
      public/admin/index.html -> token key "ade_admin_token" (session)
-     public/founder.html -> token key "ade_founder_token"
+     public/founder.html -> token key "ade_founder_token" (session)
    Server stays authoritative: this client only transports + humanizes.
-   No secrets are embedded; tokens live in Web Storage per surface.
+   No secrets are embedded; privileged tokens are session-scoped and legacy
+   localStorage values are migrated once then removed.
    ========================================================================== */
 (function (global) {
   "use strict";
@@ -15,11 +16,17 @@
 
   function readToken(key) {
     try {
-      return (
-        global.localStorage.getItem(key) ||
-        global.sessionStorage.getItem(key) ||
-        null
-      );
+      var sessionValue = global.sessionStorage.getItem(key);
+      if (sessionValue) return sessionValue;
+      var legacy = global.localStorage.getItem(key);
+      if (legacy) {
+        try {
+          global.sessionStorage.setItem(key, legacy);
+          global.localStorage.removeItem(key);
+        } catch (e) {}
+        return legacy;
+      }
+      return null;
     } catch (e) {
       return null;
     }
@@ -28,12 +35,11 @@
   function writeToken(key, value) {
     try {
       if (value) {
-        global.localStorage.setItem(key, value);
         global.sessionStorage.setItem(key, value);
       } else {
-        global.localStorage.removeItem(key);
         global.sessionStorage.removeItem(key);
       }
+      global.localStorage.removeItem(key);
     } catch (e) {}
   }
 

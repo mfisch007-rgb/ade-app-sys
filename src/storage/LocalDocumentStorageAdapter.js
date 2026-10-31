@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import DocumentStorageProvider from "./DocumentStorageProvider.js";
+import { atomicWriteFileSync } from "./atomicWrite.js";
 
 export class LocalDocumentStorageAdapter extends DocumentStorageProvider {
   constructor(
@@ -73,33 +74,11 @@ export class LocalDocumentStorageAdapter extends DocumentStorageProvider {
   writeSync(value) {
     if (this._memoryOnly) return value;
     try {
-      const tmp =
-        `${this.filePath}.${process.pid}.${Date.now()}.tmp`;
-
-      fs.writeFileSync(
-        tmp,
+      atomicWriteFileSync(
+        this.filePath,
         JSON.stringify(value, null, 2),
         "utf8"
       );
-
-      try {
-        fs.renameSync(tmp, this.filePath);
-      } catch {
-        try {
-          if (fs.existsSync(this.filePath)) {
-            fs.rmSync(this.filePath, { force: true });
-          }
-          fs.renameSync(tmp, this.filePath);
-        } catch {
-          if (fs.existsSync(tmp)) {
-            try {
-              fs.rmSync(tmp, { force: true });
-            } catch {}
-          }
-          // Durability cannot be achieved — never report silent success.
-          throw new Error("DOCUMENT_STORAGE_WRITE_FAILED");
-        }
-      }
     } catch (error) {
       // tmp write failed OR finalization failed after cleanup.
       const failure = error?.message === "DOCUMENT_STORAGE_WRITE_FAILED"
