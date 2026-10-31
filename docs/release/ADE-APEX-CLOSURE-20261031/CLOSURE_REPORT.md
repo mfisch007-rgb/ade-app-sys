@@ -2,7 +2,7 @@
 
 ## Status
 
-Code, test, validation and community-build gates are green. Production deployment is **not yet performed** because the Vercel CLI has no authenticated session or token in this environment.
+Code, test, validation, community-build, CI and production deployment gates are green. Deployment was performed by the Vercel Git integration after the push to `main`; no manual CLI token was required.
 
 ## Commits
 
@@ -20,8 +20,20 @@ Baseline before this work: `7646da8`.
 | Release verification | `node tests/release-verification.test.js` | **3/3 pass** |
 | Secret scan | `node scripts/secret-scan.mjs` | **CLEAN** |
 | Community build | `node scripts/build-community.mjs` | **success** |
+| GitHub CI | ADE Production CI + Production Verification on `965d4ce` | **success** |
 
 The full suite ran in a disposable temp sandbox and passed its protected-file and git-tree mutation gates. `release-verification.test.js` remains intentionally outside the default runner and was executed explicitly.
+
+- CI: https://github.com/mfisch007-rgb/ade-app-sys/actions/runs/41193258171
+- Production Verification: https://github.com/mfisch007-rgb/ade-app-sys/actions/runs/41193258079
+
+## Production Deployment
+
+- URL: `https://ade-apex-community.vercel.app`
+- Platform: Vercel Git integration (`ade-apex-community`)
+- Verification-time commit: `965d4ce5118954fffdef9c7e3d39ba69ac11182f` (subsequent commits are documentation/artifact only)
+- `GET /api/v1/health`: HTTP 200, `status=OK`, kernel `HEALTHY`, 11 subsystems, no degraded components
+- Live response carries the new CSP, HSTS, anti-framing, MIME-sniffing, referrer and permissions headers
 
 ## Artifact
 
@@ -45,4 +57,4 @@ The full suite ran in a disposable temp sandbox and passed its protected-file an
 - No customer, workforce, audit or credential data was purged, migrated or untracked.
 - The validation command refreshed registration timestamps in `.ade_capability_store.json`; the capability set and semantics are unchanged.
 - No live IQ Option or Pocket Option handshake was attempted; authentication must be confirmed by the provider before any live claim.
-- Vercel production deployment requires an authenticated CLI session (`vercel login`) or a `VERCEL_TOKEN` supplied through the environment. Do not commit tokens.
+- Production secrets remain in Vercel environment variables and were not read, printed, rotated or committed.
