@@ -1,4 +1,4 @@
-import app, { kernel, kernelReady, storageHydration } from "./app.js";
+import app, { kernel, kernelReady, storageHydration, personalBrowser } from "./app.js";
 
 const PORT = process.env.PORT || 3000;
 let isShuttingDown = false;
@@ -7,6 +7,13 @@ async function gracefulShutdown(signal) {
   if (isShuttingDown) return;
   isShuttingDown = true;
   console.log(`[ADE-APEX] ${signal} received. Initiating graceful shutdown...`);
+
+  try {
+    await personalBrowser?.shutdown?.();
+    console.log("[ADE-APEX] Personal Browser shutdown complete.");
+  } catch (err) {
+    console.error("[ADE-APEX] Personal Browser shutdown error:", err.message);
+  }
 
   try {
     if (kernel && typeof kernel.shutdown === "function") {

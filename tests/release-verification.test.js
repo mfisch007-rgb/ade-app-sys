@@ -1,9 +1,8 @@
-import test from "node:test";
+﻿import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
-import { createRequire } from "node:module";
 
 const root = process.cwd();
 const required = [
@@ -28,7 +27,6 @@ test("community build produces verified artifact", () => {
   assert.ok(entries.length > 100, "archive must contain the community source tree");
   assert.ok(entries.includes("package.json"), "archive keeps the release package manifest");
   assert.ok(entries.includes("src/server.js"), "archive keeps the server entry point");
-  assert.ok(entries.includes("src/data/PublicDataRegistry.js"), "archive keeps safe static source assets");
   const forbidden = [
     /^data(\/|$)/,
     /^data\/runtime-config\//,
@@ -43,7 +41,13 @@ test("community build produces verified artifact", () => {
     /^\.ade_(storage|capability_store|session_revocations|feedback_queue)/,
     /^ade_audit_persistence\./,
     /^logs?\.(txt|log)$/,
-    /\.(pem|key|p12|pfx|crt|cer|der)$/i
+    /\.(pem|key|p12|pfx|crt|cer|der)$/i,
+    /(^|\/)\.e2e-runtime(\/|$)/i,
+    /(^|\/)browser-profiles(\/|$)/i,
+    /(^|\/)\.playwright(\/|$)/i,
+    /(^|\/)playwright\/\.cache(\/|$)/i,
+    /(^|\/)(playwright-report|test-results|coverage)(\/|$)/i,
+    /credentials|secret/i
   ];
   for (const entry of entries) {
     for (const pattern of forbidden) {

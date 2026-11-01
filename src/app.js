@@ -66,8 +66,10 @@ import { hybridRateLimit as _hybridRateLimit } from "./middleware/rateLimiter.js
 import { UniversalAIGateway } from "./ai/UniversalAIGateway.js";
 import { WorkforceManager } from "./identity/WorkforceManager.js";
 import { AnnouncementsManager } from "./identity/AnnouncementsManager.js";
+import { PersonalBrowserService } from "./browser/PersonalBrowserService.js";
 import { registerIdentityRoutes } from "./routes/identityRoutes.js";
 import { registerCommercialRoutes } from "./routes/commercialRoutes.js";
+import { registerBrowserRoutes } from "./routes/browserRoutes.js";
 import { CommercialOperations } from "./commercial/CommercialOperations.js";
 import { safeSettingsView, validateSettingsPatch } from "./security/SettingsRedaction.js";
 import { EditionPolicy } from "./core/EditionPolicy.js";
@@ -179,6 +181,7 @@ app.use(httpSecurityHeaders());
 // Capture raw body for HMAC webhook verification (Paystack uses raw bytes);
 // parsed JSON behaviour is unchanged. req.rawBody is server-side only.
 app.use(express.json({
+  limit: "3mb",
   verify: (req, _res, buf) => { try { req.rawBody = buf ? buf.toString("utf8") : ""; } catch { req.rawBody = ""; } }
 }));
 app.use(express.urlencoded({ extended: true }));
@@ -354,6 +357,10 @@ const workforce = new WorkforceManager({
 const announcements = new AnnouncementsManager({
   store: storageProvider,
   eventBus: kernel?.eventBus
+});
+const personalBrowser = new PersonalBrowserService({
+  eventBus: kernel?.eventBus,
+  profileRoot: process.env.ADE_BROWSER_PROFILE_DIR || path.resolve("data/browser-profiles")
 });
 // Live authorization: resolve role/level from the current workforce record
 // for every authenticated request instead of trusting a session snapshot.
@@ -718,6 +725,12 @@ registerCommercialRoutes({
   security,
   commercial: commercialOps,
   requireDurableStorage
+});
+
+registerBrowserRoutes({
+  app,
+  security,
+  browser: personalBrowser
 });
 
 // G17 — durable boot hydration. In durable mode the authoritative document
@@ -5205,5 +5218,5 @@ app.get("*", (req, res) => {
   res.send(`<!DOCTYPE html><html><head><title>ADE-APEX EOS</title></head><body><h1>ADE-APEX ENTERPRISE OS OPERATIONAL</h1></body></html>`);
 });
 
-export { app, kernel, kernelReady, storageProvider, storageHydration, registry, awbuliMessaging, awbuliTransports, accessAdministration, commercialEntitlement };
+export { app, kernel, kernelReady, storageProvider, storageHydration, registry, awbuliMessaging, awbuliTransports, accessAdministration, commercialEntitlement, personalBrowser };
 export default app;

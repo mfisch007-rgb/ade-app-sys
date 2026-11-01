@@ -54,7 +54,7 @@ a:hover{text-decoration:underline}
 .brand img{width:38px;height:38px;object-fit:contain}
 .brandName strong{display:block;font-size:13px;letter-spacing:.14em;color:var(--gold)}
 .brandName span{display:block;font-size:8.5px;color:var(--muted);letter-spacing:.14em;margin-top:2px;text-transform:uppercase}
-.topNav{display:flex;align-items:center;gap:2px;flex:1 1 auto;justify-content:flex-end;flex-wrap:nowrap;overflow-x:auto;-ms-overflow-style:none;scrollbar-width:none;-webkit-overflow-scrolling:touch;scroll-padding-right:16px;padding-right:12px;padding-bottom:2px;mask-image:linear-gradient(to right, black 92%, transparent 100%);-webkit-mask-image:linear-gradient(to right, black 92%, transparent 100%)}
+.topNav{display:flex;align-items:center;gap:2px;flex:1 1 auto;justify-content:flex-start;flex-wrap:nowrap;overflow-x:auto;-ms-overflow-style:none;scrollbar-width:none;-webkit-overflow-scrolling:touch;scroll-padding-right:16px;padding-right:12px;padding-bottom:2px;mask-image:linear-gradient(to right, black 92%, transparent 100%);-webkit-mask-image:linear-gradient(to right, black 92%, transparent 100%)}
 .topNav::-webkit-scrollbar{display:none}
 .topNav button{all:unset;cursor:pointer;min-height:38px;padding:7px 10px;border-radius:10px;color:var(--muted);font-size:12px;font-weight:600;border:1px solid transparent;transition:.16s}
 .topNav button:hover{color:var(--ink);background:rgba(255,255,255,.05)}
@@ -249,7 +249,7 @@ body, .ade-enterprise-theme {
 const {useEffect,useMemo,useState,useCallback,useRef}=React;
 const h=React.createElement;
 
-  const TABS=['AWBULI','OVERVIEW','INBOX','WORKFORCE','PILOTS','COMMERCIAL','PARTNERS','INTEGRATIONS','TRADING','FOREX','BINARY','GAMING','LIVE ENGAGEMENT & TRADING PORTAL','FEATURE CONTROL','PRODUCT THEATER','ANNOUNCEMENTS','AUDIT','EXTERNAL SERVICES'];
+  const TABS=['AWBULI','PERSONAL BROWSER','OVERVIEW','INBOX','WORKFORCE','PILOTS','COMMERCIAL','PARTNERS','INTEGRATIONS','TRADING','FOREX','BINARY','GAMING','LIVE ENGAGEMENT & TRADING PORTAL','FEATURE CONTROL','PRODUCT THEATER','ANNOUNCEMENTS','AUDIT','EXTERNAL SERVICES'];
 const PILOT_STAGES=['PROSPECT','QUALIFIED','ASSESSMENT','BASELINE','PILOT','HUMAN REVIEW','IMPLEMENTATION','RE-MEASUREMENT','EVIDENCE','SUCCESS'];
 const ROLES=['FOUNDER','ADMIN','OPERATOR','ANALYST','PARTNER','VIEWER'];
 const AUTHORITY_ROLES=['VIEWER','ANALYST','OPERATOR','ADMIN','FOUNDER'];const authorityOf=(role)=>AUTHORITY_ROLES.indexOf(String(role||'').toUpperCase());
@@ -290,6 +290,7 @@ const heroShieldBg='url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/200
 // browser session or be read by a later user of the same profile.
 function readSessionOnly(key){try{var s=sessionStorage.getItem(key);if(s)return s;var legacy=localStorage.getItem(key);if(legacy){try{sessionStorage.setItem(key,legacy);localStorage.removeItem(key);}catch(e){}return legacy;}return null;}catch(e){return null;}}
 function writeSessionOnly(key,value){try{if(value==null){sessionStorage.removeItem(key);}else{sessionStorage.setItem(key,value);}localStorage.removeItem(key);}catch(e){}}
+window.ADE_FOUNDER_SESSION_READ=readSessionOnly;
 function App(){
   const [token,_setToken]=useState(()=>readSessionOnly('ade_founder_token')||readSessionOnly('ade_token')||null);
   // Founder elevation is mirrored to the shared ade_token key so the Account
@@ -385,7 +386,8 @@ function App(){
  const [mediaForm,setMediaForm]=useState({type:'VIDEO',title:'',description:'',product:'',language:'en',category:'PROMOTIONAL',truthClassification:'SIMULATED',audience:'PUBLIC'});
 
  const [announcements,setAnnouncements]=useState([]);
- const [annForm,setAnnForm]=useState({title:'',body:'',kind:'ANNOUNCEMENT',link:''});
+ const [annForm,setAnnForm]=useState({title:'',body:'',kind:'ANNOUNCEMENT',link:'',contactNumber:'',image:null,imageAlt:''});
+ const [annImageBusy,setAnnImageBusy]=useState(false);
 
  const [auditEntries,setAuditEntries]=useState([]);
  const [auditFilter,setAuditFilter]=useState('');
@@ -563,7 +565,7 @@ function App(){
 
  useEffect(()=>{if(!token)return;
   const loadTab=async()=>{
-   if(tab==='AWBULI'){return TAB_AWBULI();}
+   if(tab==='AWBULI'||tab==='PERSONAL BROWSER'){return;}
    else if(tab==='INBOX'){
     const r=await api('/api/v1/attention');if(r)setAttention(r.attention||null);
    }else if(tab==='WORKFORCE'){
@@ -764,7 +766,42 @@ function App(){
 
  const doCreateMediaReq=async()=>{try{const r=await api('/api/v1/media/request',{method:'POST',body:JSON.stringify({...mediaForm,campaignObjective:mediaForm.category,targetAudience:mediaForm.audience})});if(r){notify('Media request created');setMediaForm({type:'VIDEO',title:'',description:'',product:'',language:'en',category:'PROMOTIONAL',truthClassification:'SIMULATED',audience:'PUBLIC'});const m=await api('/api/v1/media/requests');if(m)setMediaRequests(m.requests||[])}}catch(e){notify(e.message)}};
 
- const doCreateAnnouncement=async()=>{try{const r=await api('/api/v1/announcements',{method:'POST',body:JSON.stringify(annForm)});if(r){notify('Announcement published');setAnnForm({title:'',body:'',kind:'ANNOUNCEMENT',link:''});const a=await api('/api/v1/announcements/admin');if(a)setAnnouncements(a.announcements||[])}}catch(e){notify(e.message)}};
+ const prepareAnnouncementImage=(file,alt)=>new Promise((resolve,reject)=>{
+  if(!file)return resolve(null);
+  if(!/^image\/(png|jpeg|webp)$/.test(String(file.type||'')))return reject(new Error('Choose a PNG, JPEG or WebP image.'));
+  if(file.size>12*1024*1024)return reject(new Error('Choose an image smaller than 12 MB.'));
+  const reader=new FileReader();
+  reader.onerror=()=>reject(new Error('The image could not be read.'));
+  reader.onload=()=>{
+   const img=new Image();
+   img.onerror=()=>reject(new Error('The image could not be decoded.'));
+   img.onload=()=>{
+    try{
+     const max=1280;const scale=Math.min(1,max/Math.max(img.width||1,img.height||1));
+     const canvas=document.createElement('canvas');canvas.width=Math.max(1,Math.round((img.width||1)*scale));canvas.height=Math.max(1,Math.round((img.height||1)*scale));
+     const ctx=canvas.getContext('2d');if(!ctx)return reject(new Error('Image compression is unavailable on this device.'));
+     ctx.drawImage(img,0,0,canvas.width,canvas.height);
+     let dataUrl=canvas.toDataURL('image/webp',0.82);
+     if(!dataUrl.startsWith('data:image/webp'))dataUrl=canvas.toDataURL('image/jpeg',0.82);
+     if(Math.ceil(dataUrl.length*3/4)>1400000)return reject(new Error('The compressed image is still too large. Choose a smaller image.'));
+     resolve({dataUrl,alt:String(alt||'').trim().slice(0,200)});
+    }catch(e){reject(new Error('The image could not be prepared.'))}
+   };
+   img.src=String(reader.result||'');
+  };
+  reader.readAsDataURL(file);
+ });
+ const pickAnnouncementImage=async(file)=>{if(!file)return;setAnnImageBusy(true);try{const image=await prepareAnnouncementImage(file,annForm.imageAlt);setAnnForm(f=>({...f,image}));notify('Image attached - it will be compressed for publishing')}catch(e){notify(e.message)}finally{setAnnImageBusy(false)}};
+ const announcementErrorText=(message)=>({
+  ANNOUNCEMENT_IMAGE_INVALID:'The image is invalid. Use a PNG, JPEG or WebP file.',
+  ANNOUNCEMENT_IMAGE_TOO_LARGE:'The image is too large. Choose one under 1.5 MB after compression.',
+  ANNOUNCEMENT_CONTACT_INVALID:'Enter a valid WhatsApp number with 7-15 digits.',
+  ANNOUNCEMENT_LINK_INVALID:'The link must be an absolute http(s) URL.'
+ }[message]||message);
+ const reloadAnnouncements=async()=>{const a=await api('/api/v1/announcements/admin');if(a)setAnnouncements(a.announcements||[])};
+ const doCreateAnnouncement=async()=>{try{const payload={...annForm,image:annForm.image?{...annForm.image,alt:annForm.imageAlt}:null};const r=await api('/api/v1/announcements',{method:'POST',body:JSON.stringify(payload)});if(r){notify(r.announcement&&r.announcement.status==='PUBLIC'?'Announcement published':'Draft saved');setAnnForm({title:'',body:'',kind:'ANNOUNCEMENT',link:'',contactNumber:'',image:null,imageAlt:''});await reloadAnnouncements()}}catch(e){notify(announcementErrorText(e.message))}};
+ const doToggleAnnouncement=async(a)=>{try{await api('/api/v1/announcements/'+a.id,{method:'PATCH',body:JSON.stringify({active:a.status!=='PUBLIC'})});await reloadAnnouncements();notify(a.status==='PUBLIC'?'Announcement moved to draft':'Announcement published')}catch(e){notify(e.message)}};
+ const doDeleteAnnouncement=async(a)=>{if(!window.confirm('Delete "'+a.title+'" permanently?'))return;try{await api('/api/v1/announcements/'+a.id,{method:'DELETE'});await reloadAnnouncements();notify('Announcement deleted')}catch(e){notify(e.message)}};
 
     // Server-truth roles. serverAuth comes ONLY from GET /api/v1/account/session.
     // A generic ADMIN (recovery-PIN) session NEVER satisfies isFounder.
@@ -821,8 +858,8 @@ function App(){
     h('h2',{style:{margin:'14px 0 6px'}},(isFounder?'FOUNDER STEP-UP':'AUTHORIZATION STEP-UP')),
     h('p',null,'Identity verified as @'+((serverAuth.person&&serverAuth.person.username)||'—')+' ('+(_accessRole||'—')+'). Enter the six-digit authorization PIN belonging to this identity.'),
     h('form',{name:'founderStepUp',autoComplete:'off',onSubmit:e=>{e.preventDefault();if(loginBusy)return;const pin=e.target.elements['founder-stepup-pin'].value;if(pin)founderPin(pin);try{e.target.reset()}catch{}}},
-     h('div',{className:'passWrap'},h('input',{className:'authInput',id:'founder-stepup-pin',name:'founder-stepup-pin',type:showPw.stepPin?'text':'password',inputMode:'numeric',autoComplete:'one-time-code',placeholder:'••••••',maxLength:6,disabled:loginBusy}),eyeToggle('stepPin')),
-     h('div',{className:'authActions'},h('button',{className:'btn primary',type:'submit',style:{width:'100%'},disabled:loginBusy},loginBusy?'VERIFYING…':'VERIFY PIN & ELEVATE')),
+     h('div',{className:'passWrap'},h('input',{className:'authInput',id:'founder-stepup-pin',name:'founder-stepup-pin','data-testid':'founder-stepup-pin',type:showPw.stepPin?'text':'password',inputMode:'numeric',autoComplete:'one-time-code',placeholder:'••••••',maxLength:6,disabled:loginBusy}),eyeToggle('stepPin')),
+     h('div',{className:'authActions'},h('button',{className:'btn primary','data-testid':'founder-elevate',type:'submit',style:{width:'100%'},disabled:loginBusy},loginBusy?'VERIFYING…':'VERIFY PIN & ELEVATE')),
      loginBusy&&h('div',{className:'authLoading'},h('span',{className:'spinner'}),'Verifying PIN against your workforce record…'),
      loginMsg&&h('div',{className:'authStatus '+(loginMsg.type==='ok'?'ok':'err')},loginMsg.text)
     ),
@@ -867,8 +904,8 @@ function App(){
      )
     :h('div',null,
       h('p',null,'Step 1 — sign in with your workforce username and password. Step 2 verifies your six-digit Founder PIN.'),
-      h('div',{className:'acctForm',style:{textAlign:'left'}},h('label',{className:'fieldLabel'},'USERNAME'),h('input',{className:'authInput',style:{letterSpacing:'normal',textAlign:'left',fontSize:15},value:loginUser,onChange:e=>setLoginUser(e.target.value),autoComplete:'username',disabled:loginBusy}),h('label',{className:'fieldLabel'},'PASSWORD'),h('div',{className:'passWrap'},h('input',{className:'authInput',style:{letterSpacing:'normal',textAlign:'left',fontSize:15,paddingRight:56},type:showPw.loginPw?'text':'password',value:loginPass,onChange:e=>setLoginPass(e.target.value),autoComplete:'current-password',disabled:loginBusy}),eyeToggle('loginPw'))),
-      h('div',{className:'authActions',style:{marginTop:10}},h('button',{className:'btn primary',style:{width:'100%'},disabled:loginBusy,onClick:workforceLogin},loginBusy?'VERIFYING…':'SIGN IN')),
+      h('div',{className:'acctForm',style:{textAlign:'left'}},h('label',{className:'fieldLabel'},'USERNAME'),h('input',{className:'authInput',id:'founder-username',name:'founder-username','data-testid':'founder-username',style:{letterSpacing:'normal',textAlign:'left',fontSize:15},value:loginUser,onChange:e=>setLoginUser(e.target.value),autoComplete:'username',disabled:loginBusy}),h('label',{className:'fieldLabel'},'PASSWORD'),h('div',{className:'passWrap'},h('input',{className:'authInput',id:'founder-password',name:'founder-password','data-testid':'founder-password',style:{letterSpacing:'normal',textAlign:'left',fontSize:15,paddingRight:56},type:showPw.loginPw?'text':'password',value:loginPass,onChange:e=>setLoginPass(e.target.value),autoComplete:'current-password',disabled:loginBusy}),eyeToggle('loginPw'))),
+      h('div',{className:'authActions',style:{marginTop:10}},h('button',{className:'btn primary','data-testid':'founder-signin',style:{width:'100%'},disabled:loginBusy,onClick:workforceLogin},loginBusy?'VERIFYING…':'SIGN IN')),
       loginBusy&&h('div',{className:'authLoading'},h('span',{className:'spinner'}),'Verifying identity against the ADE security boundary…'),
       loginMsg&&h('div',{className:'authStatus '+(loginMsg.type==='ok'?'ok':'err')},loginMsg.text),
       h('div',{className:'authActions',style:{marginTop:10}},h('button',{className:'btn ghost',onClick:()=>{setAdminPinMode(true);setLoginMsg(null)}},'Use administrator recovery PIN instead'))
@@ -1442,34 +1479,64 @@ const promoteBtn=(function(){const i=AUTHORITY_ROLES.indexOf(p.role);const next=
  );
 
  /* ── ANNOUNCEMENTS ── */
- const TAB_ANNOUNCEMENTS=()=>h('div',{className:'stack'},
+ const TAB_ANNOUNCEMENTS=()=>{
+  const publicCount=announcements.filter(a=>(a.status||(a.active?'PUBLIC':'DRAFT'))==='PUBLIC').length;
+  return h('div',{className:'stack'},
   h('div',{className:'card'},h('div',{className:'panelTitle'},h('h3',null,'PUBLISH ANNOUNCEMENT'),h('span',null,'CREATE')),
    h('div',{className:'cardBody'},
     h('div',{className:'formGrid'},
      h('div',{className:'formRow'},
-      h('div',{style:{flex:'1 1 200px'}},h('label',{className:'fieldLabel'},'TITLE'),h('input',{className:'formInput',value:annForm.title,onChange:e=>setAnnForm({...annForm,title:e.target.value}),placeholder:'Announcement title'})),
+      h('div',{style:{flex:'1 1 200px'}},h('label',{className:'fieldLabel'},'TITLE'),h('input',{className:'formInput','data-testid':'announcement-title',value:annForm.title,onChange:e=>setAnnForm({...annForm,title:e.target.value}),placeholder:'Announcement title'})),
       h('div',{style:{flex:'0 0 160px'}},h('label',{className:'fieldLabel'},'KIND'),h('select',{className:'formInput',value:annForm.kind,onChange:e=>setAnnForm({...annForm,kind:e.target.value})},ANN_KINDS.map(k=>h('option',{key:k,value:k},k))))
      ),
-     h('div',null,h('label',{className:'fieldLabel'},'BODY'),h('textarea',{className:'formInput',value:annForm.body,onChange:e=>setAnnForm({...annForm,body:e.target.value}),placeholder:'Announcement body'})),
-     h('div',null,h('label',{className:'fieldLabel'},'LINK (OPTIONAL)'),h('input',{className:'formInput',value:annForm.link,onChange:e=>setAnnForm({...annForm,link:e.target.value}),placeholder:'https://...'})),
-     h('button',{className:'btn primary',onClick:doCreateAnnouncement},'PUBLISH')
+     h('div',null,h('label',{className:'fieldLabel'},'BODY'),h('textarea',{className:'formInput','data-testid':'announcement-body',value:annForm.body,onChange:e=>setAnnForm({...annForm,body:e.target.value}),placeholder:'Announcement body'})),
+     h('div',{className:'formRow'},
+      h('div',{style:{flex:'1 1 240px'}},h('label',{className:'fieldLabel'},'LINK (OPTIONAL)'),h('input',{className:'formInput','data-testid':'announcement-link',value:annForm.link,onChange:e=>setAnnForm({...annForm,link:e.target.value}),placeholder:'https://...'})),
+      h('div',{style:{flex:'1 1 220px'}},h('label',{className:'fieldLabel'},'WHATSAPP CONTACT (OPTIONAL)'),h('input',{className:'formInput','data-testid':'announcement-contact',value:annForm.contactNumber,onChange:e=>setAnnForm({...annForm,contactNumber:e.target.value}),placeholder:'+234...',inputMode:'tel'}))
+     ),
+     h('div',null,
+      h('label',{className:'fieldLabel'},'IMAGE (OPTIONAL - PNG, JPEG OR WEBP)'),
+      h('input',{className:'formInput',key:annForm.image?'image-attached':'image-empty','data-testid':'announcement-image',type:'file',accept:'image/png,image/jpeg,image/webp',disabled:annImageBusy,onChange:e=>{const f=e.target.files&&e.target.files[0];if(f)pickAnnouncementImage(f)}}),
+      annImageBusy?h('div',{className:'formHint'},'Compressing image...'):null,
+      annForm.image?h('div',{style:{display:'flex',gap:10,alignItems:'flex-end',flexWrap:'wrap',marginTop:8}},
+       h('img',{src:annForm.image.dataUrl,alt:annForm.imageAlt||'Announcement preview',style:{maxWidth:'240px',maxHeight:'140px',borderRadius:'10px',border:'1px solid var(--line)'}}),
+       h('div',{style:{flex:'1 1 220px'}},h('label',{className:'fieldLabel'},'IMAGE DESCRIPTION (ALT TEXT)'),h('input',{className:'formInput',value:annForm.imageAlt,onChange:e=>setAnnForm({...annForm,imageAlt:e.target.value}),placeholder:'Describe the image',maxLength:200})),
+       h('button',{className:'btn sm danger',type:'button',onClick:()=>setAnnForm({...annForm,image:null,imageAlt:''})},'REMOVE IMAGE')
+      ):null
+     ),
+     h('div',{className:'formHint'},'Contact numbers entered here are published as FOUNDER-ENTERED and UNVERIFIED. ADE does not claim the number has been checked by WhatsApp.'),
+     h('div',null,h('button',{className:'btn primary','data-testid':'announcement-publish',onClick:doCreateAnnouncement,disabled:annImageBusy},annImageBusy?'PREPARING IMAGE...':'PUBLISH'))
     )
    )
   ),
-  h('div',{className:'card'},h('div',{className:'panelTitle'},h('h3',null,'ANNOUNCEMENTS'),h('span',null,(announcements.length)+' PUBLISHED')),
+  h('div',{className:'card'},h('div',{className:'panelTitle'},h('h3',null,'ANNOUNCEMENTS'),h('span',null,publicCount+' PUBLIC / '+announcements.length+' TOTAL')),
    h('div',{className:'cardBody'},
-    announcements.length?h('div',{style:{display:'grid',gap:10}},announcements.map(a=>h('div',{key:a.id,style:{padding:'14px 16px',border:'1px solid var(--line)',borderRadius:'var(--radius)',background:'var(--surface2)'}},
-     h('div',{style:{display:'flex',alignItems:'center',gap:8,marginBottom:6}},
-      B(a.kind||'NEWS',a.kind==='ANNOUNCEMENT'?'gold':a.kind==='BULLETIN'?'warn':a.kind==='ADVERT'?'bad':'blue'),
-      h('span',{style:{fontSize:10,color:'var(--faint)'}},fmtDate(a.createdAt))
-     ),
-     h('div',{style:{fontSize:14,fontWeight:700,color:'var(--ink)',marginBottom:4}},a.title),
-     a.body?h('div',{style:{fontSize:12,color:'var(--muted)',lineHeight:1.5}},a.body):null,
-     a.link?h('a',{href:a.link,target:'_blank',rel:'noopener',style:{fontSize:11,marginTop:4,display:'inline-block'}},a.link):null
-    ))):h(EmptyState,{title:'No announcements published yet',desc:'Announcements broadcast news, bulletins or adverts to the ecosystem. None are published because none have been created.',hint:'WHAT: Published announcements · WHY EMPTY: none created · WHAT TO DO: Publish your first announcement above',actionLabel:'Publish your first announcement above',actionFn:()=>window.scrollTo({top:0,behavior:"smooth"}),iconSize:32})
+    announcements.length?h('div',{style:{display:'grid',gap:10}},announcements.map(a=>{
+     const status=a.status||(a.active?'PUBLIC':'DRAFT');
+     const imageOk=a.image&&/^data:image\/(png|jpeg|webp);base64,/.test(String(a.image.dataUrl||''));
+     const linkOk=/^https?:\/\//i.test(String(a.link||''));
+     const contactDigits=String(a.contactNumber||'').replace(/\D/g,'');
+     return h('div',{key:a.id,'data-testid':'announcement-card',style:{padding:'14px 16px',border:'1px solid var(--line)',borderRadius:'var(--radius)',background:'var(--surface2)'}},
+      h('div',{style:{display:'flex',alignItems:'center',gap:8,marginBottom:6,flexWrap:'wrap'}},
+       B(a.kind||'NEWS',a.kind==='ANNOUNCEMENT'?'gold':a.kind==='BULLETIN'?'warn':a.kind==='ADVERT'?'bad':'blue'),
+       B(status,status==='PUBLIC'?'good':status==='EXPIRED'?'warn':'muted'),
+       h('span',{style:{fontSize:10,color:'var(--faint)'}},fmtDate(a.publishedAt||a.createdAt))
+      ),
+      h('div',{style:{fontSize:14,fontWeight:700,color:'var(--ink)',marginBottom:4}},a.title),
+      a.body?h('div',{style:{fontSize:12,color:'var(--muted)',lineHeight:1.5,whiteSpace:'pre-wrap'}},a.body):null,
+      imageOk?h('img',{src:a.image.dataUrl,alt:a.image.alt||a.title,style:{maxWidth:'100%',maxHeight:'240px',objectFit:'contain',borderRadius:'10px',marginTop:8,display:'block'}}):null,
+      linkOk?h('a',{href:a.link,target:'_blank',rel:'noopener noreferrer',style:{fontSize:11,marginTop:6,display:'inline-block'}},a.link):null,
+      a.contactNumber?h('div',{style:{fontSize:11,marginTop:6,color:'var(--muted)'}},'WHATSAPP (FOUNDER-ENTERED, UNVERIFIED): ',h('a',{href:'https://wa.me/'+contactDigits,target:'_blank',rel:'noopener noreferrer',style:{color:'var(--gold)'}},a.contactNumber)):null,
+      h('div',{style:{display:'flex',gap:8,marginTop:10,flexWrap:'wrap'}},
+       h('button',{className:'btn sm','data-testid':'announcement-toggle',onClick:()=>doToggleAnnouncement(a)},status==='PUBLIC'?'MOVE TO DRAFT':'PUBLISH'),
+       h('button',{className:'btn sm danger',onClick:()=>doDeleteAnnouncement(a)},'DELETE')
+      )
+     );
+    })):h(EmptyState,{title:'No announcements published yet',desc:'Announcements broadcast news, bulletins or adverts to the ecosystem. None are published because none have been created.',hint:'WHAT: Published announcements A� WHY EMPTY: none created A� WHAT TO DO: Publish your first announcement above',actionLabel:'Publish your first announcement above',actionFn:()=>window.scrollTo({top:0,behavior:"smooth"}),iconSize:32})
    )
   )
  );
+ };
 
  /* ── AUDIT ── */
  const TAB_AUDIT=()=>h('div',{className:'stack'},
@@ -1695,7 +1762,9 @@ const promoteBtn=(function(){const i=AUTHORITY_ROLES.indexOf(p.role);const next=
        ))):null
      );
     };
-    const tabContent={AWBULI:TAB_AWBULI, OVERVIEW:TAB_OVERVIEW,INBOX:TAB_INBOX,WORKFORCE:TAB_WORKFORCE,PILOTS:TAB_PILOTS,COMMERCIAL:TAB_COMMERCIAL,PARTNERS:TAB_PARTNERS,INTEGRATIONS:TAB_INTEGRATIONS,TRADING:TAB_TRADING,FOREX:TAB_FOREX,BINARY:TAB_BINARY,GAMING:TAB_GAMING,'LIVE ENGAGEMENT & TRADING PORTAL':TAB_LIVE,'FEATURE CONTROL':TAB_FEATURES,'PRODUCT THEATER':TAB_THEATER,ANNOUNCEMENTS:TAB_ANNOUNCEMENTS,AUDIT:TAB_AUDIT,'EXTERNAL SERVICES':TAB_EXTERNAL_SERVICES};
+    const TAB_AWBULI_VIEW=()=>typeof window.TAB_AWBULI==='function'?h(window.TAB_AWBULI):h('div',{className:'card'},h('div',{className:'cardBody'},h('p',{className:'formHint'},'The AWBULI panel did not load. Refresh the page to retry.')));
+    const TAB_PERSONAL_BROWSER_VIEW=()=>typeof window.TAB_PERSONAL_BROWSER==='function'?h(window.TAB_PERSONAL_BROWSER):h('div',{className:'card'},h('div',{className:'cardBody'},h('p',{className:'formHint'},'The Personal Browser panel did not load. Refresh the page to retry.')));
+    const tabContent={AWBULI:TAB_AWBULI_VIEW,'PERSONAL BROWSER':TAB_PERSONAL_BROWSER_VIEW, OVERVIEW:TAB_OVERVIEW,INBOX:TAB_INBOX,WORKFORCE:TAB_WORKFORCE,PILOTS:TAB_PILOTS,COMMERCIAL:TAB_COMMERCIAL,PARTNERS:TAB_PARTNERS,INTEGRATIONS:TAB_INTEGRATIONS,TRADING:TAB_TRADING,FOREX:TAB_FOREX,BINARY:TAB_BINARY,GAMING:TAB_GAMING,'LIVE ENGAGEMENT & TRADING PORTAL':TAB_LIVE,'FEATURE CONTROL':TAB_FEATURES,'PRODUCT THEATER':TAB_THEATER,ANNOUNCEMENTS:TAB_ANNOUNCEMENTS,AUDIT:TAB_AUDIT,'EXTERNAL SERVICES':TAB_EXTERNAL_SERVICES};
 
  return h('div',{className:'app'},
   h('header',{className:'top'},
@@ -1745,34 +1814,43 @@ const promoteBtn=(function(){const i=AUTHORITY_ROLES.indexOf(p.role);const next=
   toast&&h('div',{className:'toast'+(toast.indexOf('✓')===0?' ok':toast.indexOf('✕')===0?' err':'')},toast)
  );
 }
-ReactDOM.createRoot(document.getElementById('root')).render(h(App));
+const mountFounder=()=>ReactDOM.createRoot(document.getElementById('root')).render(h(App));
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',mountFounder,{once:true});else mountFounder();
 })();
 </script><script src="/js/channels.js"></script>
 <!-- AWBULI FOUNDER INTEGRATION TAB -->
 <script>
 const TAB_AWBULI= () => {
     const h=React.createElement;
-    const [status,setStatus]=React.useState(null);
-    const [summary,setSummary]=React.useState(null);
-    const [inventory,setInventory]=React.useState(null);
-    const [alerts,setAlerts]=React.useState(null);
-    const [access,setAccess]=React.useState('CHECKING');
-    const [command,setCommand]=React.useState('sold 5 bags rice for 25k');
-    const [parsed,setParsed]=React.useState(null);
-    const [parseMsg,setParseMsg]=React.useState('');
-    const tokenOf=()=>readSessionOnly('ade_founder_token')||readSessionOnly('ade_token')||'';
+    const {useEffect,useState}=React;
+    const [status,setStatus]=useState(null);
+    const [summary,setSummary]=useState(null);
+    const [inventory,setInventory]=useState(null);
+    const [alerts,setAlerts]=useState(null);
+    const [entry,setEntry]=useState(null);
+    const [entryNumber,setEntryNumber]=useState('');
+    const [entryClick,setEntryClick]=useState('');
+    const [entryMsg,setEntryMsg]=useState('');
+    const [entryBusy,setEntryBusy]=useState(false);
+    const [access,setAccess]=useState('CHECKING');
+    const [command,setCommand]=useState('sold 5 bags rice for 25k');
+    const [parsed,setParsed]=useState(null);
+    const [parseMsg,setParseMsg]=useState('');
+    const read=window.ADE_FOUNDER_SESSION_READ||(()=>null);
+    const tokenOf=()=>read('ade_founder_token')||read('ade_token')||'';
     const load=()=>{
         const t=tokenOf();
         fetch('/api/v1/integrations/awbuli/status').then(r=>r.json()).then(j=>{if(j&&j.success)setStatus(j)}).catch(()=>{});
         if(!t){setAccess('NO_SESSION');return;}
         const headers={Authorization:'Bearer '+t};
         const get=url=>fetch(url,{headers}).then(r=>r.ok?r.json():null).catch(()=>null);
-        Promise.all([get('/api/v1/awbuli/summary'),get('/api/v1/awbuli/inventory'),get('/api/v1/awbuli/alerts')]).then(([s,i,a])=>{
+        Promise.all([get('/api/v1/awbuli/summary'),get('/api/v1/awbuli/inventory'),get('/api/v1/awbuli/alerts'),get('/api/v1/admin/awbuli/public-entry')]).then(([s,i,a,e])=>{
             if(s&&s.success){setSummary(s.summary);setInventory(i&&i.success?i.inventory:null);setAlerts(a&&a.success?a.alerts:null);setAccess('READY');}
             else setAccess('NOT_ELEVATED');
+            if(e&&e.success&&e.entry){setEntry(e.entry);setEntryNumber(e.entry.number||'');setEntryClick(e.entry.clickToChatDestination||'')}
         }).catch(()=>setAccess('ERROR'));
     };
-    React.useEffect(()=>{let on=true;const run=()=>{if(on)load()};run();return()=>{on=false}},[]);
+    useEffect(()=>{let on=true;const run=()=>{if(on)load()};run();return()=>{on=false}},[]);
     const interpret=async()=>{
         setParseMsg('');
         try{
@@ -1782,57 +1860,222 @@ const TAB_AWBULI= () => {
             else setParseMsg((j&&j.message)||'Command could not be parsed.');
         }catch(e){setParseMsg('Command could not be parsed.');}
     };
-    const money=n=>typeof n==='number'?('₦'+n.toLocaleString()):'—';
-    const card=(title,body)=>h('div',{className:'p-4 bg-slate-800 rounded-xl border border-slate-700'},h('h3',{className:'font-semibold text-cyan-400 mb-2'},title),body);
+    const savePublicEntry=async()=>{
+        setEntryBusy(true);setEntryMsg('');
+        try{
+            const r=await fetch('/api/v1/admin/awbuli/public-entry',{method:'POST',headers:{Authorization:'Bearer '+tokenOf(),'Content-Type':'application/json'},body:JSON.stringify({number:entryNumber,clickToChatDestination:entryClick||entryNumber})});
+            const j=await r.json();
+            if(!r.ok)throw new Error(j.message||j.error||'The public number could not be saved.');
+            setEntry(j.entry||null);setEntryNumber((j.entry&&j.entry.number)||entryNumber);setEntryClick((j.entry&&j.entry.clickToChatDestination)||entryClick);
+            setEntryMsg('Saved. Public click-to-chat is published; provider delivery remains unverified until WhatsApp configuration is completed.');
+            load();
+        }catch(e){setEntryMsg(e.message)}
+        finally{setEntryBusy(false)}
+    };
+    const money=n=>typeof n==='number'?('NGN '+n.toLocaleString()):'-';
+    const card=(title,body)=>h('div',{className:'card'},h('div',{className:'panelTitle'},h('h3',null,title)),h('div',{className:'cardBody'},body));
     const op=status&&status.operations;
     const provider=status&&status.connector;
     const items=(inventory&&inventory.items)||[];
     const alertRows=(alerts&&alerts.alerts)||[];
-    return h('div',{className:'p-6 bg-slate-900 text-white rounded-2xl shadow-xl','data-testid':'awbuli-founder-tab'},
-        h('h2',{className:'text-2xl font-bold text-amber-400 mb-2'},'AWBULI Business Ledger'),
-        h('p',{className:'text-slate-300 mb-4'},'Server-reported command grammar, ledger totals, inventory and review alerts. WhatsApp transport remains provider-gated; this surface is read-only and never presents a live connection it cannot verify.'),
-        h('div',{className:'grid grid-cols-1 md:grid-cols-3 gap-4'},
-            card('Transport',h('div',null,
-                h('p',{className:'text-sm text-slate-300'},'Provider: '+String((provider&&provider.mode)||'UNKNOWN')),
-                h('p',{className:'text-sm text-slate-400'},'Configured: '+String(!!(provider&&provider.configured))),
-                h('p',{className:'text-sm text-slate-400'},'Inbound webhook: '+String(!!(status&&status.inboundWebhook))),
-                h('p',{className:'text-sm text-slate-400'},'Live transport: '+String(!!(op&&op.live)))
+    return h('div',{className:'stack','data-testid':'awbuli-founder-tab'},
+        h('div',{className:'heroCard',style:{padding:'18px 20px'}},
+            h('h2',{style:{margin:'0 0 6px',color:'var(--gold)'}},'AWBULI Business Ledger'),
+            h('p',{className:'formHint',style:{margin:0}},'Server-reported command grammar, ledger totals, inventory and review alerts. WhatsApp transport remains provider-gated. This surface never presents a live connection it cannot verify.')
+        ),
+        card('PUBLIC WHATSAPP ENTRY',h('div',null,
+            h('div',{className:'formRow'},
+                h('div',{style:{flex:'1 1 220px'}},h('label',{className:'fieldLabel'},'PUBLIC BUSINESS NUMBER'),h('input',{className:'formInput','data-testid':'awbuli-public-number',value:entryNumber,onChange:e=>setEntryNumber(e.target.value),placeholder:'+234...',inputMode:'tel'})),
+                h('div',{style:{flex:'1 1 220px'}},h('label',{className:'fieldLabel'},'CLICK-TO-CHAT DESTINATION (OPTIONAL)'),h('input',{className:'formInput',value:entryClick,onChange:e=>setEntryClick(e.target.value),placeholder:'Defaults to the public number',inputMode:'tel'}))
+            ),
+            h('div',{style:{display:'flex',gap:8,flexWrap:'wrap',marginTop:10,alignItems:'center'}},
+                h('button',{className:'btn primary','data-testid':'awbuli-public-save',onClick:savePublicEntry,disabled:entryBusy},entryBusy?'SAVING...':'PUBLISH PUBLIC ENTRY'),
+                h('span',{className:'pill'},'STATE: '+String((entry&&entry.approvalState)||'NOT_PUBLISHED')),
+                h('span',{className:'pill'},'DELIVERY: '+(entry&&entry.live?'LIVE':'NOT VERIFIED'))
+            ),
+            entry&&entry.clickToChatUrl?h('p',{className:'formHint',style:{marginTop:8}},'Public CTA: ',h('a',{href:entry.clickToChatUrl,target:'_blank',rel:'noopener noreferrer'},entry.clickToChatUrl),' - trigger words START / STAR.'):h('p',{className:'formHint'},'No public WhatsApp number is published yet.'),
+            entryMsg?h('div',{className:'authStatus '+(entryMsg.indexOf('Saved.')===0?'ok':'err'),style:{marginTop:8}},entryMsg):null
+        )),
+        h('div',{style:{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(220px,1fr))',gap:12}},
+            card('TRANSPORT',h('div',{className:'formHint'},
+                h('p',null,'Provider: '+String((provider&&provider.mode)||'UNKNOWN')),
+                h('p',null,'Configured: '+String(!!(provider&&provider.configured))),
+                h('p',null,'Inbound webhook: '+String(!!(status&&status.inboundWebhook))),
+                h('p',null,'Live transport: '+String(!!(op&&op.live)))
             )),
-            card('Grammar & Ledger',h('div',null,
-                h('p',{className:'text-sm text-slate-300'},'Grammar: '+String((status&&status.commandGrammarVersion)||'—')),
-                h('p',{className:'text-sm text-slate-400'},'Ledger: '+String((op&&op.version)||'—')),
-                h('p',{className:'text-sm text-slate-400'},'Storage: '+String((op&&op.storage)||'—')),
-                h('p',{className:'text-sm text-slate-400'},'Timezone: '+String((op&&op.timezone)||'—'))
+            card('GRAMMAR & LEDGER',h('div',{className:'formHint'},
+                h('p',null,'Grammar: '+String((status&&status.commandGrammarVersion)||'-')),
+                h('p',null,'Ledger: '+String((op&&op.version)||'-')),
+                h('p',null,'Storage: '+String((op&&op.storage)||'-')),
+                h('p',null,'Timezone: '+String((op&&op.timezone)||'-'))
             )),
-            card('Evidence',h('div',null,
-                h('p',{className:'text-sm text-slate-300'},'Z-Maths: '+String((op&&op.provenance&&op.provenance.zMaths)||'UNKNOWN')),
-                h('p',{className:'text-sm text-slate-400'},'Smart Logic: '+String((op&&op.provenance&&op.provenance.smartLogic)||'UNKNOWN')),
-                h('p',{className:'text-sm text-slate-400'},'Profit: '+String((op&&op.provenance&&op.provenance.profitFormula)||'—'))
+            card('EVIDENCE',h('div',{className:'formHint'},
+                h('p',null,'Z-Maths: '+String((op&&op.provenance&&op.provenance.zMaths)||'UNKNOWN')),
+                h('p',null,'Smart Logic: '+String((op&&op.provenance&&op.provenance.smartLogic)||'UNKNOWN')),
+                h('p',null,'Profit: '+String((op&&op.provenance&&op.provenance.profitFormula)||'-'))
             ))
         ),
-        h('div',{className:'grid grid-cols-1 md:grid-cols-2 gap-4 mt-4'},
-            card('Today',summary?h('div',null,
-                h('p',{className:'text-sm text-slate-300'},'Sales '+money(summary.totals&&summary.totals.sales)+' · Expenses '+money(summary.totals&&summary.totals.expenses)),
-                h('p',{className:'text-sm text-slate-300'},'Net '+money(summary.netProfit)+' · Margin '+String(summary.marginPct==null?'—':summary.marginPct+'%')),
-                h('p',{className:'text-sm text-slate-400'},'Credit given '+money(summary.totals&&summary.totals.creditGiven)+' · Payments '+money(summary.totals&&summary.totals.paymentsReceived)),
-                h('p',{className:'text-sm text-slate-400'},'Health '+String(summary.healthGrade||'—')+' · Receivables '+money(summary.receivables))
-            ):h('p',{className:'text-sm text-slate-400'},access==='NO_SESSION'?'Sign in to load tenant totals.':access==='NOT_ELEVATED'?'Authorization PIN step-up is required to load tenant totals.':access==='ERROR'?'Ledger totals could not be loaded.':'Loading…')),
-            card('Inventory ('+items.length+')',items.length?h('div',null,items.slice(0,8).map(it=>h('p',{key:it.item,className:'text-sm text-slate-300'},String(it.item)+': '+String(it.quantity)+' '+String(it.unit||'')+' · '+money(it.value))),items.length>8?h('p',{className:'text-xs text-slate-500'},'+'+(items.length-8)+' more'):null):h('p',{className:'text-sm text-slate-400'},'No tracked stock yet.'))
+        h('div',{style:{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(280px,1fr))',gap:12}},
+            card('TODAY',summary?h('div',{className:'formHint'},
+                h('p',null,'Sales '+money(summary.totals&&summary.totals.sales)+' | Expenses '+money(summary.totals&&summary.totals.expenses)),
+                h('p',null,'Net '+money(summary.netProfit)+' | Margin '+String(summary.marginPct==null?'-':summary.marginPct+'%')),
+                h('p',null,'Credit given '+money(summary.totals&&summary.totals.creditGiven)+' | Payments '+money(summary.totals&&summary.totals.paymentsReceived)),
+                h('p',null,'Health '+String(summary.healthGrade||'-')+' | Receivables '+money(summary.receivables))
+            ):h('p',{className:'formHint'},access==='NO_SESSION'?'Sign in to load tenant totals.':access==='NOT_ELEVATED'?'Authorization PIN step-up is required to load tenant totals.':access==='ERROR'?'Ledger totals could not be loaded.':'Loading...')),
+            card('INVENTORY ('+items.length+')',items.length?h('div',{className:'formHint'},items.slice(0,8).map(it=>h('p',{key:it.item},String(it.item)+': '+String(it.quantity)+' '+String(it.unit||'')+' | '+money(it.value))),items.length>8?h('p',null,'+'+(items.length-8)+' more'):null):h('p',{className:'formHint'},'No tracked stock yet.'))
         ),
-        h('div',{className:'grid grid-cols-1 md:grid-cols-2 gap-4 mt-4'},
-            card('Review Alerts ('+alertRows.length+')',alertRows.length?h('div',null,alertRows.slice(0,8).map((a,i)=>h('p',{key:String(a.type||'alert')+i,className:'text-sm text-slate-300'},String(a.type||'ALERT')+' · '+String(a.band||'')+' · '+(a.message||a.detail||'')))):h('p',{className:'text-sm text-slate-400'},'No anomaly alerts. Alerts are review prompts, not fraud confirmations.')),
-            card('Command Grammar Preview',h('div',null,
-                h('input',{value:command,onChange:e=>setCommand(e.target.value),placeholder:'sold 5 bags rice for 25k',style:{width:'100%',padding:'8px',borderRadius:8,border:'1px solid #334155',background:'#0f172a',color:'#e2e8f0'}}),
+        h('div',{style:{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(280px,1fr))',gap:12}},
+            card('REVIEW ALERTS ('+alertRows.length+')',alertRows.length?h('div',{className:'formHint'},alertRows.slice(0,8).map((a,i)=>h('p',{key:String(a.type||'alert')+i},String(a.type||'ALERT')+' | '+String(a.band||'')+' | '+(a.message||a.detail||'')))):h('p',{className:'formHint'},'No anomaly alerts. Alerts are review prompts, not fraud confirmations.')),
+            card('COMMAND GRAMMAR PREVIEW',h('div',null,
+                h('input',{className:'formInput',value:command,onChange:e=>setCommand(e.target.value),placeholder:'sold 5 bags rice for 25k'}),
                 h('div',{className:'row',style:{marginTop:8}},h('button',{className:'btn sm primary',onClick:interpret},'INTERPRET (NO WRITE)')),
-                parsed?h('div',{style:{marginTop:8}},h('p',{className:'text-sm text-slate-300'},'Intent: '+String(parsed.intent)+' · Confidence '+String(parsed.confidence)),
-                    h('p',{className:'text-sm text-slate-400'},'Execution: '+String(parsed.execution)+' · Simulated: '+String(parsed.simulated)),
-                    h('p',{className:'text-sm text-slate-400'},'Missing: '+String((parsed.missingFields||[]).join(', ')||'none'))):null,
-                parseMsg?h('p',{className:'text-sm text-amber-400'},parseMsg):null
+                parsed?h('div',{className:'formHint',style:{marginTop:8}},h('p',null,'Intent: '+String(parsed.intent)+' | Confidence '+String(parsed.confidence)),
+                    h('p',null,'Execution: '+String(parsed.execution)+' | Simulated: '+String(parsed.simulated)),
+                    h('p',null,'Missing: '+String((parsed.missingFields||[]).join(', ')||'none'))):null,
+                parseMsg?h('p',{className:'authStatus err',style:{marginTop:8}},parseMsg):null
             ))
         )
     );
 };
 window.TAB_AWBULI = TAB_AWBULI;
+</script>
+
+<script>
+const TAB_PERSONAL_BROWSER=()=>{
+ const h=React.createElement;
+ const {useEffect,useRef,useState}=React;
+ const read=window.ADE_FOUNDER_SESSION_READ||(()=>null);
+ const [status,setStatus]=useState(null);
+ const [session,setSession]=useState(null);
+ const [providerId,setProviderId]=useState('IQ_OPTION');
+ const [headless,setHeadless]=useState(false);
+ const [busy,setBusy]=useState(false);
+ const [shotBusy,setShotBusy]=useState(false);
+ const [shotUrl,setShotUrl]=useState('');
+ const [capturedAt,setCapturedAt]=useState('');
+ const [message,setMessage]=useState('');
+ const shotRef=useRef('');
+ const tokenOf=()=>read('ade_founder_token')||read('ade_token')||'';
+ const friendly=(code)=>({
+  BROWSER_SERVERLESS_UNAVAILABLE:'The Personal Browser needs a persistent server host. Vercel serverless cannot open or keep a real browser session.',
+  PLAYWRIGHT_NOT_INSTALLED:'Playwright is not installed on this server. Install the browser runtime on a persistent host.',
+  BROWSER_EXECUTABLE_MISSING:'The browser engine is installed but its executable is missing. Run the Playwright browser install on the server host.',
+  BROWSER_SESSION_ALREADY_ACTIVE:'A Personal Browser session is already active for this Founder. Close it before launching another.',
+  BROWSER_SESSION_LIMIT:'The server session limit is reached. Close an inactive session and retry.',
+  BROWSER_LAUNCH_FAILED:'The browser could not launch on this host. The provider was not opened and no connection is claimed.',
+  BROWSER_SCREENSHOT_FAILED:'The screenshot could not be captured.',
+  BROWSER_RATE_LIMITED:'Too many launch attempts. Wait a minute and retry.'
+ }[code]||code);
+ const api=async(url,opts)=>{
+  const options={...(opts||{})};options.headers={...(options.headers||{}),Authorization:'Bearer '+tokenOf()};
+  const r=await fetch(url,options);let j={};try{j=await r.json()}catch(e){}
+  if(!r.ok)throw new Error(j.error||('HTTP '+r.status));
+  return j;
+ };
+ const load=async()=>{
+  if(!tokenOf()){setMessage('Sign in to load the Personal Browser.');return}
+  try{
+   const j=await api('/api/v1/browser/status');
+   setStatus(j.status||null);
+   const active=(j.sessions||[])[0]||null;setSession(active);
+   if(j.status&&j.status.defaultHeadless)setHeadless(true);
+   if(active&&active.provider&&active.provider.id)setProviderId(active.provider.id);
+  }catch(e){setMessage(friendly(e.message))}
+ };
+ useEffect(()=>{let on=true;load().catch(()=>{});return()=>{on=false;try{if(shotRef.current)URL.revokeObjectURL(shotRef.current)}catch(e){}}},[]);
+ const clearShot=()=>{try{if(shotRef.current)URL.revokeObjectURL(shotRef.current)}catch(e){}shotRef.current='';setShotUrl('');setCapturedAt('')};
+ const launch=async()=>{
+  setBusy(true);setMessage('');
+  try{
+   const j=await api('/api/v1/browser/sessions',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({providerId,headless:status&&status.defaultHeadless?true:headless})});
+   setSession(j.session||null);clearShot();setMessage('Browser session launched. Sign in directly in the browser window; ADE does not receive provider credentials.');
+   await load();
+  }catch(e){setMessage(friendly(e.message))}
+  finally{setBusy(false)}
+ };
+ const screenshot=async()=>{
+  if(!session)return;
+  setShotBusy(true);setMessage('');
+  try{
+   const r=await fetch('/api/v1/browser/sessions/'+encodeURIComponent(session.id)+'/screenshot',{headers:{Authorization:'Bearer '+tokenOf()}});
+   if(!r.ok){let j={};try{j=await r.json()}catch(e){}throw new Error(j.error||('HTTP '+r.status))}
+   const blob=await r.blob();clearShot();
+   const url=URL.createObjectURL(blob);shotRef.current=url;setShotUrl(url);setCapturedAt(new Date().toLocaleTimeString());
+   setMessage('Screenshot captured from the live session.');
+  }catch(e){setMessage(friendly(e.message))}
+  finally{setShotBusy(false)}
+ };
+ const close=async()=>{
+  if(!session)return;
+  setBusy(true);setMessage('');
+  try{
+   await api('/api/v1/browser/sessions/'+encodeURIComponent(session.id),{method:'DELETE'});
+   setSession(null);clearShot();setMessage('Session closed. The persistent profile stays on the server for the next launch.');
+   await load();
+  }catch(e){setMessage(friendly(e.message))}
+  finally{setBusy(false)}
+ };
+ const providers=(status&&status.providers)||[];
+ const unavailable=status&&!status.available;
+ return h('div',{className:'stack','data-testid':'personal-browser-tab'},
+  h('div',{className:'heroCard',style:{padding:'18px 20px'}},
+   h('h2',{style:{margin:'0 0 6px',color:'var(--gold)'}},'PERSONAL BROWSER'),
+   h('p',{className:'formHint',style:{margin:0}},'Founder-only real Chromium session. This is a separate browser profile on the server, restricted to an approved provider allowlist. ADE never asks for or stores your provider password, and never claims a provider connection or authentication.')
+  ),
+  h('div',{className:'card'},h('div',{className:'panelTitle'},h('h3',null,'RUNTIME STATUS'),h('span',null,status?String(status.driver||'NO DRIVER').toUpperCase():'CHECKING')),
+   h('div',{className:'cardBody'},
+    status?h('div',{className:'formHint'},
+     h('p',{className:'pill','data-testid':'pb-status'},unavailable?'UNAVAILABLE':'AVAILABLE'),
+     h('p',null,'Driver: '+String(status.driver||'none')+' | Browser executable: '+(status.browserInstalled?'INSTALLED':'MISSING')),
+     h('p',null,'Serverless: '+(status.serverless?'YES':'NO')+' | Active sessions: '+status.activeSessions+'/'+status.maxSessions+' | Idle timeout: '+Math.round(status.idleTimeoutMs/60000)+' min'),
+     h('p',null,'Profile storage: '+String(status.profileStorage||'-')+' | Credentials collected by ADE: NO | Input automation: NO'),
+     unavailable?h('p',{className:'authStatus err'},friendly(status.reason||'BROWSER_UNAVAILABLE')):null
+    ):h('p',{className:'formHint'},'Loading runtime status...')
+   )
+  ),
+  h('div',{className:'card'},h('div',{className:'panelTitle'},h('h3',null,'SESSION'),h('span',null,session?'RUNNING':'NOT RUNNING')),
+   h('div',{className:'cardBody'},
+    !session?h('div',null,
+     h('div',{className:'formRow'},
+      h('div',{style:{flex:'1 1 240px'}},h('label',{className:'fieldLabel'},'APPROVED PROVIDER'),h('select',{className:'formInput','data-testid':'pb-provider',value:providerId,onChange:e=>setProviderId(e.target.value)},providers.map(p=>h('option',{key:p.id,value:p.id},p.label)))),
+      h('div',{style:{flex:'0 0 200px'}},h('label',{className:'fieldLabel'},'WINDOW MODE'),h('label',{style:{display:'flex',gap:8,alignItems:'center',minHeight:40,fontSize:12}},h('input',{type:'checkbox',checked:!!headless,disabled:Boolean(status&&status.defaultHeadless),onChange:e=>setHeadless(e.target.checked)}),' Headless (screenshot only)'))
+     ),
+     h('div',{style:{marginTop:10}},
+      h('button',{className:'btn primary','data-testid':'pb-launch',onClick:launch,disabled:busy||unavailable||!status},busy?'LAUNCHING...':'OPEN APPROVED PROVIDER'),
+      h('p',{className:'formHint',style:{marginTop:8}},'Approved origins only. Arbitrary URLs, credentials in URLs and non-HTTPS targets are rejected. One active session per Founder.')
+     )
+    ):h('div',null,
+     h('div',{className:'formHint'},
+      h('p',{className:'pill','data-testid':'pb-session-state'},String(session.state||'RUNNING')),
+      h('p',null,'Provider: '+String(session.provider&&session.provider.label||'-')+' | Engine: '+String(session.driver||'-')+' | Mode: '+(session.headless?'HEADLESS':'VISIBLE WINDOW')),
+      h('p',null,'Current origin: '+String(session.origin||'-')+' | Title: '+String(session.title||'-')),
+      h('p',null,'Authenticated by ADE: NO | Credentials collected: NO | Input automation: NO')
+     ),
+     h('div',{style:{display:'flex',gap:8,flexWrap:'wrap',marginTop:10}},
+      h('button',{className:'btn primary','data-testid':'pb-screenshot',onClick:screenshot,disabled:shotBusy},shotBusy?'CAPTURING...':'CAPTURE SCREEN'),
+      h('button',{className:'btn danger','data-testid':'pb-close',onClick:close,disabled:busy},busy?'CLOSING...':'CLOSE SESSION'),
+      h('button',{className:'btn sm',onClick:load},'REFRESH STATUS')
+     ),
+     shotUrl?h('div',{style:{marginTop:12}},
+      h('img',{src:shotUrl,alt:'Live Personal Browser screenshot','data-testid':'pb-image',style:{maxWidth:'100%',borderRadius:'10px',border:'1px solid var(--line)'}}),
+      h('p',{className:'formHint'},'Captured at '+capturedAt+'. This image is a point-in-time observation, not a provider account verification.')
+     ):null
+    ),
+    message?h('div',{className:'authStatus '+(message.indexOf('launched')>=0||message.indexOf('Captured')>=0||message.indexOf('closed')>=0?'ok':'err'),style:{marginTop:10}},message):null
+   )
+  ),
+  h('div',{className:'card'},h('div',{className:'panelTitle'},h('h3',null,'BOUNDARIES'),h('span',null,'ENFORCED')),
+   h('div',{className:'cardBody'},h('ul',{className:'formHint',style:{margin:0,paddingLeft:18,lineHeight:1.7}},
+    h('li',null,'Only approved providers and their HTTPS origins can be opened.'),
+    h('li',null,'No click, type, password, credential or trading action endpoint exists.'),
+    h('li',null,'Screenshots are owner-scoped and served with no-store caching.'),
+    h('li',null,'The persistent profile is a local browser profile directory, not an ADE credential vault.'),
+    h('li',null,'On Vercel serverless the launcher fails closed with BROWSER_SERVERLESS_UNAVAILABLE.')
+   ))
+  )
+ );
+};
+window.TAB_PERSONAL_BROWSER=TAB_PERSONAL_BROWSER;
 </script>
 
 <script id="ade-interactive-config">
