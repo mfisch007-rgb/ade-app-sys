@@ -1,0 +1,7 @@
+  ade-checkpoint-20261012-046f29a        046f29a fix(reconciliation): canonical slug hashes, admin modal fail-closed default, media request truthfulness
+  ai-modernization-dev                   435776d Emergency Power Push - Stable Build
+  backup/pre-reconciliation-20261023     fbee7c8 On main: pre-reconciliation backup 20261023
+  enterprise-backup                      435776d Emergency Power Push - Stable Build
+  enterprise-modernization-v1            f9cf651 [origin/enterprise-modernization-v1: ahead 1] feat(prod): introduce consolidated ade validate CLI suite and cleanup obsolete scripts
+  enterprise/product-experience-redesign b52dcce feat(redesign): synchronize enterprise product experience redesign and Batch 12 controls
+* main                                   7646da8 [origin/main] docs(release): record gates 1-8 closeout and production verification

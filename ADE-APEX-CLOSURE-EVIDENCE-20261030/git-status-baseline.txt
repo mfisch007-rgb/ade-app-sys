@@ -1,0 +1,7 @@
+ M .ade_capability_store.json
+ M data/audit_ledger.json
+ M data/runtime-config/admin.json
+?? admin.json
+?? audit_ledger.json
+?? debug.log
+?? run-ade-closeout.ps1

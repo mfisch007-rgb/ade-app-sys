@@ -1,0 +1,4 @@
+ .ade_capability_store.json     |    30 +-
+ data/audit_ledger.json         | 45576 +++++++++++++++++++++++++++++++++++++++
+ data/runtime-config/admin.json | 34917 ++++++++++++++++++++++++------
+ 3 files changed, 74198 insertions(+), 6325 deletions(-)
