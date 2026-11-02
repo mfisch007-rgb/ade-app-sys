@@ -9,6 +9,10 @@ data/snapshots/
 .ade_feedback_queue.json
 .ade_feedback_queue.json.*.tmp
 .ade_capability_store.json.*.tmp
+data/browser-profiles/
+.e2e-runtime/
+playwright-report/
+test-results/
 .vercel
 .env*
 !.env.example

@@ -1,0 +1,183 @@
+<#
+.SYNOPSIS
+    ADE Community MVP - Complete Closeout and Deployment Script for PowerShell ISE
+.DESCRIPTION
+    Fixes packager source exclusions, updates release verification tests, runs tests,
+    rebuilds the ZIP, stages safe files, commits, pushes, and deploys to Vercel.
+#>
+
+$ErrorActionPreference = "Stop"
+Set-Location -LiteralPath "C:\Users\USER\Desktop\ADE-APP-SYS"
+
+Write-Host "============================================================" -ForegroundColor Cyan
+Write-Host " ADE APEX - ONE-PASS CLOSEOUT & PRODUCTION DEPLOYMENT" -ForegroundColor Cyan
+Write-Host "============================================================" -ForegroundColor Cyan
+
+# 1. Update scripts/build-community.mjs safely using single-quoted heredoc
+$builderCode = @'
+import fs from "node:fs";
+import path from "node:path";
+import os from "node:os";
+import crypto from "node:crypto";
+import { execFileSync } from "node:child_process";
+import { fileURLToPath } from "node:url";
+
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const dist = path.join(root, "dist");
+const artifact = path.join(dist, "ade-community-edition.zip");
+const manifestPath = path.join(dist, "build-manifest.json");
+const stage = fs.mkdtempSync(path.join(os.tmpdir(), "ade-community-"));
+fs.mkdirSync(dist, { recursive: true });
+for (const file of [artifact, manifestPath]) if (fs.existsSync(file)) fs.rmSync(file, { force: true });
+
+function gitSha() { try { return execFileSync("git", ["rev-parse", "HEAD"], { cwd: root, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim(); } catch { return "UNAVAILABLE"; } }
+function excluded(full, name) {
+  const rel = path.relative(root, full).replace(/\\/g, "/");
+  if (rel === "data" || rel.startsWith("data/")) return true;
+  if (/(^|\/)(\.e2e-runtime|browser-profiles|\.playwright)(\/|$)/i.test(rel)) return true;
+  if (/(^|\/)playwright\/\.cache(\/|$)/i.test(rel)) return true;
+  if (/(^|\/)(playwright-report|test-results|coverage)(\/|$)/i.test(rel)) return true;
+  if (/^\.opencode(?:[-_.]|$)/i.test(name)) return true;
+  if (rel === "logs.txt" || rel === "logs.log") return true;
+  if (rel === "admin.json" || rel === "audit_ledger.json") return true;
+  if (/\.log$/i.test(name) || /\.bundle$/i.test(name)) return true;
+  return /[\\/]node_modules[\\/]/.test(full) || /[\\/]\.git[\\/]/.test(full) || /[\\/]dist[\\/]/.test(full) || /[\\/]\.keys[\\/]/.test(full) || /(^|[\\/])\.env($|\.)/.test(name) || /\.(pem|key|p12|pfx|crt|cer|der|bundle|zip)$/i.test(name) || /credentials|secret/i.test(name) || /^ade_audit_persistence\./i.test(name) || /^\.ade_(storage|capability_store|session_revocations|feedback_queue)/i.test(name) || /(^|[\\/])\$log$/.test(full) || /^\$log$/.test(name) || /\.smoke-(err|out)\.log$/i.test(name) || /^\.opencode-final-checkpoint\.json$/i.test(name) || /^ADE_BATCH/i.test(name) || /^ADE-BATCH/i.test(name) || /^ADE-GIT-RELEASE-EVIDENCE/i.test(name) || /^ADE-RELEASE-CLOSURE-EVIDENCE/i.test(name) || /^ADE-CRITICAL-MISSING-FILES/i.test(name) || /^ADE_FINAL_TRUTH_GATE/i.test(name) || /^ADE_MASTER_FORENSIC/i.test(name) || /^ADE_MASTER_ENGINEERING_BATCH/i.test(name) || /^CLAUDE_BATCH/i.test(name) || /^RUN-ADE-ENGAGEMENT-RECONCILIATION/i.test(name) || /^live_root\.html$/i.test(name) || /^live-desktop\.png$/i.test(name) || /^public\/index\.html\.fixed$/i.test(full) || /backup/i.test(name) || /backup/i.test(full) || /^ade-(post-syntax-verification|safe-verification|verification-repair|server-forensic-backup|server-syntax-backup|reconciliation-backup)-/i.test(name) || /^\.ade-(batch-b-backup|reconciliation-backup)-/i.test(name) || /\.g(17aa4|18-httpsec|17z)-backup/i.test(name) || /^data2$/.test(name) || /(^|[\\/])data[\\/]admin-credential\.json$/i.test(full) || /(^|[\\/])data[\\/]snapshots[\\/]/i.test(full) || /\.bak$/i.test(name);
+}
+
+const EXCLUDED_DIR_ROOTS = new Set([
+  ".git", "node_modules", "dist", ".keys",
+  ".e2e-runtime", "browser-profiles", ".playwright",
+  "playwright-report", "test-results", "coverage"
+]);
+
+function walk(dir) {
+  const out=[];
+  for (const ent of fs.readdirSync(dir,{withFileTypes:true})) {
+    const full=path.join(dir,ent.name);
+    if (EXCLUDED_DIR_ROOTS.has(ent.name)) continue;
+    if (excluded(full,ent.name)) continue;
+    if (ent.isDirectory()) {
+      out.push(...walk(full));
+    } else {
+      out.push(full);
+    }
+  }
+  return out;
+}
+const files=walk(root);
+for (const file of files) {
+  const rel=path.relative(root,file);
+  const target=path.join(stage,rel);
+  fs.mkdirSync(path.dirname(target),{recursive:true});
+  fs.copyFileSync(file,target);
+}
+
+try {
+  if (process.platform === "win32") {
+    execFileSync("tar.exe", ["-a", "-cf", artifact, "-C", stage, "."], { stdio: "inherit" });
+  } else {
+    execFileSync("zip", ["-qr", artifact, "."], { cwd: stage, stdio: "inherit" });
+  }
+} finally {
+  fs.rmSync(stage,{recursive:true,force:true});
+}
+
+const stat=fs.statSync(artifact);
+const sha256=crypto.createHash("sha256").update(fs.readFileSync(artifact)).digest("hex");
+const manifest={artifact:"dist/ade-community-edition.zip",relative_path:"dist/ade-community-edition.zip",size_bytes:stat.size,sha256_hash:sha256,build_timestamp:new Date().toISOString(),build_version:process.env.ADE_BUILD_VERSION||"COMMUNITY",commit_sha:gitSha()};
+fs.writeFileSync(manifestPath,JSON.stringify(manifest,null,2));
+const verify=crypto.createHash("sha256").update(fs.readFileSync(artifact)).digest("hex");
+if (verify!==manifest.sha256_hash || stat.size<=0) throw new Error("Community build integrity verification failed.");
+console.log(JSON.stringify({success:true,artifact,manifest:manifestPath,source_files:files.length,...manifest},null,2));
+'@
+
+Set-Content -LiteralPath "scripts/build-community.mjs" -Value $builderCode -Encoding utf8
+Write-Host "[+] Packager script updated successfully." -ForegroundColor Green
+
+# 2. Update tests/release-verification.test.js safely using single-quoted heredoc
+$testCode = @'
+import test from "node:test";
+import assert from "node:assert/strict";
+import fs from "node:fs";
+import path from "node:path";
+import { execFileSync } from "node:child_process";
+
+const root = process.cwd();
+const required = [
+  "src/kernel/EnterpriseKernelMaster.js","src/kernel/EnterpriseEventBus.js","src/core/CapabilityRegistry.js","src/kernel/PluginRegistry.js","src/ai/UniversalAIGateway.js","src/server.js",
+  "src/kernel/IdentityOnboarding.js","src/kernel/ScenarioEngine.js","src/kernel/FeedbackPipeline.js","src/kernel/ADE_ICX_Engine.js","lib/core/demoGuard.js","public/index.html","api/index.js","vercel.json","scripts/build-community.mjs"
+];
+
+test("release surface exists", () => { for (const file of required) assert.ok(fs.existsSync(path.join(root,file)), file); });
+
+test("canonical JavaScript surface parses", () => {
+  for (const file of required.filter(f => f.endsWith(".js") || f.endsWith(".mjs"))) execFileSync(process.execPath,["--check",path.join(root,file)],{stdio:"pipe"});
+});
+
+test("community build produces verified artifact", () => {
+  execFileSync(process.execPath,["scripts/build-community.mjs"],{stdio:"pipe"});
+  const artifact=path.join(root,"dist","ade-community-edition.zip"); const manifest=path.join(root,"dist","build-manifest.json");
+  assert.ok(fs.statSync(artifact).size>0); const m=JSON.parse(fs.readFileSync(manifest,"utf8")); assert.equal(m.size_bytes,fs.statSync(artifact).size); assert.match(m.sha256_hash,/^[a-f0-9]{64}$/);
+  const listing = process.platform === "win32"
+    ? execFileSync("tar.exe",["-tf",artifact],{encoding:"utf8",stdio:["ignore","pipe","ignore"]})
+    : execFileSync("unzip",["-Z1",artifact],{encoding:"utf8",stdio:["ignore","pipe","ignore"]});
+  const entries = listing.split(/\r?\n/).map((line) => line.trim().replace(/^\.\//, "")).filter(Boolean);
+  assert.ok(entries.length > 100, "archive must contain the community source tree");
+  assert.ok(entries.includes("package.json"), "archive keeps the release package manifest");
+  assert.ok(entries.includes("src/server.js"), "archive keeps the server entry point");
+  const forbidden = [
+    /^data(\/|$)/,
+    /^data\/runtime-config\//,
+    /^data\/snapshots\//,
+    /(^|\/)(audit_ledger|kernel_state)\.json$/,
+    /^admin\.json$/,
+    /^debug\.log$/i,
+    /\.bundle$/i,
+    /^\.keys(\/|$)/,
+    /^\.env($|\.)/,
+    /^\.opencode(?:[-_.]|$)/,
+    /^\.ade_(storage|capability_store|session_revocations|feedback_queue)/,
+    /^ade_audit_persistence\./,
+    /^logs?\.(txt|log)$/,
+    /\.(pem|key|p12|pfx|crt|cer|der)$/i,
+    /(^|\/)\.e2e-runtime(\/|$)/i,
+    /(^|\/)browser-profiles(\/|$)/i,
+    /(^|\/)\.playwright(\/|$)/i,
+    /(^|\/)playwright\/\.cache(\/|$)/i,
+    /(^|\/)(playwright-report|test-results|coverage)(\/|$)/i,
+    /credentials|secret/i
+  ];
+  for (const entry of entries) {
+    for (const pattern of forbidden) {
+      assert.doesNotMatch(entry, pattern, `archive must exclude protected runtime path ${entry}`);
+    }
+  }
+});
+'@
+
+Set-Content -LiteralPath "tests/release-verification.test.js" -Value $testCode -Encoding utf8
+Write-Host "[+] Release verification test updated successfully." -ForegroundColor Green
+
+# 3. Run Test Suite
+Write-Host "[*] Running canonical test suite..." -ForegroundColor Yellow
+$testFiles = Get-ChildItem -Path "tests" -Recurse -Filter "*.test.js" | Select-Object -ExpandProperty FullName
+node --test $testFiles
+
+# 4. Rebuild Community Package
+Write-Host "[*] Rebuilding community distribution package..." -ForegroundColor Yellow
+node scripts/build-community.mjs
+
+# 5. Selective Safe Staging & Git Commit/Push
+Write-Host "[*] Performing selective safe staging..." -ForegroundColor Yellow
+git reset
+git add src/ tests/ public/ package.json package-lock.json scripts/build-community.mjs dist/ade-community-edition.zip dist/build-manifest.json
+git reset .ade_capability_store.json data/ admin.json audit_ledger.json debug.log .e2e-runtime/ 2>$null
+
+git commit -m "feat(ade-apex): fix packager runtime exclusions and finalize phase 2 release closeout"
+git push origin main
+
+# 6. Deploy to Vercel Production
+Write-Host "[*] Deploying to Vercel production..." -ForegroundColor Yellow
+npx vercel --prod --yes
+
+Write-Host "=== CLOSEOUT AND DEPLOYMENT FINISHED SUCCESSFULLY ===" -ForegroundColor Green
