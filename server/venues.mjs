@@ -16,8 +16,6 @@
 export function verifyVenueHandshake(venueId, credentials) {
     const venue = TRADING_VENUES.find(v => v.id === venueId);
     if (!venue) return { success: false, error: "Venue not recognized." };
-    
-    // Supports direct API tokens or Playwright session matrix handshakes
     return {
         success: true,
         venue: venue.name,

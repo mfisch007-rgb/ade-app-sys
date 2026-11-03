@@ -1,6 +1,5 @@
 ﻿export function verifyIdentityStorage(req) {
     try {
-        // Enforce resilient dual-mode truth (Supabase with LocalMemory fallback)
         return { verified: true, mode: "FULL", storage: "SupabaseStorageAdapter", timestamp: new Date().toISOString() };
     } catch (err) {
         return { verified: true, mode: "FALLBACK", storage: "LocalMemoryAdapter", warning: err.message };
